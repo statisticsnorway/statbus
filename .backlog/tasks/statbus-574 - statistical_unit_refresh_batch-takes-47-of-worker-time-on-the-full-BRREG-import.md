@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-06T00:22:00Z'
+updated_date: '2026-11-06T00:40:00Z'
 labels:
   - performance
   - worker
@@ -39,9 +39,9 @@ A unit refresh costs in proportion to the units it refreshes, so imports and ful
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A profile of one representative refresh_batch on the BRREG downloads database names the statements that take most of its time, with EXPLAIN ANALYZE output
+- [x] #1 A profile of one representative refresh_batch on the BRREG downloads database names the statements that take most of its time, with EXPLAIN ANALYZE output
 - [ ] #2 A proposed change is measured on the downloads benchmark against this ticket's 10,320 s baseline, with the benchmark's consistency checks passing
-- [ ] #3 Batch time is recorded in Implementation Notes for at least three batch sizes on the downloads database, with the timings
+- [x] #3 Batch time is recorded in Implementation Notes for at least three batch sizes on the downloads database, with the timings
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -50,4 +50,16 @@ A unit refresh costs in proportion to the units it refreshes, so imports and ful
 2026-11-05 Owner 16:08: profiled separately from STATBUS-558, by someone else.
 
 2026-11-06 00:23 Owner 23:49: investigate locally overnight on branch statbus-574-unit-refresh-profile (off statbus-558-history-delta), serialized with other local load; research first, no merge without owner.
+
+2026-11-06 overnight investigation. Report and reproducible SQL: tmp/574/report.md, tmp/574/prototype-defs.sql.
+
+Profile: legal-unit timeline INSERT is 3283.393/3758.997 ms (87.3%) in representative active batch 8857. Its partial aggregates scan all 1,134,475 LU segments. Dedicated indexed partial LU aggregation plus bounded/indexed propagation reduces median batch time 4150.413 -> 1179.848 ms (-71.6%, slowest task) and 3540.957 -> 383.484 ms (-89.2%, active near-mean task). Evidence: tmp/574/profile-notice.log:4191-5388, tmp/574/repeats.log:94-159,228-293.
+
+Batch sizes, same LU type on retained downloads DB, two runs each: 100 IDs original 914.785-933.360 ms, prototype 70.430-71.565 ms. 1000 IDs original 5892.582-6353.258 ms, prototype 301.721-311.529 ms. 10000 IDs original 59333.170-62725.125 ms, prototype 3580.992-3836.072 ms. Evidence: tmp/574/curve-lu.log:27-161. ES three-size curve is in tmp/574/curve.log:6-113.
+
+Validation: nine retained batches have identical positive-count row snapshots, EXCEPT ALL missing=extra=0 both ways (tmp/574/verify-all.log:76,134,192,250,308,366,424,482,540). Reject NOT MATERIALIZED alone: 2288 -> 56903 ms; partial-only indexed predicate gives 60.671 ms with identical rows (tmp/574/lu-prototype.log:396,779,1049-1065).
+
+Prioritize LU then propagation. MATERIALIZED PG aggregation also helps, but PG accounts for only 27.596 s historically. Conditional ratio-transfer estimate: 7000-8600 s saved from 10320 s, not a measured full-import or wall-time saving. Import-phase cardinality/plans/contention differ from final-state replay, so implementation and full benchmark/consistency checks remain necessary. Sources: tmp/574/population.log:18-20, tmp/574/projection.txt, tmp/574/report.md:69-79. All database changes rolled back, original definition unchanged, retained DB preserved (tmp/574/final-state.log, tmp/574/definition-check.log).
+
+AC1 and AC3 verified. AC2 full benchmark/consistency validation remains unverified. Status remains In Progress.
 <!-- SECTION:NOTES:END -->
