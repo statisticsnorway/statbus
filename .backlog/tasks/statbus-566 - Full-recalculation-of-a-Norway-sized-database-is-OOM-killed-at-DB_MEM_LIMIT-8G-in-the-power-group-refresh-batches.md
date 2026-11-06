@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-04T00:43:00Z'
-updated_date: '2026-11-06T11:52:00Z'
+updated_date: '2026-11-06T18:21:00Z'
 labels:
   - performance
   - worker
@@ -19,22 +19,30 @@ ordinal: 489204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+### North Star
+A refresh batch costs in proportion to the units it names, so a full recalculation of a country-sized register fits the memory of a private cloud slot.
+
+### Zoom out
+An empty set of ids and "every unit" must read differently wherever a refresh hands ids on: NULL means all units, an empty array means none.
+
+### Zoom in
 On full Norway (3,139,134 units) restored locally with DB_MEM_LIMIT=8G (the documented cap for a private cloud slot, doc/CLOUD.md), worker.enqueue_derive_statistical_unit_all() completes 3,137 of 3,165 statistical_unit_refresh_batch tasks, then the power-group batches (401 power groups each) get PostgreSQL OOM-killed 15 times. The analytics queue runs 4 at a time (worker.queue_registry default_concurrency 4). rune (32G, 8GB shared_buffers, 1GB work_mem) finishes the same batches in 59-70 s.
 
-Measured one batch alone (task 847206 payload, inside BEGIN/ROLLBACK, tmp/558-shd/p14-*):
-- baseline container memory 2.5 GiB; one batch peaks at 4.0 GiB (+1.5 GiB), 71 s
-- work_mem 64MB instead of 256MB: peak 3.1 GiB (+0.6 GiB), 65 s
-- temp_buffers 256MB instead of 1GB: peak 4.0 GiB, no change
-So the per-batch growth is work_mem-driven (several sort/hash nodes per query). Four concurrent batches at +1.5 GiB on top of shared_buffers 2 GiB exceed 8 GiB.
+Cause (2026-11-04, tmp/558-shd/q4-*): worker.statistical_unit_refresh_batch passes the establishment, legal-unit and enterprise id ranges straight to timepoints_refresh. A power-group batch has none, so they are NULL, which timepoints_calculate reads as "every unit". Each power-group batch therefore computes timepoints for all 6.2M units (about 65 s) and the table ends unchanged. That full-scan query grows each backend by about 1-1.5 GiB; four in parallel on top of shared_buffers exceed 8 GiB. work_mem only changes how much each query spills. An earlier single-batch measurement (tmp/558-shd/p14-*) had suggested work_mem as the driver; the cause above replaces it.
 
-computeDbMemory (cli/internal/config/config.go) sets work_mem = DB_MEM_LIMIT/32 without regard to the analytics concurrency.
+Fix: a power-group batch passes empty ranges ('{}') for the other unit types, so it computes only its own groups.
+
+### Closing review
+- **Memory:** none beyond the ticket.
+- **Documentation:** measurements in doc/performance/2026-11-history-delta-measurements.md section 5.
+- **Cleanup:** the 4 GB test setting on the dev box was restored to DB_MEM_LIMIT=8G on 2026-11-06 18:20.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A full recalculation of a Norway-sized database completes at DB_MEM_LIMIT=8G with no OOM kill
-- [ ] #2 A power-group refresh batch computes timepoints only for its own power groups: on Norway one batch of 401 groups takes seconds, not 61-90 s
-- [x] #3 The timepoints table after a power-group batch equals today's result, row for row
+- [x] #1 A full recalculation of a Norway-sized database completes at DB_MEM_LIMIT=8G with no OOM kill
+- [x] #2 A power-group refresh batch computes timepoints only for its own power groups: on Norway one batch of 401 groups takes seconds, not 61-90 s
+- [x] #3 After a power-group batch the timepoints table holds the same rows as a whole-database timepoints computation
 - [x] #4 A regression test shows a power-group-only refresh leaves the timepoints of establishments, legal units and enterprises untouched and computes only the given groups
 <!-- AC:END -->
 
@@ -55,4 +63,6 @@ computeDbMemory (cli/internal/config/config.go) sets work_mem = DB_MEM_LIMIT/32 
 2026-11-04 owner approved the fix (21:20). Migration 20261104212109_power_group_batch_refreshes_only_its_own_units_timepoints (local commit 9836026cd), regression test 366 committed earlier (6a0753a2c). worker.statistical_unit_refresh_batch now passes '{}' instead of NULL for unit types absent from the batch to timepoints_refresh and timesegments_refresh. Test 366: fails without the fix (tmp/test-558-fast-6.log, not ok 120), passes with it (tmp/test-566-after.log); fast suite 121/121 (tmp/test-566-fast.log). AC3 (same timepoints) shown by the earlier Norway prototype (counts and content hash equal); AC1/AC2 need a Norway full recalculation after this lands. Not pushed yet.
 
 2026-11-06 11:52 Landed in local master 67488988e (fast-forward, owner 11:41: land the whole set, then one release with one full recalculation). Not pushed. Fast suite on that tip 124/124 (tmp/test-stack-fast.log).
+
+2026-11-06 18:17 AC1/AC2 measured: full Norway recalculation on statbus_local (local master fb57ed58f) at DB_MEM_LIMIT=4G, half the 8G the AC names, so 8G is covered with margin. Worker exit 0, wall 2,883 s. No OOM kill (OOMKilled=false, 0 restarts, no kill lines in the db log). Memory 1.3-1.9 GiB most of the run; peak 3.89 GiB of 4 GiB for ~90 s while derive_statistical_history_facet_delta_partition ran 4 at a time. AC2: 64 power-group batches, 124 s total, longest 3.8 s for 401 groups (was 61-90 s each). Checks: staging drained (0 rows); 2026 year-end stock equals a direct count from statistical_unit for all four unit types. Task time: refresh_batch 6,475 s (3,165 tasks), history partitions 2,991 s, unit facet partitions 774 s. Evidence: tmp/566-4g/ (run-meta.txt, mem.log, tasks.txt, peak.txt, pg-batches.txt, check-bc.log, install-log.md).
 <!-- SECTION:NOTES:END -->

@@ -87,10 +87,10 @@ Correcting `valid_from` and importing again moves the unit into the births of it
 |---|---|---|---|
 | STATBUS-563 | History stats of a unit were dropped unless another unit in the same hash slot kept the period alive | Stats are complete; values rise where they were undercounted | 10-year: all 465 rows equal an independent count; test 364 |
 | STATBUS-565 | A change that moved only a change count (e.g. a rename) was never written to the facet table | Change counts always current | Norway: 296 stale May-2026 rows in the old table; test 365 |
-| STATBUS-566 | Each power-group refresh batch recomputed timepoints for every unit in the database (NULL read as "all") | One batch only computes its own power groups | `timepoints_refresh` inside one power-group batch on Norway 65.7 s -> 0.003 s (same timepoints table: row count and content hash equal). Memory: that full-scan query grew each backend by ~1-1.5 GiB; four in parallel were OOM-killed at DB_MEM_LIMIT 8G (15 kills locally); it no longer runs. Test 366. **Not yet measured:** whole-batch time after the fix, and a full Norway recalculation at 8G end to end (566 AC1/AC2) |
+| STATBUS-566 | Each power-group refresh batch recomputed timepoints for every unit in the database (NULL read as "all") | One batch only computes its own power groups | `timepoints_refresh` inside one power-group batch on Norway 65.7 s -> 0.003 s (same timepoints table: row count and content hash equal). Memory: that full-scan query grew each backend by ~1-1.5 GiB; four in parallel were OOM-killed at DB_MEM_LIMIT 8G (15 kills locally); it no longer runs. Test 366. Full Norway recalculation after the fix at DB_MEM_LIMIT **4G** (half the 8G cap): completes in 2,883 s with no OOM kill; memory 1.3-1.9 GiB, peak 3.89 GiB for about 90 s while four history partitions ran; 64 power-group batches 124 s in total, longest 3.8 s (401 groups); 2026 year-end stock equals `statistical_unit` for all four unit types (`tmp/566-4g/`) |
 
 STATBUS-566 scale on Norway before the fix: 64 power-group batches x ~79 s = ~84 min of the full recalculation
-spent recomputing an unchanged table (ticket notes, 2026-11-04).
+spent recomputing an unchanged table (ticket notes, 2026-11-04). After: about 2 min.
 
 ## 6. Import warning (STATBUS-580)
 
