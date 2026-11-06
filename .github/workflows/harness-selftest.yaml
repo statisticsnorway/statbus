@@ -48,6 +48,8 @@ jobs:
         run: bash test/install/install-keeps-kept-backups-test.sh
       - name: Prove the installer finds the release when GitHub's release list does not answer (STATBUS-582)
         run: bash test/install/install-release-lookup-test.sh
+      - name: Prove cloud.sh targets the registered fleet and doc/CLOUD.md lists the same slots (STATBUS-356)
+        run: bash test/cloud-registry-test.sh
       - name: Prove install mutex handoff is gapless and never steals a healthy hold
         run: bash test/install-recovery/tests/install-gapless-handoff-test.sh
       - name: Prove LXD base pruning selects only superseded candidates
