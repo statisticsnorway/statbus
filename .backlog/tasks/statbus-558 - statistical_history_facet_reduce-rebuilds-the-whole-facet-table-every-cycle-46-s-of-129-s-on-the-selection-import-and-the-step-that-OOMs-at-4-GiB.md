@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-05T17:52:00Z'
+updated_date: '2026-11-06T09:44:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -246,4 +246,6 @@ AC5 is the owner's: he asked for the migration to be built while adoption was pe
 AC1 scope: full Norway checked on the committed build (above); the 10-year database was checked on the one-table prototype (tmp/558-onetable/02-compare, 09-10y.log: stock and stats 0 differ every period), whose SQL the migration takes over; tests 107/367/368 cover the committed build on small data.
 
 2026-11-05 17:52 AC1 on the 10-year database with the committed build (tmp/558-onetable/30-10y.sh, 30-10y.log, 32-10y-explain.log): a clone of the dense-table database, up migrations, rebuild (6,359 rows). statistical_history: stock 0 differ in all 447 dense rows; 18 more rows are months 2026-06..11 the dense table never derived. Stats equal the independent rule (latest counted version overlapping the period) in all 465 rows, 0 differ; the dense stats differ by min/max and the STATBUS-563 undercount. statistical_history_facet: 553,980 cells, stock 0 differ, 0 cells only in dense; 26,916 more cells are those six 2026 months; 627 more cells have stock 0 (cells units moved out of).
+
+2026-11-06 09:45 Release numbers recorded in doc/performance/2026-11-history-delta-measurements.md (owner request): Norway history storage 26 GB on rune -> 233 MB; selection import worker 136.1 -> 83.8 s, history steps 175.5 -> 20.3 s; Norway reads with the same calls: chart 0.85/1.31 -> 0.29/0.31 s, drilldown 2.88/16.9 -> 0.57/0.71 s; facet view count 0.20 -> 2.67 s (no app reader).
 <!-- SECTION:NOTES:END -->
