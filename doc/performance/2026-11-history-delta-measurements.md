@@ -56,6 +56,11 @@ Sources: before `tmp/558-build/13-norway-reads-before.log` (script `13-norway-re
 `tmp/558-onetable/68-reads-onetable.log` (script `tmp/558-build/68-norway-reads-final.sql`, the same calls),
 2026-11-06 on the one-table build.
 
+**Changed for direct readers of `statistical_history_facet`.** The view is no longer a stored table: each read
+sums the deltas of every cell it returns, so a broad read is slower (2026 on Norway: 0.20 s -> 2.67 s). The app
+does not read the view. API clients and integrations that do should call the read functions instead, which filter
+before they sum: `statistical_history_for`, `statistical_history_highcharts` and `statistical_history_drilldown`.
+
 ## 4. Same answers
 
 - Norway: `statistical_history` stock and stats equal the dense table in all 48 rows; `statistical_history_facet`
