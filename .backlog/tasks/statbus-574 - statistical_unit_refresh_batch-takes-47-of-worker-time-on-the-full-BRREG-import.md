@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-06T11:20:00Z'
+updated_date: '2026-11-06T11:25:00Z'
 labels:
   - performance
   - worker
@@ -70,4 +70,6 @@ Rolled-back checks on import_benchmark_43190: batch 22285 view 2,335 ms -> 69 ms
 2026-11-06 11:18 Fast suite 123/123 on the branch (tmp/test-574-fast-3.log), including 370.
 
 2026-11-06 11:20 Whole migration on the downloads database (rolled back, tmp/574impl/verify-*.log): 9 retained batches give identical rows in all four timelines and statistical_unit_staging (missing 0, extra 0). Whole-batch time original -> new, ms: 22285 3747->1060, 8857 3495->349, 51670 2715->79, 48599 270->146, 13783 3325->308, 18387 2906->536, 21760 3718->1004, 22129 3678->1034, 5564 3445->331 (sum 27,604 -> 4,845, -82%). Single runs on a loaded laptop.
+
+2026-11-06 11:25 Tests 303, 401, 402 pass (tmp/test-574-{303,401,402}.log). Selection benchmark (tmp/574impl/bench-selection.log): worker 89.2 s (558 baseline 83.8 s; this selection's batches are small and the laptop was loaded, load5 ~30-70), refresh_batch 72 tasks 19.8 s vs 21.1 s, checks A, B, C pass. The selection is too small to show the LU-scan cost; the downloads benchmark is the measure (AC2).
 <!-- SECTION:NOTES:END -->
