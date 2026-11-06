@@ -6,8 +6,8 @@ BEGIN;
 \echo
 \echo "History counts a birth only when a unit's existence starts at its birth_date (STATBUS-558, rule C)."
 \echo "A unit born 2023-03-01 but first recorded from 2023-05-07 enters the stock in May as added, never as born."
-\echo "The import marks such a row with a warning under birth_date_raw so the user can set valid_from to the"
-\echo "birth date. The row still imports. Only the piece that starts the unit's timeline is warned: a later"
+\echo "The import marks such a row with a warning under valid_from_raw, the field to correct: the birth date is"
+\echo "the fact, valid_from should start at it. The row still imports. Only the piece that starts the unit's timeline is warned: a later"
 \echo "piece of the same unit, in the file or already stored, starts after an earlier piece by design."
 
 CALL test.set_user_from_email('test.admin@statbus.org');
