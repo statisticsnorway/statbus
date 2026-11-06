@@ -18,18 +18,11 @@ ordinal: 492204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-### North Star
-A statistician reading births for a year sees every unit born in that year counted in the month it was born, consistent with the stock.
+History counts a birth only when a counted version's existence starts at its birth_date (existence from = GREATEST(valid_from, birth_date), STATBUS-460; births rule C, owner decision 2026-11-05 under STATBUS-558). Data that arrives late breaks that, so a statistician reading births for a year misses units born that year. The fix belongs at import, where the user can still correct the row.
 
-### Zoom out
-History counts a birth only when a counted version's existence starts at its birth_date (existence from = GREATEST(valid_from, birth_date), STATBUS-460; births rule C, owner decision 2026-11-05 under STATBUS-558). Data that arrives late breaks that: the fix belongs at import, where the user can still correct the row.
-
-### Zoom in
 Example: a unit born 2026-03-01 is imported with valid_from 2026-05-07. It enters the stock in May as added and is never counted as a birth (Norway 2026: 35 establishments, e.g. 73598, 74463, 74674). The import marks the row that starts the unit's timeline with a warning naming both dates, so the operator can set valid_from to the birth date. History then counts the birth in its month: the delta table subtracts the unit's old contribution and adds the new one.
 
-### Closing review
-- **Documentation:** doc/import-system.md describes the warning.
-- **Memory, cleanup:** none.
+doc/import-system.md describes the warning.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
