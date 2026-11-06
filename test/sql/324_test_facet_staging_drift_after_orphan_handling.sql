@@ -106,8 +106,15 @@ FROM public.legal_unit
 ORDER BY id
 LIMIT 3;
 
-\echo "Victim legal_unit ids and their enterprise ids:"
-SELECT * FROM _victims ORDER BY lu_id;
+-- Enterprise ids are allocated in the order the import's temporary tables are
+-- scanned, so the output names each victim and counts its enterprise's legal
+-- units rather than printing the allocated enterprise id.
+\echo "Victim legal units, each the only legal unit of its enterprise:"
+SELECT v.lu_id, lu.name,
+       (SELECT count(DISTINCT o.id) FROM public.legal_unit AS o WHERE o.enterprise_id = v.ent_id) AS enterprise_legal_units
+FROM _victims AS v
+JOIN LATERAL (SELECT l.name FROM public.legal_unit AS l WHERE l.id = v.lu_id ORDER BY l.valid_from DESC LIMIT 1) AS lu ON true
+ORDER BY v.lu_id;
 
 -- Elevated role: bypass RLS on FK-child tables and enterprise.
 -- Deferred constraints: avoid PERIOD-FK ordering pain across the chain.
@@ -119,7 +126,7 @@ DELETE FROM public.location      WHERE legal_unit_id IN (SELECT lu_id FROM _vict
 DELETE FROM public.contact       WHERE legal_unit_id IN (SELECT lu_id FROM _victims);
 DELETE FROM public.stat_for_unit WHERE legal_unit_id IN (SELECT lu_id FROM _victims);
 DELETE FROM public.legal_unit    WHERE id            IN (SELECT lu_id FROM _victims);
--- Enterprises 1,2,3 were referenced by the now-deleted LUs (RESTRICT FK).
+-- The victims' enterprises were referenced by the now-deleted LUs (RESTRICT FK).
 -- After the LUs are gone, the enterprises are free to drop and become orphans
 -- relative to timeline_enterprise + statistical_unit (unit_type=enterprise).
 DELETE FROM public.enterprise    WHERE id            IN (SELECT ent_id FROM _victims);
