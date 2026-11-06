@@ -20,7 +20,7 @@ The StatBus cloud infrastructure hosts multiple country instances on a single se
 
 ## Current Deployments
 
-Active multi-tenant instances on niue.statbus.org:
+Active multi-tenant instances on niue.statbus.org. `FLEET_REGISTRY` in `cloud.sh` is the authoritative list; this table shows the same slots (checked by `test/cloud-registry-test.sh`).
 
 | Code | Name | User | Domain | Offset |
 |------|------|------|--------|--------|
@@ -28,15 +28,17 @@ Active multi-tenant instances on niue.statbus.org:
 | demo | Demo | statbus_demo | demo.statbus.org | 3 |
 | ma | Morocco | statbus_ma | ma.statbus.org | 5 |
 | ug | Uganda | statbus_ug | ug.statbus.org | 6 |
-| test | Test | statbus_test | test.statbus.org | 7 |
 | et | Ethiopia | statbus_et | et.statbus.org | 8 |
 | jo | Jordan | statbus_jo | jo.statbus.org | 9 |
 | ua | Ukraine | statbus_ua | ua.statbus.org | 10 |
+| gh | Ghana | statbus_gh | gh.statbus.org | 11 |
+| mw | Malawi | statbus_mw | mw.statbus.org | 12 |
 
 **Moved off niue:**
 - `no` (Norway) — migrated to a dedicated standalone box `rune.statbus.org` to dog-food the standalone deployment mode that external clients use. See [SSB-Operated Standalone Instances](#ssb-operated-standalone-instances). Port offset 2 stays reserved on niue for future use. The `statbus_no` Linux user and home were cleaned up from niue on 2026-04-21 after the rune install was verified live; final pre-decomm DB dumps are preserved on rune at `/home/statbus/statbus/tmp/` alongside the niue import source CSVs.
 
 **Decommissioned:**
+- `test`: retired 2026-11-06 (STATBUS-356). It served as the pg_regress CI executor until that workflow was removed (STATBUS-420). Fast Tests now run on GitHub's runners. DNS for `test.statbus.org` is gone, no containers run, and its upgrade service is stopped and disabled. The `statbus_test` Linux user, its checkout and its leftover Docker volumes (Caddy and db-config, no database data) are kept, so port offset 7 stays reserved until they are removed.
 - `tcc` (Turkish Cypriotic Community) — torn down (STATBUS-321 phase 4a): the `statbus_tcc` Linux user and its containers are gone, and DNS for `tcc.statbus.org` was removed. Unlike `no` above, this is not a migration — there is nothing to roll back to, so port offset 4 is FREE for the next slot rather than reserved.
 
 ## Architecture

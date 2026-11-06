@@ -106,6 +106,15 @@ assert_eq "dev|cloud|statbus_dev@niue.statbus.org|dev.statbus.org|token" "$(regi
 assert_eq "no|standalone|statbus@rune.statbus.org|no.statbus.org|anon" "$(registry_entry no)" "standalone registry entry"
 assert_eq "9" "$(registry_entries_for_group cloud | wc -l | xargs)" "cloud group count"
 assert_eq "1" "$(registry_entries_for_group standalone | wc -l | xargs)" "standalone group count"
+# FLEET_REGISTRY is the one list of operated niue slots (STATBUS-356); the
+# "Current Deployments" table in doc/CLOUD.md shows exactly those slots, each
+# with its domain.
+doc_deployment_rows() {
+    awk '/^## Current Deployments/{s=1;next} /^## /{s=0} s && /^\| [a-z]+ \|/' "$ROOT/doc/CLOUD.md" \
+        | awk -F'|' '{gsub(/ /,"",$2); gsub(/ /,"",$5); print $2 "|" $5}' | sort
+}
+assert_eq "$(registry_entries_for_group cloud | awk -F'|' '{print $1 "|" $4}' | sort)" "$(doc_deployment_rows)" \
+    "doc/CLOUD.md Current Deployments table equals the cloud registry"
 read_server_metadata() {
     case "$1" in dev|no) printf 'sb version test|prerelease|%s name\n' "$1" ;; *) printf 'sb version test|stable|%s name\n' "$1" ;; esac
 }
