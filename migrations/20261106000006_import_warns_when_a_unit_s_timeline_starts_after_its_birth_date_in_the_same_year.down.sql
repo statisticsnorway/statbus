@@ -1,4 +1,4 @@
--- Down migration 20261106000006: the analyse procedures as they were before the STATBUS-573 warning.
+-- Down migration 20261106000006: the analyse procedures as they were before the STATBUS-580 warning.
 BEGIN;
 
 CREATE OR REPLACE PROCEDURE import.analyse_legal_unit(IN p_job_id integer, IN p_batch_seq integer, IN p_step_code text)

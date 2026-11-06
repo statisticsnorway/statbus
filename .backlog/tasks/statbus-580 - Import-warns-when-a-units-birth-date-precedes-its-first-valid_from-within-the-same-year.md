@@ -1,12 +1,12 @@
 ---
-id: STATBUS-573
+id: STATBUS-580
 title: >-
   Import warns when a unit's birth date precedes its first valid_from within the
   same year
 status: In Progress
 assignee: []
 created_date: '2026-11-05T16:49:00Z'
-updated_date: '2026-11-06T11:52:00Z'
+updated_date: '2026-11-06T14:06:00Z'
 labels:
   - import
   - history
@@ -44,4 +44,6 @@ doc/import-system.md describes the warning.
 2026-11-06 10:03 Back to In Progress (owner): implemented and tested on the local branch, but not yet reviewed with the owner, landed or pushed. Done after landing, push and CI.
 
 2026-11-06 11:52 Landed in local master 67488988e (fast-forward, owner 11:41: land the whole set, then one release with one full recalculation). Not pushed. Fast suite on that tip 124/124 (tmp/test-stack-fast.log).
+
+2026-11-06 14:06 Renumbered from local STATBUS-573: origin already has a different STATBUS-573 (setup SSH key retry, rabbit's swarm). Ids agreed with rabbit: this is 580, the unit refresh speed ticket is 581, rabbit uses 575-579. Earlier notes and commit messages on local master say STATBUS-573 for this ticket; test 369, its fixtures and the migration comments now say 580.
 <!-- SECTION:NOTES:END -->

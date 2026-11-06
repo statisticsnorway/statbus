@@ -1,7 +1,7 @@
 # History reports and derive pipeline: measured before/after (November 2026)
 
 Release-notes evidence for STATBUS-558 (history reports from one sparse delta table), STATBUS-563, 565 and 566,
-and the STATBUS-573 import warning and STATBUS-574 unit refresh. Every number is measured unless marked **estimate**. Each row names its source:
+and the STATBUS-580 import warning and STATBUS-581 unit refresh. Every number is measured unless marked **estimate**. Each row names its source:
 logs under `tmp/` are local working files of the measuring agent; the summaries are also in the ticket notes.
 
 ## Datasets
@@ -60,7 +60,7 @@ Sources: before `tmp/558-build/13-norway-reads-before.log` (script `13-norway-re
 
 - Norway: `statistical_history` stock and stats equal the dense table in all 48 rows; `statistical_history_facet`
   stock equal in all 1,185,556 cells checked (2026 year and months 5 and 11). One flow value differs by design
-  (births rule, see STATBUS-573).
+  (births rule, see STATBUS-580).
 - 10-year: stock equal in every period and cell (553,980 cells); stats equal an independent count from
   `statistical_unit` in all 465 rows. The dense table was lower through STATBUS-563.
 - Sources: `tmp/558-onetable/23-compare-fixed.log`, `24-check.log`, `30-10y.log`, `32-10y-explain.log`.
@@ -76,13 +76,13 @@ Sources: before `tmp/558-build/13-norway-reads-before.log` (script `13-norway-re
 STATBUS-566 scale on Norway before the fix: 64 power-group batches x ~79 s = ~84 min of the full recalculation
 spent recomputing an unchanged table (ticket notes, 2026-11-04).
 
-## 6. Import warning (STATBUS-573)
+## 6. Import warning (STATBUS-580)
 
 Rows whose birth date is earlier than `valid_from` in the same year, on the row that starts the unit's timeline,
 get a warning naming both dates. Cost: BRREG selection worker 88.7 s and 84.5 s against 83.8 s without it, within
 run-to-run variation (`tmp/573/bench-selection*.log`). Norway 2026 has 35 establishments of this kind.
 
-## 7. Unit refresh (STATBUS-574)
+## 7. Unit refresh (STATBUS-581)
 
 `statistical_unit_refresh_batch` was 10,320 s of 21,932 s summed task time (47%) on the BRREG downloads import.
 Every partial legal-unit timeline refresh read all 1,134,475 legal-unit timesegments: its filter came from a

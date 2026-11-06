@@ -1,4 +1,4 @@
--- Migration 20261106101527: partial legal unit refresh reads only its units (STATBUS-574)
+-- Migration 20261106101527: partial legal unit refresh reads only its units (STATBUS-581)
 BEGIN;
 
 CREATE FUNCTION public.timeline_legal_unit_def_for(p_unit_ids integer[])

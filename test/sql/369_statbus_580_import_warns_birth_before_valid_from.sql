@@ -2,7 +2,7 @@ BEGIN;
 
 \i test/setup.sql
 
-\echo "Test 369 (STATBUS-573): the import warns when a unit's timeline starts after its birth date in the same year"
+\echo "Test 369 (STATBUS-580): the import warns when a unit's timeline starts after its birth date in the same year"
 \echo
 \echo "History counts a birth only when a unit's existence starts at its birth_date (STATBUS-558, rule C)."
 \echo "A unit born 2023-03-01 but first recorded from 2023-05-07 enters the stock in May as added, never as born."
@@ -23,17 +23,17 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 -- ═════════════════════════════════════════════════════════════════════════
 
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
-SELECT id, 'import_573_lu', 'Test 369 legal units', 'test/data/573_birth_before_valid_from_legal_units.csv', 'Test 369 (STATBUS-573)', false
+SELECT id, 'import_580_lu', 'Test 369 legal units', 'test/data/580_birth_before_valid_from_legal_units.csv', 'Test 369 (STATBUS-580)', false
 FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
 
-\copy public.import_573_lu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/573_birth_before_valid_from_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_580_lu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/580_birth_before_valid_from_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo
 \echo "A1 the job finishes and imports every row (a warning does not skip a row):"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_job_error
-FROM public.import_job WHERE slug = 'import_573_lu';
+FROM public.import_job WHERE slug = 'import_580_lu';
 
 \echo "A2 every row: state, action and its warnings, key and message"
 \echo "   W01 and W10 start their unit's timeline after a birth earlier in the same year: warned."
@@ -42,7 +42,7 @@ FROM public.import_job WHERE slug = 'import_573_lu';
 \echo "   W08 exists from its birth: not warned."
 SELECT dt.row_id, dt.tax_ident_raw, dt.name_raw, dt.valid_from_raw, dt.birth_date_raw, dt.state, dt.action,
        e.key AS warning_key, e.value AS warning
-FROM public.import_573_lu_data AS dt
+FROM public.import_580_lu_data AS dt
 LEFT JOIN LATERAL jsonb_each_text(dt.warnings) AS e(key, value) ON TRUE
 ORDER BY dt.row_id, e.key;
 
@@ -52,23 +52,23 @@ ORDER BY dt.row_id, e.key;
 -- ═════════════════════════════════════════════════════════════════════════
 
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
-SELECT id, 'import_573_lu_update', 'Test 369 legal units, second file', 'test/data/573_birth_before_valid_from_legal_units_update.csv', 'Test 369 (STATBUS-573)', false
+SELECT id, 'import_580_lu_update', 'Test 369 legal units, second file', 'test/data/580_birth_before_valid_from_legal_units_update.csv', 'Test 369 (STATBUS-580)', false
 FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
 
-\copy public.import_573_lu_update_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/573_birth_before_valid_from_legal_units_update.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_580_lu_update_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/580_birth_before_valid_from_legal_units_update.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo
 \echo "B1 the second job finishes and imports every row:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_job_error
-FROM public.import_job WHERE slug = 'import_573_lu_update';
+FROM public.import_job WHERE slug = 'import_580_lu_update';
 
 \echo "B2 no row of the second file is warned: W08's piece follows its stored timeline, W09 is born on"
 \echo "   valid_from, W10's new first piece starts at its birth date."
 SELECT dt.row_id, dt.tax_ident_raw, dt.name_raw, dt.valid_from_raw, dt.birth_date_raw, dt.state, dt.action,
        dt.warnings
-FROM public.import_573_lu_update_data AS dt
+FROM public.import_580_lu_update_data AS dt
 ORDER BY dt.row_id;
 
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -88,18 +88,18 @@ ORDER BY month;
 -- ═════════════════════════════════════════════════════════════════════════
 
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
-SELECT id, 'import_573_eswlu', 'Test 369 informal establishments', 'test/data/573_birth_before_valid_from_informal_establishments.csv', 'Test 369 (STATBUS-573)', false
+SELECT id, 'import_580_eswlu', 'Test 369 informal establishments', 'test/data/580_birth_before_valid_from_informal_establishments.csv', 'Test 369 (STATBUS-580)', false
 FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates';
 
-\copy public.import_573_eswlu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/573_birth_before_valid_from_informal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_580_eswlu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/580_birth_before_valid_from_informal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo
 \echo "C1 job and rows: E01 warned, E02 not"
-SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug = 'import_573_eswlu';
+SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug = 'import_580_eswlu';
 SELECT dt.row_id, dt.tax_ident_raw, dt.name_raw, dt.state, dt.action, e.key AS warning_key, e.value AS warning
-FROM public.import_573_eswlu_data AS dt
+FROM public.import_580_eswlu_data AS dt
 LEFT JOIN LATERAL jsonb_each_text(dt.warnings) AS e(key, value) ON TRUE
 ORDER BY dt.row_id, e.key;
 

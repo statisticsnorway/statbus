@@ -5,8 +5,8 @@ BEGIN;
 \set ECHO none
 \echo -- test/setup.sql done, test output follows
 -- test/setup.sql done, test output follows
-\echo "Test 369 (STATBUS-573): the import warns when a unit's timeline starts after its birth date in the same year"
-"Test 369 (STATBUS-573): the import warns when a unit's timeline starts after its birth date in the same year"
+\echo "Test 369 (STATBUS-580): the import warns when a unit's timeline starts after its birth date in the same year"
+"Test 369 (STATBUS-580): the import warns when a unit's timeline starts after its birth date in the same year"
 \echo
 
 \echo "History counts a birth only when a unit's existence starts at its birth_date (STATBUS-558, rule C)."
@@ -26,9 +26,9 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 -- Part A: legal units, source dates.
 -- ═════════════════════════════════════════════════════════════════════════
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
-SELECT id, 'import_573_lu', 'Test 369 legal units', 'test/data/573_birth_before_valid_from_legal_units.csv', 'Test 369 (STATBUS-573)', false
+SELECT id, 'import_580_lu', 'Test 369 legal units', 'test/data/580_birth_before_valid_from_legal_units.csv', 'Test 369 (STATBUS-580)', false
 FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
-\copy public.import_573_lu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/573_birth_before_valid_from_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_580_lu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/580_birth_before_valid_from_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 CALL worker.process_tasks(p_queue => 'import');
 NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo
@@ -36,10 +36,10 @@ NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys e
 \echo "A1 the job finishes and imports every row (a warning does not skip a row):"
 "A1 the job finishes and imports every row (a warning does not skip a row):"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_job_error
-FROM public.import_job WHERE slug = 'import_573_lu';
+FROM public.import_job WHERE slug = 'import_580_lu';
      slug      |  state   | total_rows | imported_rows | has_job_error 
 ---------------+----------+------------+---------------+---------------
- import_573_lu | finished |         11 |            11 | f
+ import_580_lu | finished |         11 |            11 | f
 (1 row)
 
 \echo "A2 every row: state, action and its warnings, key and message"
@@ -54,7 +54,7 @@ FROM public.import_job WHERE slug = 'import_573_lu';
 "   W08 exists from its birth: not warned."
 SELECT dt.row_id, dt.tax_ident_raw, dt.name_raw, dt.valid_from_raw, dt.birth_date_raw, dt.state, dt.action,
        e.key AS warning_key, e.value AS warning
-FROM public.import_573_lu_data AS dt
+FROM public.import_580_lu_data AS dt
 LEFT JOIN LATERAL jsonb_each_text(dt.warnings) AS e(key, value) ON TRUE
 ORDER BY dt.row_id, e.key;
  row_id | tax_ident_raw |                  name_raw                  | valid_from_raw | birth_date_raw |   state   | action |  warning_key   |                                                                                                    warning                                                                                                    
@@ -77,9 +77,9 @@ ORDER BY dt.row_id, e.key;
 -- timeline. W10 gets the missing first piece from its birth date, which is what the warning asks for.
 -- ═════════════════════════════════════════════════════════════════════════
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
-SELECT id, 'import_573_lu_update', 'Test 369 legal units, second file', 'test/data/573_birth_before_valid_from_legal_units_update.csv', 'Test 369 (STATBUS-573)', false
+SELECT id, 'import_580_lu_update', 'Test 369 legal units, second file', 'test/data/580_birth_before_valid_from_legal_units_update.csv', 'Test 369 (STATBUS-580)', false
 FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
-\copy public.import_573_lu_update_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/573_birth_before_valid_from_legal_units_update.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_580_lu_update_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/580_birth_before_valid_from_legal_units_update.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 CALL worker.process_tasks(p_queue => 'import');
 NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo
@@ -87,10 +87,10 @@ NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys e
 \echo "B1 the second job finishes and imports every row:"
 "B1 the second job finishes and imports every row:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_job_error
-FROM public.import_job WHERE slug = 'import_573_lu_update';
+FROM public.import_job WHERE slug = 'import_580_lu_update';
          slug         |  state   | total_rows | imported_rows | has_job_error 
 ----------------------+----------+------------+---------------+---------------
- import_573_lu_update | finished |          3 |             3 | f
+ import_580_lu_update | finished |          3 |             3 | f
 (1 row)
 
 \echo "B2 no row of the second file is warned: W08's piece follows its stored timeline, W09 is born on"
@@ -99,7 +99,7 @@ FROM public.import_job WHERE slug = 'import_573_lu_update';
 "   valid_from, W10's new first piece starts at its birth date."
 SELECT dt.row_id, dt.tax_ident_raw, dt.name_raw, dt.valid_from_raw, dt.birth_date_raw, dt.state, dt.action,
        dt.warnings
-FROM public.import_573_lu_update_data AS dt
+FROM public.import_580_lu_update_data AS dt
 ORDER BY dt.row_id;
  row_id | tax_ident_raw |            name_raw             | valid_from_raw | birth_date_raw |   state   | action | warnings 
 --------+---------------+---------------------------------+----------------+----------------+-----------+--------+----------
@@ -134,22 +134,22 @@ ORDER BY month;
 -- Part C: informal establishments get the same warning.
 -- ═════════════════════════════════════════════════════════════════════════
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
-SELECT id, 'import_573_eswlu', 'Test 369 informal establishments', 'test/data/573_birth_before_valid_from_informal_establishments.csv', 'Test 369 (STATBUS-573)', false
+SELECT id, 'import_580_eswlu', 'Test 369 informal establishments', 'test/data/580_birth_before_valid_from_informal_establishments.csv', 'Test 369 (STATBUS-580)', false
 FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates';
-\copy public.import_573_eswlu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/573_birth_before_valid_from_informal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_580_eswlu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date) FROM 'test/data/580_birth_before_valid_from_informal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 CALL worker.process_tasks(p_queue => 'import');
 \echo
 
 \echo "C1 job and rows: E01 warned, E02 not"
 "C1 job and rows: E01 warned, E02 not"
-SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug = 'import_573_eswlu';
+SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug = 'import_580_eswlu';
        slug       |  state   | total_rows | imported_rows 
 ------------------+----------+------------+---------------
- import_573_eswlu | finished |          2 |             2
+ import_580_eswlu | finished |          2 |             2
 (1 row)
 
 SELECT dt.row_id, dt.tax_ident_raw, dt.name_raw, dt.state, dt.action, e.key AS warning_key, e.value AS warning
-FROM public.import_573_eswlu_data AS dt
+FROM public.import_580_eswlu_data AS dt
 LEFT JOIN LATERAL jsonb_each_text(dt.warnings) AS e(key, value) ON TRUE
 ORDER BY dt.row_id, e.key;
  row_id | tax_ident_raw |                  name_raw                  |   state   | action |  warning_key   |                                                                                                    warning                                                                                                    

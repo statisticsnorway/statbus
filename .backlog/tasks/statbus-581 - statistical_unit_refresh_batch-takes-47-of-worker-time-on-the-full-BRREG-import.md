@@ -1,12 +1,12 @@
 ---
-id: STATBUS-574
+id: STATBUS-581
 title: >-
   statistical_unit_refresh_batch takes 47% of summed task time on the full BRREG
   import
 status: In Progress
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-06T14:02:00Z'
+updated_date: '2026-11-06T14:06:00Z'
 labels:
   - performance
   - worker
@@ -74,4 +74,6 @@ Rolled-back checks on import_benchmark_43190: batch 22285 view 2,335 ms -> 69 ms
 2026-11-06 11:25 Tests 303, 401, 402 pass (tmp/test-574-{303,401,402}.log). Selection benchmark (tmp/574impl/bench-selection.log): worker 89.2 s (558 baseline 83.8 s; this selection's batches are small and the laptop was loaded, load5 ~30-70), refresh_batch 72 tasks 19.8 s vs 21.1 s, checks A, B, C pass. The selection is too small to show the LU-scan cost; the downloads benchmark is the measure (AC2).
 
 2026-11-06 14:02 AC2: full BRREG downloads benchmark on local master 67488988e (tmp/574impl/bench-downloads.log, database import_benchmark_40149): consistency checks A, B, C pass. statistical_unit_refresh_batch summed 10,320 s -> 4,007 s (-61%; 7,828 -> 4,777 tasks, avg 1,318 -> 839 ms). All tasks 21,932 -> 17,063 s (-22%). Worker wall 7,810 -> 6,737 s (-14%): the serial import step (import_job_process 6,090 s, +11% under daytime laptop load 37-150) is now the longest path. Below last night's 7,000-8,600 s saving estimate: 6,313 s saved.
+
+2026-11-06 14:06 Renumbered from local STATBUS-574: origin already has a different STATBUS-574 (name database copies, rabbit's swarm). This is 581; earlier notes and commit messages say STATBUS-574 for this ticket; test 370 and the migration comments now say 581.
 <!-- SECTION:NOTES:END -->

@@ -61,7 +61,7 @@ BEGIN
     ANALYZE t_resolved_codes;
     ANALYZE t_resolved_dates;
 
-    -- Rows that start their unit's timeline (STATBUS-573): no other row of the same unit in this file
+    -- Rows that start their unit's timeline (STATBUS-580): no other row of the same unit in this file
     -- (founding_row_id, all batches) and no stored version of the unit starts earlier. Only such a row can
     -- move its valid_from back to the birth date; later pieces start after an earlier piece by design.
     IF to_regclass('pg_temp.t_timeline_start') IS NOT NULL THEN DROP TABLE t_timeline_start; END IF;
@@ -100,7 +100,7 @@ BEGIN
             LEFT JOIN t_resolved_dates d_date ON bd.death_date_raw = d_date.date_string
         ), lookups AS (
             SELECT lb.*,
-                   -- STATBUS-573: born earlier in the same year as the period this row starts the unit's timeline
+                   -- STATBUS-580: born earlier in the same year as the period this row starts the unit's timeline
                    -- with, so history counts the unit as added in that month, not as born.
                    (ts.row_id IS NOT NULL
                     AND lb.resolved_typed_birth_date < lb.valid_from
