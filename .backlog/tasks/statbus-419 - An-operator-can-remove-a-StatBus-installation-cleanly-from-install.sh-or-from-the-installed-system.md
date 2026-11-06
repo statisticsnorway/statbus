@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-09-25 13:08
-updated_date: '2026-11-06T10:33:00Z'
+updated_date: '2026-11-06T16:48:00Z'
 labels:
   - installer
 dependencies: []
@@ -99,4 +99,6 @@ AC9/AC10 (2026-11-06), test first:
 - Box proof follows on rc.13.
 
 AC8 is refined by the owner decision of 2026-11-05 (backup = daily pg_dump, upgrade snapshot = ~/statbus-backups): the upgrade snapshots are always removed, never kept with the backups, so the plan no longer prints 'Keep: ~/statbus-backups'. TestUninstallRemovesTheInstallsHomeFolders now asserts that in both cases.
+
+rc.15 gate GREEN 2026-11-06 (v2026.11.1-rc.15 at 91d060e64; Orchestrator 42246017808: Smoke 42246222921, Hardening, Fast Tests, Deploy to dev 42248010572, LXD Fork Fleet 42248246593, Upgrade Arc Harness 42248399837). 6-uninstall-reinstall PASS in the LXD fleet with the kept-backup flow.
 <!-- SECTION:NOTES:END -->
