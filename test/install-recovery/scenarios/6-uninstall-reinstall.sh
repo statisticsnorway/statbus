@@ -50,7 +50,14 @@ CREDENTIALS_SHA=$(VM_EXEC bash -c 'sha256sum ~/statbus/.env.credentials | cut -d
 # credentials (Enter), keep the database backups if any exist (Enter; the
 # question is only asked when there are some), then confirm the plan. The
 # whole checkout goes either way; kept backups move to ~/statbus.dbdumps.
-VM_EXEC bash -c 'cd ~/statbus && if ls dbdumps/*.pg_dump >/dev/null 2>&1; then a="\n\n\nDELETE\n"; else a="\n\nDELETE\n"; fi; printf "$a" | script -qec "./sb uninstall" /dev/null'
+# A script file, because sudo -i re-escapes a `bash -c` body and breaks its
+# quoting (rc.13 gate: "unexpected EOF while looking for matching quote").
+VM_SCRIPT_INLINE uninstall-keep-all <<'REMOTE'
+set -euo pipefail
+cd ~/statbus
+if ls dbdumps/*.pg_dump >/dev/null 2>&1; then answers='\n\n\nDELETE\n'; else answers='\n\nDELETE\n'; fi
+printf "$answers" | script -qec "./sb uninstall" /dev/null
+REMOTE
 VM_EXEC bash -c 'test ! -e ~/statbus && test -f ~/statbus.users.yml && test -f ~/statbus.env.credentials'
 MODE=$(VM_EXEC bash -c 'stat -c %a ~/statbus.users.yml ~/statbus.env.credentials | sort -u' | tr -d '\r\n')
 [ "$MODE" = 600 ] || { echo "FAIL: kept files mode '$MODE', want 600" >&2; exit 1; }
