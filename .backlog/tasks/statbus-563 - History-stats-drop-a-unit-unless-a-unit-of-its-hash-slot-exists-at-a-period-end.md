@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-03T22:24:00Z'
-updated_date: '2026-11-06T19:15:00Z'
+updated_date: '2026-11-06T19:16:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -17,13 +17,28 @@ ordinal: 486204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-STATBUS-558
+### North Star
+History statistics count every unit the documented population names for a period, whatever hash slot the unit falls in.
+
+### Zoom out
+A total over units is computed from each unit's own rows, never from rows that exist only because another unit kept them alive.
+
+### Zoom in
+The dense history built a period's stats by LEFT JOINing a per-slot aggregation onto the rows of units existing at a period end. A unit that overlaps the period but exists at neither end (the STATBUS-460 existence rule) lost its stats unless a slot-mate existed at an end. Test 364 shows it: two legal units in different hash slots (2955, 14449); 563000002 is born 2024-03-01 and dead 2024-09-30. Documented 2024 population 17 employees / 2 units; the dense history gave 10 / 1.
+
+Owner decision 2026-11-04: fixed by STATBUS-558, not separately. In 558 each unit's stats are on its own delta rows, so no slot dependency remains.
+
+### Closing review
+- **Memory:** none.
+- **Documentation:** doc/performance/2026-11-history-delta-measurements.md section 5.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 statistical_history and statistical_history_facet stats_summary equal the documented population for each period, independent of hash slots
-- [x] #2 A regression test with two units in different hash slots, one of them not existing at either end of a period, gives the same stats_summary as the documented population for that period
+- [x] #1 statistical_history and statistical_history_facet stats_summary equal the documented population for each period, independent of hash slots (test 364; 10-year data: all 465 rows equal an independent count from statistical_unit)
+- [x] #2 A regression test with two units in different hash slots, one of them not existing at either end of a period, gives the same stats_summary as the documented population for that period (test 364)
+- [ ] #3 The STATBUS-558 change is pushed to master with CI green for the pushed commit
 <!-- AC:END -->
 
 ## Implementation Notes
