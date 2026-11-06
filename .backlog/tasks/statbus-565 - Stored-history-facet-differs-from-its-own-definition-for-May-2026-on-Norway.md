@@ -15,13 +15,29 @@ ordinal: 488204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-STATBUS-558
+### North Star
+The history facet a report reads always equals its definition run on the current statistical_unit.
+
+### Zoom out
+A stored copy of a derived result stays correct only if every column that can change is compared when it is updated; a result read straight from its source cannot fall behind.
+
+### Zoom in
+On restored Norway, after a full derive, 296 May-2026 rows of the stored statistical_history_facet differed from statistical_history_facet_def. Cause (tmp/558-shd/17-565-guard.sql, 565-guard.log): worker.statistical_history_facet_reduce updated a matched row only when exists_count or stats_summary changed, so rows whose change counts alone changed (for example a rename) kept their old values. Test 365 reproduces it with one legal unit renamed from 2024-06-01 with the same employees: stored name_change_count 0, definition 1.
+
+Owner decision 2026-11-04: fixed by STATBUS-558, which removes the stored facet and its reduce. statistical_history_facet is now a view over statistical_history_facet_delta, where every change count is staged and added.
+
+### Closing review
+- **Memory:** none.
+- **Documentation:** doc/performance/2026-11-history-delta-measurements.md section 5.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The cause of the 296 stale May-2026 rows is identified and written in this ticket
-- [x] #2 After a full derive, statistical_history_facet equals statistical_history_facet_def for every period on the restored Norway data (0 differing rows)
+- [x] #2 Test 365 (a rename with unchanged employees) shows name_change_count 1 in statistical_history_facet, as the definition does
+- [x] #3 On restored Norway after a full derive, statistical_history_facet (now a view over statistical_history_facet_delta) has the same stock as the previous build in every cell of 2026 and months 5 and 11 (1,185,556 cells, tmp/558-onetable/23-compare-fixed.log), and its stats differ only where empty stats render as {} instead of {"type": "stats_agg"} (tmp/558-onetable/24-check.log)
+- [ ] #4 The STATBUS-558 change is pushed to master with CI green for the pushed commit
 <!-- AC:END -->
 
 ## Implementation Notes
