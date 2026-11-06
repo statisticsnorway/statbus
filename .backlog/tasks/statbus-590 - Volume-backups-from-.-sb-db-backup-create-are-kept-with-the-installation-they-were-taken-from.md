@@ -41,8 +41,14 @@ Filed by hibiscus against the pre-574 names; rewritten against the snapshot comm
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 ./sb db snapshot create writes its archive to <project>/dbdumps/<slot>_<timestamp>.snapshot.tar.gz and stages under <project>/dbdumps, beside the backups
-- [ ] #2 With archives of two slots in one dbdumps folder, ./sb db snapshot list, restore and purge act only on the current slot's archives; restore names the other slot when refusing (Go test)
-- [ ] #3 With a temporary HOME and project directory, create, list, restore and purge resolve only under <project>/dbdumps; the temporary HOME stays empty (Go test)
-- [ ] #4 doc/DEPLOYMENT.md, doc/upgrades.md and ./sb db snapshot --help name <project>/dbdumps as the place of snapshot archives; dbdumps/*.snapshot.tar.gz and dbdumps/staging/ are git-ignored
+- [x] #1 ./sb db snapshot create writes its archive to <project>/dbdumps/<slot>_<timestamp>.snapshot.tar.gz and stages under <project>/dbdumps, beside the backups
+- [x] #2 With archives of two slots in one dbdumps folder, ./sb db snapshot list, restore and purge act only on the current slot's archives; restore names the other slot when refusing (Go test)
+- [x] #3 With a temporary HOME and project directory, create, list, restore and purge resolve only under <project>/dbdumps; the temporary HOME stays empty (Go test)
+- [x] #4 doc/DEPLOYMENT.md, doc/upgrades.md and ./sb db snapshot --help name <project>/dbdumps as the place of snapshot archives; dbdumps/*.snapshot.tar.gz and dbdumps/staging/ are git-ignored
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented b28b204af. Red (tmp/590-red.log): snapshotCreatePaths/resolveSnapshotArchive/snapshotPurgeSelection absent; list read ~/statbus-upgrade-snapshots. Green (tmp/590-green.log): TestSnapshotCreateWritesUnderProjectDbdumps, TestSnapshotListShowsOnlyThisSlot, TestSnapshotRestoreResolvesOnlyThisSlot (refuses ma_* with 'taken from slot ma ... this installation is slot ug'), TestSnapshotPurgeSelectsOnlyThisSlot; each asserts temp HOME empty. Full cli/cmd suite ok. .gitignore: dbdumps/*.snapshot.tar.gz and dbdumps/staging/ ignored (tmp/590-gitignore-red.log showed them untracked, green empty). Mac end-to-end on slot test (tmp/590-mac-e2e.log): create wrote dbdumps/test_20261106_202138.snapshot.tar.gz (575.5 MB), list showed it, ~/statbus-upgrade-snapshots not created, purge --keep 0 deleted it, db healthy after. doc/upgrades.md retention section corrected (the -pre.tar.gz archiving it described was removed in STATBUS-112).
+<!-- SECTION:NOTES:END -->
