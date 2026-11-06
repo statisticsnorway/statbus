@@ -3,9 +3,10 @@ id: STATBUS-574
 title: >-
   Name each database copy for what it is: backups are the daily dumps, upgrade
   snapshots are the rollback copies
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-06T10:36:00Z'
+updated_date: '2026-11-06T10:57:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -25,3 +26,9 @@ Owner decision 2026-11-05: 'backup' means the daily pg_dump the upgrade service 
 - [ ] #3 An upgrade that fails after the move rolls back from the moved snapshot (real VM upgrade test)
 - [ ] #4 ./sb db backup names the daily database backup (dump); the old ./sb db backup snapshot subcommands are not kept as aliases
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner 2026-11-06: in rc.13. Plan: (1) one name constant ~/statbus-upgrade-snapshots; (2) migration moves ~/statbus-backups once, only with no upgrade marker present, refuses if both hold data; (3) a recorded old-root path (marker BackupPath, public.upgrade.backup_path) resolves to the new root, and the upgrader rewrites the rows at start; (4) ./sb db backup -> ./sb db snapshot, no alias; (5) harness and tests follow; rollback proof = rc.13 gate upgrade arcs.
+<!-- SECTION:NOTES:END -->
