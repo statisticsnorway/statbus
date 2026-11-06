@@ -101,8 +101,21 @@ legal units, and the power-group aggregation is computed once per batch.
 Per batch, ms: 22285 3,747 -> 1,060; 8857 3,495 -> 349; 51670 (power groups) 2,715 -> 79; 48599 270 -> 146;
 13783 3,325 -> 308; 18387 2,906 -> 536; 21760 3,718 -> 1,004; 22129 3,678 -> 1,034; 5564 3,445 -> 331.
 
-Whole BRREG downloads import on the landed code: **to be measured** (run started 2026-11-06 11:52, database
-`import_benchmark_40149`, log `tmp/574impl/bench-downloads.log`). Baseline: worker 7,810 s, refresh_batch 10,320 s.
+Whole BRREG downloads import (3,118,352 statistical units), landed code (master 67488988e) against the night
+before (558 only), same laptop:
+
+| | Before (2026-11-05 night) | After (2026-11-06 day) | Change |
+|---|---|---|---|
+| `statistical_unit_refresh_batch`, summed task time | 10,320 s (7,828 tasks, avg 1,318 ms) | **4,007 s** (4,777 tasks, avg 839 ms) | **-61%** |
+| All tasks, summed task time | 21,932 s | **17,063 s** | -22% |
+| Worker wall time | 7,810 s | **6,737 s** | -14% |
+| `import_job_process`, summed | 5,493 s | 6,090 s | +11% (not changed by 574; laptop load 37-150 during the day run) |
+| Consistency checks A, B, C | pass | pass | |
+
+The wall time falls less than the refresh time because the import step itself (`import_job_process`, one job
+at a time) is now the longest path: 6,090 s of the 6,737 s wall. Further wall-time gains need a faster import.
+Sources: `tmp/574impl/bench-downloads.log` (database `import_benchmark_40149`) and
+`tmp/558-build/bench-downloads-final.log` (database `import_benchmark_43190`).
 
 Tests: 370 (a partial refresh reads only its units' timesegments, also with a generic plan; rows equal a full
 refresh). Selection import: 89.2 s against 83.8 s, within run-to-run variation on a loaded laptop; its batches
