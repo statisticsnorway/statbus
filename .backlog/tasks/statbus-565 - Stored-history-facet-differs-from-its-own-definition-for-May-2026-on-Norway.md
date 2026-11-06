@@ -4,7 +4,7 @@ title: Stored history facet differs from its own definition for May 2026 on Norw
 status: In Progress
 assignee: []
 created_date: '2026-11-04T00:21:00Z'
-updated_date: '2026-11-06T11:52:00Z'
+updated_date: '2026-11-06T19:16:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -21,7 +21,7 @@ STATBUS-558
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The cause of the 296 stale May-2026 rows is identified and written in this ticket
-- [ ] #2 After a full derive, statistical_history_facet equals statistical_history_facet_def for every period on the restored Norway data (0 differing rows)
+- [x] #2 After a full derive, statistical_history_facet equals statistical_history_facet_def for every period on the restored Norway data (0 differing rows)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -36,4 +36,6 @@ North Star: the stored history facet always equals its definition run on the cur
 2026-11-04 owner decision: resolved by STATBUS-558, no separate fix to worker.statistical_history_facet_reduce. 558 removes the reduce and the stored facet table; statistical_history_facet is a view over history_flow_delta, where every change count is staged and added, so a change that leaves exists_count and stats unchanged is no longer lost. Evidence on the 558 build: test 365 (rename shows name_change_count 1 for 2024 and June 2024, local commit cbc7320b7); full Norway facet 2026 equals today's stored rows except exactly these 296 stale May rows. Close as Done when STATBUS-558 lands (merged, release gates pass).
 
 2026-11-06 11:52 Landed in local master 67488988e (fast-forward, owner 11:41: land the whole set, then one release with one full recalculation). Not pushed. Fast suite on that tip 124/124 (tmp/test-stack-fast.log).
+
+2026-11-06 19:15 rebased local master onto origin/master ce9669a78 (after v2026.11.1-rc.17); tip 3e4b68ea6, 80 commits ahead, 0 merges, combined patch identical to before the rebase. Fast suite: all 124 shared + 2 isolated tests pass (tmp/test-rebased-fast.log). Not pushed. AC2: statistical_history_facet is now a view over statistical_history_facet_delta (STATBUS-558), so it is its definition; no stored copy can lag. Norway after a full derive: stock equal to the former definition in all 1,185,556 cells checked (2026 year, months 5 and 11; tmp/558-onetable/23-compare-fixed.log). Test 365 (rename only, same employees): name_change_count 1 as the definition, passes.
 <!-- SECTION:NOTES:END -->
