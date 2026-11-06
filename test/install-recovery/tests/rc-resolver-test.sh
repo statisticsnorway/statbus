@@ -6,6 +6,11 @@
 # arguments. With no candidate published the resolver refuses and names the
 # stable shortcut. Double: curl answers the releases list and serves each
 # release asset as a script that prints how it was called.
+#
+# STATBUS-582 (rc.14 gate, 2026-11-06): GitHub's releases API answered 504 for
+# every anonymous call while the releases feed answered. The double can fail
+# the API (RELEASES_API=fail, every call exits 22 like curl -f on a 5xx) or
+# the feed (RELEASES_FEED=fail), and counts API calls in $API_CALLS.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 work="$(mktemp -d "${TMPDIR:-/tmp}/rc-resolver.XXXXXX")"
@@ -27,7 +32,14 @@ while [ $# -gt 0 ]; do
 done
 case "$url" in
     https://api.github.com/repos/statisticsnorway/statbus/releases\?per_page=50)
+        echo x >> "$API_CALLS"
+        [ "${RELEASES_API:-ok}" = ok ] || exit 22
         for tag in $RELEASE_TAGS; do printf '    "tag_name": "%s",\n' "$tag"; done ;;
+    https://github.com/statisticsnorway/statbus/releases.atom)
+        [ "${RELEASES_FEED:-ok}" = ok ] || exit 22
+        printf '<feed>\n'
+        for tag in $RELEASE_TAGS; do printf '  <link rel="alternate" type="text/html" href="https://github.com/statisticsnorway/statbus/releases/tag/%s"/>\n' "$tag"; done
+        printf '</feed>\n' ;;
     https://github.com/statisticsnorway/statbus/releases/download/*)
         rest=${url#https://github.com/statisticsnorway/statbus/releases/download/}
         printf 'echo "ran %s from %s with: $*"\n' "${rest#*/}" "${rest%%/*}" > "$out" ;;
@@ -39,7 +51,8 @@ chmod +x "$work/bin/curl"
 run() { # run <resolver> <tags> [args...]
     local resolver=$1 tags=$2
     shift 2
-    RELEASE_TAGS=$tags TMPDIR="$work/tmp" PATH="$work/bin:$PATH" bash "$ROOT/ops/rc/$resolver" "$@" </dev/null 2>&1
+    : > "$work/api-calls"
+    API_CALLS="$work/api-calls" RELEASE_LIST_RETRY_DELAY_S=0 RELEASE_TAGS=$tags TMPDIR="$work/tmp" PATH="$work/bin:$PATH" bash "$ROOT/ops/rc/$resolver" "$@" </dev/null 2>&1
 }
 mkdir -p "$work/tmp"
 
@@ -63,6 +76,32 @@ if [ "$rc" -ne 0 ] && [ "$out" = "No StatBus release candidate is published; htt
     pass "no candidate is refused with the stable shortcut"
 else
     nope "no candidate is refused with the stable shortcut (exit $rc)"
+    printf '    %s\n' "$out"
+fi
+
+# GitHub's release list does not answer: each resolver retries it, then takes
+# the newest candidate from the releases feed and still runs it.
+for resolver in install.sh setup.sh uninstall.sh; do
+    out=$(RELEASES_API=fail run "$resolver" "$tags")
+    case "$resolver" in
+        install.sh) want="ran install.sh from v2026.11.1-rc.06 with: --version v2026.11.1-rc.06" ;;
+        setup.sh) want="ran setup-ubuntu-lts.sh from v2026.11.1-rc.06 with: " ;;
+        uninstall.sh) want="ran uninstall.sh from v2026.11.1-rc.06 with: " ;;
+    esac
+    check "$resolver uses the releases feed when the release list does not answer" \
+        "GitHub's release list did not answer; using the releases feed instead.
+$want" "$out"
+    check "$resolver asks the release list 4 times before using the feed" 4 "$(wc -l < "$work/api-calls" | tr -d ' ')"
+done
+
+# Neither answers: say that GitHub could not be reached, never that no
+# candidate is published.
+out=$(RELEASES_API=fail RELEASES_FEED=fail run install.sh "$tags")
+rc=$?
+if [ "$rc" -ne 0 ] && [ "$out" = "Could not reach GitHub to find the newest StatBus release candidate. Run the same command again when GitHub answers." ]; then
+    pass "an unreachable GitHub is named, not reported as no candidate"
+else
+    nope "an unreachable GitHub is named, not reported as no candidate (exit $rc)"
     printf '    %s\n' "$out"
 fi
 

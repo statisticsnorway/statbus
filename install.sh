@@ -824,12 +824,50 @@ if [ "${STATBUS_INSTALL_TEST_GIT_CLONE:-}" = 1 ]; then
     exit $?
 fi
 
+# statbus_release_lookup <api-url> <fallback-url> <fallback-name> prints what
+# GitHub answers for a release lookup. GitHub's release API can fail for
+# anonymous callers while the rest of GitHub works: the rc.14 gate
+# (2026-11-06) got 504 on every /releases call for over 20 minutes and this
+# script said "No pre-release published." (STATBUS-582). So the API is asked
+# a bounded number of times with a growing pause, then the public fallback
+# (the releases feed, or the releases/latest page) is read instead. Returns 1
+# only when neither answered, so the caller can tell "GitHub could not be
+# reached" from "no such release is published".
+RELEASE_LIST_ATTEMPTS="${RELEASE_LIST_ATTEMPTS:-4}"
+RELEASE_LIST_RETRY_DELAY_S="${RELEASE_LIST_RETRY_DELAY_S:-5}"
+statbus_release_lookup() {
+    local api_url="$1" fallback_url="$2" fallback_name="$3" attempt body
+    for ((attempt = 1; attempt <= RELEASE_LIST_ATTEMPTS; attempt++)); do
+        if body=$(curl -fsSL --connect-timeout 10 --max-time 30 "$api_url" 2>/dev/null); then
+            printf '%s\n' "$body"
+            return 0
+        fi
+        [ "$attempt" -lt "$RELEASE_LIST_ATTEMPTS" ] && sleep $((attempt * RELEASE_LIST_RETRY_DELAY_S))
+    done
+    # The releases/latest page redirects to releases/tag/<tag>, so its final
+    # URL names the stable release; the feed lists releases/tag/<tag> links.
+    if [ "$fallback_name" = page ]; then
+        body=$(curl -fsSL --connect-timeout 10 --max-time 30 -o /dev/null -w '%{url_effective}\n' "$fallback_url" 2>/dev/null) || body=""
+    else
+        body=$(curl -fsSL --connect-timeout 10 --max-time 30 "$fallback_url" 2>/dev/null) || body=""
+    fi
+    [ -n "$body" ] || return 1
+    echo "GitHub's release list did not answer; using the releases $fallback_name instead." >&2
+    # Print the tags in the API's "tag_name" shape, so the caller reads both alike.
+    printf '%s\n' "$body" | grep -o 'releases/tag/[^"<[:space:]]*' | sed 's|^releases/tag/|"tag_name": "|; s|$|",|'
+    return 0
+}
+
 if [ -n "$VERSION" ]; then
     echo "Installing specified version: $VERSION"
 elif [ "$CHANNEL" = "stable" ]; then
     echo "Checking for latest stable release..."
-    VERSION=$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest 2>/dev/null \
-        | grep '"tag_name"' | cut -d'"' -f4) || true
+    if ! RELEASES=$(statbus_release_lookup https://api.github.com/repos/statisticsnorway/statbus/releases/latest \
+        https://github.com/statisticsnorway/statbus/releases/latest page); then
+        echo "Error: Could not reach GitHub to find the latest StatBus release. Run the same command again when GitHub answers." >&2
+        exit 1
+    fi
+    VERSION=$(printf '%s\n' "$RELEASES" | grep '"tag_name"' | cut -d'"' -f4 | head -1) || true
     if [ -z "$VERSION" ]; then
         echo "Error: No stable release published." >&2
         echo "Options:" >&2
@@ -844,7 +882,12 @@ elif [ "$CHANNEL" = "prerelease" ]; then
     # Extract newest v*-rc.* tag via the /releases API. Sort numerically
     # by (year, month, patch, rc) to handle cross-month ordering without
     # relying on sort -V being available.
-    VERSION=$(curl -sL "https://api.github.com/repos/statisticsnorway/statbus/releases?per_page=50" 2>/dev/null \
+    if ! RELEASES=$(statbus_release_lookup "https://api.github.com/repos/statisticsnorway/statbus/releases?per_page=50" \
+        https://github.com/statisticsnorway/statbus/releases.atom feed); then
+        echo "Error: Could not reach GitHub to find the newest StatBus release candidate. Run the same command again when GitHub answers." >&2
+        exit 1
+    fi
+    VERSION=$(printf '%s\n' "$RELEASES" \
         | grep '"tag_name"' | cut -d'"' -f4 | grep '\-rc\.' \
         | awk -F'[v.\\-]' '{print $2*1e8 + $3*1e6 + $4*1e4 + $6+0, $0}' \
         | sort -n | tail -1 | awk '{print $2}') || true
