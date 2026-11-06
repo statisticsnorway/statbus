@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-06T09:44:00Z'
+updated_date: '2026-11-06T09:56:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -248,4 +248,6 @@ AC1 scope: full Norway checked on the committed build (above); the 10-year datab
 2026-11-05 17:52 AC1 on the 10-year database with the committed build (tmp/558-onetable/30-10y.sh, 30-10y.log, 32-10y-explain.log): a clone of the dense-table database, up migrations, rebuild (6,359 rows). statistical_history: stock 0 differ in all 447 dense rows; 18 more rows are months 2026-06..11 the dense table never derived. Stats equal the independent rule (latest counted version overlapping the period) in all 465 rows, 0 differ; the dense stats differ by min/max and the STATBUS-563 undercount. statistical_history_facet: 553,980 cells, stock 0 differ, 0 cells only in dense; 26,916 more cells are those six 2026 months; 627 more cells have stock 0 (cells units moved out of).
 
 2026-11-06 09:45 Release numbers recorded in doc/performance/2026-11-history-delta-measurements.md (owner request): Norway history storage 26 GB on rune -> 233 MB; selection import worker 136.1 -> 83.8 s, history steps 175.5 -> 20.3 s; Norway reads with the same calls: chart 0.85/1.31 -> 0.29/0.31 s, drilldown 2.88/16.9 -> 0.57/0.71 s; facet view count 0.20 -> 2.67 s (no app reader).
+
+2026-11-06 09:56 Independent expected-file review (worker palmtree, tmp/review-expected/report.md): every hunk of 493f13428 and the 573 branch classified; value changes in 107, 319 (32), 322 (1992), 367, 368 each derived independently from fixtures; no wrong value, no t->f, no lost row. Two robustness findings fixed: 107 facet queries now order by every cell dimension (7559f5838, reorder only); 324 shows victim names and enterprise legal-unit counts instead of allocated enterprise ids (20232ff52).
 <!-- SECTION:NOTES:END -->
