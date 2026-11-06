@@ -3,10 +3,10 @@ id: STATBUS-434
 title: >-
   Runner-to-niue SSH from GitHub-hosted runners fails intermittently with
   'Network is unreachable'
-status: To Do
+status: Done
 assignee: []
-created_date: '2026-09-29 14:41'
-updated_date: '2026-10-20 20:45'
+created_date: 2026-09-29 14:41
+updated_date: '2026-11-06T17:50:00Z'
 labels:
   - ci
 dependencies: []
@@ -27,3 +27,9 @@ Evidence 2026-09-29: notify-all-clouds.yaml's runner-online probe (ssh github-ru
 - [ ] #2 Every workflow that SSHes to niue connects reliably (e.g. ssh -4 / AddressFamily inet if IPv6 is the cause), with the reason in a comment
 - [ ] #3 No 'Network is unreachable' failure in the next 50 runs of the affected workflows
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner 2026-11-06 17:50: closed as not reproduced. No 'Network is unreachable' in the last 60 failed workflow runs since 2026-10-20. Reopen if it appears again.
+<!-- SECTION:NOTES:END -->
