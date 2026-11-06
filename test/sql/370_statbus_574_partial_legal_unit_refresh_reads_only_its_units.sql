@@ -8,13 +8,15 @@
 -- downloads database a batch of 1,000 legal units took 6.1 s when every
 -- legal-unit segment was read and 0.31 s when only the batch's were.
 --
--- The read check runs with enable_seqscan off: it asserts that the filter on
--- the batch's ids can drive an index scan, which is what lets the planner read
--- only those rows on a large table. Rows read are counted from
+-- The read check runs after ANALYZE and with enable_seqscan off: it asserts
+-- that the filter on the batch's ids can drive an index scan, which is what
+-- lets the planner read only those rows on a large table. Rows read are counted from
 -- pg_stat_xact_user_tables, which reports this transaction's own reads.
 --
 -- Fixture: the two Norwegian legal units over time (several versions, with
--- establishments and stats, test/data/03_*) plus 200 single-version legal units.
+-- establishments and stats, test/data/03_*) plus 2,000 single-version legal
+-- units, so that reading a 3-unit batch through the (unit_type, unit_id) index
+-- is clearly the cheapest plan whatever else the database holds.
 
 BEGIN;
 
@@ -44,7 +46,7 @@ CALL worker.process_tasks(p_queue => 'import');
 
 INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
 SELECT 'T370_' || n, (SELECT id FROM auth.user LIMIT 1), 'Test 370 enterprise ' || n
-FROM generate_series(1, 200) AS n;
+FROM generate_series(1, 2000) AS n;
 
 INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
 SELECT '2020-01-01'::date, 'T370 unit ' || e.short_name, e.id, true,
@@ -72,6 +74,10 @@ WHERE lu.name LIKE 'KRAN%' OR lu.name = 'T370 unit T370_1';
 SELECT public.array_to_int4multirange(array_agg(id ORDER BY id)) AS batch_ranges FROM batch \gset
 
 DELETE FROM public.timeline_legal_unit WHERE unit_id IN (SELECT id FROM batch);
+
+-- Statistics as on a loaded database, where the planner can choose the
+-- (unit_type, unit_id) index for a filter on a few unit ids.
+ANALYZE public.timesegments;
 
 SET LOCAL enable_seqscan = off;
 SELECT coalesce(seq_tup_read, 0) + coalesce(idx_tup_fetch, 0) AS rows_read_before
