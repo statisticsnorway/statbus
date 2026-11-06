@@ -1178,6 +1178,11 @@ func runInstall() (installErr error) {
 	if err := adoptOperatorUserState(installDir); err != nil {
 		return installPreflightRefusal(err.Error())
 	}
+	// STATBUS-419 AC10: backups an uninstall kept in ~/statbus.dbdumps move
+	// back into the checkout's dbdumps folder, where ./sb db restore finds them.
+	if err := adoptKeptBackups(installDir); err != nil {
+		return installPreflightRefusal(err.Error())
+	}
 	oldCaddySnapshot := snapshotCaddyConfig(installDir)
 	wasAlreadyRunning := checkServicesDone(installDir)
 	var pendingRestarts map[config.RestartClass]bool
@@ -1485,6 +1490,7 @@ func runInstall() (installErr error) {
 	// STATBUS-464: the last word on every install is whether anyone can sign
 	// in, loudly when nobody can or a supplied file's users are absent.
 	reportInstallUsers(installDir)
+	reportKeptBackups(installDir)
 	if allDone {
 		fmt.Println("All steps complete. Nothing to do.")
 	} else {

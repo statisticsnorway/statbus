@@ -75,10 +75,11 @@ else
     nope "piped install parses its arguments (exit $rc)"; printf '    %s\n' "$out" | tail -5
 fi
 
-# Uninstall with nothing installed: three keep/delete answers and the DELETE
-# confirmation, then it finishes. The answers come from the terminal; the rest
-# of the script stays in the pipe.
-out=$(pty_pipe "$ROOT/uninstall.sh" $'n\nn\ny\nDELETE\n' 2>&1); rc=$?
+# Uninstall with nothing installed: the users and credentials questions (no
+# database backup exists, so none is asked about) and the DELETE confirmation,
+# then it finishes. The answers come from the terminal; the rest of the script
+# stays in the pipe.
+out=$(pty_pipe "$ROOT/uninstall.sh" $'n\nn\nDELETE\n' 2>&1); rc=$?
 if [ "$rc" = 0 ] && grep -q 'Keep the users?' <<<"$out" && grep -q 'Removal complete' <<<"$out"; then
     pass "piped uninstall asks on the terminal and finishes"
 else

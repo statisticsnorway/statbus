@@ -52,15 +52,39 @@ if [[ $INTERACTIVE == 0 ]]; then
     KEEP_USERS=0
     KEEP_CREDENTIALS=0
 fi
+# The database backups (the daily pg_dump files in ~/statbus/dbdumps) are the
+# installation's data in portable form; a kept backup moves to KEPT_DUMPS, where
+# the next install takes it back (STATBUS-419 AC9). The upgrade snapshots in
+# ~/statbus-backups only fit the installation being removed and always go.
+KEPT_DUMPS="$HOME/statbus.dbdumps"
+DUMP_COUNT=0
+if [[ -d $DIR/dbdumps && ! -L $DIR/dbdumps ]]; then
+    shopt -s nullglob
+    dump_files=("$DIR"/dbdumps/*.pg_dump)
+    shopt -u nullglob
+    DUMP_COUNT=${#dump_files[@]}
+fi
+if ((DUMP_COUNT == 1)); then DUMP_WORDS="the 1 database backup"; else DUMP_WORDS="the $DUMP_COUNT database backups"; fi
+((DUMP_COUNT > 0)) || KEEP_DUMPS=0
 if [[ $INTERACTIVE == 1 ]]; then
-    echo 'Remove this StatBus installation? Backups, users and credentials are kept by default.'
+    echo 'Remove this StatBus installation? Users, credentials and database backups are kept by default.'
     read -r -u 3 -p 'Keep the users? [Y/n] ' answer
     [[ $answer != [nN]* ]] || KEEP_USERS=0
     read -r -u 3 -p 'Keep the credentials? [Y/n] ' answer
     [[ $answer != [nN]* ]] || KEEP_CREDENTIALS=0
-    read -r -u 3 -p 'Delete database dumps and backups too? [y/N] ' answer
-    [[ $answer != [yY]* ]] || KEEP_DUMPS=0
+    if ((DUMP_COUNT > 0)); then
+        read -r -u 3 -p "Keep ${DUMP_WORDS}? [Y/n] " answer
+        [[ $answer != [nN]* ]] || KEEP_DUMPS=0
+    fi
 fi
+yes_no() { [[ $1 == 1 ]] && echo yes || echo no; }
+{
+    echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) StatBus removal"
+    answers="Answers: keep users=$(yes_no "$KEEP_USERS"), keep credentials=$(yes_no "$KEEP_CREDENTIALS")"
+    ((DUMP_COUNT == 0)) || answers="$answers, keep $DUMP_WORDS=$(yes_no "$KEEP_DUMPS")"
+    [[ $INTERACTIVE == 1 ]] || answers="$answers (non-interactive)"
+    echo "$answers"
+} >>"$LOG"
 # Keep the exclusion inode outside the tree being removed, through final unlink.
 command -v perl >/dev/null 2>&1 || { echo 'perl is required for the uninstall mutex.'; exit 1; }
 exec 8<>"$HOME/.statbus-uninstall.lock"
@@ -296,18 +320,17 @@ remaining=()
 if [[ -d $DIR ]]; then
     shopt -s dotglob nullglob
     for path in "$DIR"/*; do
-        [[ $KEEP_DUMPS == 1 && $path == "$DIR/dbdumps" ]] && continue
         [[ $path == "$DIR/tmp" ]] && continue
         remaining+=("$path")
     done
 fi
 # The install also creates two folders beside the checkout (installerManagedHomeDirs
 # in cli/cmd/install.go): ~/statbus-maintenance, the maintenance page switch,
-# and ~/statbus-backups, the pre-upgrade snapshots. The backups go with the dumps.
+# and ~/statbus-backups, the upgrade snapshots. Both always go: a snapshot
+# can only roll back the installation being removed.
 home_dirs=()
 for path in "$HOME/statbus-maintenance" "$HOME/statbus-backups"; do
     [[ -e $path || -L $path ]] || continue
-    [[ $KEEP_DUMPS == 1 && $path == "$HOME/statbus-backups" ]] && continue
     home_dirs+=("$path")
 done
 # A kept users or credentials file is moved OUT of the checkout before any
@@ -355,6 +378,19 @@ fi
 if [[ $KEEP_CREDENTIALS == 1 ]]; then
     check_keep_target "$DIR/.env.credentials" "$HOME/statbus.env.credentials" credentials || exit 1
 fi
+# A kept database backup never overwrites a different file of the same name in
+# KEPT_DUMPS; checked for every file before anything is stopped or deleted.
+if [[ $KEEP_DUMPS == 1 ]]; then
+    if [[ -e $KEPT_DUMPS && ( -L $KEPT_DUMPS || ! -d $KEPT_DUMPS ) ]]; then
+        echo "Refusing to keep the database backups: $KEPT_DUMPS exists and is not a folder."
+        exit 1
+    fi
+    for dump in "$DIR"/dbdumps/*; do
+        [[ -e $dump || -L $dump ]] || continue
+        [[ ${dump##*/} == .gitkeep ]] && continue
+        check_keep_target "$dump" "$KEPT_DUMPS/${dump##*/}" "database backup" || exit 1
+    done
+fi
 # Every checkout deletion uses a nonrecursive private bind of HOME. Binding
 # the parent omits mounts even on the checkout root; cd pins the directory,
 # and the inode check rejects symlink substitutions before any file deletion.
@@ -401,6 +437,9 @@ if [[ -d $DIR ]]; then
     fi
     USE_DOCKER=1
 fi
+# The plan goes to the screen and to the removal log, so the log records what
+# the operator agreed to.
+print_plan() {
 echo 'StatBus removal plan (only listed resources will be deleted):'
 [[ -z ${containers:-} ]] || echo "  Project containers: $containers"
 [[ -z ${volumes:-} ]] || echo "  Project volumes: $volumes"
@@ -412,10 +451,12 @@ for unit in "${units[@]}"; do echo "  Unit file: $unit"; done
 for path in "${remaining[@]}"; do echo "  Path (recursively): $path"; done
 [[ ! -d $DIR/tmp ]] || echo "  Path (recursively, last): $DIR/tmp"
 for path in "${home_dirs[@]}"; do echo "  Path (recursively): $path"; done
-[[ $KEEP_DUMPS == 0 || ! -e $HOME/statbus-backups ]] || echo "  Keep: $HOME/statbus-backups"
 if [[ $KEEP_USERS == 1 && ( -e $DIR/.users.yml || -L $DIR/.users.yml ) ]]; then echo "  Move to $HOME/statbus.users.yml: $DIR/.users.yml"; fi
 if [[ $KEEP_CREDENTIALS == 1 && ( -e $DIR/.env.credentials || -L $DIR/.env.credentials ) ]]; then echo "  Move to $HOME/statbus.env.credentials: $DIR/.env.credentials"; fi
-[[ $KEEP_DUMPS == 0 || ! -e $DIR/dbdumps ]] || echo "  Keep: $DIR/dbdumps"
+[[ $KEEP_DUMPS == 0 ]] || echo "  Move to $KEPT_DUMPS: $DIR/dbdumps (${DUMP_WORDS#the })"
+}
+print_plan
+print_plan >>"$LOG"
 if [[ $INTERACTIVE == 1 ]]; then
     read -r -u 3 -p 'Type DELETE to execute this exact plan: ' answer
     [[ $answer == DELETE ]] || { echo 'Removal cancelled.'; exit 1; }
@@ -430,6 +471,15 @@ if [[ $KEEP_USERS == 1 ]]; then
 fi
 if [[ $KEEP_CREDENTIALS == 1 ]]; then
     move_out_kept "$DIR/.env.credentials" "$HOME/statbus.env.credentials" credentials || exit 1
+fi
+if [[ $KEEP_DUMPS == 1 ]]; then
+    mkdir -p "$KEPT_DUMPS" || { echo "Cannot create $KEPT_DUMPS; nothing has been deleted."; exit 1; }
+    for dump in "$DIR"/dbdumps/*; do
+        [[ -e $dump || -L $dump ]] || continue
+        [[ ${dump##*/} == .gitkeep ]] && continue
+        move_out_kept "$dump" "$KEPT_DUMPS/${dump##*/}" "database backup" || exit 1
+    done
+    echo "Kept ${DUMP_WORDS#the } in $KEPT_DUMPS; the next install moves them back."
 fi
 user_state=inactive
 if command -v systemctl >/dev/null 2>&1; then
@@ -523,23 +573,15 @@ if [[ -d $DIR ]]; then
     final_inode=$(perl -e 'my @s = stat(shift) or die "Cannot stat checkout\n"; print "$s[0]:$s[1]"' "$DIR") || exit 1
     [[ $final_inode == "$checkout_inode" ]] || { echo 'Checkout changed before final directory removal; refusing removal.'; exit 1; }
     unexpected=()
-    retained=()
     for path in "$DIR"/*; do
-        if [[ $KEEP_DUMPS == 1 && $path == "$DIR/dbdumps" ]]; then
-            retained+=("$path")
-        else
-            unexpected+=("$path")
-        fi
+        unexpected+=("$path")
     done
     if ((${#unexpected[@]} > 0)); then
         echo 'Unexpected checkout files remain; removal is incomplete. Inspect these paths before retrying:'
         printf '  %s\n' "${unexpected[@]}"
         exit 1
     fi
-    if ((${#retained[@]} > 0)); then
-        echo 'Only selected backups remain; keeping the checkout directory:'
-        printf '  %s\n' "${retained[@]}"
-    elif ! rmdir "$DIR"; then
+    if ! rmdir "$DIR"; then
         echo 'Cannot remove the empty checkout directory; check its permissions or any new files and retry.'
         exit 1
     fi

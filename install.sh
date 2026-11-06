@@ -743,18 +743,64 @@ statbus_git_fetch() {
 
 statbus_git_clone() {
     local destination="$1"; shift
-    # A failed fresh clone may leave a partial destination that makes the retry
-    # fail before touching the network. Wrap git so each bounded attempt starts
-    # clean, but never remove a destination that contains a real repository.
-    # shellcheck disable=SC2016  # single-quoted script expands only in child bash
-    statbus_git_with_retry clone github-clone-bootstrap bash -c '
-        destination=$1
-        shift
-        if [ -e "$destination" ] && [ ! -d "$destination/.git" ]; then
-            rm -rf "$destination"
-        fi
-        exec git clone --quiet "$@"
-    ' bash "$destination" "$@"
+    statbus_clone_destination_prepare "$destination" || return $?
+    # git clone removes the directory it created when it fails, so each bounded
+    # attempt starts from the same empty destination. Nothing here deletes.
+    statbus_git_with_retry clone github-clone-bootstrap git clone --quiet "$@"
+}
+
+# The fresh-install clone needs ~/statbus to be absent or empty. An uninstall
+# that kept the database backups (an earlier uninstaller left them in
+# ~/statbus/dbdumps) leaves only those: they are moved to ~/statbus.dbdumps,
+# the kept-backups folder the Go installer moves back into the new checkout
+# (STATBUS-419 AC10). The install never deletes a file it did not create, so
+# anything else there stops the install with the folder's contents named.
+statbus_clone_destination_prepare() {
+    local destination="$1" kept="$1.dbdumps" entry name others=""
+    [ -e "$destination" ] || return 0
+    if [ ! -d "$destination" ]; then
+        echo "Error: $destination exists and is not a folder. Move it away, then run the same install command again." >&2
+        return 1
+    fi
+    for entry in "$destination"/* "$destination"/.[!.]* "$destination"/..?*; do
+        [ -e "$entry" ] || [ -L "$entry" ] || continue
+        name=${entry##*/}
+        [ "$name" = dbdumps ] && [ -d "$entry" ] && [ ! -L "$entry" ] && continue
+        others="${others:+$others, }$name"
+    done
+    if [ -n "$others" ]; then
+        echo "Error: $destination is not a StatBus installation and holds: $others" >&2
+        echo "  The installer does not delete files it did not create. Move them out of $destination, then run the same install command again." >&2
+        return 1
+    fi
+    if [ -d "$destination/dbdumps" ]; then
+        mkdir -p "$kept" || return 1
+        for entry in "$destination/dbdumps"/* "$destination/dbdumps"/.[!.]* "$destination/dbdumps"/..?*; do
+            [ -e "$entry" ] || [ -L "$entry" ] || continue
+            name=${entry##*/}
+            [ "$name" = .gitkeep ] && continue
+            if [ -e "$kept/$name" ] || [ -L "$kept/$name" ]; then
+                if cmp -s "$entry" "$kept/$name"; then continue; fi
+                echo "Error: kept backup $entry and $kept/$name differ. Keep one and rename the other, then run the same install command again." >&2
+                return 1
+            fi
+        done
+        for entry in "$destination/dbdumps"/* "$destination/dbdumps"/.[!.]* "$destination/dbdumps"/..?*; do
+            [ -e "$entry" ] || [ -L "$entry" ] || continue
+            name=${entry##*/}
+            [ "$name" = .gitkeep ] && continue
+            if [ -e "$kept/$name" ]; then
+                # Identical copy already set aside; this one is the duplicate.
+                rm -f -- "$entry" || return 1
+            else
+                mv -- "$entry" "$kept/$name" || return 1
+            fi
+        done
+        echo "Kept backups from the earlier installation: moved $destination/dbdumps to $kept"
+        rm -f -- "$destination/dbdumps/.gitkeep"
+        rmdir -- "$destination/dbdumps" || return 1
+    fi
+    rmdir -- "$destination" || return 1
 }
 
 # Pure/local regression seams for the compatibility-sensitive fetch wrapper.
@@ -770,6 +816,13 @@ case "${STATBUS_INSTALL_TEST_GIT_FETCH:-}" in
         exit 0
         ;;
 esac
+# Pure/local regression seam for the fresh-install clone (STATBUS-419 AC10).
+# Production invocations never set this variable.
+if [ "${STATBUS_INSTALL_TEST_GIT_CLONE:-}" = 1 ]; then
+    statbus_git_clone "$STATBUS_DIR" --depth 1 --no-checkout \
+        https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
+    exit $?
+fi
 
 if [ -n "$VERSION" ]; then
     echo "Installing specified version: $VERSION"

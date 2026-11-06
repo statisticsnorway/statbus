@@ -5,7 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"syscall"
 	"testing"
@@ -1232,7 +1234,7 @@ func TestUninstallKeepsUsersAndCredentialsAtHome(t *testing.T) {
 	}
 	bin := ensureBinDir(t, home)
 	writeUninstallDockerMock(t, bin)
-	out, err := runUninstallOnPTY(t, home, binPath(home), "\n\nY\nDELETE\n")
+	out, err := runUninstallOnPTY(t, home, binPath(home), "\n\nDELETE\n")
 	if err != nil {
 		t.Fatalf("interactive removal: %v\n%s", err, out)
 	}
@@ -1280,7 +1282,7 @@ func TestUninstallRefusesToOverwriteDifferentHomeUserFile(t *testing.T) {
 	if err := os.WriteFile(homeUsers, []byte("- email: old@example.org\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	out, err := runUninstallOnPTY(t, home, binPath(home), "\n\nY\nDELETE\n")
+	out, err := runUninstallOnPTY(t, home, binPath(home), "\n\nDELETE\n")
 	if err == nil || !strings.Contains(out, "Refusing") || !strings.Contains(out, homeUsers) {
 		t.Fatalf("different home file not refused: %v\n%s", err, out)
 	}
@@ -1403,48 +1405,40 @@ exit 0
 // the maintenance folder always, and the backups with the database dumps; when
 // the dumps are kept, the backups are kept too and the plan says so.
 func TestUninstallRemovesTheInstallsHomeFolders(t *testing.T) {
-	for _, tc := range []struct {
-		name        string
-		answers     string
-		keepBackups bool
-	}{
-		{"delete the dumps", "n\nn\ny\nDELETE\n", false},
-		{"keep the dumps", "n\nn\n\nDELETE\n", true},
+	// The upgrade snapshots (~/statbus-backups) only fit the installation being
+	// removed, so they go whether or not the database backups are kept.
+	for _, tc := range []struct{ name, answers string }{
+		{"keep the database backup", "n\nn\n\nDELETE\n"},
+		{"delete the database backup", "n\nn\nn\nDELETE\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home := t.TempDir()
 			dir := filepath.Join(home, "statbus")
-			for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(home, "statbus-maintenance"), filepath.Join(home, "statbus-backups", "pre-upgrade-active")} {
+			for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(dir, "dbdumps"), filepath.Join(home, "statbus-maintenance"), filepath.Join(home, "statbus-backups", "pre-upgrade-active")} {
 				if err := os.MkdirAll(sub, 0700); err != nil {
 					t.Fatal(err)
 				}
 			}
-			if err := os.WriteFile(filepath.Join(home, "statbus-maintenance", "active"), []byte("upgrade\n"), 0600); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(home, "statbus-backups", "v2026.11.0-pre.tar.gz"), []byte("archive"), 0600); err != nil {
-				t.Fatal(err)
+			for path, body := range map[string]string{
+				filepath.Join(home, "statbus-maintenance", "active"):            "upgrade\n",
+				filepath.Join(home, "statbus-backups", "v2026.11.0-pre.tar.gz"): "archive",
+				filepath.Join(dir, "dbdumps", "un_20261105_121219.pg_dump"):     "dump",
+			} {
+				if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+					t.Fatal(err)
+				}
 			}
 			writeUninstallDockerMock(t, ensureBinDir(t, home))
 			out, err := runUninstallOnPTY(t, home, binPath(home), tc.answers)
 			if err != nil {
 				t.Fatalf("interactive removal: %v\n%s", err, out)
 			}
-			for path, wantKept := range map[string]bool{
-				dir: false,
-				filepath.Join(home, "statbus-maintenance"): false,
-				filepath.Join(home, "statbus-backups"):     tc.keepBackups,
-			} {
-				_, statErr := os.Stat(path)
-				if kept := statErr == nil; kept != wantKept {
-					t.Errorf("%s kept=%v, want kept=%v\n%s", path, kept, wantKept, out)
+			for _, path := range []string{dir, filepath.Join(home, "statbus-maintenance"), filepath.Join(home, "statbus-backups")} {
+				if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+					t.Errorf("%s survived the removal: %v\n%s", path, statErr, out)
 				}
 			}
-			wantPlan := "  Path (recursively): " + filepath.Join(home, "statbus-backups")
-			if tc.keepBackups {
-				wantPlan = "  Keep: " + filepath.Join(home, "statbus-backups")
-			}
-			for _, want := range []string{"  Path (recursively): " + filepath.Join(home, "statbus-maintenance"), wantPlan} {
+			for _, want := range []string{"  Path (recursively): " + filepath.Join(home, "statbus-maintenance"), "  Path (recursively): " + filepath.Join(home, "statbus-backups")} {
 				if !strings.Contains(out, want) {
 					t.Errorf("plan is missing %q:\n%s", want, out)
 				}
@@ -1479,5 +1473,155 @@ func TestUninstallLeavesNoLockFileBehind(t *testing.T) {
 	}
 	if got := strings.Join(left, " "); got != "bin statbus-uninstall.log" {
 		t.Fatalf("home after removal holds %q, want only the test's bin and statbus-uninstall.log", got)
+	}
+}
+
+// uninstallPrompts lists the questions an uninstall asked, in the order they
+// appear. On a terminal several prompts can share one output line (the
+// answer's echo is not a newline), so they are found by position.
+func uninstallPrompts(out string) []string {
+	text := strings.ReplaceAll(out, "\r", "")
+	backup := regexp.MustCompile(`Keep the [0-9]+ database backups?\? \[Y/n\]`)
+	type found struct {
+		at     int
+		prompt string
+	}
+	var all []found
+	for _, q := range []string{"Keep the users? [Y/n]", "Keep the credentials? [Y/n]", "Type DELETE to execute this exact plan:"} {
+		for from := 0; ; {
+			i := strings.Index(text[from:], q)
+			if i < 0 {
+				break
+			}
+			all = append(all, found{from + i, q})
+			from += i + len(q)
+		}
+	}
+	for _, loc := range backup.FindAllStringIndex(text, -1) {
+		all = append(all, found{loc[0], text[loc[0]:loc[1]]})
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].at < all[j].at })
+	prompts := make([]string, 0, len(all))
+	for _, f := range all {
+		prompts = append(prompts, f.prompt)
+	}
+	return prompts
+}
+
+// STATBUS-419 AC9: kept database backups leave the checkout, like the kept
+// users and credentials, so ~/statbus is removed completely; the upgrade
+// snapshots are removed, since they only fit the installation being removed.
+// The plan and the answers are in the removal log.
+func TestUninstallKeepsBackupsOutsideTheCheckout(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(dir, "dbdumps"), filepath.Join(home, "statbus-backups", "pre-upgrade-active")} {
+		if err := os.MkdirAll(sub, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for path, body := range map[string]string{
+		filepath.Join(dir, "dbdumps", ".gitkeep"):                         "",
+		filepath.Join(dir, "dbdumps", "un_20261105_121219.pg_dump"):       "dump",
+		filepath.Join(dir, "dbdumps", "un_20261105_121219.logs.tar.gz"):   "logs",
+		filepath.Join(home, "statbus-backups", "pre-upgrade-active", "x"): "snapshot",
+	} {
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeUninstallDockerMock(t, ensureBinDir(t, home))
+	out, err := runUninstallOnPTY(t, home, binPath(home), "\n\n\nDELETE\n")
+	if err != nil {
+		t.Fatalf("interactive removal: %v\n%s", err, out)
+	}
+	wantPrompts := []string{"Keep the users? [Y/n]", "Keep the credentials? [Y/n]", "Keep the 1 database backup? [Y/n]", "Type DELETE to execute this exact plan:"}
+	if got := uninstallPrompts(out); strings.Join(got, "|") != strings.Join(wantPrompts, "|") {
+		t.Fatalf("prompts = %q, want %q\n%s", got, wantPrompts, out)
+	}
+	kept := filepath.Join(home, "statbus.dbdumps")
+	for name, want := range map[string]string{"un_20261105_121219.pg_dump": "dump", "un_20261105_121219.logs.tar.gz": "logs"} {
+		if data, readErr := os.ReadFile(filepath.Join(kept, name)); readErr != nil || string(data) != want {
+			t.Fatalf("%s: %q %v\n%s", name, data, readErr, out)
+		}
+	}
+	for _, gone := range []string{dir, filepath.Join(home, "statbus-backups")} {
+		if _, statErr := os.Stat(gone); !os.IsNotExist(statErr) {
+			t.Fatalf("%s survived the removal: %v\n%s", gone, statErr, out)
+		}
+	}
+	planLine := "  Move to " + kept + ": " + filepath.Join(dir, "dbdumps") + " (1 database backup)"
+	if !strings.Contains(out, planLine) {
+		t.Errorf("plan is missing %q:\n%s", planLine, out)
+	}
+	log, readErr := os.ReadFile(filepath.Join(home, "statbus-uninstall.log"))
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	for _, want := range []string{"StatBus removal plan (only listed resources will be deleted):", planLine, "Answers: keep users=yes, keep credentials=yes, keep the 1 database backup=yes"} {
+		if !strings.Contains(string(log), want) {
+			t.Errorf("removal log is missing %q:\n%s", want, log)
+		}
+	}
+}
+
+// With no database backup there is nothing to keep, so nothing is asked about
+// backups, and the empty upgrade-snapshot folder goes.
+func TestUninstallAsksAboutBackupsOnlyWhenThereAreSome(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(dir, "dbdumps"), filepath.Join(home, "statbus-backups")} {
+		if err := os.MkdirAll(sub, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "dbdumps", ".gitkeep"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeUninstallDockerMock(t, ensureBinDir(t, home))
+	out, err := runUninstallOnPTY(t, home, binPath(home), "\n\nDELETE\n")
+	if err != nil {
+		t.Fatalf("interactive removal: %v\n%s", err, out)
+	}
+	wantPrompts := []string{"Keep the users? [Y/n]", "Keep the credentials? [Y/n]", "Type DELETE to execute this exact plan:"}
+	if got := uninstallPrompts(out); strings.Join(got, "|") != strings.Join(wantPrompts, "|") {
+		t.Fatalf("prompts = %q, want %q\n%s", got, wantPrompts, out)
+	}
+	for _, gone := range []string{dir, filepath.Join(home, "statbus-backups"), filepath.Join(home, "statbus.dbdumps")} {
+		if _, statErr := os.Stat(gone); !os.IsNotExist(statErr) {
+			t.Fatalf("%s exists after the removal: %v\n%s", gone, statErr, out)
+		}
+	}
+}
+
+// A kept backup never overwrites a different file of the same name in
+// ~/statbus.dbdumps: the uninstall refuses before stopping or deleting anything.
+func TestUninstallRefusesToOverwriteADifferentKeptBackup(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(dir, "dbdumps"), filepath.Join(home, "statbus.dbdumps")} {
+		if err := os.MkdirAll(sub, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checkoutDump := filepath.Join(dir, "dbdumps", "x_20261105_121219.pg_dump")
+	homeDump := filepath.Join(home, "statbus.dbdumps", "x_20261105_121219.pg_dump")
+	for path, body := range map[string]string{checkoutDump: "new", homeDump: "old"} {
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeUninstallDockerMock(t, ensureBinDir(t, home))
+	out, err := runUninstallOnPTY(t, home, binPath(home), "\n\n\nDELETE\n")
+	if err == nil || !strings.Contains(out, "Refusing to overwrite "+homeDump) {
+		t.Fatalf("different kept backup not refused: %v\n%s", err, out)
+	}
+	for path, want := range map[string]string{checkoutDump: "new", homeDump: "old"} {
+		if data, _ := os.ReadFile(path); string(data) != want {
+			t.Fatalf("%s = %q, want %q", path, data, want)
+		}
+	}
+	if strings.Contains(out, "Step 2") {
+		t.Fatalf("teardown ran after refusal:\n%s", out)
 	}
 }

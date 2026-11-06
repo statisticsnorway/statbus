@@ -125,6 +125,28 @@
     fflush()
     next
 }
+# Database backups an uninstall kept (cli/cmd/install_kept_backups.go): the
+# move back into the checkout, and how to restore the newest one.
+/^  Moved the [0-9]+ kept backups? from [A-Za-z0-9_.\/~+-]+ to [A-Za-z0-9_.\/~+-]+\.$/ {
+    print
+    fflush()
+    next
+}
+/^[0-9]+ database backups? from the earlier installation (is|are) in [A-Za-z0-9_.\/~+-]+\. The newest is [A-Za-z0-9_.+-]+\.pg_dump\.$/ {
+    print
+    fflush()
+    next
+}
+/^To put its data into this installation, run:$/ {
+    print
+    fflush()
+    next
+}
+/^    cd ~\/statbus && \.\/sb db restore [A-Za-z0-9_.+-]+\.pg_dump$/ {
+    print
+    fflush()
+    next
+}
 /^    cd [A-Za-z0-9_.\/~+-]+ && \.\/sb install$/ {
     print
     fflush()

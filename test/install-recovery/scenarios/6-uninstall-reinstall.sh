@@ -47,9 +47,10 @@ login_on_vm first-admin-login "$DOMAIN" "$LOGIN_PASSWORD"
 CREDENTIALS_SHA=$(VM_EXEC bash -c 'sha256sum ~/statbus/.env.credentials | cut -d" " -f1' | tr -d '\r\n')
 
 # Interactive uninstall on a PTY: keep the users (Enter), keep the
-# credentials (Enter), delete the database dumps (Y) so the whole checkout
-# goes, then confirm the plan.
-VM_EXEC bash -c 'cd ~/statbus && printf "\n\nY\nDELETE\n" | script -qec "./sb uninstall" /dev/null'
+# credentials (Enter), keep the database backups if any exist (Enter; the
+# question is only asked when there are some), then confirm the plan. The
+# whole checkout goes either way; kept backups move to ~/statbus.dbdumps.
+VM_EXEC bash -c 'cd ~/statbus && if ls dbdumps/*.pg_dump >/dev/null 2>&1; then a="\n\n\nDELETE\n"; else a="\n\nDELETE\n"; fi; printf "$a" | script -qec "./sb uninstall" /dev/null'
 VM_EXEC bash -c 'test ! -e ~/statbus && test -f ~/statbus.users.yml && test -f ~/statbus.env.credentials'
 MODE=$(VM_EXEC bash -c 'stat -c %a ~/statbus.users.yml ~/statbus.env.credentials | sort -u' | tr -d '\r\n')
 [ "$MODE" = 600 ] || { echo "FAIL: kept files mode '$MODE', want 600" >&2; exit 1; }

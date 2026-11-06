@@ -8,25 +8,30 @@ As the service user, run `curl -fsSL https://statbus.org/uninstall.sh | bash`
 All entry points use the same standalone script. It lists every selected
 Docker resource, unit file, and checkout path before asking for `DELETE`.
 Interactive removal asks `Keep the users? [Y/n]` and
-`Keep the credentials? [Y/n]` (both kept by default), and keeps
-`~/statbus/dbdumps/` unless you delete the dumps too. A kept users file moves
-to `~/statbus.users.yml` and a kept credentials file to
-`~/statbus.env.credentials`, both mode `0600`; the plan lists each move. The
-uninstaller refuses to overwrite a different file already at either home path,
-before it stops or deletes anything. Because both files leave the checkout,
-`~/statbus` itself is removed completely. A kept `dbdumps/` directory alone
-keeps the empty checkout directory; non-interactive removal deletes dumps,
-users and credentials and requires
+`Keep the credentials? [Y/n]`, and, only when `~/statbus/dbdumps/` holds
+database backups, `Keep the 1 database backup? [Y/n]` (with the count found).
+All three are kept by default. A kept users file moves to
+`~/statbus.users.yml`, a kept credentials file to `~/statbus.env.credentials`
+(both mode `0600`), and kept database backups to `~/statbus.dbdumps/`; the
+plan lists each move. The uninstaller refuses to overwrite a different file
+already at a home path, before it stops or deletes anything. Because the kept
+files leave the checkout, `~/statbus` itself is removed completely. The
+upgrade snapshots in `~/statbus-backups` are always removed: a snapshot can
+only roll back the installation being removed. Non-interactive removal deletes
+database backups, users and credentials and requires
 `STATBUS_UNINSTALL_CONFIRM=yes-delete-everything`.
 
-The next install moves `~/statbus.users.yml` and
-`~/statbus.env.credentials` back into the checkout, so the same administrator
-and the same generated secrets are reused and no second copy is left in the
-home. Do not edit the home copies while StatBus is installed. A credentials
-file supplied through the installer's configuration is still read as an
-input.
+The next install moves `~/statbus.users.yml`, `~/statbus.env.credentials` and
+`~/statbus.dbdumps/` back into the checkout, so the same administrator and the
+same generated secrets are reused and no second copy is left in the home. When
+it brings back database backups, the install ends by naming the newest one and
+the command that restores it (`cd ~/statbus && ./sb db restore <file>`); it
+never restores by itself. Do not edit the home copies while StatBus is
+installed. A credentials file supplied through the installer's configuration is
+still read as an input.
 
-Details go to `~/statbus-uninstall.log`. The service account needs Docker
+Details go to `~/statbus-uninstall.log`, including the plan and the answers
+given. The service account needs Docker
 access, not sudo, to remove container-owned checkout files. The uninstaller
 tests its Docker cleanup helper before stopping services and only removes
 image tags attributable to this project and unused by other containers. A
