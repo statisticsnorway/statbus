@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-11-05T16:49:00Z'
-updated_date: '2026-11-06T00:11:00Z'
+updated_date: '2026-11-06T09:56:00Z'
 labels:
   - import
   - history
@@ -45,4 +45,6 @@ Example: a unit born 2026-03-01 is imported with valid_from 2026-05-07. It enter
 2026-11-05 23:49 owner: each row failing the test warns, except later pieces of the same unit's timeline in the file. Rule implemented: birth_date < valid_from, same calendar year (of valid_from), and the row starts the unit's timeline (no earlier row with the same founding_row_id, no stored version starting earlier). Done in the legal_unit and establishment analyse steps (priority 20), which already resolve birth_date and own the birth_date_raw warning key. Branch statbus-573-birth-before-valid-from (local).
 
 2026-11-06 00:12 Done on branch statbus-573-birth-before-valid-from (local): test 64723126f, fix 4d64f6c3d (migration 20261106000006, doc/import-system.md, doc/db). Test 369: pre-fix no row warned (tmp/573/369-prefix.out); post-fix W01, W05 first piece, W06 first piece (listed second in the file), W10, E01 warned; W02 (earlier year), W03 (on valid_from), W04 (after), W07 (no date), W08 (exists from birth), the later pieces and every row of the second file not warned; all rows import. History B3: W10 corrected in the second file counts as born in March. Fast suite 123/123 after accepting 324 (enterprise ids follow heap order, explained in commit).
+
+2026-11-06 09:56 Rebased onto statbus-558-history-delta 20232ff52 (commits now ad9092de0 test, 2e2d5d9f3 fix). Test 324 no longer prints allocated enterprise ids (558 commit 20232ff52, independent review finding 12), so this branch no longer changes 324; the earlier note's commit ids and 324 acceptance are superseded.
 <!-- SECTION:NOTES:END -->
