@@ -42,7 +42,7 @@ BEGIN
         CREATE TEMP TABLE t_batch_data ON COMMIT DROP AS
         SELECT dt.row_id, dt.operation, dt.name_raw, dt.status_id, dt.legal_unit_id,
                dt.legal_form_code_raw, dt.sector_code_raw, dt.unit_size_code_raw,
-               dt.birth_date_raw, dt.death_date_raw
+               dt.birth_date_raw, dt.death_date_raw, dt.valid_from, dt.founding_row_id
         FROM %I dt
         WHERE dt.batch_seq = $1
           AND dt.action IS DISTINCT FROM 'skip';
@@ -79,11 +79,29 @@ BEGIN
     ANALYZE t_resolved_codes;
     ANALYZE t_resolved_dates;
 
+    -- Rows that start their unit's timeline (STATBUS-573): no other row of the same unit in this file
+    -- (founding_row_id, all batches) and no stored version of the unit starts earlier. Only such a row can
+    -- move its valid_from back to the birth date; later pieces start after an earlier piece by design.
+    IF to_regclass('pg_temp.t_timeline_start') IS NOT NULL THEN DROP TABLE t_timeline_start; END IF;
+    v_sql := format($$
+        CREATE TEMP TABLE t_timeline_start ON COMMIT DROP AS
+        SELECT bd.row_id
+        FROM t_batch_data AS bd
+        WHERE NOT EXISTS (SELECT 1 FROM public.%1$I AS other
+                           WHERE other.founding_row_id = bd.founding_row_id
+                             AND other.valid_from < bd.valid_from
+                             AND other.action IS DISTINCT FROM 'skip')
+          AND NOT EXISTS (SELECT 1 FROM public.legal_unit AS stored
+                           WHERE stored.id = bd.legal_unit_id
+                             AND stored.valid_from < bd.valid_from);
+    $$, v_data_table_name /* %1$I */);
+    EXECUTE v_sql;
+
     -- Step 3: Perform the main update using the pre-resolved lookup tables.
     v_sql := format($SQL$
-        WITH lookups AS (
+        WITH lookups_base AS (
             SELECT
-                bd.row_id as data_row_id,
+                bd.row_id as data_row_id, bd.valid_from,
                 bd.operation, bd.name_raw as name, bd.status_id, bd.legal_unit_id,
                 bd.legal_form_code_raw as legal_form_code,
                 bd.sector_code_raw as sector_code,
@@ -103,6 +121,15 @@ BEGIN
             LEFT JOIN t_resolved_codes us ON bd.unit_size_code_raw = us.code AND us.type = 'unit_size'
             LEFT JOIN t_resolved_dates b_date ON bd.birth_date_raw = b_date.date_string
             LEFT JOIN t_resolved_dates d_date ON bd.death_date_raw = d_date.date_string
+        ), lookups AS (
+            SELECT lb.*,
+                   -- STATBUS-573: born earlier in the same year as the period this row starts the unit's timeline
+                   -- with, so history counts the unit as added in that month, not as born.
+                   (ts.row_id IS NOT NULL
+                    AND lb.resolved_typed_birth_date < lb.valid_from
+                    AND date_trunc('year', lb.resolved_typed_birth_date) = date_trunc('year', lb.valid_from)) AS born_before_timeline
+            FROM lookups_base AS lb
+            LEFT JOIN t_timeline_start AS ts ON ts.row_id = lb.data_row_id
         )
         UPDATE public.%1$I dt SET
             name = NULLIF(trim(l.name), ''),
@@ -136,7 +163,13 @@ BEGIN
                                      jsonb_build_object('legal_form_code_raw', CASE WHEN NULLIF(l.legal_form_code, '') IS NOT NULL AND l.resolved_legal_form_id IS NULL THEN l.legal_form_code ELSE NULL END) ||
                                      jsonb_build_object('sector_code_raw', CASE WHEN NULLIF(l.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN l.sector_code ELSE NULL END) ||
                                      jsonb_build_object('unit_size_code_raw', CASE WHEN NULLIF(l.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN l.unit_size_code ELSE NULL END) ||
-                                     jsonb_build_object('birth_date_raw', CASE WHEN NULLIF(l.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN l.birth_date ELSE NULL END) ||
+                                     jsonb_build_object('birth_date_raw', CASE
+                                         WHEN NULLIF(l.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN l.birth_date
+                                         WHEN l.born_before_timeline THEN
+                                             'Born ' || l.resolved_typed_birth_date || ', but the unit''s first period starts ' || l.valid_from
+                                             || ' in the same year, so history counts it as added in ' || to_char(l.valid_from, 'YYYY-MM')
+                                             || ', not as born. If the unit existed from its birth, set valid_from to the birth date.'
+                                         ELSE NULL END) ||
                                      jsonb_build_object('death_date_raw', CASE WHEN NULLIF(l.death_date, '') IS NOT NULL AND l.death_date_error_msg IS NOT NULL THEN l.death_date ELSE NULL END)
                                     )
                                 ELSE dt.warnings
