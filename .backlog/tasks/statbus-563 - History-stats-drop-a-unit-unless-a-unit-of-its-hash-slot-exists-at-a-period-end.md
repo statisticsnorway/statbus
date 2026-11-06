@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-03T22:24:00Z'
-updated_date: '2026-11-06T11:52:00Z'
+updated_date: '2026-11-06T19:15:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -22,8 +22,8 @@ STATBUS-558
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 statistical_history and statistical_history_facet stats_summary equal the documented population for each period, independent of hash slots
-- [ ] #2 A regression test with two units in different hash slots, one of them not existing at either end of a period, gives the same stats_summary as the documented population for that period
+- [x] #1 statistical_history and statistical_history_facet stats_summary equal the documented population for each period, independent of hash slots
+- [x] #2 A regression test with two units in different hash slots, one of them not existing at either end of a period, gives the same stats_summary as the documented population for that period
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -40,4 +40,6 @@ Run: ./dev.sh test 364_statbus_563_history_stats_independent_of_hash_slot. Outpu
 2026-11-04 owner decision: resolved by STATBUS-558, not fixed separately in today's code. 558 replaces statistical_history_def/statistical_history_facet_def; each unit's stats live on its own delta rows, so no hash-slot dependency. The 558 views already pass test 364 (17 employees / 2 units for 2024; local commits 507156f12, cbc7320b7). Accepted: 558 changes today's numbers where today undercounts (10-year db: 6 of 12 yearly employee cells higher, never lower). Close as Done when STATBUS-558 reaches maturity (merged and verified).
 
 2026-11-06 11:52 Landed in local master 67488988e (fast-forward, owner 11:41: land the whole set, then one release with one full recalculation). Not pushed. Fast suite on that tip 124/124 (tmp/test-stack-fast.log).
+
+2026-11-06 19:15 rebased local master onto origin/master ce9669a78 (after v2026.11.1-rc.17); tip 3e4b68ea6, 80 commits ahead, 0 merges, combined patch identical to before the rebase. Fast suite: all 124 shared + 2 isolated tests pass (tmp/test-rebased-fast.log). Not pushed. Test 364 (two legal units in different hash slots, one existing at neither 2024 end): documented population 17 employees / 2 units; before the fix statistical_history gave 10 / 1 (tmp/test-563.log), now 17 / 2, stats_match_documented_population = t, for both statistical_history and statistical_history_facet. 10-year data: all 465 rows equal an independent count from statistical_unit (tmp/558-onetable/30-10y.log).
 <!-- SECTION:NOTES:END -->
