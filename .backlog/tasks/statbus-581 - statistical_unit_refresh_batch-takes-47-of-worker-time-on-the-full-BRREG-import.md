@@ -33,7 +33,7 @@ A unit refresh costs in proportion to the units it refreshes, so imports and ful
 
 ### Closing review
 - **Memory:** none expected.
-- **Documentation:** doc/derive-pipeline.md timing table if the refresh changes.
+- **Documentation:** doc/derive-pipeline.md has no timing table to update (only the command list, unchanged). The measurements are in doc/performance/2026-11-history-delta-measurements.md section 7, and the function's own COMMENT ON explains the partial path.
 - **Cleanup:** drop the import_benchmark_43190 (baseline) and import_benchmark_40149 (AC2 run) databases after the release notes are written.
 <!-- SECTION:DESCRIPTION:END -->
 
