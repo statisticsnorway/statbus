@@ -43,4 +43,22 @@ else
     echo "FAIL the stage says '${announced:-nothing}' but configures '${configured:-nothing}'"; fail=1
 fi
 
+# 4. STATBUS-583: Docker is updated at night too. Its packages come from
+# download.docker.com, whose Release file says "Origin: Docker" and
+# "Suite: <codename>", so unattended-upgrades installs them only when that
+# origin is allowed. Without it docker-ce waited for a manual upgrade that
+# nobody does (Uganda, 2026-11-06). The night window exists so the containers
+# can restart while nobody works.
+origins="$(awk '/^Unattended-Upgrade::Allowed-Origins \{/,/^\};/' <<<"$stage")"
+if grep -Fq '"Docker:\${distro_codename}";' <<<"$origins"; then
+    echo "PASS Docker's repository is an allowed origin for the nightly updates"
+else
+    echo "FAIL Docker's repository is not an allowed origin, so Docker is never updated at night"; fail=1
+fi
+if grep -Eq 'echo "  - .*Docker' <<<"$stage"; then
+    echo "PASS the stage tells the operator that Docker is updated at night"
+else
+    echo "FAIL the stage does not say that Docker is updated at night"; fail=1
+fi
+
 exit $fail

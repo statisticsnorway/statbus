@@ -1384,6 +1384,7 @@ stage_auto_updates() {
     echo "This stage will:"
     echo "  - Install unattended-upgrades"
     echo "  - Configure automatic security updates"
+    echo "  - Update Docker at night too, so its containers restart while nobody works"
     echo "  - Set up nightly update schedule (01:00 + random delay)"
     echo "  - Reboot at 03:15 when an update requires it (automatic reboots enabled)"
     echo "  - Set notification email: ${ADMIN_EMAIL:-<not configured>}"
@@ -1422,6 +1423,10 @@ Unattended-Upgrade::Allowed-Origins {
     "\${distro_id}ESMApps:\${distro_codename}-apps-security";
     "\${distro_id}ESM:\${distro_codename}-infra-security";
     "\${distro_id}:\${distro_codename}-updates";
+    // STATBUS-583: Docker from download.docker.com (Origin: Docker). Updating
+    // it restarts every container, which is why it happens in this night
+    // window; StatBus services are restart: unless-stopped and come back.
+    "Docker:\${distro_codename}";
 };
 
 Unattended-Upgrade::Package-Blacklist {
