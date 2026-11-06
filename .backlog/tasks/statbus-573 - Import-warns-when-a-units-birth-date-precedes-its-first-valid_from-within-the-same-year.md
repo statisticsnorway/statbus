@@ -3,10 +3,10 @@ id: STATBUS-573
 title: >-
   Import warns when a unit's birth date precedes its first valid_from within the
   same year
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-05T16:49:00Z'
-updated_date: '2026-11-06T10:04:00Z'
+updated_date: '2026-11-06T00:11:00Z'
 labels:
   - import
   - history
@@ -18,16 +18,31 @@ ordinal: 492204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-History counts a birth only when a counted version's existence starts at its birth_date (existence from = GREATEST(valid_from, birth_date), STATBUS-460; births rule C, owner decision 2026-11-05 under STATBUS-558). Data that arrives late breaks that, so a statistician reading births for a year misses units born that year. The fix belongs at import, where the user can still correct the row.
+### North Star
+A statistician reading births for a year sees every unit born in that year counted in the month it was born, consistent with the stock.
 
+### Zoom out
+History counts a birth only when a counted version's existence starts at its birth_date (existence from = GREATEST(valid_from, birth_date), STATBUS-460; births rule C, owner decision 2026-11-05 under STATBUS-558). Data that arrives late breaks that: the fix belongs at import, where the user can still correct the row.
+
+### Zoom in
 Example: a unit born 2026-03-01 is imported with valid_from 2026-05-07. It enters the stock in May as added and is never counted as a birth (Norway 2026: 35 establishments, e.g. 73598, 74463, 74674). The import marks the row that starts the unit's timeline with a warning naming both dates, so the operator can set valid_from to the birth date. History then counts the birth in its month: the delta table subtracts the unit's old contribution and adds the new one.
 
-doc/import-system.md describes the warning.
+### Closing review
+- **Documentation:** doc/import-system.md describes the warning.
+- **Memory, cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An import row whose birth_date is in the current year and earlier than its valid_from gets a warning naming both dates
-- [ ] #2 Rows with birth_date before the current year, or birth_date on or after valid_from, get no such warning
-- [ ] #3 A regression test committed before the change shows the missing warning
+- [x] #1 An import row whose birth_date is earlier than its valid_from in the same calendar year, and that starts its unit's timeline, gets a warning under birth_date_raw naming both dates and the month history counts it in; the row still imports
+- [x] #2 Rows with birth_date in an earlier year, birth_date on or after valid_from, no birth_date, or that are a later piece of the unit's timeline (in the file or already stored) get no such warning
+- [x] #3 Test 369 asserts the warned and unwarned rows of legal units and informal establishments, and fails on the code without the warning
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-05 23:49 owner: each row failing the test warns, except later pieces of the same unit's timeline in the file. Rule implemented: birth_date < valid_from, same calendar year (of valid_from), and the row starts the unit's timeline (no earlier row with the same founding_row_id, no stored version starting earlier). Done in the legal_unit and establishment analyse steps (priority 20), which already resolve birth_date and own the birth_date_raw warning key. Branch statbus-573-birth-before-valid-from (local).
+
+2026-11-06 00:12 Done on branch statbus-573-birth-before-valid-from (local): test 64723126f, fix 4d64f6c3d (migration 20261106000006, doc/import-system.md, doc/db). Test 369: pre-fix no row warned (tmp/573/369-prefix.out); post-fix W01, W05 first piece, W06 first piece (listed second in the file), W10, E01 warned; W02 (earlier year), W03 (on valid_from), W04 (after), W07 (no date), W08 (exists from birth), the later pieces and every row of the second file not warned; all rows import. History B3: W10 corrected in the second file counts as born in March. Fast suite 123/123 after accepting 324 (enterprise ids follow heap order, explained in commit).
+<!-- SECTION:NOTES:END -->
