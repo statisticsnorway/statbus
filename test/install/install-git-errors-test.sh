@@ -42,7 +42,7 @@ export PATH="$tmpdir/bin:$PATH"
 export DOCKER_CONFIG="${DOCKER_CONFIG:-$HOME/.docker}"
 export HOME="$tmpdir/home"
 real_diagnostics="$REPO_ROOT/tmp/install-last-run-output.txt"
-real_diagnostics_before="$(cat "$real_diagnostics" 2>/dev/null)"
+real_diagnostics_before="$(cat "$real_diagnostics" 2>/dev/null || true)"
 
 assert_contains() {
     local file="$1" text="$2" name="$3"
@@ -107,7 +107,7 @@ run_case network "Could not resolve host" fixture-network-secret
 # STATBUS-585: these fixture failures belong to the scratch checkout above.
 # The repository's own diagnostics file is what a developer reads after a
 # real install on this machine; it must not gain fixture lines.
-if [ "$(cat "$real_diagnostics" 2>/dev/null)" != "$real_diagnostics_before" ]; then
+if [ "$(cat "$real_diagnostics" 2>/dev/null || true)" != "$real_diagnostics_before" ]; then
     echo "FAIL: the test wrote into $real_diagnostics" >&2
     diff <(printf '%s\n' "$real_diagnostics_before") "$real_diagnostics" >&2 || true
     exit 1
