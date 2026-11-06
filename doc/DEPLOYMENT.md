@@ -246,6 +246,23 @@ The script configures:
   users; Docker group membership and systemd `--user` linger come from the
   `core-tools` stage, linger after Docker access so the upgrader has it
 
+**Servers prepared before v2026.11.1: turn on nightly Docker updates.** The
+nightly automatic updates used to install only Ubuntu's own packages, so
+Docker (from Docker's own package source) was never updated unless someone
+did it by hand. Setup from v2026.11.1 on includes Docker; a server prepared
+earlier keeps the old setting until its auto-updates stage is rerun. Once,
+as root in a root login shell, run:
+
+```bash
+sudo -i
+curl -fsSL https://statbus.org/setup.sh | bash -s -- --only-stages auto-updates
+```
+
+Then check that Docker is included: `unattended-upgrade --dry-run -d 2>&1 | grep -i docker`
+lists the Docker packages when an update is waiting. Docker updates restart
+StatBus's containers; that happens in the night window (from 01:00), and every
+StatBus service starts again by itself.
+
 **For STATBUS deployments:**
 - `https-sources` decides by probing: it changes nothing where HTTP is
   reachable, so it needs no skip.
