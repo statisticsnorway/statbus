@@ -378,6 +378,6 @@ The database data directory is owned by the postgres container user. The upgrade
 statbus_no ALL=(ALL) NOPASSWD: /usr/bin/rsync
 ```
 
-### Snapshot archive retention
+### Snapshot retention
 
-After each successful upgrade, the upgrade snapshot is compressed to `~/statbus-upgrade-snapshots/<version>-pre.tar.gz`. The service keeps the 3 most recent archives and deletes older ones automatically.
+The upgrader keeps one upgrade snapshot: `~/statbus-upgrade-snapshots/pre-upgrade-active/`, replaced by the next upgrade's snapshot. Archives you take yourself with `./sb db snapshot create` go to `<project>/dbdumps/<slot>_<timestamp>.snapshot.tar.gz`; `./sb db snapshot purge --keep N` keeps the newest N of this slot.

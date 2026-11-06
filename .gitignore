@@ -78,6 +78,9 @@ migrations/seeds/*.pg_list
 dbdumps/*.pg_dump
 dbdumps/*.logs.tar.zst
 dbdumps/*.logs.tar.gz
+# ./sb db snapshot create archives and their staging copy (STATBUS-590)
+dbdumps/*.snapshot.tar.gz
+dbdumps/staging/
 !dbdumps/.gitkeep
 
 ### Go CLI binary (built from cli/ to repo root) ###

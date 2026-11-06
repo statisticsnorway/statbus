@@ -603,18 +603,21 @@ StatBus keeps two kinds of database copy, each named for what it is
   upgrader writes one every `BACKUP_INTERVAL`, you can take one at any time,
   an uninstall can keep them, and `./sb db restore` loads one into any
   installation.
-- An **upgrade snapshot** is a raw copy of the database volume in
-  `~/statbus-upgrade-snapshots/`, taken by the upgrader before each upgrade so
-  it can roll back. It only fits the installation it came from. Boxes
-  installed before the rename kept these in `~/statbus-backups`; the install
-  and the upgrader move that folder once no upgrade is in progress.
+- An **upgrade snapshot** is a raw copy of the database volume, taken by the
+  upgrader before each upgrade so it can roll back; the upgrader keeps it in
+  `~/statbus-upgrade-snapshots/`. It only fits the installation it came from.
+  Boxes installed before the rename kept these in `~/statbus-backups`; the
+  install and the upgrader move that folder once no upgrade is in progress.
+  Snapshot archives you take yourself with `./sb db snapshot create` stay
+  with the installation: `~/statbus/dbdumps/<slot>_<timestamp>.snapshot.tar.gz`
+  (STATBUS-590). `list`, `restore` and `purge` act only on this slot's archives.
 
 ```bash
 ./sb db backup create           # Backup to dbdumps/ (manual, on-demand)
 ./sb db backup list             # List available backups
 ./sb db backup purge <N>        # Keep newest N backups per source, delete the rest
 ./sb db restore <file>          # Restore from a backup
-./sb db snapshot list           # Upgrade snapshot archives in ~/statbus-upgrade-snapshots/
+./sb db snapshot list           # This slot's snapshot archives in dbdumps/
 ./sb db snapshot create         # Archive the database volume (stops db briefly)
 ./sb db snapshot restore <name> # Put a snapshot archive back into this installation
 ```

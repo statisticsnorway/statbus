@@ -1212,11 +1212,6 @@ echo "Restore complete"
 
 // ── db snapshot ──────────────────────────────────────────────────────────────
 
-// backupTimestamp returns a filename-safe ISO-ish timestamp: 2006-01-02T15-04-05.
-func backupTimestamp() string {
-	return time.Now().Format("2006-01-02T15-04-05")
-}
-
 // loadVolumeName reads COMPOSE_INSTANCE_NAME from .env and derives the Docker volume name.
 func loadVolumeName(projDir string) (string, error) {
 	f, err := dotenv.Load(filepath.Join(projDir, ".env"))
@@ -1230,18 +1225,54 @@ func loadVolumeName(projDir string) (string, error) {
 	return name + "-db-data", nil
 }
 
-// snapshotsDir returns the upgrade snapshot folder
-// (~/statbus-upgrade-snapshots, upgrade.SnapshotRoot), creating it if needed.
-func snapshotsDir() (string, error) {
-	home, err := os.UserHomeDir()
+// snapshotArchiveSuffix ends every archive ./sb db snapshot create writes.
+// Archives are named <slot>_<YYYYMMDD_HHMMSS>.snapshot.tar.gz and live in
+// <project>/dbdumps beside the logical dumps (<slot>_<ts>.pg_dump), so a
+// snapshot stays with the installation it was taken from and its name says
+// which slot that was (STATBUS-590). A raw volume copy only fits the
+// installation it came from; list, restore and purge therefore act only on
+// the archives of the current DEPLOYMENT_SLOT_CODE. The upgrader's own
+// pre-upgrade snapshot is a different thing and stays in
+// ~/statbus-upgrade-snapshots (upgrade.SnapshotRoot).
+const snapshotArchiveSuffix = ".snapshot.tar.gz"
+
+// snapshotArchiveSlot returns the slot code an archive name was taken from,
+// or "" when the name is not a snapshot archive.
+func snapshotArchiveSlot(name string) string {
+	stem, ok := strings.CutSuffix(filepath.Base(name), snapshotArchiveSuffix)
+	ts := len("20060102_150405") // dumpTimestamp's width
+	if !ok || len(stem) <= ts+1 || stem[len(stem)-ts-1] != '_' {
+		return ""
+	}
+	return stem[:len(stem)-ts-1]
+}
+
+// snapshotArchives returns this slot's snapshot archives in <project>/dbdumps,
+// oldest first (the timestamp sorts lexically).
+func snapshotArchives(projDir, slot string) ([]string, error) {
+	entries, err := filepath.Glob(filepath.Join(dbdump.DumpsDir(projDir), "*"+snapshotArchiveSuffix))
 	if err != nil {
-		return "", fmt.Errorf("determine home directory: %w", err)
+		return nil, err
 	}
-	dir := upgrade.SnapshotRoot(home)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", fmt.Errorf("create upgrade snapshot folder: %w", err)
+	var own []string
+	for _, path := range entries {
+		if snapshotArchiveSlot(path) == slot {
+			own = append(own, path)
+		}
 	}
-	return dir, nil
+	sort.Strings(own)
+	return own, nil
+}
+
+// snapshotCreatePaths returns where ./sb db snapshot create writes its
+// archive and stages the volume copy, both under <project>/dbdumps.
+func snapshotCreatePaths(projDir, ts string) (archive, staging string, err error) {
+	slot, err := loadSlotCode(projDir)
+	if err != nil {
+		return "", "", err
+	}
+	dir := dbdump.DumpsDir(projDir)
+	return filepath.Join(dir, slot+"_"+ts+snapshotArchiveSuffix), filepath.Join(dir, "staging"), nil
 }
 
 // dockerComposeStop stops a docker compose profile (e.g., "all" or specific service).
@@ -1295,7 +1326,8 @@ Docker volume, the kind the upgrader takes before each upgrade so it can roll
 back. A snapshot only fits this installation. For a portable copy, use
 ./sb db backup instead.
 
-Archives are stored as tar.gz files in ~/statbus-upgrade-snapshots/.
+Archives are stored in <project>/dbdumps/ as <slot>_<timestamp>.snapshot.tar.gz,
+beside the backups. list, restore and purge act only on this slot's archives.
 
 Subcommands:
   create    Create a new snapshot archive (stops db briefly)
@@ -1319,13 +1351,11 @@ The database will be briefly unavailable during the rsync.`,
 			return err
 		}
 
-		bkDir, err := snapshotsDir()
+		archivePath, stagingDir, err := snapshotCreatePaths(projDir, dumpTimestamp())
 		if err != nil {
 			return err
 		}
-
-		ts := backupTimestamp()
-		stagingDir := filepath.Join(bkDir, "staging")
+		bkDir := filepath.Dir(stagingDir)
 
 		// Create staging directory
 		if err := os.MkdirAll(stagingDir, 0755); err != nil {
@@ -1367,9 +1397,7 @@ The database will be briefly unavailable during the rsync.`,
 		}
 
 		// Step 4: Archive to tar.gz
-		archiveName := fmt.Sprintf("snapshot-%s.tar.gz", ts)
-		archivePath := filepath.Join(bkDir, archiveName)
-		fmt.Printf("Archiving to %s ...\n", archiveName)
+		fmt.Printf("Archiving to %s ...\n", filepath.Base(archivePath))
 		tarCmd := exec.Command("tar", "-czf", archivePath,
 			"-C", bkDir, "staging")
 		tarCmd.Stdout = os.Stdout
@@ -1397,8 +1425,9 @@ var backupRestoreCmd = &cobra.Command{
 	Long: `Stop all services, extract the snapshot archive, rsync to the Docker volume,
 then restart all services.
 
-The name can be a full filename (snapshot-2026-03-27T14-30-00.tar.gz),
-a basename without extension, or just the timestamp portion.`,
+The name can be a full filename (ug_20261106_190000.snapshot.tar.gz),
+the name without .snapshot.tar.gz, or just the timestamp. Only archives
+taken from this installation's slot are accepted.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
@@ -1409,16 +1438,11 @@ a basename without extension, or just the timestamp portion.`,
 			return err
 		}
 
-		bkDir, err := snapshotsDir()
+		archivePath, err := resolveSnapshotArchive(projDir, name)
 		if err != nil {
 			return err
 		}
-
-		// Resolve the archive path
-		archivePath, err := resolveBackupArchive(bkDir, name)
-		if err != nil {
-			return err
-		}
+		bkDir := dbdump.DumpsDir(projDir)
 
 		fmt.Printf("Restore %s to volume %s\n", filepath.Base(archivePath), volumeName)
 		if !confirmAction("This will REPLACE the database volume contents. Continue?") {
@@ -1478,60 +1502,53 @@ a basename without extension, or just the timestamp portion.`,
 	},
 }
 
-// resolveBackupArchive finds the snapshot archive matching a user-provided
-// name. Accepts: full filename, basename without .tar.gz, or just a timestamp
-// (snapshot-<ts>.tar.gz; archives made before STATBUS-574 are backup-<ts>.tar.gz).
-func resolveBackupArchive(bkDir, name string) (string, error) {
-	// Try exact path first
-	if filepath.IsAbs(name) {
-		if _, err := os.Stat(name); err == nil {
-			return name, nil
+// resolveSnapshotArchive finds this slot's snapshot archive in
+// <project>/dbdumps matching a user-provided name: the full filename (or its
+// path), the name without .snapshot.tar.gz, or just the timestamp. An archive
+// of another slot is refused, because a volume copy only fits the
+// installation it was taken from.
+func resolveSnapshotArchive(projDir, name string) (string, error) {
+	slot, err := loadSlotCode(projDir)
+	if err != nil {
+		return "", err
+	}
+	base := strings.TrimSuffix(filepath.Base(name), snapshotArchiveSuffix)
+	if other := snapshotArchiveSlot(base + snapshotArchiveSuffix); other != "" && other != slot {
+		return "", fmt.Errorf("%s was taken from slot %s, and this installation is slot %s. A snapshot only fits the installation it came from; use ./sb db restore with a backup to move data between installations", base+snapshotArchiveSuffix, other, slot)
+	}
+	own, err := snapshotArchives(projDir, slot)
+	if err != nil {
+		return "", err
+	}
+	for _, path := range own {
+		file := filepath.Base(path)
+		if file == base+snapshotArchiveSuffix || file == slot+"_"+base+snapshotArchiveSuffix {
+			return path, nil
 		}
 	}
-
-	// Try as-is in backup directory
-	candidate := filepath.Join(bkDir, name)
-	if _, err := os.Stat(candidate); err == nil {
-		return candidate, nil
-	}
-
-	// Try with .tar.gz suffix
-	candidate = filepath.Join(bkDir, name+".tar.gz")
-	if _, err := os.Stat(candidate); err == nil {
-		return candidate, nil
-	}
-
-	// Try with the snapshot- (or pre-574 backup-) prefix and .tar.gz suffix
-	for _, prefix := range []string{"snapshot-", "backup-"} {
-		candidate = filepath.Join(bkDir, prefix+name+".tar.gz")
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, nil
-		}
-	}
-
-	return "", fmt.Errorf("snapshot archive not found: %s\nRun './sb db snapshot list' to see the archives", name)
+	return "", fmt.Errorf("no snapshot archive of slot %s matches %s\nRun './sb db snapshot list' to see the archives", slot, name)
 }
 
 var backupListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List upgrade snapshot archives",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		bkDir, err := snapshotsDir()
+		projDir := config.ProjectDir()
+		slot, err := loadSlotCode(projDir)
 		if err != nil {
 			return err
 		}
-
-		entries, err := filepath.Glob(filepath.Join(bkDir, "*.tar.gz"))
+		bkDir := dbdump.DumpsDir(projDir)
+		entries, err := snapshotArchives(projDir, slot)
 		if err != nil {
 			return err
 		}
 		if len(entries) == 0 {
-			fmt.Printf("No snapshot archives found in %s\n", bkDir)
+			fmt.Printf("No snapshot archives of %s in %s\n", slot, bkDir)
 			return nil
 		}
 
-		sort.Strings(entries)
-		fmt.Printf("Snapshot archives in %s:\n\n", bkDir)
+		fmt.Printf("Snapshot archives of %s in %s:\n\n", slot, bkDir)
 		for _, path := range entries {
 			info, err := os.Stat(path)
 			if err != nil {
@@ -1552,28 +1569,14 @@ var backupPurgeCmd = &cobra.Command{
 	Use:   "purge",
 	Short: "Delete old snapshot archives, keeping newest N (default 7)",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		bkDir, err := snapshotsDir()
+		toDelete, err := snapshotPurgeSelection(config.ProjectDir(), backupKeep)
 		if err != nil {
 			return err
 		}
-
-		entries, err := filepath.Glob(filepath.Join(bkDir, "*.tar.gz"))
-		if err != nil {
-			return err
-		}
-		if len(entries) == 0 {
-			fmt.Println("No snapshot archives to purge")
+		if len(toDelete) == 0 {
+			fmt.Printf("Nothing to purge: this slot has at most %d snapshot archive(s) (--keep %d)\n", backupKeep, backupKeep)
 			return nil
 		}
-
-		if len(entries) <= backupKeep {
-			fmt.Printf("Only %d archive(s), keeping all (--keep %d)\n", len(entries), backupKeep)
-			return nil
-		}
-
-		// Sort lexically — timestamps sort correctly
-		sort.Strings(entries)
-		toDelete := entries[:len(entries)-backupKeep]
 
 		fmt.Println("The following archives will be deleted:")
 		var totalSize int64
@@ -1603,6 +1606,21 @@ var backupPurgeCmd = &cobra.Command{
 		fmt.Printf("Purged %d archive(s)\n", len(toDelete))
 		return nil
 	},
+}
+
+// snapshotPurgeSelection returns this slot's snapshot archives beyond the
+// newest keep, oldest first. Other slots' archives and the logical dumps in
+// the same folder are never selected.
+func snapshotPurgeSelection(projDir string, keep int) ([]string, error) {
+	slot, err := loadSlotCode(projDir)
+	if err != nil {
+		return nil, err
+	}
+	own, err := snapshotArchives(projDir, slot)
+	if err != nil || len(own) <= keep {
+		return nil, err
+	}
+	return own[:len(own)-keep], nil
 }
 
 // ── init ─────────────────────────────────────────────────────────────────────
