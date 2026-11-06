@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-06T14:06:00Z'
+updated_date: '2026-11-06T18:15:00Z'
 labels:
   - performance
   - worker
@@ -23,18 +23,20 @@ ordinal: 493204
 A unit refresh costs in proportion to the units it refreshes, so imports and full recalculations spend most of their time importing, not refreshing.
 
 ### Zoom out
-`worker.statistical_unit_refresh_batch` rebuilds the statistical_unit rows of a batch of units. It is the largest single cost of the analytics pipeline once the history steps were made sparse (STATBUS-558).
+The largest cost of the analytics pipeline sits where work does not scale with its input: once history was made sparse (STATBUS-558), that cost is refreshing units.
 
 ### Zoom in
+`worker.statistical_unit_refresh_batch` rebuilds the statistical_unit rows of a batch of units. It is the largest single cost of the analytics pipeline once the history steps were made sparse.
+
 **Evidence.**
-- Full BRREG import benchmark (`./test/import_benchmark.sh --dataset downloads`, 2026-11-05, log tmp/558-build/bench-downloads-final.log, database import_benchmark_43190 retained): 7,828 refresh_batch tasks, 10,320 s of 21,932 s summed task time (47%); min 204 ms, max 6,959 ms, average 1,318 ms. Next: import_job_process 5,493 s, derive_statistical_unit_facet_partition 1,845 s, statistical_unit_flush_staging 1,691 s, history delta partitions 1,049 s.
+- Full BRREG import benchmark (`./test/import_benchmark.sh --dataset downloads`, 2026-11-05, log tmp/558-build/bench-downloads-final.log, database import_benchmark_43190): 7,828 refresh_batch tasks, 10,320 s of 21,932 s summed task time (47%); min 204 ms, max 6,959 ms, average 1,318 ms. Next: import_job_process 5,493 s, derive_statistical_unit_facet_partition 1,845 s, statistical_unit_flush_staging 1,691 s, history delta partitions 1,049 s.
 - Norway production full recalculation on 2026-11-02 (rune, read-only task history): unit refresh about 78% of 4,835 s wall.
 - STATBUS-566 removed one cause (power-group batches recomputed every unit's timepoints); this ticket is the remaining cost.
 
 ### Closing review
 - **Memory:** none expected.
 - **Documentation:** doc/derive-pipeline.md has no timing table to update (only the command list, unchanged). The measurements are in doc/performance/2026-11-history-delta-measurements.md section 7, and the function's own COMMENT ON explains the partial path.
-- **Cleanup:** drop the import_benchmark_43190 (baseline) and import_benchmark_40149 (AC2 run) databases after the release notes are written.
+- **Cleanup:** done. The import_benchmark_43190 (baseline) and import_benchmark_40149 (AC2 run) databases were dropped 2026-11-06 18:13 with the owner's approval; their logs remain.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -76,4 +78,6 @@ Rolled-back checks on import_benchmark_43190: batch 22285 view 2,335 ms -> 69 ms
 2026-11-06 14:02 AC2: full BRREG downloads benchmark on local master 67488988e (tmp/574impl/bench-downloads.log, database import_benchmark_40149): consistency checks A, B, C pass. statistical_unit_refresh_batch summed 10,320 s -> 4,007 s (-61%; 7,828 -> 4,777 tasks, avg 1,318 -> 839 ms). All tasks 21,932 -> 17,063 s (-22%). Worker wall 7,810 -> 6,737 s (-14%): the serial import step (import_job_process 6,090 s, +11% under daytime laptop load 37-150) is now the longest path. Below last night's 7,000-8,600 s saving estimate: 6,313 s saved.
 
 2026-11-06 14:06 Renumbered from local STATBUS-574: origin already has a different STATBUS-574 (name database copies, rabbit's swarm). This is 581; earlier notes and commit messages say STATBUS-574 for this ticket; test 370 and the migration comments now say 581.
+
+2026-11-06 18:13 owner decision: a faster import step (import_job_process, now the longest path) is not part of this release; owner has ideas to discuss after it. Benchmark databases import_benchmark_40149 and import_benchmark_43190 dropped with owner's approval; the logs remain.
 <!-- SECTION:NOTES:END -->

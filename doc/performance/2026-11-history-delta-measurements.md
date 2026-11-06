@@ -125,13 +125,14 @@ before (558 only), same laptop:
 | `statistical_unit_refresh_batch`, summed task time | 10,320 s (7,828 tasks, avg 1,318 ms) | **4,007 s** (4,777 tasks, avg 839 ms) | **-61%** |
 | All tasks, summed task time | 21,932 s | **17,063 s** | -22% |
 | Worker wall time | 7,810 s | **6,737 s** | -14% |
-| `import_job_process`, summed | 5,493 s | 6,090 s | +11% (not changed by 574; laptop load 37-150 during the day run) |
+| `import_job_process`, summed | 5,493 s | 6,090 s | +11% (not changed by 581; laptop load 37-150 during the day run) |
 | Consistency checks A, B, C | pass | pass | |
 
 The wall time falls less than the refresh time because the import step itself (`import_job_process`, one job
-at a time) is now the longest path: 6,090 s of the 6,737 s wall. Further wall-time gains need a faster import.
+at a time) is now the longest path: 6,090 s of the 6,737 s wall. Further wall-time gains need a faster import; that is separate work, not in this release.
 Sources: `tmp/574impl/bench-downloads.log` (database `import_benchmark_40149`) and
-`tmp/558-build/bench-downloads-final.log` (database `import_benchmark_43190`).
+`tmp/558-build/bench-downloads-final.log` (database `import_benchmark_43190`). Both databases were dropped on
+2026-11-06 after the numbers were recorded; the logs remain.
 
 Tests: 370 (a partial refresh reads only its units' timesegments, also with a generic plan; rows equal a full
 refresh). Selection import: 89.2 s against 83.8 s, within run-to-run variation on a loaded laptop; its batches
