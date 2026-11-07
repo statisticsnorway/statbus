@@ -1,0 +1,77 @@
+NOTICE:  identifier "pg_regress/372_statbus_591_power_group_analysis_scales_with_relationships" will be truncated to "pg_regress/372_statbus_591_power_group_analysis_scales_with_rel"
+-- STATBUS-591: the power-group analysis of a relationship import takes time in
+-- proportion to the relationships it reads.
+--
+-- import.analyse_power_group_link walks the relationship graph from its root legal
+-- units, then maps each data row to the cluster of either of its ends and each
+-- cluster to a power group already linked to it. On the full BRREG relationship file
+-- (29,503 rows, a hierarchy of 87,258 rows) the step took 264 s when "either end" was
+-- one join on (influencing_id = id OR influenced_id = id), which runs as a nested loop
+-- over the whole hierarchy for every row, and 0.7 s as two equality joins.
+--
+-- Fixture: 6,000 power groups of a root and two subsidiaries (18,000 legal units,
+-- 12,000 relationship rows), loaded straight into a relationship job's data table as
+-- the earlier analysis steps leave it. The analysis must finish within 5 s here; the
+-- nested-loop form, whose time grows with rows x hierarchy, took 26 s locally.
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\echo "Test 372 (STATBUS-591): power-group analysis scales with the relationships it reads"
+"Test 372 (STATBUS-591): power-group analysis scales with the relationships it reads"
+CALL test.set_user_from_email('test.admin@statbus.org');
+\o /dev/null
+\set ECHO none
+INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
+SELECT 'HFOR', 'Hovedforetak', 'Main enterprise / parent company', TRUE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'HFOR');
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
+SELECT 'T372_' || n, (SELECT id FROM auth.user LIMIT 1), 'Test 372'
+FROM generate_series(1, 18000) AS n;
+INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'T372 unit ' || e.short_name, e.id, true,
+       (SELECT id FROM public.status WHERE code = 'active' LIMIT 1), (SELECT id FROM auth.user LIMIT 1), 'Test 372'
+FROM public.enterprise AS e
+WHERE e.short_name LIKE 'T372\_%';
+INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+SELECT id, 'import_372_rels', 'Test 372 relationships', 'Test 372', false
+FROM public.import_definition WHERE slug = 'legal_relationship_source_dates';
+-- Group g (1..6000): root unit 3g-2 controls 3g-1 and 3g (numbered by legal_unit id order).
+CREATE TEMP TABLE t372_unit ON COMMIT DROP AS
+SELECT lu.id, row_number() OVER (ORDER BY lu.id) AS n
+FROM public.legal_unit AS lu WHERE lu.name LIKE 'T372 unit %';
+INSERT INTO public.import_372_rels_data
+    (batch_seq, state, action, operation, last_completed_priority, valid_from, valid_to, valid_until,
+     influencing_id, influenced_id, type_id, percentage)
+SELECT 1, 'analysing', 'use', 'insert',
+       (SELECT priority - 1 FROM public.import_step WHERE code = 'power_group_link'),
+       '2020-01-01', 'infinity', 'infinity',
+       root.id, child.id, (SELECT id FROM public.legal_rel_type WHERE code = 'HFOR'), 100
+FROM t372_unit AS root
+JOIN t372_unit AS child ON child.n IN (root.n + 1, root.n + 2)
+WHERE root.n % 3 = 1;
+ANALYZE public.import_372_rels_data;
+SELECT id AS job_id FROM public.import_job WHERE slug = 'import_372_rels' \gset
+SELECT clock_timestamp() AS started \gset
+CALL import.analyse_power_group_link(:job_id, NULL, 'power_group_link');
+SELECT extract(epoch FROM clock_timestamp() - :'started'::timestamptz) AS seconds \gset
+\echo
+
+\echo "372.1 every relationship row is mapped to its group's root, and the analysis took under 5 s"
+"372.1 every relationship row is mapped to its group's root, and the analysis took under 5 s"
+SELECT count(*) AS rows,
+       count(*) FILTER (WHERE r.n = (SELECT n FROM t372_unit WHERE id = dt.cluster_root_legal_unit_id)
+                          AND dt.cluster_root_legal_unit_id = dt.influencing_id) AS mapped_to_own_root,
+       count(DISTINCT dt.cluster_root_legal_unit_id) AS clusters,
+       :seconds < 5 AS under_5_seconds
+FROM public.import_372_rels_data AS dt
+JOIN t372_unit AS r ON r.id = dt.influencing_id;
+ rows  | mapped_to_own_root | clusters | under_5_seconds 
+-------+--------------------+----------+-----------------
+ 12000 |              12000 |     6000 | t
+(1 row)
+
+ROLLBACK;
