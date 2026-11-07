@@ -1026,6 +1026,8 @@ export default function ImportJobsPage() {
       columnVisibility: {
         expires_at: false,
       },
+      // The row menu stays at the right edge when the table scrolls on a narrow window.
+      columnPinning: { right: ["actions"] },
     },
     getRowId: (row) => String(row.id),
   });

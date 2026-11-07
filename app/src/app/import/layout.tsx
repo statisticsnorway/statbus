@@ -14,9 +14,9 @@ export default function ImportLayout({
   const isJobsPage = pathname.startsWith("/import/jobs");
 
   if (isJobsPage) {
-    // Full window width: the jobs table has many columns and should not scroll on a wide screen.
+    // As wide as the jobs table needs (it has many columns), up to the window width.
     return (
-      <main className="w-full px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <main className="mx-auto w-fit max-w-full px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         {children}
       </main>
     );
