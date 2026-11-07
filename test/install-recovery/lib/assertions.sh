@@ -28,38 +28,52 @@ site_status_code() {
 # monitor_status_code is the public health reading's HTTP status (STATBUS-541).
 monitor_status_code() { site_status_code /monitor; }
 
-# assert_monitor_answers: /monitor answers 200 with the reading's JSON; a box
-# that was just installed or upgraded may need a minute for its first reading.
+# assert_monitor_answers: /monitor serves the health reading itself: its JSON
+# with HTTP 200 (ok, warning, upgrading) or 503 (critical, unknown). A test box
+# may honestly read critical (no backup yet right after install, a private CA),
+# so the route is what is asserted; the reading and any failing checks are
+# printed for the record. Never the maintenance page or an error page.
 assert_monitor_answers() {
-    local vm_name="$1" when="$2" code="" body=""
+    local vm_name="$1" when="$2" code="" body="" domain="${HARNESS_SITE_DOMAIN:-statbus-test.local}"
     for _ in $(seq 1 24); do
-        code=$(monitor_status_code)
-        [ "$code" = 200 ] && break
+        body=$(VM_EXEC curl --noproxy '*' --silent --cacert /home/statbus/harness-certs/ca.crt --max-time 15 \
+            --write-out '\n%{http_code}' "https://${domain}/monitor" 2>/dev/null || true)
+        code="${body##*$'\n'}"; body="${body%$'\n'*}"
+        if [[ "$code" =~ ^(200|503)$ ]] && grep -q '"checks"' <<<"$body"; then
+            break
+        fi
         sleep 5
     done
-    [ "$code" = 200 ] || { echo "✗ /monitor answered HTTP $code $when" >&2; return 1; }
-    body=$(VM_EXEC curl --noproxy '*' --silent --cacert /home/statbus/harness-certs/ca.crt --max-time 15 \
-        "https://${HARNESS_SITE_DOMAIN:-statbus-test.local}/monitor" 2>/dev/null || true)
-    grep -q '"status"' <<<"$body" || { echo "✗ /monitor $when is not the health reading: $body" >&2; return 1; }
-    echo "  ✓ /monitor answers 200 with the health reading $when"
+    if ! [[ "$code" =~ ^(200|503)$ ]] || ! grep -q '"checks"' <<<"$body"; then
+        echo "✗ /monitor $when did not serve the health reading (HTTP $code): $(head -c 300 <<<"$body")" >&2
+        return 1
+    fi
+    local status not_ok
+    status=$(jq -r '.status' <<<"$body" 2>/dev/null || echo "?")
+    not_ok=$(jq -r '[.checks[] | select(.status != "ok") | "\(.name)=\(.status) (\(.detail))"] | join(", ")' <<<"$body" 2>/dev/null || true)
+    echo "  ✓ /monitor serves the health reading $when (HTTP $code, status $status${not_ok:+; $not_ok})"
 }
 
 # assert_maintenance_page_serves (STATBUS-588): with the upgrader's maintenance
 # marker present, every page answers 503 with the maintenance page while
-# /monitor still answers; removing the marker brings the site back.
+# /monitor still serves the health reading; removing the marker brings the site
+# back.
 assert_maintenance_page_serves() {
-    local vm_name="$1" root login monitor after
+    local vm_name="$1" root login after
     VM_EXEC touch /home/statbus/statbus-maintenance/active
     root=$(site_status_code /)
     login=$(site_status_code /login)
-    monitor=$(monitor_status_code)
+    echo "  maintenance marker present: / $root, /login $login"
+    if ! assert_monitor_answers "$vm_name" "during maintenance"; then
+        VM_EXEC rm -f /home/statbus/statbus-maintenance/active
+        return 1
+    fi
     VM_EXEC rm -f /home/statbus/statbus-maintenance/active
     after=$(site_status_code /login)
-    echo "  maintenance marker present: / $root, /login $login, /monitor $monitor; removed: /login $after"
+    echo "  marker removed: /login $after"
     [ "$root" = 503 ] && [ "$login" = 503 ] || { echo "✗ the maintenance marker did not give the maintenance page (/ $root, /login $login)" >&2; return 1; }
-    [ "$monitor" = 200 ] || { echo "✗ /monitor answered HTTP $monitor during maintenance" >&2; return 1; }
     [[ "$after" =~ ^[23][0-9][0-9]$ ]] || { echo "✗ the site did not come back after the marker was removed (/login $after)" >&2; return 1; }
-    echo "  ✓ maintenance page served while the marker is present; /monitor answers; site back after"
+    echo "  ✓ maintenance page served while the marker is present; /monitor serves the reading; site back after"
 }
 
 # Test that the app's REST endpoint responds 2xx/3xx. 5-minute budget —
