@@ -38,6 +38,11 @@ BEGIN
                           AND ic.column_name = c.column_name);
         v_group_key := COALESCE(v_group_key, '''row:'' || row_id');
         
+        -- Analysis has populated action since upload-time statistics were collected.
+        -- Refresh this column so slot packing plans for the accepted row count.
+        -- This phase boundary precedes dispatch of the job's processing batches.
+        EXECUTE format($$ANALYZE public.%1$I (action)$$, p_data_table_name);
+
         -- Each dependency group hashes to one stable import slot. Pack whole slots into row-sized batches:
         -- a large group or slot stays whole even when it exceeds the target batch size. Import group keys
         -- differ from derive unit keys, so sharing its 16,384-slot space does not imply derive locality.
