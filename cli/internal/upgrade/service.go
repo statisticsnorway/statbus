@@ -4014,8 +4014,12 @@ func (d *Service) Run(ctx context.Context) error {
 				migrateSnapshotRoot(ctx, d.projDir, os.Getenv("HOME"), d.queryConn)
 				d.reconcileBackupDir(ctx) // reconcile before prune: avoids BACKUP_MISSING for just-pruned rows
 				d.pruneBackups(ctx, 3)
-				d.pruneUpgradeLogs(20)               // keep the 20 newest upgrade-log + bundle pairs
-				d.runRetentionPurge(ctx, "all", nil) // time-safety sweep over public.upgrade
+				d.pruneUpgradeLogs(20) // keep the 20 newest upgrade-log + bundle pairs
+				// The idle time-safety sweep retries next poll. Completion's
+				// finishing tail propagates retention errors to its caller.
+				if err := d.runRetentionPurge(ctx, "all", nil); err != nil {
+					log.Printf("periodic upgrade retention failed, will retry next poll: %v", err)
+				}
 			}
 		case <-backupTicker.C:
 			// Scheduled logical backup (STATBUS-113). GOROUTINE: a large-DB

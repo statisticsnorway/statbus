@@ -40,6 +40,9 @@ func TestNilConnQueryReadersReturnNamedError(t *testing.T) {
 	check("ReattemptRestore", d.ReattemptRestore(ctx, 1))
 	check("recoverServingTreeConvergence", d.recoverServingTreeConvergence(ctx, 1, nil))
 	check("executeUpgrade", d.executeUpgrade(ctx, upgradeClaimSnapshot{}, "v2026.01.1", nil, "test", "test", false))
+	check("supersedeOlderReleases", d.supersedeOlderReleases(ctx, "abc123"))
+	check("supersedeCompletedPrereleases", d.supersedeCompletedPrereleases(ctx, "abc123"))
+	check("runRetentionPurge", d.runRetentionPurge(ctx, "all", nil))
 
 	if _, err := d.upsertCandidate(ctx, CommitSHA("abc123"), candidateMeta{}); true {
 		check("upsertCandidate", err)
@@ -104,8 +107,6 @@ func TestNilConnVoidReadersReturn(t *testing.T) {
 	d.markImagesFailed(ctx, 1, "abc123def456", "reason")
 	d.verifyArtifacts(ctx)
 	d.syncConfigToSystemInfo(ctx)
-	d.supersedeOlderReleases(ctx, "abc123")
-	d.supersedeCompletedPrereleases(ctx, "abc123")
 	d.cleanStaleMaintenance(ctx)
 	d.clearStaleReadOnlyWindow(ctx)
 	d.checkMissedUpgrades(ctx)
