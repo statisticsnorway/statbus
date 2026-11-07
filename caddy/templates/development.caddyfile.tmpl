@@ -194,9 +194,13 @@ http://127.0.0.1:19999 {
         }
     }
 
-    # All other requests to Next.js app with fallback
+    # All other requests to Next.js: the host's dev server (`cd app && pnpm run dev`, port 3000)
+    # when it runs, so local edits show on this site at once; otherwise the app container.
     handle {
-        reverse_proxy app:3000 {
+        reverse_proxy host.docker.internal:3000 app:3000 {
+            lb_policy first
+            lb_try_duration 2s
+            fail_duration 10s
             @app_down status 502 503 504
             handle_response @app_down {
                 rewrite * /

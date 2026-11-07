@@ -79,10 +79,14 @@ if (isDevelopment) {
     const actualLocalAppUrl = `http://local.statbus.org:${localAppPort}`;
     process.env.INTERNAL_LOCAL_APP_URL = actualLocalAppUrl;
 
-    // Override so layout.tsx injects the local proxy URL into __STATBUS_CONFIG__
-    process.env.PUBLIC_BROWSER_REST_URL = actualLocalAppUrl;
+    // Plain-http setups: the browser calls this server's /rest, which proxies to Caddy.
+    // An https BROWSER_REST_URL means the pages are read through Caddy over https, which also
+    // serves /rest, so the browser keeps calling that address (an http one there is mixed content).
+    if (!originalBrowserRestUrl.startsWith('https://')) {
+      process.env.PUBLIC_BROWSER_REST_URL = actualLocalAppUrl;
+    }
 
-    console.log(`Dev proxy: ${actualLocalAppUrl}/rest/* → ${process.env.INTERNAL_CADDY_REWRITE_TARGET}/rest/*`);
+    console.log(`Dev proxy: ${actualLocalAppUrl}/rest/* → ${process.env.INTERNAL_CADDY_REWRITE_TARGET}/rest/*; browser API: ${process.env.PUBLIC_BROWSER_REST_URL}`);
     process.env.PROXY_ENV_VARS_CONFIGURED = 'true';
   }
 
