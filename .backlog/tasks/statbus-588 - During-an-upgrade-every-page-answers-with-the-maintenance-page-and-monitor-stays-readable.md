@@ -6,6 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:37:00Z'
+updated_date: '2026-11-07T12:39:00Z'
 labels:
   - caddy
   - upgrade
@@ -30,7 +31,13 @@ Nothing in the automated runs fetched a page during maintenance or fetched /moni
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The standalone and private Caddy templates match the maintenance marker at /statbus-maintenance/active itself (config test renders the templates and runs the matcher form; red before, green after)
-- [ ] #2 On a real installation, with the marker present, / and /login answer 503 with the maintenance page and /monitor answers 200; without it they answer normally (observed on the manual box)
+- [x] #1 The standalone and private Caddy templates match the maintenance marker at /statbus-maintenance/active itself (config test renders the templates and runs the matcher form; red before, green after)
+- [x] #2 On a real installation, with the marker present, / and /login answer 503 with the maintenance page and /monitor answers 200; without it they answer normally (observed on the manual box)
 - [ ] #3 The LXD happy-upgrade scenario fetches /monitor before, during and after the upgrade (200) and / during it (503 maintenance page), so every gate proves both
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Red: test/caddy-maintenance-route-test.sh (real caddy:2 on each template's @maintenance block) failed for standalone and private: marker present, / and /login answered 200 (tmp/588-red.log; 726343150). Fix d09f06ced: file { root /statbus-maintenance; try_files /active }. Green 13/13 (tmp/588-green.log); runs in Harness Selftest. AC2 on the rc.18 manual box (tmp/588-box-check.log): with the fixed matcher in the running proxy, no marker: / 307, /login 200, /monitor 200; marker: / 503 (maintenance page), /login 503, /monitor 200 status ok; removed: normal again; original config restored.
+<!-- SECTION:NOTES:END -->

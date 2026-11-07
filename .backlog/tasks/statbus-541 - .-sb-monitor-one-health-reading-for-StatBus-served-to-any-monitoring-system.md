@@ -4,7 +4,7 @@ title: './sb monitor: one health reading for StatBus, served to any monitoring s
 status: In Progress
 assignee: []
 created_date: '2026-10-30T11:50:00Z'
-updated_date: '2026-10-31T14:03:00Z'
+updated_date: '2026-11-07T12:39:00Z'
 labels:
   - monitoring
   - operations
@@ -43,7 +43,7 @@ Out of scope: Nagios template (the plugin contract is built in), Prometheus, ema
 - [x] #1 cli tests pass for each check with OK, WARNING, CRITICAL fixtures (fake ps, HTTP, disk measurement, backup dir, unit state, worker tasks), and the overall status and exit code are the worst check
 - [x] #2 ./sb monitor with no arguments prints the help; ./sb monitor status prints the Nagios-shaped first line and one line per check; --format json emits the pinned JSON shape
 - [x] #3 The upgrader writes tmp/monitor.json every 60 s (atomic rename); status reads it by default, reports unknown when it is older than 3 minutes, and runs the checks live with --live or when no reading exists
-- [ ] #4 Caddy serves /monitor publicly above the maintenance handler: 200 with the JSON for ok/warning/upgrading, 503 for critical/unknown; verified on a running instance, including during maintenance
+- [x] #4 Caddy serves /monitor publicly above the maintenance handler: 200 with the JSON for ok/warning/upgrading, 503 for critical/unknown; verified on a running instance, including during maintenance
 - [x] #5 The public JSON contains no paths, addresses, emails, user names or log text (a test asserts the allowed fields and detail phrases)
 - [ ] #6 ./sb monitor template zabbix prints a template that imports into Zabbix 7 without errors
 - [x] #7 ./sb monitor template uptime prints the /monitor URL for this site and the expected HTTP status
@@ -90,4 +90,6 @@ Backups probe fix 2026-10-30 (defect, dev evidence on v2026.10.6-rc.01 https://d
 Dev on v2026.10.6-rc.02 (2026-10-30 19:32 UTC): https://dev.statbus.org/monitor answers 200, status ok; backups 'newest backup 19h ago' (fix 9a5727fd2 live; rc.01 showed 3218h and 503). All 7 checks ok. The maintenance-window reading for AC4 is still to be observed.
 
 2026-10-31 defect found by Go Test 41207728986 at 0eaeb68cb: TestRunMonitorStatus* (cmd) and TestCheckFixtures/backup_* (internal/monitor) failed on 2026-10-31 with no cli change since the last green run 41198731000: backupsCheck measured age with time.Since (wall clock) while the reading's CheckedAt and the fixtures pin now=2026-10-30. Fix 4c39dba2e: backupsCheck takes the reading's now; fixtures use it. Red before (FAIL cli/cmd on the parent), green after (ok cli/cmd, ok internal/monitor).
+
+AC4 on the rc.18 manual box (tmp/541-box-check.log): /monitor 200 before, 200 during maintenance (marker present), 503 with tmp/monitor.critical, 200 after the marker is removed. The check found that the maintenance page itself was never served (STATBUS-588, fixed d09f06ced).
 <!-- SECTION:NOTES:END -->
