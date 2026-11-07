@@ -24,7 +24,9 @@ import (
 // reads: a deployment mode and (for standalone) a site domain.
 func writeCertStepEnvConfig(t *testing.T, dir, mode string) {
 	t.Helper()
-	content := "CADDY_DEPLOYMENT_MODE=" + mode + "\nSITE_DOMAIN=statbus-test.local\n"
+	// The site name the fixture certificate (testdata/test-cert.pem) covers, so
+	// these tests install a fitting certificate and ask nothing extra.
+	content := "CADDY_DEPLOYMENT_MODE=" + mode + "\nSITE_DOMAIN=test.statbus.local\n"
 	if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}

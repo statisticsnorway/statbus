@@ -480,6 +480,19 @@ func installCustomCertificate(projDir string, args []string, pfxPassword *string
 	printCertInfo(info)
 	fmt.Println()
 
+	// An expired, not-yet-valid or other-name certificate is allowed, but only
+	// after the warning and its own yes (owner, rc.18 manual box): browsers
+	// refuse it, yet the operator may know it is the one to use for now.
+	_, siteDomain, _, _, _ := readModeAndCertEnv(projDir)
+	if warnings := certificateWarnings(leaf, siteDomain, time.Now()); len(warnings) > 0 {
+		for _, w := range warnings {
+			certNotice("%s", w)
+		}
+		if certCanAsk() && !askUseCertificateAnyway("  Use it anyway?") {
+			return certInfo{}, errors.New("certificate not installed")
+		}
+	}
+
 	// Place files.
 	hostCertPath, hostKeyPath, err := writeCertAndKey(projDir, baseName, chain, key)
 	if err != nil {
@@ -495,6 +508,32 @@ func installCustomCertificate(projDir string, args []string, pfxPassword *string
 	}
 	fmt.Printf("✓ .env.config updated (TLS_CERT_FILE=%s, TLS_KEY_FILE=%s)\n", containerCertPath, containerKeyPath)
 	return info, nil
+}
+
+// askUseCertificateAnyway is the seam for the separate confirmation an
+// expired, not-yet-valid or other-name certificate needs.
+var askUseCertificateAnyway = askCertYesNo
+
+// certCanAsk reports whether the operator is at a terminal to answer that
+// confirmation. Unattended (STATBUS_TLS_* input, no terminal) the explicit
+// input is the answer: the warning is printed and the install proceeds.
+var certCanAsk = func() bool { return stdinIsTerminal() }
+
+// certificateWarnings names what makes leaf unfit for siteDomain at now: it
+// has expired, is not yet valid, or does not cover the site name. Empty when
+// it is fit.
+func certificateWarnings(leaf *x509.Certificate, siteDomain string, now time.Time) []string {
+	var warnings []string
+	if now.After(leaf.NotAfter) {
+		warnings = append(warnings, "⚠ This certificate expired on "+leaf.NotAfter.UTC().Format("2006-01-02")+". Browsers will refuse it.")
+	}
+	if now.Before(leaf.NotBefore) {
+		warnings = append(warnings, "⚠ This certificate is not valid until "+leaf.NotBefore.UTC().Format("2006-01-02")+". Browsers will refuse it until then.")
+	}
+	if siteDomain != "" && leaf.VerifyHostname(siteDomain) != nil {
+		warnings = append(warnings, "⚠ This certificate does not cover "+siteDomain+". Browsers will refuse it for this site.")
+	}
+	return warnings
 }
 
 // loadCertMaterial dispatches on argv shape + file content. Returns
