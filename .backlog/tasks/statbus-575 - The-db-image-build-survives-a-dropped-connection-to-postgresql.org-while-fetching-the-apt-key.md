@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T18:12:00Z'
-updated_date: '2026-11-07T19:52:00Z'
+updated_date: '2026-11-07T19:59:00Z'
 labels:
   - build
   - ci
@@ -25,6 +25,12 @@ Seen 2026-11-07: v2026.11.2-rc.02 Test Hardening 42399643767, install-stack buil
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 postgres/Dockerfile fetches the key with curl --fail and bounded retries (or the key is vendored with its fingerprint checked), so an error page or a dropped connection never reaches gpg
-- [ ] #2 A local docker build of the db stage succeeds, and a build with the key URL unreachable fails with a clear message naming the URL
+- [x] #1 postgres/Dockerfile fetches the key with curl --fail and bounded retries (or the key is vendored with its fingerprint checked), so an error page or a dropped connection never reaches gpg
+- [x] #2 A local docker build of the db stage succeeds, and a build with the key URL unreachable fails with a clear message naming the URL
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-07: In Progress, fixed test-first. RED c398e79f9 reproduces partial-response/HTTP/unreachable failures against the Dockerfile's actual RUN command. GREEN e8bd3d53d downloads to a temporary file with fail-on-HTTP, bounded retries and explicit URL diagnostics before GnuPG imports it. No TLS or signing verification bypass. Actual Docker ppa/base builds passed, including partial-key then HTTP503 then success with byte-identical keyring, and unreachable URL fails within its budget. Evidence: tmp/575-{red,green,docker-base,docker-transient,docker-unreachable}.log, tmp/575-worker-journal.md. Coordinator independently runs postgres/test_key_download.py. Permanent Harness Selftest coverage committed 0b4e3ff89. Exact-SHA CI and next candidate gate still pending, so ticket remains In Progress.
+<!-- SECTION:NOTES:END -->
