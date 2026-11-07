@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T18:47:00Z'
+updated_date: '2026-11-07T18:59:00Z'
 labels:
   - import
   - performance
@@ -19,7 +19,7 @@ ordinal: 499204
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-A full register imports using the machine's cores, so country-sized loads finish well under an hour without changing their resulting business data.
+A full register imports faster by using the machine's cores without changing the resulting business data. This iteration must improve the measured rune baseline while preserving exact row and chosen-root parity; it does not assume an unmeasured one-hour target.
 
 ### Zoom out
 Import jobs remain serial because one job can depend on another. Analysis identifies the row dependencies that determine which processing batches of one job can run concurrently.
@@ -44,7 +44,7 @@ Implementation design and measured local evidence: doc/import-concurrent-batches
 <!-- AC:BEGIN -->
 - [ ] #1 One import job processes its batched steps concurrently, respecting the row dependencies the analysis finds; the full BRREG downloads import on rune completes with the same rows as a serial run (row-for-row comparison of the resulting units) and a measured load-to-idle span shorter than run A (rc.18, 2026-11-07), whose recorded baseline is 10,240 seconds on the same installation and input files
 - [ ] #2 Power-group analysis produces the exact reference relationship/root/group mappings on graph-size scaling fixtures and on rune's 33,710-row BRREG file, with scaling measurements and a rune runtime faster than the recorded 1,024-second rc.18 baseline
-- [ ] #3 [Owner] Choose start-of-year or file-date semantics, record the decision in this ticket and doc/import-system.md, and confirm that the chosen declared date sets import valid_from rather than the execution day
+- [ ] #3 [Owner] Choose the job-provided valid_from policy: start-of-year means January 1 of the declared file/snapshot year, allowing validity from that year start; file-date means the declared file/snapshot calendar date, allowing validity only from that snapshot date. Record the choice and resulting date in this ticket and doc/import-system.md, and verify that it sets job-provided valid_from instead of the execution day
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -90,4 +90,12 @@ Rabbit independently verified and owns the separate pre-existing startup recover
 Final-definition replay of the retained real BRREG graph edges also passed exact 29,503 relationship rows and 444 chosen-root rows against the validated reference, processing call17.732s; 25,634 groups, eight NULL levels, max level2, four cycle and440 multi roots. This private rollback fixture uses synthetic referenced legal-unit metadata, not a full-register import or production timing (tmp/591/pg-process-brreg-final-private-key.log and CSVs). A pre-fixture missing-JWT failure was fixed solely by initializing a fresh private synthetic key, with failed log and DB retained. No runtime defect or real credential copying.
 
 All591 work remains local and unpushed. AC1/AC2 remain open for full-register rune row parity and measured improvement. Queue default remains1. Ambiguous chosen-root allocation compatibility, including allocation reordering from whole-slot packing, and the owner valid_from decision remain explicit review boundaries. Startup host-crash recovery is separately owned by rabbit in STATBUS-589. No591 acceptance criterion checked and no release readiness claim.
+
+2026-11-07 18:58 UTC: pre591-root compatibility is now measured, not only a warning. Six new private clones of the identical retained400LU/800ES uploads use the exact original serial phase, same final PG processor and zero batch leaves. Released row-ID packing and row-ID+actionANALYZE controls each match across two repeats. Current whole-slot packing changes only two chosen logical root identities on both repeats: cycle591000010->591000006 and multi591000012->591000014. All nine canonical base tables, exact relationship rows, group business rows, memberships and BFS levels agree; all jobs finish400/400LU,800/800ES,9/9LR and the source fixture fingerprint is unchanged. The parity probe intentionally exits1 with these business-root differences, no unexpected errors (tmp/591/serial-packing-20261107_185223_3402-results.json, serial-packing-root-parity.log). Queue default1 is therefore not sufficient to preserve released chosen roots.
+
+A narrower PRIVATE-ONLY candidate preserves the exact released assignment routine for new legal-unit jobs containing one accepted insert row per founding unit, keeps LU processing serial, and uses whole-slot packing with concurrent formal ES batches. Both sides receive the same current helper/wakeup/PG definitions. Two fresh reference/candidate pairs pass exact twelve-domain-table and graph parity, every chosen root, and exact LU surrogate allocation. Four ES leaves active together,40completed leaf tasks. Small synthetic ESphase11.555->3.563s and11.938->3.808s; LUphase remains serial, not a real Crystal/full-register performance claim. Evidence tmp/591/singleton-lu-safe-20261107_185624_43321-results.json and frozen definitions JSON, singleton-lu-safe-scope.log. All private source fingerprints unchanged.
+
+Recommendation for owner discussion: first land only the narrower establishment-concurrency scope with preserved singleton-LU allocation, unless the owner explicitly chooses a new root-selection policy or deterministic parallel allocation work. This candidate is NOT in the tracked runtime and is NOT covered by the committed complete-suite pass. Before integration it needs positive dispatch/grouping tests, mixed/history fallback coverage, real-worker remeasurement and the complete suite. Current591remains local/unpushed, allACopen; no seed/local or rune mutation and no tracked runtime edits during these probes.
+
+Review clarification: removed the agent-invented under-one-hour promise from the North Star rather than silently introducing a new owner-unapproved acceptance threshold. The agreed measurable first milestone remains exact full-register parity and improvement over run A's 10,240-second load-to-idle baseline. AC3 now states both possible date values and their validity consequences; the owner has not chosen either policy.
 <!-- SECTION:NOTES:END -->

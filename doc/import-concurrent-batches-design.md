@@ -3,10 +3,10 @@
 Status: implemented on local branch `statbus-591-import-speed`, not released. The final integrated fast
 suite passed all 132 shared and two isolated tests, and clean database-documentation regeneration left
 no changes. Actual Crystal-worker BRREG selection measurements show repeated gains after batch-tail
-wakeup publication, with exact domain and history consistency checks. A graph extension found a
-chosen-root identity difference after concurrent new legal-unit allocation. Full-register measurements
-remain pending, and unrestricted legal-unit concurrency is not yet an exact-output-equivalent release
-candidate.
+wakeup publication, with exact domain and history consistency checks. Root-parity probes found chosen
+logical-root differences from both whole-slot packing and concurrent new legal-unit allocation.
+Full-register measurements remain pending, and the current legal-unit packing/dispatch is not yet an
+exact-output-equivalent release candidate, even with queue concurrency one.
 Evidence: `tmp/journal.md`, `tmp/591/`, `tmp/rune-measure/A/import-tasks.out`.
 
 ## Where the time goes (rune run A, rc.18, full BRREG)
@@ -126,8 +126,29 @@ exact domain and chosen-root parity at four-way ES concurrency. Parallel legal-u
 processing needs either equivalent deterministic allocation or an explicitly agreed root-selection policy
 before it can satisfy strict chosen-root parity. The small unit-only speed measurements below do not
 establish that compatibility. These references do not restore the released batch-packing function.
-Packing itself can reorder surrogate allocation, so this experiment does not establish chosen-root
-identity parity against the pre-591 release.
+
+A later six-run private comparison now isolates the packing effect. All runs use the exact original
+serial processing phase, the same final power-group processor and zero concurrent leaves. Released
+row-ID packing and row-ID packing with refreshed action statistics match across both repeats.
+Whole-slot packing changes two chosen logical roots on both repeats: cycle `591000010` becomes
+`591000006`, and multi-root `591000012` becomes `591000014`. All nine canonical base tables,
+relationships, group business rows, memberships and BFS levels still match. Thus queue concurrency
+one is not a sufficient strict-root-compatibility guard. Evidence:
+`tmp/591/serial-packing-20261107_185223_3402-results.json` and `serial-packing-root-parity.log`.
+
+A narrower private-only candidate preserves the exact released assignment routine for insert-only
+new legal-unit jobs with one accepted row per founding unit, keeps legal-unit processing serial,
+and uses whole-slot packing and concurrent dispatch for eligible formal establishments. Two fresh
+reference/candidate pairs on 400 legal units, 800 establishments and nine relationships match all
+canonical domain/graph rows, exact legal-unit allocations and every chosen root. Four establishment
+leaves are active together. The small-fixture establishment phase takes 11.555 versus 3.563 seconds
+and 11.938 versus 3.808 seconds, not a real-worker full-import performance claim. Definitions and
+results are retained in `tmp/591/singleton-lu-safe-20261107_185624_43321-*`.
+
+This narrower candidate is a scratch prototype, not part of the committed runtime or covered by its
+complete fast-suite pass. Adopting it requires positive dispatch/grouping regressions, mixed/history
+fallback verification, real-worker remeasurement and owner scope approval. Unrestricted parallel
+legal-unit creation still needs deterministic compatible allocation or an agreed root-selection policy.
 
 ## Verification
 
