@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:37:00Z'
-updated_date: '2026-11-07T12:39:00Z'
+updated_date: '2026-11-07T15:10:00Z'
 labels:
   - caddy
   - upgrade
@@ -40,4 +40,6 @@ Nothing in the automated runs fetched a page during maintenance or fetched /moni
 
 <!-- SECTION:NOTES:BEGIN -->
 Red: test/caddy-maintenance-route-test.sh (real caddy:2 on each template's @maintenance block) failed for standalone and private: marker present, / and /login answered 200 (tmp/588-red.log; 726343150). Fix d09f06ced: file { root /statbus-maintenance; try_files /active }. Green 13/13 (tmp/588-green.log); runs in Harness Selftest. AC2 on the rc.18 manual box (tmp/588-box-check.log): with the fixed matcher in the running proxy, no marker: / 307, /login 200, /monitor 200; marker: / 503 (maintenance page), /login 503, /monitor 200 status ok; removed: normal again; original config restored.
+
+rc.21 gate (Upgrade Arc Harness 42380900182) failed on postswap-severed-proxy-refusal and postswap-stopped-proxy-recovery: once Caddy served the maintenance page, the post-swap self-heal completion in resumeNewSb exposed that it never removed ~/statbus-maintenance/active. Install's advertised-site check got 503. Red test 4eadb18c9 (TestPostSwapSelfHealCompletionRequiresCleanFinishing), fix 5a119f49e. rc.22 cut in progress.
 <!-- SECTION:NOTES:END -->
