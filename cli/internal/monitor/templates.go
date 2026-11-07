@@ -29,7 +29,7 @@ zabbix_export:
     - uuid: 7a9e3a2c1b5d4c8e9f6a0b1c2d3e4f50
       name: 'Templates/Applications'
   templates:
-    - uuid: 1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f
+    - uuid: 44fbaee22ced4ff7abcca02d2ca76df1
       template: StatBus
       name: StatBus
       description: |
@@ -40,7 +40,7 @@ zabbix_export:
       groups:
         - name: 'Templates/Applications'
       items:
-        - uuid: 2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f70
+        - uuid: 60ed27561c7b435190680107addf5c36
           name: 'StatBus monitor JSON'
           type: ZABBIX_PASSIVE
           key: statbus.monitor
@@ -51,7 +51,7 @@ zabbix_export:
           tags:
             - tag: component
               value: statbus
-        - uuid: 3e4f5a6b7c8d9e0f1a2b3c4d5e6f7081
+        - uuid: de8771f29c75411d9d1db3f30231690f
           name: 'StatBus status'
           type: DEPENDENT
           key: statbus.status
@@ -67,7 +67,32 @@ zabbix_export:
           tags:
             - tag: component
               value: statbus
-        - uuid: 4f5a6b7c8d9e0f1a2b3c4d5e6f708192
+          triggers:
+            - uuid: 2f19efc90a574b9eb0801700d5212571
+              expression: 'last(/StatBus/statbus.status)="warning"'
+              name: 'StatBus status is warning'
+              priority: WARNING
+              description: 'A check reports warning: disk space, certificate expiry, worker task failures, an inactive upgrader or a failed upgrade.'
+              tags:
+                - tag: component
+                  value: statbus
+            - uuid: 325855edd82e42f4833707018120901c
+              expression: 'last(/StatBus/statbus.status)="critical"'
+              name: 'StatBus status is critical'
+              priority: HIGH
+              description: 'A check reports critical: a serving container is down, the API is not ready, the site does not answer, disk is below the minimum, backups stopped, an upgrade is parked or worker tasks are stuck.'
+              tags:
+                - tag: component
+                  value: statbus
+            - uuid: 9126efca22f643fe9cb85dc731f5c9ab
+              expression: 'last(/StatBus/statbus.status)="unknown"'
+              name: 'StatBus status is unknown'
+              priority: WARNING
+              description: 'A check could not be measured. Inspect /monitor and ./sb monitor status on the StatBus host.'
+              tags:
+                - tag: component
+                  value: statbus
+        - uuid: 201f21503abf4660a5466ef6a8fa6ef2
           name: 'StatBus checked at'
           type: DEPENDENT
           key: statbus.checked_at_unixtime
@@ -87,7 +112,16 @@ zabbix_export:
           tags:
             - tag: component
               value: statbus
-        - uuid: 5a6b7c8d9e0f1a2b3c4d5e6f708192a3
+          triggers:
+            - uuid: dec4cda7bd814177b5d6c4cfec39d816
+              expression: 'now() - last(/StatBus/statbus.checked_at_unixtime)>300'
+              name: 'StatBus reading is stale'
+              priority: WARNING
+              description: 'The cached reading is older than 5 minutes: the upgrader tick that writes it has stopped.'
+              tags:
+                - tag: component
+                  value: statbus
+        - uuid: c12b9ef07fd94b74a70c64ca53f9df3b
           name: 'StatBus check: services'
           type: DEPENDENT
           key: statbus.check.services
@@ -105,7 +139,7 @@ zabbix_export:
           tags:
             - tag: component
               value: statbus
-        - uuid: 6b7c8d9e0f1a2b3c4d5e6f708192a3b4
+        - uuid: 28088981a2be4b6a8052e6d325aedb94
           name: 'StatBus check: api'
           type: DEPENDENT
           key: statbus.check.api
@@ -123,7 +157,7 @@ zabbix_export:
           tags:
             - tag: component
               value: statbus
-        - uuid: 7c8d9e0f1a2b3c4d5e6f708192a3b4c5
+        - uuid: 1e57825dec2d453d8031cfa892aa35c0
           name: 'StatBus check: site'
           type: DEPENDENT
           key: statbus.check.site
@@ -141,7 +175,7 @@ zabbix_export:
           tags:
             - tag: component
               value: statbus
-        - uuid: 8d9e0f1a2b3c4d5e6f708192a3b4c5d6
+        - uuid: a477fdd7b6784f089317134bb8e08004
           name: 'StatBus check: disk'
           type: DEPENDENT
           key: statbus.check.disk
@@ -159,7 +193,7 @@ zabbix_export:
           tags:
             - tag: component
               value: statbus
-        - uuid: 9e0f1a2b3c4d5e6f708192a3b4c5d6e7
+        - uuid: ac8282f0e6364c9aac2911e1b5247675
           name: 'StatBus check: backups'
           type: DEPENDENT
           key: statbus.check.backups
@@ -177,7 +211,7 @@ zabbix_export:
           tags:
             - tag: component
               value: statbus
-        - uuid: a0f1a2b3c4d5e6f708192a3b4c5d6e7f8
+        - uuid: 71a9d5f82cb040ac89c9458b7bc46088
           name: 'StatBus check: upgrader'
           type: DEPENDENT
           key: statbus.check.upgrader
@@ -195,7 +229,7 @@ zabbix_export:
           tags:
             - tag: component
               value: statbus
-        - uuid: b1a2b3c4d5e6f708192a3b4c5d6e7f809
+        - uuid: 5c36f5e8cde34ecab61eea12f5a5a5d5
           name: 'StatBus check: worker'
           type: DEPENDENT
           key: statbus.check.worker
@@ -210,39 +244,6 @@ zabbix_export:
             - type: JAVASCRIPT
               parameters:
                 - "return JSON.parse(value)[0] || 'unknown';"
-          tags:
-            - tag: component
-              value: statbus
-      triggers:
-        - uuid: c2b3c4d5e6f708192a3b4c5d6e7f8091
-          expression: 'last(/StatBus/statbus.status)="warning"'
-          name: 'StatBus status is warning'
-          priority: WARNING
-          description: 'A check reports warning: disk space, certificate expiry, worker task failures, an inactive upgrader or a failed upgrade.'
-          tags:
-            - tag: component
-              value: statbus
-        - uuid: d3c4d5e6f708192a3b4c5d6e7f8091a
-          expression: 'last(/StatBus/statbus.status)="critical"'
-          name: 'StatBus status is critical'
-          priority: HIGH
-          description: 'A check reports critical: a serving container is down, the API is not ready, the site does not answer, disk is below the minimum, backups stopped, an upgrade is parked or worker tasks are stuck.'
-          tags:
-            - tag: component
-              value: statbus
-        - uuid: e4d5e6f708192a3b4c5d6e7f8091a2b
-          expression: 'last(/StatBus/statbus.status)="unknown"'
-          name: 'StatBus status is unknown'
-          priority: WARNING
-          description: 'A check could not be measured. Inspect /monitor and ./sb monitor status on the StatBus host.'
-          tags:
-            - tag: component
-              value: statbus
-        - uuid: f5e6f708192a3b4c5d6e7f8091a2b3c
-          expression: 'now() - last(/StatBus/statbus.checked_at_unixtime)>300'
-          name: 'StatBus reading is stale'
-          priority: WARNING
-          description: 'The cached reading is older than 5 minutes: the upgrader tick that writes it has stopped.'
           tags:
             - tag: component
               value: statbus
