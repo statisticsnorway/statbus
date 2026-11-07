@@ -14,9 +14,10 @@ export default function ImportLayout({
   const isJobsPage = pathname.startsWith("/import/jobs");
 
   if (isJobsPage) {
-    // As wide as the jobs table needs (it has many columns), up to the window width.
+    // As wide as the jobs table needs, never wider than the window: a wider table
+    // (e.g. the data page) scrolls inside its own box, not the page.
     return (
-      <main className="mx-auto w-fit max-w-full px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <main className="mx-auto w-fit min-w-0 max-w-[100vw] px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         {children}
       </main>
     );
