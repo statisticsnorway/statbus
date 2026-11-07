@@ -339,7 +339,11 @@ Installed v1.4 already supports the fast no-toggle path for this fixture. Concur
 sampled table-lock waits, though brief shared job-counter tuple waits remain. Explicit deferral has no
 demonstrated advantage here, with median batch COMMIT 34.285 ms versus 15.887 ms for installed enabled
 checks. Shared-host load ranges from about 18.6 to 28.7, so small differences are not causal estimates.
-A separate serial-enabled control is needed to isolate concurrency's benefit from toggle removal.
+A separate forward/reversed four-trial control holds installed v1.4 checks enabled in both paths.
+Serial batch processing takes 7.401/7.972 s, versus 2.513/2.771 s with four clients. The medians are
+7.686 s and 2.642 s, an observed 2.91x ratio on this fixture. Thus concurrency adds a measured benefit
+once trigger-DDL serialization is removed. Host load and fixture size still preclude extrapolating
+that ratio to the full register. These four trials pass the same exact-state and COMMIT-inclusive checks.
 
 Independent retained-observation verification asserts all 2,000 expected ES versions, 1,200 ES identities,
 3,200 statistic payload versions, exact names/dates/parents/primary flags, every analyzed batch timed
@@ -349,10 +353,16 @@ validate native final-FK rejection, exact rollback and a repaired intermediate t
 
 These are bounded direct calls to the real batch function, not adoption of mixed scheduler eligibility
 or a Crystal/Go worker performance result. Parent moves, cross-enterprise dependencies and production
-throughput remain separate work. Snapshot portability between creator and default worker search paths
-also needs diagnosis before broad integration. Evidence: `tmp/591/sql-saga/FOLLOWUP-REPORT.md`,
-`followup-f1107_202817_2402/` and `tmp/591/verify-saga-mixture-balanced.log`. Source databases and tracked
-runtime remain unchanged.
+throughput remain separate work. A fresh default-path upload produces qualified procedure snapshots;
+the actual default SQL worker then finishes all 1,200 rows serially with exact expected versions, parents,
+custom-root replay and history A/B/C. The earlier client failure used the reused creator connection, so
+it is not evidence of failure in that default upload/worker path. The current dispatch allowlist still
+compares displayed procedure text, whose qualification changes with search path. Procedure-identity
+comparison and a positive alternate-context fanout regression are scheduled before landing.
+
+Evidence: `tmp/591/sql-saga/FOLLOWUP-REPORT.md`, `followup-f1107_202817_2402/`,
+`short-n1107_203900_99673/`, and `tmp/591/verify-saga-mixture-{balanced,serial-enabled}-final.log`.
+Source databases and tracked runtime remain unchanged by these experiments.
 
 #### Deferred errors must reach the batch failure boundary
 
@@ -372,4 +382,4 @@ bodies. With current seed metadata, the COMMIT-only failure reproduces and both 
 Evidence: `tmp/591/saga-worker/README.md`, `1107_201950_23714-results.json` and
 `acceptance-current-metadata.log` in that directory. No tracked runtime adoption follows from these
 probes. The genuine-mixture followup supplies the missing input/control evidence, but safe dependency
-scope, default-context worker integration and production measurements remain adoption gates.
+scope, worker integration for any proposed deferral and production measurements remain adoption gates.
