@@ -113,6 +113,12 @@ func TestGeneratedAdministratorPasswordGoesOnlyToTerminal(t *testing.T) {
 	if !strings.Contains(tty.String(), "./sb users show-password first-admin@example.org") {
 		t.Fatalf("terminal guidance missing the show command: %q", tty.String())
 	}
+	// The password is saved in the checkout's .users.yml (STATBUS-419: one
+	// place while installed), and the message names that file. rc.18 manual
+	// box: it named ~/statbus.users.yml, which does not exist.
+	if want := "  Saved in " + filepath.Join(dir, ".users.yml") + ". Show it again with: ./sb users show-password first-admin@example.org\n"; !strings.Contains(tty.String(), want) {
+		t.Fatalf("terminal guidance = %q, want it to contain %q", tty.String(), want)
+	}
 	data, err := os.ReadFile(filepath.Join(dir, ".users.yml"))
 	if err != nil || !strings.Contains(string(data), "generated-secret-123") {
 		t.Fatalf("generated password not saved: %q %v", data, err)
