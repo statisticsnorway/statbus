@@ -3400,7 +3400,7 @@ func runCreateUsers(dir string) error {
 		return err
 	}
 	if useOffered {
-		showAdministratorPassword(email, password)
+		showAdministratorPassword(email, password, filepath.Join(dir, ".users.yml"))
 	}
 	fmt.Printf("  Created administrator %s.\n", email)
 	// A failure to save is reported loudly but does not stop the install: the
@@ -3512,9 +3512,10 @@ func askUseOfferedAdministratorPassword(email string) bool {
 // showAdministratorPassword writes the offered password only to
 // the controlling terminal. Without one, it never prints the secret anywhere
 // (stdout and stderr reach the install log and support bundles) and states
-// only where the password is saved and how to show it.
-func showAdministratorPassword(email, password string) {
-	guide := fmt.Sprintf("  Keep it in a password manager. It is saved in ~/%s (readable only by statbus). Show it again with: ./sb users show-password %s\n", operatorUsersFileName, email)
+// only where the password is saved and how to show it. usersFile is the
+// checkout's .users.yml, the one place it is kept while installed (STATBUS-419).
+func showAdministratorPassword(email, password, usersFile string) {
+	guide := fmt.Sprintf("  Saved in %s. Show it again with: ./sb users show-password %s\n", usersFile, email)
 	tty, err := openPasswordTerminal()
 	if err != nil {
 		fmt.Print(guide)
