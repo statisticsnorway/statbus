@@ -634,6 +634,7 @@ export default function ImportJobDataPage() {
         },
         enableSorting: true,
         enableHiding: baseKey !== "row_id",
+        ...(baseKey === "row_id" ? { size: 80 } : {}),
       };
 
       // Enable text filtering on any field with a `_raw` version, name, external IDs, and special composite fields.
@@ -709,6 +710,8 @@ export default function ImportJobDataPage() {
     data: tableData?.data ?? [],
     columns,
     pageCount,
+    // Row Id stays at the left edge while the wide table scrolls.
+    initialState: { columnPinning: { left: ["row_id"] } },
     state: {
       pagination,
       sorting,

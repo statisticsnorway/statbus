@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 
 // Marks the scroll box with data-overflows-left/right while columns are hidden under that edge,
 // so pinned columns (data-pinned-edge) show their dashed edge only when something runs beneath them.
+// The edge is a pseudo-element: in a border-collapse table a sticky cell does not carry its own border.
 function trackHorizontalOverflow(box: HTMLDivElement | null) {
   if (!box) return
   const update = () => {
@@ -31,7 +32,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     <div
       ref={trackHorizontalOverflow}
       data-slot="table-container"
-      className="relative w-full overflow-x-auto [&[data-overflows-right]_[data-pinned-edge=right]]:border-l [&[data-overflows-right]_[data-pinned-edge=right]]:border-dashed [&[data-overflows-left]_[data-pinned-edge=left]]:border-r [&[data-overflows-left]_[data-pinned-edge=left]]:border-dashed"
+      className="relative w-full overflow-x-auto [&[data-overflows-right]_[data-pinned-edge=right]]:before:absolute [&[data-overflows-right]_[data-pinned-edge=right]]:before:inset-y-0 [&[data-overflows-right]_[data-pinned-edge=right]]:before:left-0 [&[data-overflows-right]_[data-pinned-edge=right]]:before:border-l [&[data-overflows-right]_[data-pinned-edge=right]]:before:border-dashed [&[data-overflows-right]_[data-pinned-edge=right]]:before:border-zinc-300 [&[data-overflows-right]_[data-pinned-edge=right]]:before:content-[''] [&[data-overflows-left]_[data-pinned-edge=left]]:after:absolute [&[data-overflows-left]_[data-pinned-edge=left]]:after:inset-y-0 [&[data-overflows-left]_[data-pinned-edge=left]]:after:right-0 [&[data-overflows-left]_[data-pinned-edge=left]]:after:border-r [&[data-overflows-left]_[data-pinned-edge=left]]:after:border-dashed [&[data-overflows-left]_[data-pinned-edge=left]]:after:border-zinc-300 [&[data-overflows-left]_[data-pinned-edge=left]]:after:content-['']"
     >
       <table
         data-slot="table"
