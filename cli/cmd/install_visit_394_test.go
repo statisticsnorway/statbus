@@ -399,6 +399,10 @@ func TestAdvertisedSiteWaitsOnlyWhenACertificateCanArrive(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Fatalf("output = %q, want %q", out, want)
 		}
+		// No automatic certificate can come: the next step is the operator's own.
+		if next := want + "Install your certificate with: cd ~/statbus && ./sb cert install <file>\n"; !strings.Contains(out, next) {
+			t.Fatalf("output = %q, want the next step right after the warning: %q", out, next)
+		}
 	})
 	t.Run("public DNS that does not reach this server is reported at once", func(t *testing.T) {
 		dir := writeEnv(t, "statbus.example.org")
