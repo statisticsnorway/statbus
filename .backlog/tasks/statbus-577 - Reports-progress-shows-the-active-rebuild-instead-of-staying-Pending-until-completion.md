@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T19:56:00Z'
-updated_date: '2026-11-07T20:14:00Z'
+updated_date: '2026-11-07T20:37:00Z'
 labels:
   - frontend
   - worker
@@ -42,4 +42,6 @@ Owner observed Norway run B on v2026.11.2-rc.02: Statistical Units shows percent
 - Full format check reports 245 style warnings. The modified worker file also fails on its pre-fix definition, while the new regression test formats cleanly. This is not a claim of a passing full format check.
 - Final combined SQL fast is running via tmp/test-577-fast-run.sh, with its real exit saved separately. The advertised detached wrapper dropped the subcommand, so its launcher exit 0 was rejected as suite evidence and is being fixed immediately as 578.
 - Exact-SHA CI, green candidate gate and visible running-to-completed browser acceptance remain pending. The evidence above is not an observed candidate browser workflow. Norway benchmark B stays unchanged on rc.02.
+
+2026-11-07 20:37 UTC: v2026.11.2-rc.03 is tagged at cb962d0a8be4aba086ffc7b44013e5875a633e9d with both Reports fixes. Corrected complete SQL fast suite passed all 129 tests at 20:26:59 UTC, real exit=0, including391 and390 (tmp/test-577-fast-combined-green.log and .exit). The first combined run's sole failure was321's 29 error-stack source offsets changing208->214 after the six-line start-notification addition. Apart from those offsets expected and observed output were byte-identical. Focused321 passed after the justified expected-context update cb962d0a8, then the complete suite passed. Exact candidate CI: Fast Tests42410876430, Harness42410614684, Go42410614674, App42410614676, Images42410614678 all completed/success. Candidate real install/upgrade/recovery gates are now running. Actual visible candidate browser running-to-completed acceptance remains pending after Norway B completes and the final green RC is installed. No claim that unit/native notification tests constitute observed browser acceptance.
 <!-- SECTION:NOTES:END -->

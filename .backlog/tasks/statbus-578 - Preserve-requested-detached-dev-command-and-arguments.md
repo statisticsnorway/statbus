@@ -1,10 +1,10 @@
 ---
 id: STATBUS-578
 title: Preserve requested detached dev command and arguments
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-07T20:11:00Z'
-updated_date: '2026-11-07T20:17:00Z'
+updated_date: '2026-11-07T20:37:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -31,4 +31,6 @@ RED dfd968c18: bash test/dev-detached-test.sh failed with actual tmux, launcher 
 Coordinator review: behavioral acceptance passed locally. Ticket remains In Progress until the fix is pushed and exact-SHA Harness Selftest CI is inspected. Final SQL regression and release work are tracked separately and are not established by a successful detached launcher.
 
 Follow-up b98406ee7 uses direct tmux argv: bash -o pipefail -c "$_DETACHED_RUN", eliminating the outer default-shell quoting dependency. At 2026-11-07 20:17Z reran bash test/dev-detached-test.sh with real tmux: exact test/fast and single help child exits 0, quoted/empty/newline/metacharacter arguments with child EXIT trap 23 all passed. Evidence tmp/578-direct-argv-green.log and retained fixture tmp/dev-detached.Gu09AF. bash -n dev.sh test/dev-detached-test.sh, actionlint .github/workflows/harness-selftest.yaml and scoped git diff --check passed. Ticket deliberately remains In Progress for coordinator push and exact-SHA CI inspection. No SQL/DB runs, push or sibling checkout changes.
+
+2026-11-07 20:31 UTC coordinator verification: pushed fix is included in cb962d0a8be4aba086ffc7b44013e5875a633e9d. Exact-SHA Harness Selftest 42410614684 completed with conclusion=success, including the bounded real-tmux public-launcher acceptance test. The coordinator also independently observed exact test/fast argv, quoted/empty/newline/metacharacter argument boundaries, and explicit child EXIT statuses 0 and 23 in tmp/test-578-coordinator.log. This verifies both acceptance criteria. The corrected SQL invocation was separately observed to finish all 129 tests with real exit 0 at 20:26:59 UTC (tmp/test-577-fast-combined-green.log and .exit), not inferred from a detached launcher's exit. RED dfd968c18, GREEN 9267baa55, direct-argv follow-up b98406ee7. No outstanding functional acceptance remains for this ticket.
 <!-- SECTION:NOTES:END -->
