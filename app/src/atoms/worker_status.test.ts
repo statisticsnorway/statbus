@@ -129,3 +129,24 @@ test("idle units signal preserves queued reports until their own start", () => {
     pending: true,
   });
 });
+
+test("starting units advances only their structured phase and preserves queued reports", () => {
+  const store = waitingStore();
+  store.set(setWorkerStatusAtom, {
+    type: "pipeline_progress",
+    phases: [{ ...pending, phase: "is_deriving_statistical_units" }],
+  });
+  store.set(setWorkerStatusAtom, {
+    type: "is_deriving_statistical_units",
+    status: true,
+  });
+  expect(store.get(workerStatusAtom).derivingUnits).toMatchObject({
+    active: true,
+    pending: false,
+    effective_legal_unit_count: 24000,
+  });
+  expect(store.get(workerStatusAtom).derivingReports).toMatchObject({
+    active: false,
+    pending: true,
+  });
+});

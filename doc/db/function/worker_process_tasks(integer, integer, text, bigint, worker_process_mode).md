@@ -181,6 +181,12 @@ BEGIN
       END;
     END IF;
 
+    -- The notifier selects active depth-2 steps. Publish before a leaf handler
+    -- finishes, delivering its running state with the existing start-state commit.
+    IF task_record.queue = 'analytics' AND task_record.depth = 2 THEN
+      CALL worker.notify_task_progress();
+    END IF;
+
     IF NOT v_inside_transaction THEN
       COMMIT;
     END IF;
