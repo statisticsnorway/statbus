@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -60,5 +61,15 @@ func TestResolveFleetSlotRefusesUnsafeCode(t *testing.T) {
 	dir := writeDownloadRegistry(t, downloadRegistryFixture)
 	if _, err := resolveFleetSlot(dir, "no;rm -rf"); err == nil {
 		t.Fatal("resolveFleetSlot accepted a non-identifier slot code")
+	}
+}
+
+// TestDbDownloadHelpSaysWhereBoxesComeFrom: the help explains the fleet
+// registry in general terms; which country a box serves is the registry's
+// data, not help text.
+func TestDbDownloadHelpSaysWhereBoxesComeFrom(t *testing.T) {
+	want := "Resolves the slot's box from the fleet registry in cloud.sh, so a multi-tenant\nslot and a standalone host both work, and streams a pg_dump."
+	if !strings.Contains(dbDownloadCmd.Long, want) {
+		t.Fatalf("sb db download --help = %q, want it to contain %q", dbDownloadCmd.Long, want)
 	}
 }
