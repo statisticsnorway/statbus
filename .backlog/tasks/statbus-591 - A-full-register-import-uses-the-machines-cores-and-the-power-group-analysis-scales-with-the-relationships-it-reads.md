@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T17:49:00Z'
+updated_date: '2026-11-07T18:00:00Z'
 labels:
   - import
   - performance
@@ -77,4 +77,7 @@ Strict-root-parity fallback experiment passed: fresh400LU/800ES plus9relationshi
 
 2026-11-07 17:49 UTC: all four real Crystal-worker BRREG selection runs preserve exact normalized domain rows and history A/B/C, but no accepted overall speedup (serial82.644s, N2=89.000s, N4=88.776s, N8=87.719s). Independent batches block on worker.base_change_log_has_pending. Scratch-only batch-tail wakeup publication keeps log appends and constraints immediate. A forced collector-after-DELETE interleaving additionally reproduced a lost durable pending bit (remaining enterprise7, queued collector1, pendingFALSE). Prototype must coordinate every publisher, including region and specialized relationship/root producers, with the collector before its drain snapshot. No tracked wakeup migration or landing accepted yet.
 A separate current-procedure correctness defect is reproduced: cycle edges2->3,3->2,2->1 choose terminal1 as minimum component ID, violating power-root influencing-membership validation. SQL378 and a minimal valid-candidate repair are delegated, preserving all previously valid root choices and custom overrides. Neither local fixture establishes full Norway acceptance. Startup recovery with a range-less queued collector and a lost unlogged log was separately handed to rabbit, with rollback SQL-state evidence, not a host-crash claim.
+
+2026-11-07 18:00 UTC: cycle-tail root correctness repair committed locally as68559913a with paired generated procedure documentation. Before/current optimized procedure fails on cycle2<->3 plus2->1 when terminal1 has the minimum surrogate ID. Rollback prototype and finalSQL378 succeed by choosing the minimum influencing member for a cycle; all previously valid minimum-ID roots, natural/multi memberships, exact levels, bounded validity and custom overrides stay unchanged. Standard117/118/119/120/366/374/378 all7PASS, new378578ms. No released migration edited, no push.
+All-producer wakeup prototype now passes fresh375/377 and actual separate-connection collector interleavings, including ordinary region updates, exact changed IDs, durable pending flag, notifications and rollback. Fixed frozen files/hashes are in tmp/591/wakeup-frozen-20261107-1756; cat acceptance w20261107_1757frozen isPASS. Real Crystal unchanged-serial versus frozen-N4 remeasurement is running. No performance acceptance yet. References share this branch's new whole-slot packing, so ES-only strict-root-parity proof does not establish chosen-root identity parity against old released packing.
 <!-- SECTION:NOTES:END -->
