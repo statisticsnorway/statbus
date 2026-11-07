@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-13 12:29
-updated_date: '2026-11-02T14:40:00Z'
+updated_date: '2026-11-07T10:32:00Z'
 labels:
   - install
   - hardening
@@ -24,10 +24,10 @@ FOUND 2026-10-13 during the Uganda preparation. The owner ran `sudo ./setup.sh` 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The published prepare instruction runs the script as root inside a root login shell (sudo -i or an equivalent that sets HOME to the root home and clears the invoking environment). Checked by the instruction text plus a transcript showing the HOME in effect.
+- [x] #1 The published prepare instruction runs the script as root inside a root login shell (sudo -i or an equivalent that sets HOME to the root home and clears the invoking environment). Checked by the instruction text plus a transcript showing the HOME in effect.
 - [x] #2 If the script is invoked with plain sudo from an operator home, it either refuses and names the correct invocation, or writes every file it owns outside that home and says where. Checked by a run transcript for that invocation.
-- [ ] #3 After a fresh preparation, no file owned by root exists anywhere in the operator home. Checked by an ownership inspection recorded in the ticket.
-- [ ] #4 Run from a root login shell reached as root (ssh root@box, then sudo -i: SUDO_USER=root, HOME=/root), the script proceeds; plain sudo from an operator home is still refused. setup-plain-sudo-guard-test.sh covers both, red before the fix and green after; observed on the test box with the next release
+- [x] #3 After a fresh preparation, no file owned by root exists anywhere in the operator home. Checked by an ownership inspection recorded in the ticket.
+- [x] #4 Run from a root login shell reached as root (ssh root@box, then sudo -i: SUDO_USER=root, HOME=/root), the script proceeds; plain sudo from an operator home is still refused. setup-plain-sudo-guard-test.sh covers both, red before the fix and green after; observed on the test box with the next release
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -40,4 +40,6 @@ Criteria 1 and 3 need a real box and are deferred to STATBUS-497 (the Uganda rer
 2026-11-02 defect found on statbus-manual with released v2026.11.0 setup.sh: ssh root@box, sudo -i (HOME=/root login=yes user=root) was refused with 'Refusing to run with HOME=/root (the home of root)'. Cause: sudo from root sets SUDO_USER=root, and the guard compared HOME with ~SUDO_USER, which is root's own home. Fix: the guard applies only when the invoking user is not root. Test red before the fix (tmp/492/guard-test-red.log: FAIL sudo -i from root refused rc=1), green after (tmp/492/guard-test-green.log). Neighbouring setup tests green. Workaround until the next release: run setup.sh directly from the root login, without sudo -i.
 
 CI for fix 20d510e84: Harness Selftest 41463436032 completed success (runs setup-plain-sudo-guard-test.sh). Remaining: ship in the next RC and observe sudo -i from a root login on the test box.
+
+rc.18 manual box 2026-11-07 (tmp/manual-rc18-setup-evidence.log, from tmp/statbus-manual-session.log): AC1: the guide and DEPLOYMENT.md say sudo -i; in that root shell 'echo HOME=$HOME SUDO_USER=$SUDO_USER' printed HOME=/root SUDO_USER=ubuntu; setup v2026.11.1-rc.18 ran all 9 stages and every check passed. AC3: after that setup 'find /home/statbus -xdev -user root' printed nothing (owner: check removed from the manual-box guide, 24c0507d0). AC4: as ubuntu, 'curl -fsSL https://statbus.org/rc/setup.sh | bash' (not root) was refused with 'This script must be run as root (use sudo)'. The owner ruled that text not to the point, so both refusals (not root, plain sudo) now print one line: Run 'sudo -i' first, then run this command again. (c6728d1c8, 27f336dda; setup-plain-sudo-guard-test red tmp/setup-root-msg-red.log, green tmp/setup-root-msg-quote-green.log, which also covers SUDO_USER=root HOME=/root proceeding; root cannot ssh to this box, so that half rests on the test).
 <!-- SECTION:NOTES:END -->
