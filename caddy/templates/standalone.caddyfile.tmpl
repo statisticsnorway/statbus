@@ -107,7 +107,12 @@ http://{{.Domain}} {
     # Maintenance mode: the upgrader creates /statbus-maintenance/active
     # All other routes return the maintenance page with 503
     @maintenance {
-        file /statbus-maintenance/active
+        # The file matcher resolves against its own root; without one it uses
+        # the site root (/srv) and never sees the marker (STATBUS-588).
+        file {
+            root /statbus-maintenance
+            try_files /active
+        }
         not path /maintenance.html
         not path /upgrade-progress.log
         not path /upgrade-logs/*
