@@ -1,0 +1,92 @@
+NOTICE:  identifier "pg_regress/390_statbus_589_crash_recovery_derives_all_with_pending_collector" will be truncated to "pg_regress/390_statbus_589_crash_recovery_derives_all_with_pend"
+\echo "=== STATBUS-589: crash recovery with a lost change log derives every unit ==="
+"=== STATBUS-589: crash recovery with a lost change log derives every unit ==="
+\echo "After a crash PostgreSQL truncates the UNLOGGED worker.base_change_log while the"
+"After a crash PostgreSQL truncates the UNLOGGED worker.base_change_log while the"
+\echo "durable worker.base_change_log_has_pending flag stays TRUE. The changes that were"
+"durable worker.base_change_log_has_pending flag stays TRUE. The changes that were"
+\echo "waiting are unknown, so recovery must derive every unit, also when an ordinary"
+"waiting are unknown, so recovery must derive every unit, also when an ordinary"
+\echo "collect_changes task is already pending (it would read the empty log)."
+"collect_changes task is already pending (it would read the empty log)."
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+\o /dev/null
+\set ECHO none
+"User selected the Activity Category Standard"
+"User uploads the demo activity categories"
+"User uploads the demo regions"
+"User uploads the demo sectors"
+"User uploads the demo legal forms"
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+SELECT (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
+       'import_390_lu', 'STATBUS-589 legal units', 'Demo legal units', 'STATBUS-589', 'r_year_curr';
+\copy public.import_390_lu_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+CALL worker.process_tasks(p_queue => 'import');
+\echo "--- Imported units, nothing derived yet ---"
+"--- Imported units, nothing derived yet ---"
+SELECT (SELECT count(*) FROM public.legal_unit) AS legal_units,
+       (SELECT count(*) FROM public.statistical_unit) AS statistical_units;
+ legal_units | statistical_units 
+-------------+-------------------
+          23 |                 0
+(1 row)
+
+-- The state a crash leaves: the change log is empty (UNLOGGED, truncated),
+-- has_pending is TRUE, and the import's ordinary collector is still pending.
+DELETE FROM worker.base_change_log;
+UPDATE worker.base_change_log_has_pending SET has_pending = TRUE;
+\echo "--- Crash state: one ordinary collect_changes pending ---"
+"--- Crash state: one ordinary collect_changes pending ---"
+SELECT state, payload FROM worker.tasks WHERE command = 'collect_changes' AND state IN ('pending', 'interrupted');
+  state  |            payload             
+---------+--------------------------------
+ pending | {"command": "collect_changes"}
+(1 row)
+
+SELECT worker.reset_abandoned_processing_tasks() AS reset_count;
+ reset_count 
+-------------
+           0
+(1 row)
+
+\echo "--- After recovery: the pending collector derives everything ---"
+"--- After recovery: the pending collector derives everything ---"
+SELECT state, payload->'valid_ranges' AS valid_ranges, payload ? 'legal_unit_id_ranges' AS names_unit_ranges
+FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
+  state  |       valid_ranges       | names_unit_ranges 
+---------+--------------------------+-------------------
+ pending | ["[-infinity,infinity)"] | t
+(1 row)
+
+SELECT has_pending FROM worker.base_change_log_has_pending;
+ has_pending 
+-------------
+ f
+(1 row)
+
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo "--- Every legal unit and its enterprise is derived ---"
+"--- Every legal unit and its enterprise is derived ---"
+SELECT unit_type, count(*) FROM public.statistical_unit GROUP BY unit_type ORDER BY unit_type;
+ unit_type  | count 
+------------+-------
+ legal_unit |    23
+ enterprise |    23
+(2 rows)
+
+SELECT (SELECT count(*) FROM public.statistical_unit WHERE unit_type = 'legal_unit')
+     = (SELECT count(*) FROM public.legal_unit) AS every_legal_unit_derived;
+ every_legal_unit_derived 
+--------------------------
+ t
+(1 row)
+
+ROLLBACK;
