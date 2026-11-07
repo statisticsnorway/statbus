@@ -126,6 +126,20 @@ pnpm run test          # Jest
 
 See [frontend conventions](../.claude/rules/frontend.md) for Jotai, request architecture, generated types, and guarded effects. An action that refreshes an async atom must await its settled state before dependent navigation: `set(authStatusCoreAtom); await get(authStatusCoreAtom);`.
 
+### Local https
+
+Over plain http a browser opens at most six connections to one site, so several app tabs queue behind each other. Caddy's https port speaks HTTP/2, which shares one connection across all tabs:
+
+```bash
+./dev.sh https on            # trust Caddy's local certificate in every Firefox profile, point the browser API at https, restart proxy and app
+./dev.sh https on --system   # also trust it in the macOS keychain or the Linux CA store (sudo), for Chrome, Safari and curl
+./dev.sh https status        # API address, certificate fingerprint, and which profiles trust it
+./dev.sh https trust         # trust again after the proxy volume (and so Caddy's CA) was recreated
+./dev.sh https off           # back to plain http
+```
+
+Then open `https://local.statbus.org:3011` (`https://<SITE_DOMAIN>:<CADDY_HTTPS_PORT>`). Caddy serves pages from `pnpm run dev` on the host when it runs and falls back to the app container otherwise, so restart `pnpm run dev` after `on` or `off`. Restart Firefox once after the first trust. Firefox trust uses NSS `certutil` (`brew install nss`, or `apt install libnss3-tools`).
+
 ## Deployment modes, slots, and connections
 
 `CADDY_DEPLOYMENT_MODE` selects Caddy behavior:

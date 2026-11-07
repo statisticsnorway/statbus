@@ -3684,6 +3684,148 @@ EOS
         echo "Results: $_tsg_pass passed, $_tsg_fail failed"
         [ $_tsg_fail -eq 0 ] && exit 0 || exit 1
       ;;
+    'https' )
+      # Local https on Caddy (https://SITE_DOMAIN:CADDY_HTTPS_PORT) with HTTP/2, so many tabs
+      # share one connection, and the browser API on the same origin. Caddy serves the host's
+      # dev server (cd app && pnpm run dev) when it runs, else the app container
+      # (caddy/templates/development.caddyfile.tmpl). The certificate is Caddy's local CA,
+      # created inside the proxy container; `trust` adds it to Firefox profiles (NSS certutil)
+      # and, with --system, to the OS store.
+      HTTPS_CMD="${1:-}"
+      shift || true
+      _dotenv_get() { ./sb dotenv -f "$1" get "$2" 2>/dev/null || true; }
+      HTTPS_DOMAIN=$(_dotenv_get .env SITE_DOMAIN)
+      HTTPS_PORT=$(_dotenv_get .env CADDY_HTTPS_PORT)
+      HTTPS_HTTP_PORT=$(_dotenv_get .env CADDY_HTTP_PORT)
+      HTTPS_URL="https://${HTTPS_DOMAIN}:${HTTPS_PORT}"
+      HTTPS_CERT="${WORKSPACE}/tmp/caddy-local-root.crt"
+      HTTPS_CERT_NAME="StatBus local Caddy CA (${HTTPS_DOMAIN})"
+
+      _https_export_cert() {
+          mkdir -p "${WORKSPACE}/tmp"
+          docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt > "$HTTPS_CERT.new" \
+            || { rm -f "$HTTPS_CERT.new"; echo "Error: could not read Caddy's local root from the proxy container. Is it running? (./sb start all)" >&2; exit 1; }
+          mv "$HTTPS_CERT.new" "$HTTPS_CERT"
+      }
+      _https_firefox_profiles() {
+          for base in "$HOME/Library/Application Support/Firefox/Profiles" "$HOME/.mozilla/firefox" "$HOME/snap/firefox/common/.mozilla/firefox"; do
+              [ -d "$base" ] || continue
+              for p in "$base"/*/; do [ -f "$p/cert9.db" ] && echo "${p%/}"; done
+          done
+      }
+      # A profile trusts the root when a certificate with its fingerprint carries the C (CA for
+      # websites) flag, whatever nickname it was imported under (Firefox's own import dialog uses
+      # the subject name). One nickname can hold several certificates (Caddy reuses the subject
+      # for each new root), so fingerprint and trust are matched within one certificate block.
+      _https_ff_trusts_root() {
+          local prof="$1" want="$2" nick
+          while IFS= read -r nick; do
+              certutil -d "sql:$prof" -L -n "$nick" | awk -v want="$want" '
+                  /^Certificate:/ { if (fp == want && trusted) found = 1; fp = ""; trusted = 0; next_fp = 0 }
+                  next_fp        { gsub(/[ \t]/, ""); fp = $0; next_fp = 0 }
+                  /Fingerprint \(SHA-256\):/ { next_fp = 1 }
+                  /^ *Trusted CA$/ { trusted = 1 }
+                  END { if (fp == want && trusted) found = 1; exit(found ? 0 : 1) }' && return 0
+          done < <(certutil -d "sql:$prof" -L | awk 'NR>4 && $NF ~ /^[^,]*C[^,]*,/ { $NF=""; sub(/[ \t]+$/, ""); print }')
+          return 1
+      }
+      _https_trust() {
+          local system="$1"
+          _https_export_cert
+          local fp; fp=$(openssl x509 -in "$HTTPS_CERT" -noout -fingerprint -sha256 | cut -d= -f2)
+          echo "Caddy local root: $HTTPS_CERT (SHA-256 $fp)"
+          if command -v certutil >/dev/null 2>&1; then
+              local n=0
+              while IFS= read -r prof; do
+                  certutil -d "sql:$prof" -D -n "$HTTPS_CERT_NAME" >/dev/null 2>&1 || true
+                  certutil -d "sql:$prof" -A -t "C,," -n "$HTTPS_CERT_NAME" -i "$HTTPS_CERT"
+                  echo "  Firefox: trusted in $(basename "$prof")"
+                  n=$((n+1))
+              done < <(_https_firefox_profiles)
+              [ "$n" -gt 0 ] || echo "  Firefox: no profiles found."
+              echo "  Restart Firefox if it was open, so it reads the new trust."
+          else
+              echo "  Firefox: certutil not found (macOS: brew install nss; Debian/Ubuntu: apt install libnss3-tools)."
+              echo "           Or import $HTTPS_CERT in Settings > Certificates > Authorities, ticking 'identify websites'."
+          fi
+          if [ "$system" = "--system" ]; then
+              case "$(uname -s)" in
+                  Darwin) sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$HTTPS_CERT" \
+                            && echo "  macOS keychain: trusted (Safari, Chrome, curl)." ;;
+                  Linux) sudo cp "$HTTPS_CERT" /usr/local/share/ca-certificates/statbus-local-caddy.crt \
+                            && sudo update-ca-certificates >/dev/null && echo "  System store: trusted (Chrome, curl)." ;;
+                  *) echo "  System store: not supported on $(uname -s); import $HTTPS_CERT by hand." ;;
+              esac
+          fi
+      }
+      _https_set_browser_url() {
+          local url="$1"
+          local current; current=$(_dotenv_get .env.config BROWSER_REST_URL)
+          if [ "$current" = "$url" ]; then
+              echo ".env.config: BROWSER_REST_URL already $url"
+          else
+              ./sb dotenv -f .env.config set BROWSER_REST_URL "$url"
+              echo ".env.config: BROWSER_REST_URL $current -> $url"
+          fi
+          ./sb config generate >/dev/null
+          docker compose restart proxy >/dev/null
+          # --no-deps: the app reads the new address; the database and worker keep running.
+          docker compose up -d --no-deps app >/dev/null
+          echo "Proxy and app restarted. If 'pnpm run dev' is running, restart it so it reads the new address."
+      }
+
+      case "$HTTPS_CMD" in
+        'on' )
+          _https_trust "${1:-}"
+          _https_set_browser_url "$HTTPS_URL"
+          echo ""
+          echo "Open: $HTTPS_URL"
+          ;;
+        'trust' )
+          _https_trust "${1:-}"
+          ;;
+        'off' )
+          _https_set_browser_url "http://${HTTPS_DOMAIN}:${HTTPS_HTTP_PORT}"
+          echo "Plain http again: http://${HTTPS_DOMAIN}:3000 (dev server) or http://${HTTPS_DOMAIN}:${HTTPS_HTTP_PORT}"
+          ;;
+        'status' )
+          echo "Browser API (.env.config): $(_dotenv_get .env.config BROWSER_REST_URL)"
+          if [ -f "$HTTPS_CERT" ]; then
+              _https_export_cert >/dev/null 2>&1 || true
+              echo "Caddy local root: $(openssl x509 -in "$HTTPS_CERT" -noout -fingerprint -sha256 | cut -d= -f2)"
+          fi
+          if curl -s -o /dev/null --max-time 5 --cacert "$HTTPS_CERT" "$HTTPS_URL/" 2>/dev/null; then
+              echo "$HTTPS_URL answers and its certificate matches the exported root."
+          else
+              echo "$HTTPS_URL does not answer with the exported root (run: ./dev.sh https on)."
+          fi
+          if command -v certutil >/dev/null 2>&1 && [ -f "$HTTPS_CERT" ]; then
+              local_fp=$(openssl x509 -in "$HTTPS_CERT" -noout -fingerprint -sha256 | cut -d= -f2)
+              while IFS= read -r prof; do
+                  if _https_ff_trusts_root "$prof" "$local_fp"; then
+                      echo "Firefox $(basename "$prof"): trusted"
+                  else
+                      echo "Firefox $(basename "$prof"): not trusted"
+                  fi
+              done < <(_https_firefox_profiles)
+          fi
+          ;;
+        * )
+          echo "Usage: ./dev.sh https <on|status|off|trust> [--system]"
+          echo ""
+          echo "  on [--system]     Trust Caddy's local certificate in Firefox (and with --system the OS store),"
+          echo "                    point the browser API at $HTTPS_URL, restart proxy and app"
+          echo "  trust [--system]  Only (re)trust the certificate, e.g. after the proxy volume was recreated"
+          echo "  status            Show the API address, the certificate, and where it is trusted"
+          echo "  off               Back to plain http"
+          if [ -n "$HTTPS_CMD" ]; then
+              echo ""
+              echo "Error: Unknown subcommand '$HTTPS_CMD'"
+              exit 1
+          fi
+          ;;
+      esac
+      ;;
     'upgrade-sandbox' )
       # Isolated upgrader test harness on port offset 9 (3090-3094).
       # Collision-free with dev/ma/no slots (offsets 1/2/3 = 3010/3020/3030).
@@ -3854,6 +3996,7 @@ EOS
       echo "  setup-signing                      Configure SSH commit signing for this repo"
       echo ""
       echo "Helpers:"
+      echo "  https <on|status|off|trust>        Local https (HTTP/2) with a trusted Caddy certificate"
       echo "  postgres-variables                 Export PG connection variables"
       echo "  is-db-running                      Check if database is accepting connections"
       echo "  db crash-evidence                  Read-only db-crash evidence snapshot (STATBUS-188)"
