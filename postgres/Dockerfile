@@ -57,7 +57,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 # Add Postgres PPA
-RUN curl -sSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-archive-keyring.gpg
+ARG PGDG_KEY_URL=https://www.postgresql.org/media/keys/ACCC4CF8.asc
+# A file lets curl discard partial attempts before gpg reads the completed key.
+RUN set -eu; \
+    key_file="$(mktemp)"; \
+    trap 'rm -f "$key_file"' EXIT; \
+    if ! curl --fail --silent --show-error --location \
+        --retry 3 --retry-all-errors --retry-delay 1 --retry-max-time 120 \
+        --connect-timeout 10 --max-time 30 \
+        --output "$key_file" "$PGDG_KEY_URL"; then \
+        echo "Failed to download PostgreSQL signing key from $PGDG_KEY_URL" >&2; \
+        exit 1; \
+    fi; \
+    gpg --dearmor -o /usr/share/keyrings/postgresql-archive-keyring.gpg "$key_file"
 RUN echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] https://apt.postgresql.org/pub/repos/apt/ jammy-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 
 ####################
