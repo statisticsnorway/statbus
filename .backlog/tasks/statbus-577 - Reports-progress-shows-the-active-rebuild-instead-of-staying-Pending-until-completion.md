@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T19:56:00Z'
-updated_date: '2026-11-07T20:37:00Z'
+updated_date: '2026-11-07T23:41:00Z'
 labels:
   - frontend
   - worker
@@ -44,4 +44,6 @@ Owner observed Norway run B on v2026.11.2-rc.02: Statistical Units shows percent
 - Exact-SHA CI, green candidate gate and visible running-to-completed browser acceptance remain pending. The evidence above is not an observed candidate browser workflow. Norway benchmark B stays unchanged on rc.02.
 
 2026-11-07 20:37 UTC: v2026.11.2-rc.03 is tagged at cb962d0a8be4aba086ffc7b44013e5875a633e9d with both Reports fixes. Corrected complete SQL fast suite passed all 129 tests at 20:26:59 UTC, real exit=0, including391 and390 (tmp/test-577-fast-combined-green.log and .exit). The first combined run's sole failure was321's 29 error-stack source offsets changing208->214 after the six-line start-notification addition. Apart from those offsets expected and observed output were byte-identical. Focused321 passed after the justified expected-context update cb962d0a8, then the complete suite passed. Exact candidate CI: Fast Tests42410876430, Harness42410614684, Go42410614674, App42410614676, Images42410614678 all completed/success. Candidate real install/upgrade/recovery gates are now running. Actual visible candidate browser running-to-completed acceptance remains pending after Norway B completes and the final green RC is installed. No claim that unit/native notification tests constitute observed browser acceptance.
+
+2026-11-07 23:41 UTC: Both rc03 and final rc04 (929fe787c2ab323d3a8c6d013bb9864fbec7bd67) completed their full release gates. RC04 Orchestrator42421987884 and Upgrade Arc Harness42422939393 explicitly completed/success, alongside Release/Smoke/Hardening/Fast/LXD/dev canary. Norway B is complete and documented without repeating it. On installed rc03, authorized real recalculation50063 began21:48:38; the authenticated Reports waiting popover was visibly captured21:51:44 in tmp/rune-measure/final-rc03/reports-waiting-browser.png. Read-only server observations then recorded active Reports at22:08:37.966639, reducer progress at22:09:29/45, and complete idle22:10:00.407563 with zero failed tasks. Those server transitions are not browser acceptance: the Mac locked before running/idle screenshots, Chrome AX reported no accessible windows and per-window capture failed. The missing real running/idle visual check remains explicit, AC2/3 unchecked and ticket In Progress. No unlocking, security-setting change or SQL-only substitution. Final named rc04 is now registered/scheduled through the supported Norway upgrader after full gate success, with unchanged stocks/history and idle clean-host baseline captured23:33.
 <!-- SECTION:NOTES:END -->
