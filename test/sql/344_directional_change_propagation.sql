@@ -444,19 +444,28 @@ DELETE FROM worker.tasks WHERE state = 'completed';
 -- Moving a LU between enterprises should propagate changes to both old and new EN.
 
 \echo "Step 1: Identify two LUs in different enterprises"
--- Use SSB Updated (already modified in earlier tests) and another LU
-SELECT lu.id AS lu_id, lu.name, lu.enterprise_id
+-- Capture the source and target identities before the move. Enterprise IDs are
+-- allocated by import execution, while this transition follows the same LUs.
+CREATE TEMP TABLE t344_move ON COMMIT DROP AS
+SELECT lu.id AS source_lu_id, lu.name AS source_name,
+       lu.enterprise_id AS source_enterprise_id,
+       target.id AS target_lu_id, target.name AS target_name,
+       target.enterprise_id AS target_enterprise_id
 FROM public.legal_unit AS lu
+CROSS JOIN LATERAL (
+    SELECT lu2.id, lu2.name, lu2.enterprise_id
+    FROM public.legal_unit AS lu2
+    WHERE lu2.enterprise_id != lu.enterprise_id
+      AND lu2.valid_from <= current_date AND current_date < lu2.valid_until
+    ORDER BY lu2.id LIMIT 1
+) AS target
 WHERE lu.name = 'SSB Updated'
-AND lu.valid_from <= current_date AND current_date < lu.valid_until;
-
--- Pick a target enterprise different from SSB Updated's enterprise
-SELECT lu2.enterprise_id AS target_enterprise_id
-FROM public.legal_unit AS lu2
-WHERE lu2.enterprise_id != (SELECT enterprise_id FROM public.legal_unit WHERE name = 'SSB Updated' LIMIT 1)
-  AND lu2.valid_from <= current_date AND current_date < lu2.valid_until
-ORDER BY lu2.id
-LIMIT 1;
+  AND lu.valid_from <= current_date AND current_date < lu.valid_until;
+SELECT move.source_name, move.target_name,
+       source_en.short_name = 'SSB-EN' AS source_is_ssb_en,
+       move.source_enterprise_id != move.target_enterprise_id AS different_enterprises
+FROM t344_move AS move
+JOIN public.enterprise AS source_en ON source_en.id = move.source_enterprise_id;
 
 -- Drop leftover temp tables from temporal_merge (created by SECURITY DEFINER
 -- import functions as postgres; current role can't drop them)
@@ -468,20 +477,31 @@ DROP TABLE IF EXISTS pg_temp.temporal_merge_index_cache;
 CALL test.set_user_from_email('test.admin@statbus.org');
 
 \echo "Step 2: Move SSB Updated to the target enterprise"
+CREATE TEMP TABLE t344_connect_response ON COMMIT DROP AS
 SELECT connect_legal_unit_to_enterprise(
-    legal_unit_id := lu.id,
-    enterprise_id := target_en.enterprise_id
+    legal_unit_id => move.source_lu_id,
+    enterprise_id => move.target_enterprise_id
+) AS response
+FROM t344_move AS move;
+
+-- Assert the exact API keys and their actual captured identities, including
+-- the unchanged source enterprise and the precise LU membership being moved.
+WITH expected_response AS (
+    SELECT jsonb_build_object(
+        'new_enterprise_id', move.target_enterprise_id,
+        'old_enterprise_id', move.source_enterprise_id,
+        'deleted_enterprise_id', NULL,
+        'updated_legal_unit_ids', ARRAY[move.source_lu_id]
+    ) AS response
+    FROM t344_move AS move
 )
-FROM public.legal_unit AS lu
-CROSS JOIN (
-    SELECT lu2.enterprise_id
-    FROM public.legal_unit AS lu2
-    WHERE lu2.enterprise_id != (SELECT enterprise_id FROM public.legal_unit WHERE name = 'SSB Updated' LIMIT 1)
-      AND lu2.valid_from <= current_date AND current_date < lu2.valid_until
-    ORDER BY lu2.id LIMIT 1
-) AS target_en
-WHERE lu.name = 'SSB Updated'
-  AND lu.valid_from <= current_date AND current_date < lu.valid_until;
+SELECT COALESCE(actual.key, expected.key) AS response_key,
+       actual.value = expected.value AS matches_transition
+FROM (SELECT entry.* FROM t344_connect_response AS result,
+      LATERAL jsonb_each(result.response) AS entry) AS actual
+FULL JOIN (SELECT entry.* FROM expected_response AS result,
+           LATERAL jsonb_each(result.response) AS entry) AS expected USING (key)
+ORDER BY response_key;
 
 \echo "Check: Expect one collect_changes task"
 SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
@@ -499,6 +519,36 @@ WHERE command = 'statistical_unit_refresh_batch'
   AND state = 'completed'
   AND payload ? 'enterprise_ids'
 ORDER BY id DESC LIMIT 1;
+
+\echo "Verify: SSB Updated and both enterprise identities were propagated"
+SELECT
+    (task.payload->>'changed_legal_unit_id_ranges')::int4multirange @> move.source_lu_id AS moved_lu,
+    (task.payload->>'changed_enterprise_id_ranges')::int4multirange @> move.source_enterprise_id AS source_enterprise,
+    (task.payload->>'changed_enterprise_id_ranges')::int4multirange @> move.target_enterprise_id AS target_enterprise
+FROM t344_move AS move
+CROSS JOIN LATERAL (
+    SELECT payload FROM worker.tasks
+    WHERE command = 'statistical_unit_refresh_batch'
+      AND state = 'completed' AND payload ? 'enterprise_ids'
+    ORDER BY id DESC LIMIT 1
+) AS task;
+
+\echo "Verify: current LU and enterprise analytics contain the captured target membership"
+SELECT lu.name,
+       lu.enterprise_id = move.target_enterprise_id AS target_membership,
+       target_lu.enterprise_id = move.target_enterprise_id AS target_lu_retained,
+       su.related_enterprise_ids @> ARRAY[move.target_enterprise_id] AS lu_analytics,
+       target_su.related_legal_unit_ids @> ARRAY[move.source_lu_id, move.target_lu_id] AS enterprise_analytics
+FROM t344_move AS move
+JOIN public.legal_unit AS lu ON lu.id = move.source_lu_id
+JOIN public.legal_unit AS target_lu ON target_lu.id = move.target_lu_id
+JOIN public.statistical_unit AS su ON su.unit_type = 'legal_unit' AND su.unit_id = lu.id
+JOIN public.statistical_unit AS target_su ON target_su.unit_type = 'enterprise'
+    AND target_su.unit_id = move.target_enterprise_id
+WHERE lu.valid_from <= current_date AND current_date < lu.valid_until
+  AND target_lu.valid_from <= current_date AND current_date < target_lu.valid_until
+  AND su.valid_from <= current_date AND current_date < su.valid_until
+  AND target_su.valid_from <= current_date AND current_date < target_su.valid_until;
 
 \echo "Verify: SSB Updated now in new enterprise (no longer in the SSB-EN enterprise)"
 SELECT lu.name, lu.enterprise_id != (SELECT en.id FROM public.enterprise AS en WHERE en.short_name = 'SSB-EN') AS moved_away
