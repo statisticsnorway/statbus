@@ -7,7 +7,7 @@ wakeup publication, with exact domain and history consistency checks. Automatica
 change when packing or concurrent legal-unit creation changes insertion order. The owner confirmed
 that this is part of the root-selection algorithm, not by itself a regression. Exact temporal group
 membership and relationship parity remain required, together with valid roots and preserved custom
-overrides. Full-register measurements and the SQL Saga comparison remain pending.
+overrides. Full-register measurements and the choice of temporal-check handling remain pending.
 Evidence: `tmp/journal.md`, `tmp/591/`, `tmp/rune-measure/A/import-tasks.out`.
 
 ## Where the time goes (rune run A, rc.18, full BRREG)
@@ -301,10 +301,10 @@ their explicit COMMITs, connection creation and bounded client scheduling. Media
 | Four clients, candidate explicit deferral | 1.901 s | 3.095 s |
 
 The large demonstrated benefit is avoiding per-batch trigger disable/enable table locks. Explicit
-deferral is not consistently faster than ordinary enabled checks. The ordinary enabled update control
-uses candidate SQL, so an installed-release enabled/no-toggle control remains necessary. Current mixed
-job scheduler eligibility is unchanged. Historical-update scheduling here uses independent clients
-calling the real batch function, not an adopted mixed-job worker dispatch path.
+deferral is not consistently faster than ordinary enabled checks. This historical-update control uses
+candidate SQL. The genuine-mixture followup below adds the installed-release enabled/no-toggle control.
+Current mixed job scheduler eligibility is unchanged. Historical-update scheduling here uses independent
+clients calling the real batch function, not an adopted mixed-job worker dispatch path.
 
 All 28 comparisons pass exact business-state parity, temporal parent coverage, graph membership and
 valid-root checks, real custom-root-override replay, counters, analytics drain and history A/B/C.
@@ -312,6 +312,47 @@ Real-table probes reject an invalid deferred ES parent at COMMIT with exact roll
 temporal parent gap is rejected, while a second merge repairing the interior gap commits correctly.
 Source databases remain unchanged. Evidence and limits: `tmp/591/sql-saga/REPORT.md`, its run manifests,
 and `tmp/591/verify-saga-{clean-update,second-block}-observations.log`.
+
+#### Genuine insert/update mixture and installed-release control
+
+A separately frozen followup uploads 1,200 source rows and lets real import analysis assign exactly
+400 inserts and 800 updates. Each legal-unit parent keeps its two existing-ES updates and one new ES
+in the same dependency group. Every one of twenty batches contains both operations. No analyzed action
+or snapshot is rewritten. Fresh clones load exact current worker command/queue metadata before calls,
+including the batch failure after-hook that was missing from the retained source fixture.
+
+Two forward/reversed five-control blocks give four observations per control, twenty accepted cases.
+All measurements below include batch bodies, explicit COMMITs and direct-client scheduling, but exclude
+fixture preparation, worker finalization and analytics. All controls use the same explicit import-aware
+client search path. Median processing wall is:
+
+| Genuine-mixture control | First block | Second block | All four runs |
+|---|---:|---:|---:|
+| Installed v1.4, serial trigger toggle | 11.071 s | 11.515 s | 11.262 s |
+| Installed v1.4, four-client trigger toggle | 10.516 s | 10.939 s | 10.717 s |
+| Installed v1.4, four clients, checks enabled | 1.821 s | 2.173 s | 1.990 s |
+| Candidate, four clients, checks enabled | 2.126 s | 2.020 s | 2.083 s |
+| Candidate, four clients, explicit deferral | 2.108 s | 2.305 s | 2.266 s |
+
+Installed v1.4 already supports the fast no-toggle path for this fixture. Concurrent toggling records
+7,015 sampled ungranted establishment `ShareRowExclusiveLock` rows. The no-toggle controls avoid those
+sampled table-lock waits, though brief shared job-counter tuple waits remain. Explicit deferral has no
+demonstrated advantage here, with median batch COMMIT 34.285 ms versus 15.887 ms for installed enabled
+checks. Shared-host load ranges from about 18.6 to 28.7, so small differences are not causal estimates.
+A separate serial-enabled control is needed to isolate concurrency's benefit from toggle removal.
+
+Independent retained-observation verification asserts all 2,000 expected ES versions, 1,200 ES identities,
+3,200 statistic payload versions, exact names/dates/parents/primary flags, every analyzed batch timed
+once, finished 1,200/1,200 counters, twelve canonical business tables, graph membership/eligible roots,
+custom-root replay, temporal parent coverage and history A/B/C. Four candidate-deferred cases also
+validate native final-FK rejection, exact rollback and a repaired intermediate temporal gap.
+
+These are bounded direct calls to the real batch function, not adoption of mixed scheduler eligibility
+or a Crystal/Go worker performance result. Parent moves, cross-enterprise dependencies and production
+throughput remain separate work. Snapshot portability between creator and default worker search paths
+also needs diagnosis before broad integration. Evidence: `tmp/591/sql-saga/FOLLOWUP-REPORT.md`,
+`followup-f1107_202817_2402/` and `tmp/591/verify-saga-mixture-balanced.log`. Source databases and tracked
+runtime remain unchanged.
 
 #### Deferred errors must reach the batch failure boundary
 
@@ -330,5 +371,5 @@ Private worker probes load the current failure-hook command registration as well
 bodies. With current seed metadata, the COMMIT-only failure reproduces and both fixed controls pass.
 Evidence: `tmp/591/saga-worker/README.md`, `1107_201950_23714-results.json` and
 `acceptance-current-metadata.log` in that directory. No tracked runtime adoption follows from these
-probes. True mixed-action input, installed ordinary-check control, dependency scope and production
-measurements remain separate gates.
+probes. The genuine-mixture followup supplies the missing input/control evidence, but safe dependency
+scope, default-context worker integration and production measurements remain adoption gates.

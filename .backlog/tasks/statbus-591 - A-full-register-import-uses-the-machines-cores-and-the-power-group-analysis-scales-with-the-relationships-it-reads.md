@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T20:22:00Z'
+updated_date: '2026-11-07T20:39:00Z'
 labels:
   - import
   - performance
@@ -88,4 +88,13 @@ Historical800-update processing medians including COMMIT: serial trigger-toggle1
 Root actual SQL-worker adoption probe1107_201950_23714 reproduces a required integration boundary: deferred FK23503 at worker COMMIT rolls back exact domain/counters but leaves the committed leaf claim processing and job processing_data. A private API-selected FK IMMEDIATE flush inside process_batch's existing error boundary, before common progress/wakeup locks, produces failed leaf/job/parent and exact rollback for the same actual invalid-parent write. Valid8newES completes4leaves/job8of8 with exact expected names/dates/parents. Source fixture initially lacked the current failure-hook command metadata, so the first failed probe is retained and current seed registration is copied only to new clones. The current-metadata reproduction and both private fixed controls pass. No Crystal-client, crash-recovery or adoption claim. Evidence: tmp/591/saga-worker/README.md, acceptance-current-metadata.log and1107_201950_23714-results.json.
 
 All four acceptance criteria remain unchecked. Local data and SQL-worker verification do not establish full-register throughput, broad existing-unit dependency safety or release readiness.
+
+### Genuine insert/update mixture verified at2026-11-07 20:35UTC
+Real upload/analysis produces400inserts+800updates,400wholeLUparentgroups and20batches each containing both actions. Twenty fresh-clone cases in two forward/reversed five-control blocks pass exact2000ESversions/1200identities,3200statpayloadversions, names/dates/parents/primary flags,12business-table parity, temporal coverage, exact graph memberships/valid roots/custom override replay,1200/1200finished counters and historyA/B/C. Helpers/input/evidence and six branch/releaseSQLfiles are frozen before execution; current seed command/queue metadata, including the batch failure after-hook, is copied only to new clones. Source fingerprints remain unchanged.
+
+Processing medians including body+explicitCOMMIT and client scheduling, excluding setup/finalization/analytics: installed-v1.4 serialtoggle11.262s, four-client toggle10.717s, INSTALLED enabled/no-toggle1.990s, candidate enabled2.083s, candidate explicitdeferral2.266s. The installed release already achieves the fast no-toggle path in this fixture. Concurrent toggles have7015sampled ungranted establishment ShareRowExclusiveLock rows. Deferral has no demonstrated additional gain, and median batchCOMMIT34.285ms versus15.887ms for installed-enabled. Shared-host load18.6-28.7 limits small-effect causal claims. A separate serial-enabled versus four-client enabled control remains in progress to isolate concurrency from toggle removal.
+
+Root independent verifier recomputes all expected ES/stat eras and payloads, every batch timed exactly once, full12table parity and graph/history/counter checks from retained observations. Evidence: tmp/591/sql-saga/FOLLOWUP-REPORT.md, followup-f1107_202817_2402/, tmp/591/verify-saga-mixture.mjs and verify-saga-mixture-balanced.log. The initial failed smoke is retained; all timed controls use the same explicit import-aware client search path. Fresh-upload/default-worker context diagnosis remains separate from this direct-client adaptation.
+
+No tracked runtime adoption, mixed scheduler broadening, Crystal/Go benchmark, Norway operation or591push. Parent moves/cross-enterprise dependency safety, safe worker error-boundary integration, production throughput, owner datepolicy and explicit push approval remain open. All four acceptance criteria remain unchecked.
 <!-- SECTION:NOTES:END -->
