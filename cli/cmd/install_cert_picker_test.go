@@ -139,6 +139,35 @@ func TestInstallCertPickerOnePickListsCertificates(t *testing.T) {
 	}
 }
 
+// TestInstallCertPickerDeclinedFoundAsksForAnother: rc.18 manual box. The
+// search found one certificate and the operator answered no to it, meaning
+// "not this one". No to a found certificate is not no to having one: the path
+// question follows, so another file or folder can be given.
+func TestInstallCertPickerDeclinedFoundAsksForAnother(t *testing.T) {
+	home := pickerHome(t)
+	cert, key := testCertificate(t, "statbus.example.org", []string{"statbus.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+	pickerWrite(t, filepath.Join(home, "Downloads", "fullchain.pem"), time.Now(), append(certPEM(t, cert), keyPEM(t, key)...))
+	other := t.TempDir()
+	otherCert, otherKey := testCertificate(t, "other.example.org", []string{"other.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+	otherBundle := filepath.Join(other, "fullchain.pem")
+	pickerWrite(t, otherBundle, time.Now(), append(certPEM(t, otherCert), keyPEM(t, otherKey)...))
+	var confirmations int
+	saved := askCertificateDefaultYes
+	askCertificateDefaultYes = func(string) bool { confirmations++; return confirmations > 1 }
+	t.Cleanup(func() { askCertificateDefaultYes = saved })
+	labels := pickerAnswerSequence(t, otherBundle)
+
+	var args []string
+	out := pickerCapture(t, func() { args, _ = askInstallCert(t.TempDir()) })
+
+	if len(args) != 1 || args[0] != otherBundle {
+		t.Fatalf("declining the found certificate, then typing another, produced %q, want [%q]:\n%s", args, otherBundle, out)
+	}
+	if got := pickerCountLabels(*labels, "Certificate file or folder"); got != 1 {
+		t.Fatalf("path question asked %d times after the decline, want 1:\n%s", got, out)
+	}
+}
+
 // TestInstallCertPickerPEMPairPlusDifferentPFX: two different certificates are
 // two candidates; choosing the PFX asks its password once, shows the
 // certificate it contains, and installs it, with no second numbered question.
