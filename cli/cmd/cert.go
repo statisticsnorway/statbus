@@ -86,8 +86,7 @@ There are two kinds of certificate StatBus can serve:
   CUSTOM (this command):
       An operator-supplied certificate, e.g. one issued by an
       institutional CA, a commercial CA, or a national PKI.
-      Albania's StatBus install uses this — the country's PKI
-      issues a PFX certificate that gets installed via:
+      A national PKI typically issues a PFX file, installed with:
           ./sb cert install /path/to/certificate.pfx
 
 Typical operator flow:
@@ -186,7 +185,7 @@ The install flow:
 Scope: standalone deployment mode only. In private mode the
 upstream proxy owns the certificate; in development mode Caddy
 serves its own internal CA. ./sb cert show explains both.`,
-	Example: `  # PFX with password (Albania's flow)
+	Example: `  # PFX with password
   ./sb cert install ~/Downloads/statbus-2026.pfx
   Enter PFX password: ********
 
