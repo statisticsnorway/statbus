@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T16:10:00Z'
+updated_date: '2026-11-07T13:49:00Z'
 labels:
   - import
   - performance
@@ -45,3 +45,9 @@ Evidence: tmp/rune-measure/A/ (watch.log, pg-now-*.txt, pg-wait-*.txt).
 - [ ] #2 import.analyse_power_group_link takes time proportional to the relationships it reads: on rune's full relationships file (33,710 rows) it gives the same derived power groups as today in a measured time recorded in this ticket
 - [ ] #3 The import's valid_from comes from a declared date (start of year or file date, decided with the owner), not the day the import runs
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-07 hibiscus, AC2 locally (rune check comes with run B): import.analyse_power_group_link joined rows and legal_relationship to the hierarchy on (influencing = id OR influenced = id), a nested loop over the hierarchy per row. Rewritten as two equality joins (e3acc80fd, test 79992db0c). Same local file as rune (29,503 'use' rows): fresh load 264 s -> 0.7 s; reload 171 s -> 2.0 s. Same 69,089 (row, root, power group) pairs; on reload every row's power group equals the one process_power_group_link linked. Test 372 (12,000 rows): 25.0 s f -> 0.27 s t. Evidence tmp/591/, journal 2026-11-07 13:35. Rune run A's ~40 min for this step includes the process step and waits; run B will show the new number.
+<!-- SECTION:NOTES:END -->
