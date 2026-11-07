@@ -12427,6 +12427,17 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				// Best-effort NOTIFY belt, same shape as the normal-completion
 				// path above.
 				_ = d.execObserved(ctx, "notify frontend of upgrade change", `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
+				// The crash this recovers fired after maintenance mode engaged, so
+				// ~/statbus-maintenance/active is still present and Caddy answers
+				// 503 on every route. A completed upgrade serves the site: lift it
+				// here, as the other two completion writers do.
+				if err := d.setMaintenance(false, ""); err != nil {
+					finishingClean = false
+					finishingErr = errors.Join(finishingErr, fmt.Errorf("lift maintenance mode: %w", err))
+					progress.Write("  Lifting maintenance mode ... failed: %v", err)
+				} else {
+					writeProgressLines(progress, newSuccessfulUpgradeFinishingNarrative(flag.Label(), maintenanceFlagHostPath(), d.flagPath()).maintenanceLines()...)
+				}
 				// STATBUS-071 P5: lift the read-only window. This self-heal is the
 				// THIRD completed writer (alongside the applyNewSbUpgrading completion
 				// site and the flagless completeInProgressUpgrade belt), and the crash
