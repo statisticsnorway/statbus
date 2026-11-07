@@ -1209,18 +1209,18 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 // If the process dies between file-delete and row-delete, the DB row
 // survives but references a missing log — the admin UI shows empty content
 // for that log; retention will pick the row up again on the next tick.
-// All errors are logged and swallowed: retention is opportunistic, not a
-// hard upgrade dependency.
-func (d *Service) runRetentionPurge(ctx context.Context, scope string, installedID *int) {
+// Errors are logged for periodic callers and returned to completion callers,
+// which report incomplete finishing without undoing the successful upgrade.
+func (d *Service) runRetentionPurge(ctx context.Context, scope string, installedID *int) error {
 	if d.queryConn == nil {
-		return
+		return errQueryConnUnavailable("retention purge")
 	}
 	rows, err := d.queryConn.Query(ctx,
 		"SELECT id, log_relative_file_path FROM public.upgrade_retention_plan($1, $2)",
 		scope, installedID)
 	if err != nil {
 		fmt.Printf("retention: plan query failed (scope=%s, installed=%s): %v\n", scope, installedIDStr(installedID), err)
-		return
+		return fmt.Errorf("retention plan: %w", err)
 	}
 	var plannedLogs []string
 	var plannedCount int
@@ -1230,7 +1230,7 @@ func (d *Service) runRetentionPurge(ctx context.Context, scope string, installed
 		if err := rows.Scan(&id, &logPath); err != nil {
 			fmt.Printf("retention: plan scan failed: %v\n", err)
 			rows.Close()
-			return
+			return fmt.Errorf("retention plan scan: %w", err)
 		}
 		plannedCount++
 		if logPath != nil && *logPath != "" {
@@ -1240,10 +1240,10 @@ func (d *Service) runRetentionPurge(ctx context.Context, scope string, installed
 	rows.Close()
 	if err := rows.Err(); err != nil {
 		fmt.Printf("retention: plan iterate failed: %v\n", err)
-		return
+		return fmt.Errorf("retention plan iterate: %w", err)
 	}
 	if plannedCount == 0 {
-		return
+		return nil
 	}
 
 	logsDir := upgradeLogsDir(d.projDir)
@@ -1258,9 +1258,10 @@ func (d *Service) runRetentionPurge(ctx context.Context, scope string, installed
 	if _, err := d.queryConn.Exec(ctx,
 		"CALL public.upgrade_retention_apply($1, $2, 0)", scope, installedID); err != nil {
 		fmt.Printf("retention: apply failed (scope=%s, installed=%s): %v\n", scope, installedIDStr(installedID), err)
-		return
+		return fmt.Errorf("retention apply: %w", err)
 	}
 	fmt.Printf("retention: purged %d upgrade row(s) (scope=%s, installed=%s)\n", plannedCount, scope, installedIDStr(installedID))
+	return nil
 }
 
 // installedIDStr renders installedID for logging: the DB integer when

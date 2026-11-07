@@ -5187,7 +5187,6 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context, strictFinishing
 	finishingErr := scanErr
 	if scanErr == nil {
 		logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
-		d.clearInstallFailureBanner(ctx)
 		d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
 	} else if dbName := d.markPgInvariantTerminal(scanErr, "service.go:completeInProgressUpgrade:completed"); dbName != "" {
 		// C4: DB-enforced invariant → prefer the specific name in the bundle.
@@ -5229,14 +5228,15 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context, strictFinishing
 		finishingClean = false
 		logRecover("FATAL: the upgrade lock did NOT release at flagless-recovery completion (%v) — run `%s` to reconcile it.", err, d.installCommand())
 	}
-	// Layer 3 of the rollback-on-SIGKILL hole plug — also fire pruneBackups
-	// after the post-restart completion path. See the matching call in the
-	// resumeNewSb branch for full rationale. keep=3.
+	if completionRecorded {
+		if err := d.finishCompletionLedger(id, commitSHA); err != nil {
+			finishingClean = false
+			finishingErr = errors.Join(finishingErr, err)
+			logRecover("Finishing the completed upgrade ledger failed: %v", err)
+		}
+	}
+	// Retain three finalized snapshots after recovery, as normal completion does.
 	d.pruneBackups(ctx, 3)
-
-	// Skip older releases that are still "available" — no point upgrading to an older version
-	d.supersedeOlderReleases(ctx, commitSHA)
-	d.supersedeCompletedPrereleases(ctx, commitSHA)
 	if finishingClean {
 		d.runUpgradeCallback(displayName)
 		logRecover("Upgrade to %s complete (verified serving after flagless recovery).", displayName)
@@ -5245,7 +5245,9 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context, strictFinishing
 	} else {
 		logRecover("Upgrade to %s was not recorded as complete; automatic reconciliation will retry the database transition.", displayName)
 	}
-	if len(strictFinishing) > 0 && strictFinishing[0] && finishingErr != nil {
+	// Once completed is durable, finishing failures are errors for every caller,
+	// including the daemon. They cannot authorize another snapshot recovery.
+	if finishingErr != nil && (completionRecorded || (len(strictFinishing) > 0 && strictFinishing[0])) {
 		return fmt.Errorf("flagless recovery finishing failed: %w", finishingErr)
 	}
 	return nil
@@ -5285,10 +5287,10 @@ func (d *Service) syncConfigToSystemInfo(ctx context.Context) {
 // service has durably recorded a successful completion. The same keys are
 // cleared by a successful ./sb install invocation. Without this service-side
 // twin, a later healthy daemon upgrade leaves an older install failure displayed
-// indefinitely. Best-effort observability cleanup must not undo a completed
-// upgrade if system_info cannot be written.
-func (d *Service) clearInstallFailureBanner(ctx context.Context) {
-	_ = d.execObserved(ctx, "clear stale install failure banner after successful upgrade",
+// indefinitely. A failure is a finishing error, not permission to undo a
+// durably completed upgrade.
+func (d *Service) clearInstallFailureBanner(ctx context.Context) error {
+	return d.execObserved(ctx, "clear stale install failure banner after successful upgrade",
 		`INSERT INTO public.system_info (key, value, updated_at) VALUES
 		     ('install_last_error', '', clock_timestamp()),
 		     ('install_last_error_at', '', clock_timestamp()),
@@ -5317,10 +5319,10 @@ func (d *Service) reportDiskSpace(ctx context.Context) {
 
 // supersedeOlderReleases marks available releases older than the selected commit as superseded.
 // Ordering is by topological_order then committed_at as fallback.
-func (d *Service) supersedeOlderReleases(ctx context.Context, selectedCommitSHA string) {
+func (d *Service) supersedeOlderReleases(ctx context.Context, selectedCommitSHA string) error {
 	if _, err := d.queryConnOrErr("supersede older releases"); err != nil {
 		log.Printf("%v", err)
-		return
+		return err
 	}
 	// Call the shared SQL procedure — single source of truth for both
 	// the service (pgx) and the step-table install path (psql).
@@ -5330,20 +5332,21 @@ func (d *Service) supersedeOlderReleases(ctx context.Context, selectedCommitSHA 
 		selectedCommitSHA).Scan(&superseded)
 	if err != nil {
 		fmt.Printf("Failed to supersede older releases: %v\n", err)
-		return
+		return err
 	}
 	if superseded > 0 {
 		fmt.Printf("Superseded %d older release(s)\n", superseded)
 	}
+	return nil
 }
 
 // supersedeCompletedPrereleases supersedes older completed prereleases in the
 // same version family when a prerelease completes. Safe to call for any row —
 // the procedure is a no-op for non-prereleases.
-func (d *Service) supersedeCompletedPrereleases(ctx context.Context, commitSHA string) {
+func (d *Service) supersedeCompletedPrereleases(ctx context.Context, commitSHA string) error {
 	if _, err := d.queryConnOrErr("supersede completed prereleases"); err != nil {
 		log.Printf("%v", err)
-		return
+		return err
 	}
 	var superseded int
 	err := d.queryConn.QueryRow(ctx,
@@ -5351,11 +5354,78 @@ func (d *Service) supersedeCompletedPrereleases(ctx context.Context, commitSHA s
 		commitSHA).Scan(&superseded)
 	if err != nil {
 		fmt.Printf("Failed to supersede completed prereleases: %v\n", err)
-		return
+		return err
 	}
 	if superseded > 0 {
 		fmt.Printf("Superseded %d completed prerelease(s) in same family\n", superseded)
 	}
+	return nil
+}
+
+// finishCompletionLedger runs the shared database finishing tail only after the
+// completed write and window lift. Step 11 recreates the proxy carrying the
+// cached sessions, while terminalConnDo's fresh terminal session does not repair
+// them. Reconnect restores the cached writer AND its daemon advisory authority,
+// yielding if another upgrader has acquired that authority in the meantime.
+// The listener is stopped before replacing its session and the idle loop starts
+// it again. One teardown-independent budget covers reconnect, SQL and retries.
+// All operations are idempotent, so a connection loss can retry the whole tail.
+// An unexpected SQL error is returned immediately. Callers report a finishing
+// failure while preserving the already-completed row, never rolling it back.
+func (d *Service) finishCompletionLedger(id int, commitSHA string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), terminalWriteTimeout)
+	defer cancel()
+	var err error
+	for attempt := 0; attempt < terminalWriteMaxAttempts; attempt++ {
+		if d.queryConn == nil || d.queryConn.Ping(ctx) != nil {
+			d.stopListenLoop()
+			if err := d.reconnect(ctx); err != nil {
+				// A failed lock reacquisition leaves connected but unauthorized sessions.
+				// Discard them so the next pass must also go through reconnect's lock gate.
+				d.Close()
+				return fmt.Errorf("reconnect completion ledger: %w", err)
+			}
+		}
+		err = d.completeLedgerOnConnection(ctx, id, commitSHA)
+		if err == nil || !isConnError(err) || ctx.Err() != nil {
+			return err
+		}
+		if attempt+1 < terminalWriteMaxAttempts {
+			select {
+			case <-ctx.Done():
+				return errors.Join(err, ctx.Err())
+			case <-time.After(retryBackoff(attempt + 1)):
+			}
+		}
+	}
+	return err
+}
+
+func (d *Service) completeLedgerOnConnection(ctx context.Context, id int, commitSHA string) error {
+	var completed bool
+	if err := d.queryConn.QueryRow(ctx, `SELECT state='completed' AND commit_sha=$2 FROM public.upgrade WHERE id=$1`, id, commitSHA).Scan(&completed); err != nil {
+		return fmt.Errorf("verify completed ledger identity: %w", err)
+	}
+	if !completed {
+		return fmt.Errorf("upgrade %d is not the completed attempt for %s", id, commitSHA)
+	}
+	if err := d.clearInstallFailureBanner(ctx); err != nil {
+		return err
+	}
+	if err := d.supersedeOlderReleases(ctx, commitSHA); err != nil {
+		return fmt.Errorf("retire older releases: %w", err)
+	}
+	if err := d.supersedeCompletedPrereleases(ctx, commitSHA); err != nil {
+		return fmt.Errorf("retire completed prereleases: %w", err)
+	}
+	// Retention ranking depends on the superseded states above. The installed ID
+	// enables install-triggered rules on recovery writers as on normal completion.
+	if err := d.runRetentionPurge(ctx, "all", &id); err != nil {
+		return err
+	}
+	// Subscribe-after-completion clients need this belt in addition to the row
+	// trigger. Publish only after the complete ledger is visible to their refetch.
+	return d.execObserved(ctx, "notify frontend of upgrade change", `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 }
 
 func (d *Service) loadConfig() error {
@@ -11440,26 +11510,10 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	progress.Write("%s", finishing.recordedLine())
 	log.Println("state=completed")
 	logUpgradeRow(LabelCompletedNormal, normalJSON)
-	d.clearInstallFailureBanner(ctx)
 	d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
-	// Notify the frontend the upgrade state changed — fired AFTER the terminal
-	// state='completed' UPDATE above, NOT before it (its prior position fired
-	// while the row was still in_progress, so a client returning from the
-	// maintenance page and refetching saw a stale 'in_progress' → the "lagging"
-	// bug, STATBUS-090). The completed UPDATE's DB trigger also fires the real
-	// completion NOTIFY; this explicit belt guarantees delivery if the app's
-	// LISTEN wasn't yet established when the trigger fired. Mirrors the recovery
-	// self-heal path's NOTIFY-after-completed ordering (resumeNewSb).
-	// Best-effort; this is an explicit BELT on top of the completed UPDATE's
-	// own DB trigger NOTIFY (see comment above) — if this one fails, the
-	// trigger-fired NOTIFY still delivers in the common case.
-	_ = d.execObserved(ctx, "notify frontend of upgrade change", `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 	// STATBUS-110: clear the read-only upgrade window — health passed, no rollback
-	// pending, box reopening. Placed HERE (right after the completed UPDATE landed)
-	// rather than at the setMaintenance(false) above because queryConn is only
-	// GUARANTEED live once the completed UPDATE's reconnect-on-stale loop has
-	// succeeded (the NOTIFY just above proves it); clearing at the earlier
-	// setMaintenance(false) could silently miss on a stale conn and leak read-only.
+	// pending, box reopening. The completed write is durable, but its independent
+	// terminal connection says nothing about the cached queryConn's liveness.
 	// STATBUS-163: the terminal OFF flip rides the teardown-immune terminalExec
 	// (a FRESH conn, not the completing pass's dying queryConn — the 'conn closed'
 	// race that left the window stuck ON with state='completed', wedging every
@@ -11495,6 +11549,11 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// completed. Everything from here on (pruning, retention, fixup) is
 	// post-database-completion cleanup: a kill in this window leaves a COMPLETED
 	// row that the next start no-ops past.
+	if err := d.finishCompletionLedger(id, commitSHA); err != nil {
+		finishingClean = false
+		finishingErr = errors.Join(finishingErr, err)
+		progress.Write("  Finishing the completed upgrade ledger ... failed: %v", err)
+	}
 	// Layer 3 of the rollback-on-SIGKILL hole plug: now that the upgrade
 	// has reached terminal state='completed', the pre-upgrade backup is no
 	// longer needed for rollback. pruneBackups (defined in exec.go) trims
@@ -11508,14 +11567,6 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// the branch is missing (best-effort create at the start failed),
 	// the -D returns non-zero and we just move on.
 	_ = runCommand(d.projDir, "git", "branch", "-D", "pre-upgrade")
-	d.supersedeOlderReleases(ctx, commitSHA)
-	d.supersedeCompletedPrereleases(ctx, commitSHA)
-	// Retention pass scoped to the just-installed row: rules A/B/C fire
-	// (same-family prereleases, stale commits) so admins aren't stuck
-	// with obsolete dogfood entries after a release lands. Must run AFTER
-	// supersedeOlderReleases — rule D's ranking depends on the older
-	// releases' new 'superseded' state.
-	d.runRetentionPurge(ctx, "all", &id)
 
 	// Now the row is truly `completed`; run the post-success fixup and emit the
 	// canonical completion line only if every finishing boundary also succeeded.
@@ -12418,15 +12469,11 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				flag.ID, progress.RelPath())
 			if err == nil {
 				logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
-				d.clearInstallFailureBanner(ctx)
 				d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
 				finishingClean := true
 				var finishingErr error
 				progress.Write("Finishing recovered upgrade:")
 				progress.Write("  Recording the successful upgrade in the database ... ok")
-				// Best-effort NOTIFY belt, same shape as the normal-completion
-				// path above.
-				_ = d.execObserved(ctx, "notify frontend of upgrade change", `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 				// The crash this recovers fired after maintenance mode engaged, so
 				// ~/statbus-maintenance/active is still present and Caddy answers
 				// 503 on every route. A completed upgrade serves the site: lift it
@@ -12482,8 +12529,11 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 					progress.Write("  Releasing upgrade lock ... ok")
 					progress.Write("    removed: %s", homeRelativePath(d.flagPath()))
 				}
-				d.supersedeOlderReleases(ctx, flag.CommitSHA)
-				d.supersedeCompletedPrereleases(ctx, flag.CommitSHA)
+				if err := d.finishCompletionLedger(flag.ID, flag.CommitSHA); err != nil {
+					finishingClean = false
+					finishingErr = errors.Join(finishingErr, err)
+					progress.Write("  Finishing the completed upgrade ledger ... failed: %v", err)
+				}
 				if finishingClean {
 					progress.Write("Upgrade to %s complete.", flag.Label())
 				} else {
