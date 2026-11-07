@@ -314,8 +314,9 @@ func pickInstallCert(choices []certChoice, siteDomain, dir string) ([]string, *s
 		// One installable certificate is a confirmation, not a list.
 		certNotice("  Found: %s", installCertChoiceLine(choices[0], siteDomain))
 		if !askCertificateDefaultYes("  Install this certificate?") {
-			certContinueWithout()
-			return nil, nil
+			// No to the one found certificate means "not this one": ask for
+			// another file or folder (rc.18 manual box).
+			return askInstallCertPath(dir)
 		}
 		return installCertChoice(choices[0], siteDomain, dir)
 	}
