@@ -1236,11 +1236,11 @@ func TestCertHelp_ContainsExamples(t *testing.T) {
 		findInLong []string
 	}{
 		{"cert", certCmd.Long, certCmd.Example,
-			[]string{"AUTOMATIC", "CUSTOM", "Albania", "./sb cert show"}},
+			[]string{"AUTOMATIC", "CUSTOM", "A national PKI typically issues a PFX file, installed with:", "./sb cert show"}},
 		{"show", certShowCmd.Long, certShowCmd.Example,
 			[]string{"Source", "Issuer", "Subject", "SANs", "SHA-256"}},
 		{"install", certInstallCmd.Long, certInstallCmd.Example,
-			[]string{"PFX", "PEM pair", "PKCS#12", "password"}},
+			[]string{"PFX", "PEM pair", "PKCS#12", "password", "  # PFX with password\n"}},
 		{"remove", certRemoveCmd.Long, certRemoveCmd.Example,
 			[]string{"Let's Encrypt", "archive", "SITE_DOMAIN"}},
 	}
