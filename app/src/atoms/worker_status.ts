@@ -368,6 +368,7 @@ export const COMMAND_LABELS: Record<string, string> = {
   'derive_units_phase': 'Deriving statistical units',
   'derive_statistical_unit': 'Refreshing statistical units',
   'statistical_unit_flush_staging': 'Flushing staging data',
+  'derive_used_tables': 'Updating used code lists',
   'derive_statistical_history_facet_delta': 'Computing history changes',
   'derive_reports_phase': 'Deriving reports',
   'derive_reports': 'Computing reports',

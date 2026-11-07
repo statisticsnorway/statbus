@@ -21,4 +21,4 @@ Access method: heap
 
 ```
 
-**Comment:** Relative wall-clock weights for pipeline steps, used by frontend progress bars. Keyed by command name (no phase enum dependency).
+**Comment:** Relative wall-clock weights of the pipeline steps, for the frontend progress bars. Per phase, the rows in seq order are exactly the steps worker.command_collect_changes spawns, in spawn order: collect_changes and the children of derive_units_phase for is_deriving_statistical_units, the children of derive_reports_phase for is_deriving_reports. A step without a row shows as 0% while it runs.
