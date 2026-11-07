@@ -380,22 +380,32 @@ func TestInstallCertPathWrongPathThenValidFolder(t *testing.T) {
 	}
 }
 
-// TestInstallCertPathThreeWrongAnswersContinues: the retry is bounded. After
-// three unusable answers the install continues without a certificate and says
-// so.
-func TestInstallCertPathThreeWrongAnswersContinues(t *testing.T) {
+// TestInstallCertPathThreeWrongAnswersAsksAgain: the retry is bounded. After
+// three unusable answers the installer asks again whether there is a
+// certificate (owner, rc.18 manual box: a failed search is not a no); no then
+// continues without a certificate and says so.
+func TestInstallCertPathThreeWrongAnswersAsksAgain(t *testing.T) {
 	pickerHome(t)
 	missing := func(name string) string { return filepath.Join(t.TempDir(), name) }
 	labels := pickerAnswerSequence(t, missing("one.pem"), missing("two.pem"), missing("three.pem"))
+	var asked []string
+	askCertificateYesNo = func(label string) bool {
+		asked = append(asked, label)
+		return len(asked) == 1
+	}
 
 	var args []string
 	out := pickerCapture(t, func() { args, _ = askInstallCert(t.TempDir()) })
 
 	if args != nil {
-		t.Fatalf("three wrong answers produced %q, want no certificate", args)
+		t.Fatalf("three wrong answers and then no produced %q, want no certificate", args)
 	}
-	if !strings.Contains(out, "Continuing with automatic certificates. Install your own later with: ./sb cert install") {
-		t.Fatalf("output does not say what happens next:\n%s", out)
+	want := []string{"  Do you have a certificate to install now?", "  Do you have a certificate to install now?"}
+	if strings.Join(asked, "|") != strings.Join(want, "|") {
+		t.Fatalf("yes/no questions = %q, want %q:\n%s", asked, want, out)
+	}
+	if got := strings.Count(out, "Continuing with automatic certificates. Install your own later with: ./sb cert install"); got != 1 {
+		t.Fatalf("'Continuing with automatic certificates' printed %d times, want once, after the second no:\n%s", got, out)
 	}
 	if got := strings.Count(out, pickerRetryHint); got != 2 {
 		t.Fatalf("retry hint printed %d times, want 2 (before attempts two and three):\n%s", got, out)

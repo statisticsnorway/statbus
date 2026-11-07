@@ -271,6 +271,22 @@ func askInstallCert(dir string) ([]string, *string) {
 	for _, line := range certificateExplanation {
 		certNotice("%s", line)
 	}
+	certRound = 0
+	return offerInstallCert(dir)
+}
+
+// certRound counts how often the yes/no certificate question has been asked in
+// this install, so asking again after a search that found nothing stays
+// bounded (certAttempts rounds) even on a closed stdin.
+var certRound int
+
+// offerInstallCert asks whether there is a certificate and, after yes, searches
+// the home and offers what it finds, or asks for a path. It is asked again when
+// the path answers run out (askInstallCertPath): a failed search is not a no,
+// and the operator may have copied the certificate in meanwhile (owner, rc.18
+// manual box).
+func offerInstallCert(dir string) ([]string, *string) {
+	certRound++
 	if !askCertificateYesNo("  Do you have a certificate to install now?") {
 		certContinueWithout()
 		return nil, nil
@@ -383,6 +399,9 @@ func askInstallCertPath(dir string) ([]string, *string) {
 		if attempt < certAttempts-1 {
 			certRetryHint()
 		}
+	}
+	if certRound < certAttempts {
+		return offerInstallCert(dir)
 	}
 	certContinueWithout()
 	return nil, nil
