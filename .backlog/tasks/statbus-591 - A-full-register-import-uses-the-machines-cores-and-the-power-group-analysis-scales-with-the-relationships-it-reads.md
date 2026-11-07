@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T19:52:00Z'
+updated_date: '2026-11-07T19:58:00Z'
 labels:
   - import
   - performance
@@ -19,7 +19,7 @@ ordinal: 499204
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-A full register imports faster by using the machine's cores without changing the resulting business data. This iteration must improve the measured rune baseline while preserving exact row and chosen-root parity; it does not assume an unmeasured one-hour target.
+A full register imports faster by using the machine's cores without changing the resulting business data. This iteration must improve the measured rune baseline while preserving business data and temporal power-group membership. Automatic roots follow insertion order and may differ, but must be valid and preserve explicit custom overrides. It does not assume an unmeasured one-hour target.
 
 ### Zoom out
 Import jobs remain serial because one job can depend on another. Analysis identifies the row dependencies that determine which processing batches of one job can run concurrently.
@@ -37,17 +37,15 @@ Implementation design and measured local evidence: doc/import-concurrent-batches
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 One import job processes its batched steps concurrently while respecting analysed row dependencies; the full BRREG downloads import on rune produces exactly the same business rows, parents and chosen power-group roots as its matched serial reference
+- [ ] #1 One import job processes its batched steps concurrently while respecting analysed row dependencies; the full BRREG downloads import on rune preserves the business data, parent links and exact temporal power-group memberships of its matched serial reference, allowing insertion-order-dependent automatic root choices while validating roots and preserving explicit custom overrides
 - [ ] #2 The full BRREG downloads import on rune has a measured load-to-idle span below run A's 10,240 seconds (rc.18, 2026-11-07), using the same installation and input files with a comparable declared validity date
-- [ ] #3 Power-group analysis produces the exact reference relationship/root/group mappings on graph-size scaling fixtures and on rune's 33,710-row BRREG file, with scaling measurements and a rune runtime faster than the recorded 1,024-second rc.18 baseline
+- [ ] #3 Power-group analysis preserves the reference relationships and temporal group memberships, with valid algorithm-derived roots and preserved custom overrides, on graph-size scaling fixtures and rune's 33,710-row BRREG file; recorded scaling measurements and rune runtime improve on the 1,024-second rc.18 baseline
 - [ ] #4 [Owner] Choose the job-provided valid_from policy: start-of-year means January 1 of the declared file/snapshot year, allowing validity from that year start; file-date means the declared file/snapshot calendar date, allowing validity only from that snapshot date. Record the choice and resulting date in this ticket and doc/import-system.md, and verify that it sets job-provided valid_from instead of the execution day
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-## Current verified checkpoint (2026-11-07)
-
 All STATBUS-591 runtime work remains local on statbus-591-import-speed, with owner review and explicit push authorization outstanding. All four acceptance criteria remain open. Queue default remains one. Design and detailed evidence: doc/import-concurrent-batches-design.md, tmp/journal.md and tmp/591/. Historical investigation notes remain in Git and in tmp/591/ticket-591-before-saga-review-cleanup.md.
 
 ### Full-register reference, not a claimed result
@@ -67,10 +65,12 @@ Batch-tail wakeup commit1d610f509 retains immediate change-log appends/integrity
 
 Two fresh actual Crystal-worker selection pairs, with reversed order, give import73.087 -> 46.348 s and102.785 -> 66.357 s; worker wall84.899 -> 73.124 s and117.041 -> 92.566 s. Within-pair import is35-37% shorter, worker wall14-21% shorter. Exact12canonical domain tables, parent/root fields, counters and historyA/B/C match all four runs. Same hashed inputs4924LU/24027ES/2relationships,24026ES imported and the same one input error; four ES leaves, only one LU batch and no ambiguous roots. Shared-host timings and6.0-6.6GiB shared-container samples are not production predictions or isolated RSS. Both sides use the new packing. Sources: tmp/591/wakeup-selection-v1-results.json, wakeup-selection-v2-reversed-results.json, wakeup-selection-paired-summary.log and wakeup-selection-inputs.sha256.
 
-### Exact root compatibility remains an adoption gate
-Parallel new-LU allocation changes chosen logical roots because the current policy uses surrogate IDs. A six-run serial-only controlled comparison also proves that whole-slot packing alone changes two chosen logical roots on both repeats, while released packing and released packing plus action ANALYZE match. Domain rows, graph memberships and BFS levels otherwise agree. Queue concurrency one does not resolve this. Source: tmp/591/serial-packing-20261107_185223_3402-results.json and serial-packing-root-parity.log; documentation233c82c8d.
+### Insertion-order roots and exact group membership
+Owner clarification at2026-11-07 19:56UTC: insertion order is intentionally part of the automatic root algorithm. A different automatically selected logical root is not by itself a regression. Exact temporal power-group membership is the primary parity requirement, with the same relationships, group attributes and parent links, valid graph-derived roots/levels and preserved explicit custom overrides. Do not require deterministic LU allocation or introduce a business-key root policy.
 
-A PRIVATE narrower candidate keeps exact released singleton-new-LU packing/allocation serial and only parallelizes eligible formal ES batches. Two reversed pairs match all12domain tables, graph/root rows and exact LU allocation, with four ES leaves. Small SQL-stage ES times11.555 -> 3.563 s and11.938 -> 3.808 s are not real-worker/full-register claims. Source: tmp/591/singleton-lu-safe-20261107_185624_43321-results.json and frozen definitions. This candidate is not integrated or covered by the complete suite, and needs owner scope approval plus mixed/history and real-worker validation.
+The retained six-run serial packing comparison found two automatic root differences on both repeats, but exact domain rows, graph memberships and BFS levels. Earlier parallel-LU probes found the same kind of allocation-dependent choice. These are now reported as permitted algorithm outcomes rather than adoption blockers. Evidence remains tmp/591/serial-packing-20261107_185223_3402-results.json and serial-packing-root-parity.log.
+
+The private ES-only/serial-LU alternative remains a useful strict-order control: two reversed pairs match all12domain tables, roots and LU allocation, with four ES leaves and small SQL-stage ES times11.555 -> 3.563s and11.938 -> 3.808s. It is not an integrated or full-register result and is no longer required merely to preserve automatic root identity. Source: tmp/591/singleton-lu-safe-20261107_185624_43321-results.json.
 
 ### Complete verification and separate recovery work
 At unchanged runtime e9927efc9487217c8da2dd198fcbdeb3c1d2b726/source20261107180400, the complete fast suite passed132shared+2isolated in463 s, and clean post-commit doc/db regeneration left no changes/deletions. Logs: tmp/591/test-final-fast-verified.log and doc-db-final-after-commit.log. Generated explain/performance outputs restored. Tests314/321/344 now positively assert captured business identities, exact errors/counters and transitions, with preserved failing evidence and independent mutation checks, rather than accepting allocation/stack-sensitive snapshots (d86033bc4,3fe5b77b9,e9927efc9).
@@ -80,5 +80,5 @@ Rabbit owns the separately reproduced pre-existing startup recovery defect as ST
 ### SQL Saga branch verification authorized at19:46UTC
 Owner19:51: power-group inputs are small relative to LU/ES, so do not add power-group concurrency. Keep holistic graph analysis/processing serial and retain the measured SQL improvements. SQL Saga experiments target independent legal-unit/establishment batches, not parallel graph computation.
 
-Branch prototype/defer-temporal-checks is frozen at953617761d31c7f27ac12a32acb5fe3f01bbb51f. Read-only preflight confirms PostgreSQL18.6/sql_saga1.4 and only three runtime SQL files differ from releasedv1.4, with no C/native changes. An OpenAI6.1 implementation worker owns tmp/591/sql-saga/ and unique private clones only. Compare current ordinary checks, branch ordinary checks and explicit transaction-end FK deferral on clean inserts and genuine mixed/history imports. Include COMMIT and exact parent/root/counter/integrity/rollback assertions. No adoption, host-wide installation, shared-library/database change, Norway operation or push. Results are not yet available. This experiment does not settle root/allocation or valid_from policy.
+Branch prototype/defer-temporal-checks is frozen at953617761d31c7f27ac12a32acb5fe3f01bbb51f. Read-only preflight confirms PostgreSQL18.6/sql_saga1.4 and only three runtime SQL files differ from releasedv1.4, with no C/native changes. An OpenAI6.1 implementation worker owns tmp/591/sql-saga/ and unique private clones only. Compare current ordinary checks, branch ordinary checks and explicit transaction-end FK deferral on clean inserts and genuine mixed/history imports. Include COMMIT and exact parent/root/counter/integrity/rollback assertions. No adoption, host-wide installation, shared-library/database change, Norway operation or push. Results are not yet available. The owner root-policy clarification above now applies to these comparisons. The separate valid_from decision remains open.
 <!-- SECTION:NOTES:END -->
