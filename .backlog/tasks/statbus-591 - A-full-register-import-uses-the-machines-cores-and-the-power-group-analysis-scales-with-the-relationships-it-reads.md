@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T13:49:00Z'
+updated_date: '2026-11-07T13:50:00Z'
 labels:
   - import
   - performance
@@ -50,4 +50,6 @@ Evidence: tmp/rune-measure/A/ (watch.log, pg-now-*.txt, pg-wait-*.txt).
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-07 hibiscus, AC2 locally (rune check comes with run B): import.analyse_power_group_link joined rows and legal_relationship to the hierarchy on (influencing = id OR influenced = id), a nested loop over the hierarchy per row. Rewritten as two equality joins (e3acc80fd, test 79992db0c). Same local file as rune (29,503 'use' rows): fresh load 264 s -> 0.7 s; reload 171 s -> 2.0 s. Same 69,089 (row, root, power group) pairs; on reload every row's power group equals the one process_power_group_link linked. Test 372 (12,000 rows): 25.0 s f -> 0.27 s t. Evidence tmp/591/, journal 2026-11-07 13:35. Rune run A's ~40 min for this step includes the process step and waits; run B will show the new number.
+
+Rune run A (rc.18, 2026-11-07): relationship job analysis 12:06:40-12:25:47 (1,147 s); of it one import_job_process task of 1,024 s is the holistic power_group_link analysis on the fresh load. Whole load: import queue 6,625 s span (6,539 s task time); load wall to idle 10,240 s. tmp/rune-measure/A/summary.md.
 <!-- SECTION:NOTES:END -->
