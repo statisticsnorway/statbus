@@ -12,10 +12,21 @@ myhome="$(eval echo "~$me")"
 fail=0
 
 out="$(SUDO_USER="$me" HOME="$myhome" bash "$SCRIPT" --help 2>&1)"; rc=$?
-if [[ $rc -ne 0 ]] && grep -q "sudo -i" <<<"$out"; then
-  echo "PASS plain-sudo refused (rc=$rc): $(grep 'sudo -i' <<<"$out")"
+want="Run sudo -i first, then run this command again."
+if [[ $rc -ne 0 ]] && grep -Fxq "$want" <<<"$out"; then
+  echo "PASS plain-sudo refused (rc=$rc): $want"
 else
-  echo "FAIL plain-sudo not refused (rc=$rc)"; fail=1
+  echo "FAIL plain-sudo refusal (rc=$rc), want '$want', got: $out"; fail=1
+fi
+
+# Not root at all (no sudo): the same one line names what to run.
+out="$(env -u SUDO_USER HOME="$myhome" bash "$SCRIPT" --non-interactive </dev/null 2>&1)"; rc=$?
+if [[ $(id -u) -eq 0 ]]; then
+  echo "SKIP not-root refusal (this test runs as root)"
+elif [[ $rc -ne 0 ]] && grep -Fq "$want" <<<"$out"; then
+  echo "PASS not-root refused (rc=$rc): $want"
+else
+  echo "FAIL not-root refusal (rc=$rc), want '$want', got: $out"; fail=1
 fi
 
 other_home="$(mktemp -d)"

@@ -2353,7 +2353,7 @@ EOF
 check_prerequisites() {
     # Check if running as root
     if [[ $EUID -ne 0 ]]; then
-        log_error "This script must be run as root (use sudo)"
+        echo "Run sudo -i first, then run this command again." >&2
         exit 1
     fi
     
@@ -2394,7 +2394,7 @@ main() {
     # When the invoking user is root itself (`ssh root@box`, then `sudo -i`),
     # HOME is root's own home and there is no operator home to protect.
     if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != root && "$HOME" == "$(eval echo "~${SUDO_USER}")" ]]; then
-        echo "Refusing to run with HOME=$HOME (the home of $SUDO_USER): open a root login shell with 'sudo -i' and run the script from there." >&2
+        echo "Run sudo -i first, then run this command again." >&2
         exit 1
     fi
     # Parse arguments
