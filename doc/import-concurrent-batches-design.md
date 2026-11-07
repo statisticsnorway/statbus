@@ -108,7 +108,8 @@ probe reproduced three such differences at concurrency four or eight. Chosen roo
 the parity checks, and the existing root-selection policy has not been changed.
 
 Keeping legal-unit processing serial while parallelizing formal establishments is a narrower candidate
-that preserves legal-unit allocation order. A fresh-input parity experiment is pending. Parallel legal-unit
+that preserves legal-unit allocation order. A fresh 400-LU/800-ES experiment plus nine relationships passed
+exact domain and chosen-root parity at four-way ES concurrency. Parallel legal-unit
 processing needs either equivalent deterministic allocation or an explicitly agreed root-selection policy
 before it can satisfy strict chosen-root parity. The small unit-only speed measurements below do not
 establish that compatibility.
@@ -136,5 +137,35 @@ establish that compatibility.
 | Eight connections | 7.847 s |
 
 These are small-fixture measurements in a fixed run order, not a production speed claim. The real Crystal
-worker selection/full-download comparisons, memory and lock measurements, full regression suite and
-Norway acceptance criteria remain to be completed before choosing a production concurrency setting.
+worker results below supersede any inference of a production gain from this fixture.
+
+### Real Crystal worker: BRREG selection before deferred-wakeup prototype
+
+Fresh identical private databases received the same 4,924 legal units, 24,027 establishment input rows
+and two relationships. Each run imported 24,026 establishments and produced the same one input error.
+Every normalized row in twelve domain tables and all per-job counters matched the original serial
+function. History checks A (incremental versus rebuild), B (ground truth) and C (drained staging) passed.
+
+| Import queue concurrency | Worker wall | Import queue span | Peak active batch leaves | Lock-wait samples |
+|---|---:|---:|---:|---:|
+| Original serial function | 82.644 s | 70.593 s | 0 | 12 |
+| 2 | 89.000 s | 76.022 s | 2 | 127 |
+| 4 | 88.776 s | 69.151 s | 4 | 165 |
+| 8 | 87.719 s | 67.794 s | 4 | 179 |
+
+There is no accepted end-to-end concurrency speedup in these measurements. The selection has one
+legal-unit processing batch and four establishment batches, so eight fibers cannot produce eight active
+leaves. It has no cycle/multi-root records and does not establish their chosen-root compatibility.
+
+Live lock inspection identified `worker.base_change_log_has_pending` as the shared tuple blocking
+independent batches. `worker.log_base_change` updates that singleton at the first domain write and
+retains its lock until the batch commits. A scratch prototype is testing publication of the pending bit,
+collector task and notification at the batch tail while preserving every transactional change-log append.
+This is not temporal constraint deferral. The durable bit must still commit with the domain changes,
+because it is the crash witness for the unlogged change log.
+
+Evidence: `tmp/591/selection-v2-results.json`, per-run row snapshots and 0.2-second lock samples, and
+`tmp/591/selection-v2-n4-live-blockers.txt`. Sampled whole-DB-container memory peaked between 5.75 and
+6.02 GiB. That includes shared buffers and cached data from other retained databases, not an isolated
+per-run memory footprint. Runs used a fixed order. Deferred-wakeup verification, the final full regression
+suite, full-download comparisons and Norway acceptance remain before choosing production concurrency.
