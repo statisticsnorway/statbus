@@ -1,0 +1,100 @@
+-- STATBUS-591: fresh power-group linking scales with the relationship graph.
+--
+-- The first linking pass changes every derived_power_group_id from NULL to a
+-- group id. Statistics still describe the pre-link NULLs. A redundant nonnull
+-- filter on the merge-candidate input made PostgreSQL estimate one relationship
+-- and rescan the group-size aggregate for every relationship. On this fixture,
+-- 12,000 aggregate scans took 26 s of the 31.5 s procedure call. The equality
+-- join to cluster_sizes selects assigned groups itself, with the same results.
+--
+-- Fixture: 6,000 roots with two children each. The first pass must create and
+-- link all groups within 10 s, preserve change tracking, and reuse those same
+-- groups on the next pass. The timing includes the real indexes and triggers.
+BEGIN;
+
+\i test/setup.sql
+
+\echo "Test 374 (STATBUS-591): fresh power-group processing scales with relationships"
+
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+\o /dev/null
+\set ECHO none
+\i samples/norway/getting-started.sql
+\o
+\set ECHO all
+
+INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
+SELECT 'T374_parent', 'Test 374 parent', 'Parent company', true, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'T374_parent');
+
+INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+SELECT id, 'import_374_rels', 'Test 374 relationships', 'Test 374', false
+FROM public.import_definition WHERE slug = 'legal_relationship_source_dates';
+SELECT id AS job_id FROM public.import_job WHERE slug = 'import_374_rels' \gset
+
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
+SELECT 'T374_' || n, (SELECT id FROM auth.user LIMIT 1), 'Test 374'
+FROM generate_series(1, 18000) AS n;
+INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'T374 unit ' || e.short_name, e.id, true,
+       (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
+       (SELECT id FROM auth.user LIMIT 1), 'Test 374'
+FROM public.enterprise AS e WHERE e.short_name LIKE 'T374\_%';
+
+CREATE TEMP TABLE t374_unit ON COMMIT DROP AS
+SELECT id, row_number() OVER (ORDER BY id) AS n
+FROM public.legal_unit WHERE name LIKE 'T374 unit %';
+
+INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, root.id, child.id,
+       (SELECT id FROM public.legal_rel_type WHERE code = 'T374_parent'),
+       100, (SELECT id FROM auth.user LIMIT 1), 'Test 374'
+FROM t374_unit AS root
+JOIN t374_unit AS child ON child.n IN (root.n + 1, root.n + 2)
+WHERE root.n % 3 = 1;
+
+-- Capture the same all-NULL group statistics as a freshly loaded import.
+ANALYZE public.legal_relationship;
+SELECT clock_timestamp() AS started \gset
+CALL import.process_power_group_link(:job_id, NULL, 'power_group_link');
+SELECT extract(epoch FROM clock_timestamp() - :'started'::timestamptz) AS seconds \gset
+
+\echo
+\echo "374.1 every root has one group linking its two children at level one within 10 s"
+SELECT count(*) AS roots,
+       count(*) FILTER (WHERE relationships = 2 AND groups = 1 AND level_one = 2) AS correctly_linked_roots,
+       :seconds < 10 AS under_10_seconds
+FROM (
+    SELECT lr.influencing_id, count(*) AS relationships,
+           count(DISTINCT lr.derived_power_group_id) AS groups,
+           count(*) FILTER (WHERE lr.derived_influenced_power_level = 1) AS level_one
+    FROM public.legal_relationship AS lr
+    JOIN t374_unit AS root ON root.id = lr.influencing_id
+    GROUP BY lr.influencing_id
+) AS linked;
+
+\echo
+\echo "374.2 every created group is recorded for derived-data change collection"
+SELECT count(*) AS groups_recorded_for_collection
+FROM public.power_group AS pg
+CROSS JOIN (
+    SELECT range_agg(log.power_group_ids) AS power_group_ids
+    FROM worker.base_change_log AS log
+) AS recorded
+WHERE recorded.power_group_ids @> pg.id;
+
+CREATE TEMP TABLE t374_first_link ON COMMIT DROP AS
+SELECT id, derived_power_group_id FROM public.legal_relationship;
+CALL import.process_power_group_link(:job_id, NULL, 'power_group_link');
+
+\echo
+\echo "374.3 a second pass reuses every relationship's group and level"
+SELECT count(*) AS relationships,
+       count(*) FILTER (WHERE lr.derived_power_group_id = first.derived_power_group_id
+                          AND lr.derived_influenced_power_level = 1) AS reused_group_and_level,
+       count(DISTINCT lr.derived_power_group_id) AS groups
+FROM public.legal_relationship AS lr
+JOIN t374_first_link AS first USING (id);
+
+ROLLBACK;

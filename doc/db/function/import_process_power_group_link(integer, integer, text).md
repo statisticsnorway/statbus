@@ -155,12 +155,14 @@ BEGIN
         WHERE lr.derived_power_group_id IS NOT NULL
         GROUP BY lr.derived_power_group_id
     ),
+    -- Equality with cluster_sizes selects assigned groups. Reading the full
+    -- relationship input preserves its cardinality when statistics still
+    -- describe the NULL group ids from before the bulk-link update above.
     merge_candidates AS (
         SELECT DISTINCT lrc.root_legal_unit_id, lr.derived_power_group_id AS current_pg_id, cs.rel_count
         FROM _lr_clusters AS lrc
         JOIN public.legal_relationship AS lr ON lr.id = lrc.legal_relationship_id
         JOIN cluster_sizes AS cs ON cs.derived_power_group_id = lr.derived_power_group_id
-        WHERE lr.derived_power_group_id IS NOT NULL
     ),
     clusters_with_multiple_pgs AS (
         SELECT root_legal_unit_id, array_agg(current_pg_id ORDER BY rel_count DESC, current_pg_id) AS pg_ids
@@ -192,16 +194,16 @@ BEGIN
     END IF;
     CREATE TEMP TABLE _bfs (lu_id integer, level integer, pg_id integer) ON COMMIT DROP;
 
-    -- Seed: root LUs (influencing, never influenced in same PG) at level 0
+    -- Seed: root LUs (influencing, never influenced in same PG) at level 0.
+    -- Set difference deduplicates the seeds while reading each relationship
+    -- input once, including when pre-link statistics describe NULL group ids.
     INSERT INTO _bfs (lu_id, level, pg_id)
-    SELECT DISTINCT lr.influencing_id, 0, lr.derived_power_group_id
+    SELECT lr.influencing_id, 0, lr.derived_power_group_id
     FROM public.legal_relationship AS lr
     WHERE lr.derived_power_group_id IS NOT NULL
-      AND NOT EXISTS (
-        SELECT 1 FROM public.legal_relationship AS lr2
-        WHERE lr2.influenced_id = lr.influencing_id
-          AND lr2.derived_power_group_id = lr.derived_power_group_id
-      );
+    EXCEPT
+    SELECT lr.influenced_id, 0, lr.derived_power_group_id
+    FROM public.legal_relationship AS lr;
     CREATE INDEX ON _bfs (lu_id, pg_id);
 
     -- Propagate through directed edges (influencing → influenced)
