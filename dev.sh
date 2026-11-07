@@ -2167,14 +2167,13 @@ EOF
         # someone who did not start it — including after the starter is gone.
         #
         # Serialize each argument independently for the explicit Bash child.
-        # The outer quoting also preserves workspace/log paths through tmux's
-        # command shell, including spaces and apostrophes.
+        # Pass Bash directly to tmux so its default shell does not interpret
+        # the serialized workspace, log path or requested arguments.
         printf -v _DETACHED_COMMAND '%q ' ./dev.sh "$@"
         printf -v _DETACHED_RUN 'cd %q && %s 2>&1 | tee %q' \
             "$WORKSPACE" "$_DETACHED_COMMAND" "$_DETACHED_LOG"
-        printf -v _DETACHED_SHELL 'bash -o pipefail -c %q' "$_DETACHED_RUN"
         tmux -L "$_DETACHED_SOCKET" new-session -d -s "$_DETACHED_SESSION" \
-            "$_DETACHED_SHELL"
+            bash -o pipefail -c "$_DETACHED_RUN"
 
         echo "Detached run started."
         echo "  session : $_DETACHED_SESSION   (socket: $_DETACHED_SOCKET)"
