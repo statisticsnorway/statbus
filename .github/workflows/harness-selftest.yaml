@@ -15,6 +15,8 @@ on:
       - 'uninstall.sh'
       - 'ops/manual-box.sh'
       - 'ops/rc/**'
+      - 'postgres/Dockerfile'
+      - 'postgres/test_key_download.py'
       - '.github/actions/**'
       - '.github/workflows/harness-selftest.yaml'
       - 'dev.sh'
@@ -35,8 +37,10 @@ jobs:
           # github-token-era-test.sh resolves historical era commits
           # (626bc0d9b, 730b5001c, d53731ec5), exactly as the real arcs do.
           fetch-depth: 0
-      - name: Install localhost sshd, tmux and expect
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openssh-server tmux expect
+      - name: Install localhost sshd, tmux, expect and GnuPG
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openssh-server tmux expect gnupg
+      - name: Prove PostgreSQL signing-key downloads recover from partial responses and fail within their budget (STATBUS-575)
+        run: python3 postgres/test_key_download.py
       - name: Prove harness failure paths
         run: ./dev.sh test-harness
       - name: Prove public installer failures stay useful and redacted
