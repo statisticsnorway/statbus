@@ -1,7 +1,8 @@
 # STATBUS-591: concurrent processing of one import job's batches (design draft)
 
-Status: draft for the owner (not implemented). Branch `statbus-591-import-speed`. Evidence: tmp/journal.md 13:57, 16:15;
-tmp/rune-measure/A/import-tasks.out.
+Status: prototype in progress, not released. Whole-unit grouping is implemented and undergoing regression
+checks. Concurrent scheduling remains unimplemented. Branch `statbus-591-import-speed`. Evidence:
+`tmp/journal.md`, `tmp/rune-measure/A/import-tasks.out`.
 
 ## Where the time goes (rune run A, rc.18, full BRREG)
 
@@ -17,12 +18,14 @@ in processing.
 ## What two concurrent batches could collide on (process phase, one transaction per batch)
 
 1. **Trigger toggling.** A batch with any non-insert row runs `ALTER TABLE ... DISABLE TRIGGER` on seven unit
-   tables, a table lock held to commit and a global state. Such batches stay serial. A fresh load (BRREG) is
-   insert-only and never toggles.
+   tables. Its table lock is held to commit and serializes conflicting batches. Trigger DDL is transactional,
+   so no cross-session trigger-state race has been demonstrated. Such batches stay serial in this prototype.
+   A fresh insert-only load skips the toggle.
 2. **One unit in two batches.** `temporal_merge` on the same unit, and the enterprise created for a new legal unit.
 3. **Primary establishment.** A formal establishment row that is primary demotes the legal unit's current primary:
    two batches with establishments of one legal unit race.
-4. **Job counter.** `import_job.imported_rows` is updated after every batch; becomes one update at the end.
+4. **Job counter.** `import_job.imported_rows` is incremented atomically at each batch's transaction tail.
+   Keeping that short update preserves live progress. Measure contention before replacing it with a final recount.
 
 ## Grouping: which rows must share a batch
 
@@ -38,20 +41,23 @@ first row. All rows of one unit share it.
 
 ## Two levels, as for statistical units
 
-- **Level 1, slot:** `hash_slot` of the group key, the same 16,384-slot space derive uses
-  (`abs(hashtext(type || ':' || id)) % 16384`). For existing units the slot is the unit's own `hash_slot`.
-- **Level 2, batch:** consecutive slots packed into batches of about `processing_batch_size` rows, so a batch is
-  a range of slots and a group never splits.
+- **Level 1, slot:** hash the dependency-group key into 16,384 import slots. The key uses a resolved legal unit,
+  enterprise or founding row, depending on the columns available. This shares derive's slot count, not its
+  key identities, and does not establish matching derive partitions.
+- **Level 2, batch:** consecutive occupied slots packed toward `processing_batch_size` rows. A slot, including
+  all of its dependency groups, belongs to one batch. Oversized slots remain whole and may leave batch-number
+  gaps. Use explicit floor division because PostgreSQL's `sum(bigint)` is numeric and an integer cast rounds.
 
 Do batch numbers have to stay the same between runs?
 - **Derive:** yes. Partitions, staging and history deltas are keyed by slot, so a unit's slot must never change.
 - **An import job's batches:** no. They are assigned once, after analysis, and used once. They only need to be
   fixed for the life of the job (they are, in the data table) and balanced. Re-running a job reassigns them.
-- **Why still use the derive slot:** for existing units, a batch then covers one derive slot range, and the
-  `collect_changes` cycle after it touches a few partitions per batch instead of all. Whether that speeds up
-  the derive after an import is measured, not assumed; if it does not, level 1 can be any stable hash of the key.
-- New units have no id yet, so their level-1 key is the founding row. Their derive slot is decided only when the
-  unit exists, so alignment applies to updates of existing units, which is the case where derive cost matters.
+- **Why two levels:** dependencies determine stable groups, while a row-size target determines the number of
+  transactions. Changing the target moves slot boundaries without splitting a dependency group. There is no
+  measured derive-locality benefit yet. Unit refresh itself uses temporally closed change sets, not this packing.
+- New units have no persistent id yet, so their import key uses the founding row. It need only remain stable
+  within this job. Moving an establishment between parents across its historical rows can bridge group keys:
+  concurrent dispatch must verify that each founding unit remains in one batch and fall back to serial if not.
 
 ## Running the batches
 

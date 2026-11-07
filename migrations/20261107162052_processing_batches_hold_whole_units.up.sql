@@ -38,33 +38,27 @@ BEGIN
                           AND ic.column_name = c.column_name);
         v_group_key := COALESCE(v_group_key, '''row:'' || row_id');
         
-        -- Re-assign batch_seq to 'use' rows, optionally updating state and priority atomically.
-        -- A batch holds whole groups (STATBUS-591): each batch is one transaction that temporal_merges its
-        -- units and demotes a legal unit's or enterprise's primary establishment, so two batches must not
-        -- share a group. Rows are ordered by the group key's slot (the 16,384 slots derive hashes units
-        -- into), then group, then row; a batch closes at the first group boundary at or after p_batch_size
-        -- rows, so a batch is a run of slots and no group is split.
+        -- Each dependency group hashes to one stable import slot. Pack whole slots into row-sized batches:
+        -- a large group or slot stays whole even when it exceeds the target batch size. Import group keys
+        -- differ from derive unit keys, so sharing its 16,384-slot space does not imply derive locality.
         EXECUTE format($$
             WITH keyed AS (
                 SELECT row_id, %4$s AS group_key
                 FROM public.%1$I
                 WHERE action = 'use'
-            ), ordered AS (
-                SELECT row_id, group_key,
-                       row_number() OVER (ORDER BY abs(hashtext(group_key)) %% 16384, group_key, row_id) AS rn
+            ), slotted AS (
+                SELECT row_id, abs(hashtext(group_key)::bigint) %% 16384 AS slot
                 FROM keyed
-            ), groups AS (
-                SELECT group_key, min(rn) AS first_rn, count(*) AS n
-                FROM ordered GROUP BY group_key
+            ), slots AS (
+                SELECT slot, count(*) AS n
+                FROM slotted GROUP BY slot
             ), batched AS (
-                -- A group's batch: the rows of all groups before it, divided by p_batch_size. A batch can
-                -- exceed p_batch_size by less than one group.
-                SELECT g.group_key,
-                       sum(g.n) OVER (ORDER BY g.first_rn) - g.n AS rows_before
-                FROM groups AS g
+                SELECT s.slot,
+                       floor((sum(s.n) OVER (ORDER BY s.slot) - s.n) / %2$L) + 1 AS batch_num
+                FROM slots AS s
             ), numbered AS (
-                SELECT o.row_id, (b.rows_before / %2$L + 1)::INTEGER AS batch_num
-                FROM ordered AS o JOIN batched AS b USING (group_key)
+                SELECT s.row_id, b.batch_num::integer
+                FROM slotted AS s JOIN batched AS b USING (slot)
             )
             UPDATE public.%1$I dt
             SET batch_seq = numbered.batch_num %3$s
