@@ -81,6 +81,54 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
+-- Phase 1 establishes the exact LU and enterprise for each source identity.
+-- Later loads retain these links across every LU era, including the enterprise's
+-- primary LU tax identity. Capturing the allocated enterprise ID preserves that
+-- parent identity without depending on the allocation order of new enterprises.
+CREATE TEMP TABLE t314_phase1_lu_links ON COMMIT DROP AS
+SELECT tax_ident_raw::text AS tax_ident, stat_ident_raw::text AS stat_ident,
+       legal_unit_id, enterprise_id
+FROM public.import_314_lu_curr_p1_data;
+
+CREATE TEMP VIEW t314_lu_link_contract AS
+SELECT p.*,
+       ARRAY(
+           SELECT DISTINCT ei.legal_unit_id
+           FROM public.external_ident AS ei
+           JOIN public.external_ident_type AS eit ON eit.id = ei.type_id
+           WHERE eit.code = 'tax_ident' AND ei.ident = p.tax_ident
+       ) = ARRAY[p.legal_unit_id] AS tax_ident_retained,
+       ARRAY(
+           SELECT DISTINCT ei.legal_unit_id
+           FROM public.external_ident AS ei
+           JOIN public.external_ident_type AS eit ON eit.id = ei.type_id
+           WHERE eit.code = 'stat_ident' AND ei.ident = p.stat_ident
+       ) = ARRAY[p.legal_unit_id] AS stat_ident_retained,
+       ARRAY(
+           SELECT DISTINCT lu.enterprise_id
+           FROM public.legal_unit AS lu
+           WHERE lu.id = p.legal_unit_id
+       ) = ARRAY[p.enterprise_id] AS enterprise_retained,
+       ARRAY(
+           SELECT DISTINCT ei.ident::text
+           FROM public.legal_unit AS lu
+           JOIN public.external_ident AS ei ON ei.legal_unit_id = lu.id
+           JOIN public.external_ident_type AS eit ON eit.id = ei.type_id
+           WHERE lu.enterprise_id = p.enterprise_id AND lu.primary_for_enterprise
+             AND eit.code = 'tax_ident'
+       ) = ARRAY[p.tax_ident] AS primary_tax_ident_retained
+FROM t314_phase1_lu_links AS p;
+
+\echo "Phase 1 source identities have exact distinct LU and enterprise links"
+SELECT COUNT(*) = 23
+       AND COUNT(DISTINCT tax_ident) = 23
+       AND COUNT(DISTINCT stat_ident) = 23
+       AND COUNT(DISTINCT legal_unit_id) = 23
+       AND COUNT(DISTINCT enterprise_id) = 23
+       AND BOOL_AND(tax_ident_retained AND stat_ident_retained
+                    AND enterprise_retained AND primary_tax_ident_retained) AS phase1_links_valid
+FROM t314_lu_link_contract;
+
 \echo "Facet invariant after Phase 1 (current-year only)"
 WITH truth AS (
   SELECT unit_type, COUNT(DISTINCT unit_id)::int AS n
@@ -134,10 +182,25 @@ SELECT
 FROM public.import_job WHERE slug = 'import_314_lu_wsd_p2';
 \x
 
+\echo "Phase 2 source rows retain Phase 1 LU and enterprise links, including rejected rows"
+SELECT d.state, COUNT(*) AS source_rows,
+       COUNT(*) FILTER (WHERE d.legal_unit_id = p.legal_unit_id
+                          AND d.enterprise_id = p.enterprise_id) AS retained_links
+FROM public.import_314_lu_wsd_p2_data AS d
+JOIN t314_phase1_lu_links AS p
+  ON p.tax_ident = d.tax_ident_raw AND p.stat_ident = d.stat_ident_raw
+GROUP BY d.state ORDER BY d.state::text;
+
 \echo "Inspecting LU source dates data table for skipped/error rows"
 \x
-SELECT row_id, state, action, operation, legal_unit_id, enterprise_id, errors, merge_status
-FROM public.import_314_lu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
+SELECT d.row_id, d.state, d.action, d.operation, d.legal_unit_id,
+       p.tax_ident AS parent_tax_id,
+       CASE WHEN d.legal_unit_id IS NULL THEN d.enterprise_id IS NULL
+            ELSE d.enterprise_id = p.enterprise_id END AS parent_same,
+       d.errors, d.merge_status
+FROM public.import_314_lu_wsd_p2_data AS d
+LEFT JOIN t314_phase1_lu_links AS p ON p.legal_unit_id = d.legal_unit_id
+WHERE d.action = 'skip' OR d.state = 'error' ORDER BY d.row_id;
 \x
 
 -- Create Import Job for Formal Establishments (Demo CSV with source dates)
@@ -213,6 +276,12 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+
+\echo "All Phase 1 identifiers, LU eras and primary enterprise identities remain linked after Phase 2"
+SELECT COUNT(*) = 23
+       AND BOOL_AND(tax_ident_retained AND stat_ident_retained
+                    AND enterprise_retained AND primary_tax_ident_retained) AS phase1_links_retained
+FROM t314_lu_link_contract;
 
 \echo "Facet invariant after Phase 2 (current-year only)"
 WITH truth AS (
