@@ -84,9 +84,9 @@ There are two kinds of certificate StatBus can serve:
       public internet on port 443. No setup steps needed.
 
   CUSTOM (this command):
-      An operator-supplied certificate, e.g. one issued by an
-      institutional CA, a commercial CA, or a national PKI.
-      A national PKI typically issues a PFX file, installed with:
+      An operator-supplied certificate, e.g. one from your own IT
+      department or a commercial certificate authority.
+      A certificate exported from Windows is usually a PFX file, installed with:
           ./sb cert install /path/to/certificate.pfx
 
 Typical operator flow:
