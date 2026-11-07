@@ -13,7 +13,8 @@ logs under `tmp/` are local working files of the measuring agent; the summaries 
 | BRREG selection | `./test/import_benchmark.sh --dataset selection` | |
 | BRREG downloads | `./test/import_benchmark.sh --dataset downloads` (full register) | 3,118,352 statistical unit rows |
 
-Local runs: one laptop, Docker PostgreSQL 18. Production figures: rune (62 GB RAM), read-only queries.
+Local runs: one laptop, Docker PostgreSQL 18. Production figures: rune (62 GB RAM).
+Sections 1-7 use read-only production observations or local experiments; section 8 records an observed production upgrade and rebuild.
 
 ## 1. Disk: history storage
 
@@ -142,3 +143,43 @@ Sources: `tmp/574impl/bench-downloads.log` (database `import_benchmark_40149`) a
 Tests: 370 (a partial refresh reads only its units' timesegments, also with a generic plan; rows equal a full
 refresh). Selection import: 89.2 s against 83.8 s, within run-to-run variation on a loaded laptop; its batches
 are too small to show the effect.
+
+## 8. Norway upgrade U on the released image (2026-11-07)
+
+On rune, `v2026.11.1` (`3282c0af7`) upgraded to `v2026.11.2-rc.02` (`2e7e20641`) with the full-register run A data
+still in place (`valid_from` 2026-11-07). The RC's install/upgrade gate was green (Orchestrator 42399643747).
+
+The upgrade completed in **76 s**. Its five migrations took 2.4 s in total, including 1.6 s for the history-delta
+migration. That migration scheduled a full recalculation, which ran from **19:03:04 to 19:23:40 UTC**:
+
+| Measurement | Earlier rune full recalculation (2026-11-02) | Run U (2026-11-07) |
+|---|---:|---:|
+| Rebuild wall time | No wall-time comparison recorded here | **1,236 s (20 min 36 s)** |
+| All analytics tasks, summed time | 16,960 s | **4,111 s**, 3,684 tasks, 0 failed |
+| `statistical_unit_refresh_batch`, summed time | 14,096 s, longest 70 s | **3,244 s**, longest 5 s |
+| History steps, summed time | 2,559 s | **689 s** (delta partitions 650 + reduce 34 + coordinator 5) |
+
+The earlier calculation used rune's previous Norway dataset, not the freshly imported run A database. Its summed task time
+was 4.1 times run U's; refresh batches used 4.3 times and history used 3.7 times as much task time.
+These are historical task-time comparisons, not a matched-input benchmark or a measured wall-time speedup.
+
+Stock totals match before and after the upgrade for both `exists_count` and `countable_count`, in year 2026 and
+November 2026: **823,767 establishments, 1,134,475 legal units, 1,134,475 enterprises and 25,635 power groups**.
+They also match `statistical_unit`. Compare the `hash_partition IS NULL` summary rows, not their sum with partition rows.
+
+Establishment births for year 2026 change from **39 to 0**, as required by births rule C (section 4a).
+All 39 have `birth_date` before their first `valid_from` of 2026-11-07, verified separately; they enter as added,
+not born. This is the expected rule change, not a lost-stock discrepancy.
+
+The database shrank from **37 GB to 31 GB**. The replaced dense history-facet stores occupied about **6.6 GB**;
+the new delta table occupies **188 MB**. These run A measurements are separate from section 1's older Norway copy.
+The highest database-container memory sample was **9.791 GiB (about 9.8 GiB)** at 19:20:42 UTC, against its **32 GiB** limit.
+The watcher sampled about once a minute, so this is an observed sampled peak, not a guarantee about between-sample use.
+
+Sources: rabbit's `statbus_test` checkout, `tmp/rune-measure/U/summary.md`, `run-meta.txt`, `upgrade.log`,
+`rebuild-tasks.sql/.out`, the final summary sections of `before-upgrade.out` and `after-run.out`,
+`births-check.out`, `before-mem.txt`, `after-mem.txt` and `watch.log` (memory sample at 19:20:42 UTC).
+Historical task-time source: `tmp/558-build/91-rune-pipeline-share.txt` in the measuring agent's checkout.
+
+Run B, a clean full-register import on the new RC, is still pending. None of the separate STATBUS-591
+import-concurrency prototypes are included in this RC or these measurements.
