@@ -429,8 +429,12 @@ func TestRollbackCompletionRequiresUpgradeLockRelease(t *testing.T) {
 }
 
 // TestPostSwapSelfHealCompletionRequiresCleanFinishing covers the third
-// completed-row writer. Its success line must be guarded by both the read-only
-// lift and upgrade-lock removal, just like the ordinary completion path.
+// completed-row writer. Its success line must be guarded by the maintenance
+// lift, the read-only lift and upgrade-lock removal, just like the ordinary
+// completion path. A self-heal that leaves ~/statbus-maintenance/active makes
+// Caddy answer 503 after a completed upgrade (rc.21 gate arcs
+// postswap-severed-proxy-refusal and postswap-stopped-proxy-recovery,
+// Upgrade Arc Harness 42380900182).
 func TestPostSwapSelfHealCompletionRequiresCleanFinishing(t *testing.T) {
 	source, err := os.ReadFile("service.go")
 	if err != nil {
@@ -438,6 +442,7 @@ func TestPostSwapSelfHealCompletionRequiresCleanFinishing(t *testing.T) {
 	}
 	body := extractFuncBody(t, string(source), "func (d *Service) resumeNewSb(")
 	for _, required := range []string{
+		`if err := d.setMaintenance(false, ""); err != nil {`,
 		`readOnlyStatement, werr := d.liftReadOnlyWindow("post-swap resume completion")`,
 		`if removeErr := d.removeUpgradeArtifacts(); removeErr != nil {`,
 		`if finishingClean {`,
