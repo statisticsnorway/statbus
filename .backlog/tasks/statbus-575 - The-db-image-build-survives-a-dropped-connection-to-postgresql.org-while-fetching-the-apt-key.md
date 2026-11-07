@@ -1,0 +1,28 @@
+---
+id: STATBUS-575
+title: >-
+  The db image build survives a dropped connection to postgresql.org while
+  fetching the apt key
+status: To Do
+assignee: []
+created_date: '2026-11-07T18:12:00Z'
+labels:
+  - build
+  - ci
+dependencies: []
+ordinal: 502204
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+The statbus-db image build downloads the PostgreSQL apt signing key with `curl -sSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor` (postgres/Dockerfile). There is no --fail and no --retry, so one dropped connection to postgresql.org fails the whole build, and an HTTP error page would be piped into gpg.
+
+Seen 2026-11-07: v2026.11.2-rc.02 Test Hardening 42399643767, install-stack built the db image in the guest; curl reported "OpenSSL SSL_read: unexpected eof" after 85 s and gpg got no data. The same URL timed out once in three tries from the Mac at 18:11.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 postgres/Dockerfile fetches the key with curl --fail and bounded retries (or the key is vendored with its fingerprint checked), so an error page or a dropped connection never reaches gpg
+- [ ] #2 A local docker build of the db stage succeeds, and a build with the key URL unreachable fails with a clear message naming the URL
+<!-- AC:END -->
