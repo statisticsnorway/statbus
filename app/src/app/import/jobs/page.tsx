@@ -1028,8 +1028,8 @@ export default function ImportJobsPage() {
       columnVisibility: {
         expires_at: false,
       },
-      // The row menu stays at the right edge when the table scrolls on a narrow window.
-      columnPinning: { right: ["actions"] },
+      // Checkbox and ID stay at the left edge, the row menu at the right, when the table scrolls.
+      columnPinning: { left: ["select", "id"], right: ["actions"] },
     },
     getRowId: (row) => String(row.id),
   });

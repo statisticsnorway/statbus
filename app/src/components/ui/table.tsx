@@ -4,11 +4,34 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+// Marks the scroll box with data-overflows-left/right while columns are hidden under that edge,
+// so pinned columns (data-pinned-edge) show their dashed edge only when something runs beneath them.
+function trackHorizontalOverflow(box: HTMLDivElement | null) {
+  if (!box) return
+  const update = () => {
+    box.toggleAttribute("data-overflows-left", box.scrollLeft > 1)
+    box.toggleAttribute(
+      "data-overflows-right",
+      box.scrollWidth - box.clientWidth - box.scrollLeft > 1
+    )
+  }
+  update()
+  box.addEventListener("scroll", update, { passive: true })
+  const resize = new ResizeObserver(update)
+  resize.observe(box)
+  if (box.firstElementChild) resize.observe(box.firstElementChild)
+  return () => {
+    box.removeEventListener("scroll", update)
+    resize.disconnect()
+  }
+}
+
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div
+      ref={trackHorizontalOverflow}
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className="relative w-full overflow-x-auto [&[data-overflows-right]_[data-pinned-edge=right]]:border-l [&[data-overflows-right]_[data-pinned-edge=right]]:border-dashed [&[data-overflows-left]_[data-pinned-edge=left]]:border-r [&[data-overflows-left]_[data-pinned-edge=left]]:border-dashed"
     >
       <table
         data-slot="table"

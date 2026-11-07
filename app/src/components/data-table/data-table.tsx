@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getCommonPinningStyles } from "@/lib/data-table";
+import { getCommonPinningStyles, getPinnedEdge } from "@/lib/data-table";
 import { cn } from "@/lib/utils";
 
 interface DataTableProps<TData> extends React.ComponentProps<"div"> {
@@ -48,6 +48,7 @@ export function DataTable<TData>({
                   <TableHead
                     key={header.id}
                     colSpan={header.colSpan}
+                    data-pinned-edge={getPinnedEdge(header.column)}
                     style={{
                       ...getCommonPinningStyles({ column: header.column }),
                     }}
@@ -78,6 +79,7 @@ export function DataTable<TData>({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
+                      data-pinned-edge={getPinnedEdge(cell.column)}
                       style={{
                         ...getCommonPinningStyles({ column: cell.column }),
                       }}
