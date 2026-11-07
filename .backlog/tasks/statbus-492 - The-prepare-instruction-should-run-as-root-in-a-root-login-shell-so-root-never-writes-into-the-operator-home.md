@@ -3,7 +3,7 @@ id: STATBUS-492
 title: >-
   The prepare instruction should run as root in a root login shell so root never
   writes into the operator home
-status: In Progress
+status: Done
 assignee: []
 created_date: 2026-10-13 12:29
 updated_date: '2026-11-07T10:32:00Z'
