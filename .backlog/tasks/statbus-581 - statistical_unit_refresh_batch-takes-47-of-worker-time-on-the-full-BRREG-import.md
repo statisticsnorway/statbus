@@ -3,10 +3,10 @@ id: STATBUS-581
 title: >-
   statistical_unit_refresh_batch takes 47% of summed task time on the full BRREG
   import
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-07T16:10:00Z'
+updated_date: '2026-11-07T17:02:00Z'
 labels:
   - performance
   - worker
@@ -82,4 +82,6 @@ Rolled-back checks on import_benchmark_43190: batch 22285 view 2,335 ms -> 69 ms
 2026-11-06 18:13 owner decision: a faster import step (import_job_process, now the longest path) is not part of this release; owner has ideas to discuss after it. Benchmark databases import_benchmark_40149 and import_benchmark_43190 dropped with owner's approval; the logs remain.
 
 2026-11-07 hibiscus: owner 16:09 plan. Local master rebased onto origin 3282c0af7 (97 commits, 0 merges, patch identical) and pushed as branch statbus-history-release for rabbit to cut an RC from. Rabbit owns: RC cut + gate, Norway upgrade (run U), Norway wipe + full import (run B), release if green. Owner's doc/db review of the migrations was not done; owner approved the plan and the push. Ticket goes Done when that release passes (CI green on the released SHA; 558 also needs run U).
+
+2026-11-07 17:02 (rabbit): statbus-history-release 7b171ac1c fast-forwarded onto master and pushed as 72f1d7fd1; CI green for that SHA: Fast Tests 42393130629, Go Test, app build & lint, Harness Selftest 42392507183, Images. Ships in the next RC (rc.23).
 <!-- SECTION:NOTES:END -->

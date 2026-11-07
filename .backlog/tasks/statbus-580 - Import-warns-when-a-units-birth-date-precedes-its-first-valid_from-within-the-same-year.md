@@ -3,10 +3,10 @@ id: STATBUS-580
 title: >-
   Import warns when a unit's birth date precedes its first valid_from within the
   same year
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-05T16:49:00Z'
-updated_date: '2026-11-07T16:10:00Z'
+updated_date: '2026-11-07T17:02:00Z'
 labels:
   - import
   - history
@@ -50,4 +50,6 @@ doc/import-system.md describes the warning.
 2026-11-06 15:44 Owner review: the warning belongs on valid_from (the birth date is the fact, valid_from is the field to correct), with the consequence in its explanation. Owner approved the wording: 'After the birth date D in the same year. If the unit existed from birth, set valid_from to D. Why: history counts the unit as added in <Month YYYY>, not as born, so it is missing from the births of <YYYY>.' Test ad531bb3b (369 expects valid_from_raw; on the previous migration all 5 warnings were under birth_date_raw), change 70bbb9de4. Fast suite 124/124 (tmp/test-580-valid-from-fast.log).
 
 2026-11-07 hibiscus: owner 16:09 plan. Local master rebased onto origin 3282c0af7 (97 commits, 0 merges, patch identical) and pushed as branch statbus-history-release for rabbit to cut an RC from. Rabbit owns: RC cut + gate, Norway upgrade (run U), Norway wipe + full import (run B), release if green. Owner's doc/db review of the migrations was not done; owner approved the plan and the push. Ticket goes Done when that release passes (CI green on the released SHA; 558 also needs run U).
+
+2026-11-07 17:02 (rabbit): statbus-history-release 7b171ac1c fast-forwarded onto master and pushed as 72f1d7fd1; CI green for that SHA: Fast Tests 42393130629, Go Test, app build & lint, Harness Selftest 42392507183, Images. Ships in the next RC (rc.23).
 <!-- SECTION:NOTES:END -->

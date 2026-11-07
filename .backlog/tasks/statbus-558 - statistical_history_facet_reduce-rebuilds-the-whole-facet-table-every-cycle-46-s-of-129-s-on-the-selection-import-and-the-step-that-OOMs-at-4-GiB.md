@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-07T16:10:00Z'
+updated_date: '2026-11-07T17:02:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -102,7 +102,7 @@ Evidence: tmp/558-shd/ (README.md, scripts 01-25 with logs).
 - [x] #4 Full rebuild and incremental cycle on full Norway take less time than the dense-table pipeline's history steps
 - [x] #5 Migration, worker step and tests 008, 094, 096, 107, 204, 318, 322, 325, 346, 364 pass
 - [ ] #6 Released per-commit image upgrades a guest with data to this migration and the history rebuild completes (install/upgrade testing)
-- [ ] #7 [Owner] reviews the local commits; then pushed, with CI green for the pushed SHA
+- [x] #7 [Owner] reviews the local commits; then pushed, with CI green for the pushed SHA
 - [x] #8 [Owner] adopts the design before push; recorded in this ticket's notes (2026-11-05 15:41-16:48: one table, per-version counting, moves both sides, births rule C). Adoption lets the push go ahead; rejection returns the design to prototyping
 <!-- AC:END -->
 
@@ -258,4 +258,6 @@ AC1 scope: full Norway checked on the committed build (above); the 10-year datab
 2026-11-06 19:21 AC8: owner confirms the design was adopted (one table of changes, per-version counting, moves counted on both sides, births rule C) and is implemented in full. The owner's review on 2026-11-07 looks for defects in that implementation (AC7), not for a new design decision.
 
 2026-11-07 hibiscus: owner 16:09 plan. Local master rebased onto origin 3282c0af7 (97 commits, 0 merges, patch identical) and pushed as branch statbus-history-release for rabbit to cut an RC from. Rabbit owns: RC cut + gate, Norway upgrade (run U), Norway wipe + full import (run B), release if green. Owner's doc/db review of the migrations was not done; owner approved the plan and the push. Ticket goes Done when that release passes (CI green on the released SHA; 558 also needs run U).
+
+2026-11-07 17:02 (rabbit): statbus-history-release 7b171ac1c fast-forwarded onto master and pushed as 72f1d7fd1; CI green for that SHA: Fast Tests 42393130629, Go Test, app build & lint, Harness Selftest 42392507183, Images. Ships in the next RC (rc.23). Owner approved the plan and the push (16:09). AC6 waits for run U on Norway (rc.22 -> rc.23).
 <!-- SECTION:NOTES:END -->

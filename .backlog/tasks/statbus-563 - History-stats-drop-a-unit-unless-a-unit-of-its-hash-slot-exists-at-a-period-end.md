@@ -3,10 +3,10 @@ id: STATBUS-563
 title: >-
   History stats drop a unit unless a unit of its hash slot exists at a period
   end
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-03T22:24:00Z'
-updated_date: '2026-11-07T16:10:00Z'
+updated_date: '2026-11-07T17:02:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -38,7 +38,7 @@ Owner decision 2026-11-04: fixed by STATBUS-558, not separately. In 558 each uni
 <!-- AC:BEGIN -->
 - [x] #1 statistical_history and statistical_history_facet stats_summary equal the documented population for each period, independent of hash slots (test 364; 10-year data: all 465 rows equal an independent count from statistical_unit)
 - [x] #2 A regression test with two units in different hash slots, one of them not existing at either end of a period, gives the same stats_summary as the documented population for that period (test 364)
-- [ ] #3 The STATBUS-558 change is pushed to master with CI green for the pushed commit
+- [x] #3 The STATBUS-558 change is pushed to master with CI green for the pushed commit
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -59,4 +59,6 @@ Run: ./dev.sh test 364_statbus_563_history_stats_independent_of_hash_slot. Outpu
 2026-11-06 19:15 rebased local master onto origin/master ce9669a78 (after v2026.11.1-rc.17); tip 3e4b68ea6, 80 commits ahead, 0 merges, combined patch identical to before the rebase. Fast suite: all 124 shared + 2 isolated tests pass (tmp/test-rebased-fast.log). Not pushed. Test 364 (two legal units in different hash slots, one existing at neither 2024 end): documented population 17 employees / 2 units; before the fix statistical_history gave 10 / 1 (tmp/test-563.log), now 17 / 2, stats_match_documented_population = t, for both statistical_history and statistical_history_facet. 10-year data: all 465 rows equal an independent count from statistical_unit (tmp/558-onetable/30-10y.log).
 
 2026-11-07 hibiscus: owner 16:09 plan. Local master rebased onto origin 3282c0af7 (97 commits, 0 merges, patch identical) and pushed as branch statbus-history-release for rabbit to cut an RC from. Rabbit owns: RC cut + gate, Norway upgrade (run U), Norway wipe + full import (run B), release if green. Owner's doc/db review of the migrations was not done; owner approved the plan and the push. Ticket goes Done when that release passes (CI green on the released SHA; 558 also needs run U).
+
+2026-11-07 17:02 (rabbit): statbus-history-release 7b171ac1c fast-forwarded onto master and pushed as 72f1d7fd1; CI green for that SHA: Fast Tests 42393130629, Go Test, app build & lint, Harness Selftest 42392507183, Images. Ships in the next RC (rc.23).
 <!-- SECTION:NOTES:END -->

@@ -1,10 +1,10 @@
 ---
 id: STATBUS-565
 title: Stored history facet differs from its own definition for May 2026 on Norway
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-04T00:21:00Z'
-updated_date: '2026-11-07T16:10:00Z'
+updated_date: '2026-11-07T17:02:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -37,7 +37,7 @@ Owner decision 2026-11-04: fixed by STATBUS-558, which removes the stored facet 
 - [x] #1 The cause of the 296 stale May-2026 rows is identified and written in this ticket
 - [x] #2 Test 365 (a rename with unchanged employees) shows name_change_count 1 in statistical_history_facet, as the definition does
 - [x] #3 On restored Norway after a full derive, statistical_history_facet (now a view over statistical_history_facet_delta) has the same stock as the previous build in every cell of 2026 and months 5 and 11 (1,185,556 cells, tmp/558-onetable/23-compare-fixed.log), and its stats differ only where empty stats render as {} instead of {"type": "stats_agg"} (tmp/558-onetable/24-check.log)
-- [ ] #4 The STATBUS-558 change is pushed to master with CI green for the pushed commit
+- [x] #4 The STATBUS-558 change is pushed to master with CI green for the pushed commit
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,4 +56,6 @@ North Star: the stored history facet always equals its definition run on the cur
 2026-11-06 19:15 rebased local master onto origin/master ce9669a78 (after v2026.11.1-rc.17); tip 3e4b68ea6, 80 commits ahead, 0 merges, combined patch identical to before the rebase. Fast suite: all 124 shared + 2 isolated tests pass (tmp/test-rebased-fast.log). Not pushed. AC2: statistical_history_facet is now a view over statistical_history_facet_delta (STATBUS-558), so it is its definition; no stored copy can lag. Norway after a full derive: stock equal to the former definition in all 1,185,556 cells checked (2026 year, months 5 and 11; tmp/558-onetable/23-compare-fixed.log). Test 365 (rename only, same employees): name_change_count 1 as the definition, passes.
 
 2026-11-07 hibiscus: owner 16:09 plan. Local master rebased onto origin 3282c0af7 (97 commits, 0 merges, patch identical) and pushed as branch statbus-history-release for rabbit to cut an RC from. Rabbit owns: RC cut + gate, Norway upgrade (run U), Norway wipe + full import (run B), release if green. Owner's doc/db review of the migrations was not done; owner approved the plan and the push. Ticket goes Done when that release passes (CI green on the released SHA; 558 also needs run U).
+
+2026-11-07 17:02 (rabbit): statbus-history-release 7b171ac1c fast-forwarded onto master and pushed as 72f1d7fd1; CI green for that SHA: Fast Tests 42393130629, Go Test, app build & lint, Harness Selftest 42392507183, Images. Ships in the next RC (rc.23).
 <!-- SECTION:NOTES:END -->
