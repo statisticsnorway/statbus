@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T17:09:00Z'
+updated_date: '2026-11-07T17:14:00Z'
 labels:
   - import
   - performance
@@ -19,30 +19,31 @@ ordinal: 499204
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-A full register imports in time proportional to its rows, using the machine's cores, so a country-sized load finishes in well under an hour.
+A full register imports using the machine's cores, so country-sized loads finish well under an hour without changing their resulting business data.
 
 ### Zoom out
-Work that can be split must be split, and the dependencies that prevent splitting must be found by the analysis, not assumed for every row.
+Import jobs remain serial because one job can depend on another. Analysis identifies the row dependencies that determine which processing batches of one job can run concurrently.
 
 ### Zoom in
-Run A on rune (2026-11-07, rc.18, full BRREG downloads, 62 GB RAM): legal units analysis 13m 36s and processing 36m 24s (519 rows/s); establishments 12m 25s + 27m 50s (493 rows/s); relationships analysis (power_group_link step) about 40 min for 33,710 rows, processing at 491 rows/s. The import queue runs one job and one batch at a time (concurrency 1), so it is the longest path of the whole load: on the local BRREG benchmark, import_job_process was 6,090 s of the 6,737 s worker wall (doc/performance/2026-11-history-delta-measurements.md section 7).
+Rune run A (November 7, 2026, rc.18, full BRREG, 62 GB RAM): legal-unit analysis 816 s and processing 2,184 s, establishment analysis 745 s and processing 1,670 s. Relationship analysis 1,147 s includes a 1,024 s holistic power_group_link call. Import queue span 6,625 s, task time 6,539 s, full load to idle 10,240 s. Evidence: tmp/rune-measure/A/summary.md.
 
-Two parts:
-1. **Import speed in general.** Owner's ideas (2026-11-06): import jobs stay serial (one job can depend on another), but one job can run its batched steps concurrently. Each step has an analyse and a process phase, run either as one holistic pass (external_idents, link_establishment_to_legal_unit, power_group_link) or in batches (all others). Batched steps are the natural candidates. The analysis already learns which rows go together; reuse the derive pipeline's two-level hashing for import batches while respecting those dependencies. Open question: hash on unit identity (as statistical_unit's hash_slot type:id) or independent of it; new units have no id yet. Also: import valid_from should come from the start of the year or the file's date, not the day the import runs (samples/norway/brreg/brreg-import-downloads-from-tmp.sh, TODAY).
-2. **power_group_link analysis.** import.analyse_power_group_link builds the whole relationship graph in one recursive query (all legal_relationship rows plus the job's rows, walked from every root legal unit), even when legal_relationship is empty, as on a fresh load. On rune it ran about 40 minutes for 33,710 rows.
+Scope:
+1. Concurrent dependency-closed processing batches within one import job. Whole founding units and establishments sharing a legal-unit parent stay together. Two-level import hash slots remain fixed for the job lifetime, independently of derive unit slots. First scope is new insert-only legal units and formal establishments. Mixed/existing/informal jobs retain serial behavior pending safe temporal-check deferral and dependency proof.
+2. Faster power-group analysis and holistic processing while preserving reference mappings, memberships, root classification and levels. Measure both stale first-load statistics and reload behavior.
+3. A declared import valid_from date, chosen with the owner as start of year or file date, rather than execution day.
 
-Evidence: tmp/rune-measure/A/ (watch.log, pg-now-*.txt, pg-wait-*.txt).
+Implementation design and measured local evidence: doc/import-concurrent-batches-design.md and the notes below. Local import-speed work stays on statbus-591-import-speed until owner review. Rune validation is separate from rabbit's history-release upgrade U and clean run B.
 
 ### Closing review
-- **Memory:** none expected.
-- **Documentation:** doc/import-system.md (step concurrency), doc/performance.
-- **Cleanup:** none expected.
+- Documentation: dependency/concurrency design, doc/import-system.md, measured performance evidence.
+- Verification: exact serial-domain parity, failure/replay/barrier behavior, full fast suite, real worker measurements and rune acceptance.
+- Cleanup: retain diagnostic scripts and logs in tmp/. Do not delete benchmark databases or production data automatically.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 One import job processes its batched steps concurrently, respecting the row dependencies the analysis finds; the full BRREG downloads import on rune completes with the same rows as a serial run (row-for-row comparison of the resulting units) in measured shorter wall time
-- [ ] #2 import.analyse_power_group_link takes time proportional to the relationships it reads: on rune's full relationships file (33,710 rows) it gives the same derived power groups as today in a measured time recorded in this ticket
+- [ ] #2 Power-group analysis produces the exact reference relationship/root/group mappings on graph-size scaling fixtures and on rune's 33,710-row BRREG file, with scaling measurements and a rune runtime faster than the recorded 1,024-second rc.18 baseline
 - [ ] #3 The import's valid_from comes from a declared date (start of year or file date, decided with the owner), not the day the import runs
 <!-- AC:END -->
 
