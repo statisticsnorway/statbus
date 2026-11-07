@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -720,13 +721,57 @@ func (d *Service) prepareBackupSnapshotDir(progress *ProgressLog) (string, error
 }
 
 type databaseBackup struct {
-	Path    string
-	Bytes   int64
-	Elapsed time.Duration
+	Path string
+	// Bytes is the logical database snapshot size reported by rsync's file list,
+	// excluding the separately captured operator configuration. -1 means unknown.
+	Bytes int64
+	// CopiedBytes is rsync's total transferred file size, not wire bytes or
+	// filesystem allocation growth. Local rsync copies whole changed files.
+	// -1 means unknown, while 0 positively identifies an unchanged file set.
+	CopiedBytes int64
+	Elapsed     time.Duration
 }
 
 func (b databaseBackup) summary() string {
-	return fmt.Sprintf("%s in %s", humanBytes(b.Bytes), formatProgressDuration(b.Elapsed, false))
+	snapshot, copied := "snapshot size unknown", "copied amount unknown"
+	if b.Bytes >= 0 {
+		snapshot = humanBytes(b.Bytes) + " snapshot"
+	}
+	if b.CopiedBytes >= 0 {
+		copied = humanBytes(b.CopiedBytes) + " copied"
+	}
+	return fmt.Sprintf("%s, %s, %s", snapshot, copied, formatProgressDuration(b.Elapsed, false))
+}
+
+var rsyncByteCount = regexp.MustCompile(`^(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+) bytes$`)
+
+// rsyncSnapshotMetrics reads C-locale --stats from the root container, which can
+// traverse postgres-owned paths. Missing, ambiguous or invalid fields remain
+// unknown rather than being confused with a positively measured empty snapshot.
+func rsyncSnapshotMetrics(stats string) (size, copied int64) {
+	read := func(label string) int64 {
+		value, seen := int64(-1), false
+		for _, line := range strings.Split(stats, "\n") {
+			raw, ok := strings.CutPrefix(strings.TrimSpace(line), label)
+			if !ok {
+				continue
+			}
+			if seen {
+				return -1
+			}
+			seen = true
+			raw = strings.TrimSpace(raw)
+			if !rsyncByteCount.MatchString(raw) {
+				continue
+			}
+			n, err := strconv.ParseInt(strings.ReplaceAll(strings.TrimSuffix(raw, " bytes"), ",", ""), 10, 64)
+			if err == nil {
+				value = n
+			}
+		}
+		return value
+	}
+	return read("Total file size:"), read("Total transferred file size:")
 }
 
 // backupDatabase rsyncs the live Postgres data volume into a PERSISTENT
@@ -792,25 +837,12 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (databaseB
 	// WatchdogSec=120. Emit a progress.Write every 30s so each tick fires
 	// emitHeartbeat via the unified path.
 	//
-	// "%s copied": delta in free-disk-space since backup start, computed
-	// via statfs. Prior implementation walked tmpDir with filepath.Walk
-	// and summed file sizes — but rsync runs as root inside the alpine
-	// container and preserves the source's postgres-UID ownership when
-	// writing through the bind mount. The host-side process is the
-	// statbus user, which can't traverse postgres-owned subdirs (e.g.
-	// /backup/base/). filepath.Walk silently swallows the EACCES errors
-	// → total stayed at 0, hence the famous "0 B copied" log lines for
-	// the entire 3-minute backup. statfs sees real on-disk bytes
-	// regardless of file ownership.
-	//
-	// Caveat: other writers to the same filesystem would skew the
-	// reading. During an upgrade the database is stopped and the worker
-	// is idle, so rsync is effectively the only writer; the metric is
-	// accurate to within filesystem-overhead noise.
+	// The heartbeat reports elapsed time only. Filesystem free-space changes
+	// measure allocation, not logical size or copied data. Completion uses the
+	// root rsync's statistics (see databaseBackup).
 	rsyncStart := time.Now()
 	rsyncDone := make(chan struct{})
 	rsyncTicker := time.NewTicker(30 * time.Second)
-	freeAtStart, _ := DiskFree(root)
 	go func() {
 		defer rsyncTicker.Stop()
 		for {
@@ -818,14 +850,8 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (databaseB
 			case <-rsyncDone:
 				return
 			case <-rsyncTicker.C:
-				freeNow, _ := DiskFree(root)
-				var copied int64
-				if freeAtStart > freeNow {
-					copied = int64(freeAtStart - freeNow)
-				}
-				progress.Write("Still backing up database (%s elapsed, %s copied) ...",
-					time.Since(rsyncStart).Truncate(time.Second),
-					humanBytes(copied))
+				progress.Write("Still backing up database (%s elapsed) ...",
+					time.Since(rsyncStart).Truncate(time.Second))
 			}
 		}
 	}()
@@ -848,12 +874,14 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (databaseB
 	deployGID := os.Getgid()
 	rsyncShell := fmt.Sprintf(
 		"apk add --no-cache rsync >/dev/null 2>&1 && "+
-			"rsync -a --delete /source/ /backup/ && "+
+			"LC_ALL=C rsync -a --delete --stats /source/ /backup/ >&2 && "+
 			"chown -R %d:%d /backup && "+
 			"chmod -R u=rwX,go=rX /backup",
 		deployUID, deployGID,
 	)
-	rsyncErr := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync", nil,
+	// rsync's short summary goes to stderr so the existing bounded capture
+	// retains it without changing streamed logs, timeouts or rollback behavior.
+	rsyncStats, rsyncErr := runCommandToLogCapture(d.projDir, 10*time.Minute, progress.File(), "rsync", nil,
 		"docker", "run", "--rm",
 		"-v", volumeName+":/source:ro",
 		"-v", syncingDir+":/backup",
@@ -922,26 +950,8 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (databaseB
 		return databaseBackup{}, fmt.Errorf("commit backup (rename %s -> %s): %w", backupSyncingName, backupActiveName, err)
 	}
 
-	// STATBUS-318: SAY THAT IT FINISHED. The log used to run "Backing up
-	// database..." → "Still backing up (Ns elapsed, X copied)..." → "Installing
-	// ...", with nothing marking the end. An operator reading that cannot
-	// distinguish a backup that COMPLETED from one that was abandoned and
-	// skipped past — and on the one artifact whose whole purpose is to be there
-	// when a rollback needs it, that ambiguity is the worst possible place to
-	// leave a reader guessing.
-	//
-	// Emitted here, immediately after the atomic rename, because that rename IS
-	// the completion: per the comment above, the snapshot is complete iff it is
-	// named active. Reporting earlier would announce a finish that had not
-	// happened yet.
-	//
-	// Same statfs delta and the same clock the "Still backing up" heartbeats
-	// use, so the closing number is continuous with the ones before it rather
-	// than a second, differently-derived figure the reader has to reconcile.
-	var copiedTotal int64
-	if freeAtEnd, err := DiskFree(root); err == nil && freeAtStart > freeAtEnd {
-		copiedTotal = int64(freeAtStart - freeAtEnd)
-	}
+	// Only report completion metrics after the atomic publication above.
+	snapshotBytes, copiedBytes := rsyncSnapshotMetrics(rsyncStats)
 	elapsed := time.Since(rsyncStart)
 
 	// Cascade tmp/upgrade-logs/ into <root>/upgrade-logs-<stamp>/ (sibling
@@ -957,7 +967,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (databaseB
 	// where d.queryConn is live and can NULL backup_path before deletion.
 	// No pruning here — the DB connection is closed for the duration of executeUpgrade.
 
-	return databaseBackup{Path: activeDir, Bytes: copiedTotal, Elapsed: elapsed}, nil
+	return databaseBackup{Path: activeDir, Bytes: snapshotBytes, CopiedBytes: copiedBytes, Elapsed: elapsed}, nil
 }
 
 // cascadeUpgradeLogsIntoBackup mirrors the current tmp/upgrade-logs/
