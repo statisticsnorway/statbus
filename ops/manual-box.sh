@@ -162,6 +162,8 @@ guide_text() {
                      password $cert_password
   7. Health:         cd ~/statbus && ./sb monitor status; curl -s https://$cert_domain/monitor
   8. Uninstall:      (as statbus) curl -fsSL https://statbus.org/rc/uninstall.sh | bash
+                     (keep users, credentials and the database backup: the defaults)
+  9. Reinstall:      (as statbus) step 6 again; it ends by naming the newest kept backup and ./sb db restore
   Start over:        ops/manual-box.sh rebuild
 GUIDE
 }
