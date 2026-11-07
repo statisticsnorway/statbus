@@ -16,6 +16,52 @@ assert_harness_https_passes() {
     echo "  ✓ CA-verified HTTPS /rest/ (HTTP $code)"
 }
 
+# site_status_code prints the HTTP status the site answers for a path
+# (CA-verified HTTPS, as a visitor reaches it); 000 when nothing answers.
+site_status_code() {
+    local domain="${HARNESS_SITE_DOMAIN:-statbus-test.local}"
+    VM_EXEC curl --noproxy '*' --silent --cacert /home/statbus/harness-certs/ca.crt \
+        --connect-timeout 5 --max-time 15 --output /dev/null --write-out '%{http_code}' \
+        "https://${domain}$1" 2>/dev/null || true
+}
+
+# monitor_status_code is the public health reading's HTTP status (STATBUS-541).
+monitor_status_code() { site_status_code /monitor; }
+
+# assert_monitor_answers: /monitor answers 200 with the reading's JSON; a box
+# that was just installed or upgraded may need a minute for its first reading.
+assert_monitor_answers() {
+    local vm_name="$1" when="$2" code="" body=""
+    for _ in $(seq 1 24); do
+        code=$(monitor_status_code)
+        [ "$code" = 200 ] && break
+        sleep 5
+    done
+    [ "$code" = 200 ] || { echo "✗ /monitor answered HTTP $code $when" >&2; return 1; }
+    body=$(VM_EXEC curl --noproxy '*' --silent --cacert /home/statbus/harness-certs/ca.crt --max-time 15 \
+        "https://${HARNESS_SITE_DOMAIN:-statbus-test.local}/monitor" 2>/dev/null || true)
+    grep -q '"status"' <<<"$body" || { echo "✗ /monitor $when is not the health reading: $body" >&2; return 1; }
+    echo "  ✓ /monitor answers 200 with the health reading $when"
+}
+
+# assert_maintenance_page_serves (STATBUS-588): with the upgrader's maintenance
+# marker present, every page answers 503 with the maintenance page while
+# /monitor still answers; removing the marker brings the site back.
+assert_maintenance_page_serves() {
+    local vm_name="$1" root login monitor after
+    VM_EXEC touch /home/statbus/statbus-maintenance/active
+    root=$(site_status_code /)
+    login=$(site_status_code /login)
+    monitor=$(monitor_status_code)
+    VM_EXEC rm -f /home/statbus/statbus-maintenance/active
+    after=$(site_status_code /login)
+    echo "  maintenance marker present: / $root, /login $login, /monitor $monitor; removed: /login $after"
+    [ "$root" = 503 ] && [ "$login" = 503 ] || { echo "✗ the maintenance marker did not give the maintenance page (/ $root, /login $login)" >&2; return 1; }
+    [ "$monitor" = 200 ] || { echo "✗ /monitor answered HTTP $monitor during maintenance" >&2; return 1; }
+    [[ "$after" =~ ^[23][0-9][0-9]$ ]] || { echo "✗ the site did not come back after the marker was removed (/login $after)" >&2; return 1; }
+    echo "  ✓ maintenance page served while the marker is present; /monitor answers; site back after"
+}
+
 # Test that the app's REST endpoint responds 2xx/3xx. 5-minute budget —
 # cold start on a fresh Hetzner cx23 with cold container images can take
 # ~60-120s past `./sb install` completion (docker compose returns when

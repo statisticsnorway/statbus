@@ -152,6 +152,7 @@ if [ "${HARNESS_HTTPS_ONLY_EGRESS:-0}" = "1" ]; then
 fi
 assert_health_passes "$VM_NAME"
 assert_harness_https_passes "$VM_NAME"
+assert_monitor_answers "$VM_NAME" "before the upgrade"
 
 echo ""
 echo "── populating demo data ──"
@@ -229,6 +230,14 @@ while true; do
                 echo "  ✓ upgrade in_progress (t+${elapsed}s)"
                 SAW_IN_PROGRESS=1
             fi
+            # STATBUS-588/541: the health reading stays public while the upgrade
+            # runs; any answer but 200 or 503 (000 while Caddy restarts) means
+            # the route was lost.
+            MONITOR_DURING=$(monitor_status_code)
+            case "$MONITOR_DURING" in
+                200|503|000) ;;
+                *) echo "✗ /monitor answered HTTP $MONITOR_DURING during the upgrade" >&2; exit 1 ;;
+            esac
             ;;
         completed|failed|rolled_back)
             FINAL_STATE="$STATE"
@@ -375,6 +384,14 @@ if [ "$SNAPSHOTS_MOVED" != 1 ]; then
     exit 1
 fi
 assert_upgrade_snapshots_moved "$VM_NAME"
+
+# STATBUS-588: on the upgraded box, the upgrader's maintenance marker makes every
+# page answer with the maintenance page, /monitor keeps answering, and removing
+# the marker brings the site back. This is the candidate's own proxy and config.
+echo ""
+echo "── maintenance page and /monitor on the upgraded box ──"
+assert_monitor_answers "$VM_NAME" "after the upgrade"
+assert_maintenance_page_serves "$VM_NAME"
 
 echo ""
 echo "PASS: 0-happy-upgrade (supervised unattended path completed cleanly; data intact; unit stable)"
