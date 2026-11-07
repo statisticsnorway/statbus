@@ -176,19 +176,20 @@ BEGIN
         ORDER BY id DESC LIMIT 1;
 
         -- Initial concurrency scope: new legal units with new enterprises, or new formal
-        -- establishments. Existing-unit and mixed jobs retain the serial path until temporal
-        -- checks can be deferred without table-locking trigger DDL. Unknown batch handlers also
-        -- retain their serial contract. Holistic handlers remain behind this task's fan-in barrier.
+        -- establishments. Existing-unit and mixed dependency coverage remains outside this scope,
+        -- so those jobs retain serial processing. Supported batch handlers are matched by routine
+        -- identity independently of caller search_path. Unknown handlers keep their serial contract,
+        -- and holistic handlers remain behind this task's fan-in barrier.
         IF v_task_id IS NOT NULL AND v_current_batch <> v_max_batch AND COALESCE(job.imported_rows, 0) = 0
            AND job.definition_snapshot#>>'{import_definition,mode}' IN ('legal_unit', 'establishment_formal')
            AND NOT EXISTS (
                SELECT 1 FROM jsonb_populate_recordset(NULL::public.import_step,
                                                       job.definition_snapshot->'import_step_list') AS step
                WHERE NOT COALESCE(step.is_holistic, false) AND step.process_procedure IS NOT NULL
-                 AND step.process_procedure::text NOT IN (
-                     'import.process_enterprise_link_for_legal_unit', 'import.process_legal_unit',
-                     'import.process_establishment', 'import.process_location', 'import.process_activity',
-                     'import.process_contact', 'import.process_statistical_variables', 'import.process_tags')
+                 AND step.process_procedure NOT IN (
+                     'import.process_enterprise_link_for_legal_unit'::regproc, 'import.process_legal_unit'::regproc,
+                     'import.process_establishment'::regproc, 'import.process_location'::regproc, 'import.process_activity'::regproc,
+                     'import.process_contact'::regproc, 'import.process_statistical_variables'::regproc, 'import.process_tags'::regproc)
            ) THEN
             v_unit_condition := CASE job.definition_snapshot#>>'{import_definition,mode}'
                 WHEN 'legal_unit' THEN 'legal_unit_id IS NULL AND enterprise_id IS NULL'
@@ -294,6 +295,6 @@ END;
 $function$;
 
 COMMENT ON FUNCTION admin.import_job_processing_phase(public.import_job) IS
-'Dispatches dependency-closed batches of new insert-only legal units or formal establishments through concurrent worker children. Mixed or existing-unit jobs use serial batches. Holistic steps and finalization resume only after the child barrier, and failed leaves fail the job.';
+'Dispatches dependency-closed batches of new insert-only legal units or formal establishments through concurrent worker children. Supported handlers are matched by routine identity independently of caller search_path. Mixed or existing-unit jobs use serial batches. Holistic steps and finalization resume only after the child barrier, and failed leaves fail the job.';
 
 COMMIT;

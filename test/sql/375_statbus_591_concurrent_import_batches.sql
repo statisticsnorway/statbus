@@ -399,4 +399,60 @@ SELECT (SELECT count(*) FROM public.enterprise),
        (SELECT count(*) FROM public.legal_unit),
        (SELECT count(DISTINCT id) FROM public.establishment),
        (SELECT count(*) FROM public.establishment);
+-- Each caller path must dispatch the same clean job through the real worker.
+-- Roll back these bounded fixtures so the registry totals above remain independent.
+SAVEPOINT caller_paths;
+RESET ROLE;
+CREATE TABLE test.t375_paths (
+    caller_path text PRIMARY KEY, dispatcher_state text,
+    child_mode text, leaves integer, batches integer,
+    state public.import_job_state, total_rows integer, imported_rows integer,
+    units integer, versions integer, enterprises integer
+);
+GRANT SELECT, INSERT, UPDATE ON test.t375_paths TO admin_user;
+CREATE PROCEDURE test.t375_caller_path(p_slug text, p_path text, p_ident integer)
+LANGUAGE plpgsql AS $t375_caller_path$
+DECLARE
+    v_job public.import_job;
+BEGIN
+    CALL test.set_user_from_email('test.admin@statbus.org');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review, processing_batch_size)
+    SELECT id, p_slug, 'T375 caller path', 'T375', false, 1
+    FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    EXECUTE format($SQL$
+        INSERT INTO public.%1$I
+            (valid_from, valid_to, tax_ident, name, sector_code, legal_form_code, data_source_code)
+        SELECT '2020-01-01', 'infinity', ($1 + n)::text, $2 || ' ' || n, '2100', 'AS', 'brreg'
+        FROM generate_series(1, 2) AS n
+    $SQL$, p_slug || '_upload') USING p_ident, p_slug;
+    CALL test.t375_to_processing(p_slug);
+    SELECT * INTO STRICT v_job FROM public.import_job WHERE slug = p_slug;
+    PERFORM set_config('search_path', p_path, true);
+    CALL worker.process_tasks(p_batch_size => 1, p_queue => 'import', p_mode => 'serial');
+    INSERT INTO test.t375_paths (caller_path, dispatcher_state, child_mode, leaves)
+    SELECT p_path, d.state::text, d.child_mode::text,
+           (SELECT count(*) FROM worker.tasks WHERE parent_id = d.id AND command = 'import_job_process_batch')
+    FROM public.import_job AS j LEFT JOIN worker.tasks AS d
+      ON (d.payload->>'job_id')::integer = j.id AND d.child_mode = 'concurrent'
+    WHERE j.id = v_job.id;
+    EXECUTE format($SQL$
+        UPDATE test.t375_paths SET batches =
+            (SELECT count(DISTINCT batch_seq) FROM public.%1$I WHERE state = 'processing')
+        WHERE caller_path = $1
+    $SQL$, v_job.data_table_name) USING p_path;
+    CALL worker.process_tasks(p_queue => 'import', p_mode => 'concurrent');
+    CALL worker.process_tasks(p_queue => 'import', p_mode => 'serial');
+    UPDATE test.t375_paths SET state = j.state, total_rows = j.total_rows, imported_rows = j.imported_rows,
+        units = (SELECT count(DISTINCT id) FROM public.legal_unit WHERE name LIKE p_slug || ' %'),
+        versions = (SELECT count(*) FROM public.legal_unit WHERE name LIKE p_slug || ' %'),
+        enterprises = (SELECT count(DISTINCT enterprise_id) FROM public.legal_unit WHERE name LIKE p_slug || ' %')
+    FROM public.import_job AS j WHERE j.id = v_job.id AND caller_path = p_path;
+END;
+$t375_caller_path$;
+CALL test.t375_caller_path('import_375_default', '"$user", public', 375500000);
+CALL test.t375_caller_path('import_375_import_path', '"$user", public, import', 375600000);
+\echo Caller paths: each clean worker dispatch has two leaves and finishes two units, versions and enterprises
+SELECT caller_path, dispatcher_state, child_mode, leaves, batches, state, total_rows, imported_rows,
+       units, versions, enterprises FROM test.t375_paths ORDER BY caller_path;
+ROLLBACK TO SAVEPOINT caller_paths;
 ROLLBACK;

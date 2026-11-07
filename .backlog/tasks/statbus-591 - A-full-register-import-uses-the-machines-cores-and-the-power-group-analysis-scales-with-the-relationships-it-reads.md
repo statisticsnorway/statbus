@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T20:44:00Z'
+updated_date: '2026-11-07T21:13:00Z'
 labels:
   - import
   - performance
@@ -104,4 +104,20 @@ With checks enabled on installed SQL Saga 1.4, four separately frozen controls i
 A fresh default-path upload creates schema-qualified procedure snapshots. The actual default SQL worker then finishes all 1,200 rows with the expected 2,000 ES versions and 3,200 statistic versions, parents and history A/B/C, retaining current serial mixed-job dispatch. The prior unqualified-snapshot failure uses the reused creator context, not this tested default upload/worker path. Before landing, a narrow followup will reproduce and fix the current 591 handler allowlist's search-path-sensitive text comparison using procedure identity. Mixed eligibility and SQL Saga adoption remain unchanged.
 
 Root independent verification passes. Evidence: tmp/591/sql-saga/short-n1107_203900_99673/, short-controls.py/.log, and tmp/591/verify-saga-mixture-serial-enabled-final.log. Sources are unchanged, with zero retained Saga database sessions at audit. The comparison is complete: leaving checks enabled removes the trigger-toggle bottleneck, concurrency gives a separate measured gain, and experimental deferral has no demonstrated additional speed advantage. Any later deferral adoption still needs the separately prototyped safe failure boundary. No runtime adoption, 591 push or Norway operations. All four acceptance criteria remain open.
+
+## Caller-context-independent batch dispatch, November 7, 2026
+
+Corrected one narrow defect in the unpublished import prototype: handler eligibility compared displayed `regproc` names, which omit the schema when the caller's search path includes `import`. The same eligible clean job then silently ran serially. The allowlist now compares the same eight database routine identities.
+
+The new positive 375 regression was written before the fix. Under the default caller path, the unchanged runtime produced a waiting concurrent dispatcher and two leaves. Under the import-aware path it produced no dispatcher, zero leaves and one already-processed serial batch. Both eventually imported two rows correctly. The dump-based private prototype and tracked fix both produce two concurrent leaves in both contexts, followed by exactly two imported rows, units, versions and enterprise parents.
+
+Existing 375 replay, holistic barriers, failed-leaf propagation and mixed/reused/informal serial fallback outputs remain unchanged. Complete 373 and 375 outputs match their explicit expected files with empty stderr and zero-byte diffs. Source table/routine/extension fingerprints, source database flags and global role attributes match before/after, with no remaining private sessions. The private database is retained.
+
+Evidence: `tmp/591/handler-identity/REPORT.md`, `before-positive-375_statbus_591_concurrent_import_batches.{out,diff,stderr}`, `after-375_statbus_591_concurrent_import_batches.*`, `after-373_statbus_591_processing_batches_hold_whole_units.*`, and identical `before.json`/`after.json`.
+
+Root integration replayed exactly the two unpublished dispatcher/wakeup migrations on verified idle statbus_local and statbus_seed. The frozen-tree normal fast command passed all 132 shared and two isolated tests at 21:11:22 UTC. Complete schema-doc regeneration finished at 21:12:08 UTC with no unintended deletions and only the paired processing-phase function document changed. Generated explain/performance artifacts were preserved and restored. Logs: `tmp/591/handler-identity-integration.log`, `test-handler-identity-fast-frozen.log` and `doc-db-handler-identity-frozen.log`.
+
+The first full run also passed all 134 SQL cases, but root edited the design guide during execution and correctly tripped the checkout-stability guard. The cause and failed overall command are retained in `handler-identity-integration-guard-diagnosis.md` and `test-handler-identity-fast.log`. The normal command was rerun with tracked edits frozen, without weakening the guard or changing product behavior. Dirty-tree release freshness stamps were intentionally withheld, so no release-preflight or CI claim is made for this local checkpoint.
+
+This changes no handler/dependency scope, adopts no SQL Saga branch or temporal-trigger behavior, and makes no production scaling claim. STATBUS-591 remains local and unpushed, In Progress with its full-register/date-policy acceptance criteria still open.
 <!-- SECTION:NOTES:END -->

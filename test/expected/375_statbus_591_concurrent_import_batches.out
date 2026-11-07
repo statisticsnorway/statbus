@@ -71,3 +71,6 @@ import_375_mixed|finished|2|2
 import_375_reused|finished|4|4
 Final registry totals: thirteen enterprises, nine legal units with twenty-two versions, twelve establishments
 13|9|22|12|12
+Caller paths: each clean worker dispatch has two leaves and finishes two units, versions and enterprises
+"$user", public|waiting|concurrent|2|2|finished|2|2|2|2|2
+"$user", public, import|waiting|concurrent|2|2|finished|2|2|2|2|2

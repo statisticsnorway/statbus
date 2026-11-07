@@ -86,13 +86,15 @@ The first dispatch scope is deliberately narrow:
 - New legal units with new enterprises, or new formal establishments with resolved legal-unit parents.
 - Every processing row is an insert and every founding unit belongs to one batch.
 - Every non-holistic processing handler belongs to the known unit, location, activity, contact, statistical
-  variable or tag handlers. A custom handler retains serial execution until its dependencies are understood.
+  variable or tag handlers, matched by database routine identity independently of caller search path.
+  A custom handler retains serial execution until its dependencies are understood.
 
 Mixed operations, reused unit targets and informal establishments retain serial execution. A clean file
 with multiple historical versions can still analyse as mixed insert/replace operations and remain serial.
 That is an implementation boundary, not a claim that concurrent updates are logically impossible.
-Deferring SQL Saga's temporal constraint checks may remove trigger-DDL serialization, but dependencies
-and final-state integrity must still be established separately.
+The isolated comparisons below remove trigger-DDL serialization while leaving ordinary integrity checks
+enabled. Extra SQL Saga deferral shows no demonstrated gain. Dependency coverage and worker failure
+handling still need validation before widening dispatch eligibility.
 
 Each batch holds a transaction-scoped advisory lock, publishes row states and its atomic counter delta in
 the same transaction, and treats an already committed batch as a zero-work replay. A unique task index
@@ -356,9 +358,14 @@ or a Crystal/Go worker performance result. Parent moves, cross-enterprise depend
 throughput remain separate work. A fresh default-path upload produces qualified procedure snapshots;
 the actual default SQL worker then finishes all 1,200 rows serially with exact expected versions, parents,
 custom-root replay and history A/B/C. The earlier client failure used the reused creator connection, so
-it is not evidence of failure in that default upload/worker path. The current dispatch allowlist still
-compares displayed procedure text, whose qualification changes with search path. Procedure-identity
-comparison and a positive alternate-context fanout regression are scheduled before landing.
+it is not evidence of failure in that default upload/worker path. The local dispatch allowlist now compares
+procedure identities, rather than displayed names whose qualification changes with caller search path.
+A real-worker regression creates a two-row clean job for each context. Before the fix, the default path
+spawns two leaves while the import-aware path stays serial. After the fix, both produce a waiting
+concurrent dispatcher with two leaves and finish exactly two rows, units, versions and enterprises.
+Existing mixed/existing-unit fallback, replay, failure and holistic-barrier cases retain their expected
+outputs. The dump-based private prototype and failing-before/passing-after evidence are preserved in
+`tmp/591/handler-identity/REPORT.md`. This correction does not broaden eligibility or adopt SQL Saga.
 
 Evidence: `tmp/591/sql-saga/FOLLOWUP-REPORT.md`, `followup-f1107_202817_2402/`,
 `short-n1107_203900_99673/`, and `tmp/591/verify-saga-mixture-{balanced,serial-enabled}-final.log`.
