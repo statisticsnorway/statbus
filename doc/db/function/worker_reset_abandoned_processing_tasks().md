@@ -42,16 +42,14 @@ BEGIN
         FROM worker.base_change_log;
 
         IF v_change_log_count = 0 THEN
-            IF NOT EXISTS (
-                SELECT 1 FROM worker.tasks
-                WHERE command = 'collect_changes'
-                  AND state IN ('pending', 'interrupted')
-            ) THEN
-                RAISE LOG 'Crash recovery: base_change_log_has_pending=TRUE but base_change_log is empty. Spawning full refresh.';
-                -- The changes lost with the crash are unknown: derive all
-                -- units over all time.
-                PERFORM worker.enqueue_derive_statistical_unit_all();
-            END IF;
+            -- STATBUS-589: a crash truncated the UNLOGGED change log, so the
+            -- changes that were waiting are unknown: derive all units over all
+            -- time. A collector already pending or interrupted would read the
+            -- empty log and derive nothing; enqueue_derive_statistical_unit_all
+            -- turns a pending one into the full request (ON CONFLICT DO UPDATE)
+            -- and otherwise adds it beside an interrupted one.
+            RAISE LOG 'Crash recovery: base_change_log_has_pending=TRUE but base_change_log is empty. Spawning full refresh.';
+            PERFORM worker.enqueue_derive_statistical_unit_all();
             UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
         END IF;
     END IF;

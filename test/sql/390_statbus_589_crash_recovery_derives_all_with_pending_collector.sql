@@ -51,4 +51,12 @@ SELECT unit_type, count(*) FROM public.statistical_unit GROUP BY unit_type ORDER
 SELECT (SELECT count(*) FROM public.statistical_unit WHERE unit_type = 'legal_unit')
      = (SELECT count(*) FROM public.legal_unit) AS every_legal_unit_derived;
 
+\echo "--- No collector waiting: recovery enqueues one full derive ---"
+DELETE FROM worker.tasks WHERE command = 'collect_changes' AND state IN ('pending', 'interrupted');
+DELETE FROM worker.base_change_log;
+UPDATE worker.base_change_log_has_pending SET has_pending = TRUE;
+SELECT worker.reset_abandoned_processing_tasks() AS reset_count;
+SELECT state, payload->'valid_ranges' AS valid_ranges
+FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
+
 ROLLBACK;

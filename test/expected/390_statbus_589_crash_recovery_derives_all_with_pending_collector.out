@@ -63,7 +63,7 @@ SELECT state, payload->'valid_ranges' AS valid_ranges, payload ? 'legal_unit_id_
 FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
   state  |       valid_ranges       | names_unit_ranges 
 ---------+--------------------------+-------------------
- pending | ["[-infinity,infinity)"] | t
+ pending | "{[-infinity,infinity)}" | t
 (1 row)
 
 SELECT has_pending FROM worker.base_change_log_has_pending;
@@ -87,6 +87,24 @@ SELECT (SELECT count(*) FROM public.statistical_unit WHERE unit_type = 'legal_un
  every_legal_unit_derived 
 --------------------------
  t
+(1 row)
+
+\echo "--- No collector waiting: recovery enqueues one full derive ---"
+"--- No collector waiting: recovery enqueues one full derive ---"
+DELETE FROM worker.tasks WHERE command = 'collect_changes' AND state IN ('pending', 'interrupted');
+DELETE FROM worker.base_change_log;
+UPDATE worker.base_change_log_has_pending SET has_pending = TRUE;
+SELECT worker.reset_abandoned_processing_tasks() AS reset_count;
+ reset_count 
+-------------
+           0
+(1 row)
+
+SELECT state, payload->'valid_ranges' AS valid_ranges
+FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
+  state  |       valid_ranges       
+---------+--------------------------
+ pending | "{[-infinity,infinity)}"
 (1 row)
 
 ROLLBACK;
