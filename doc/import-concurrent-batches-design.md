@@ -101,18 +101,23 @@ committed, as with earlier serial batches. Holistic steps cannot run after a fai
 ### Open compatibility boundary: ambiguous power-group roots
 
 `import.process_power_group_link` chooses the smallest natural-root legal-unit ID for a multi-root group,
-or the smallest component legal-unit ID for a cycle. These are surrogate IDs. Concurrent insertion of new
+or the smallest influencing-member legal-unit ID for a cycle. Excluding terminal members repairs a
+previous failure when the smallest component member could not satisfy root-membership validation.
+Every previously valid minimum-ID choice remains unchanged. These are surrogate IDs. Concurrent insertion of new
 legal units changes allocation order, so the same graph can choose a different logical root even though
 its relationships, membership, BFS levels and cycle/multi classification are unchanged. An exact graph
 probe reproduced three such differences at concurrency four or eight. Chosen root identifiers remain in
-the parity checks, and the existing root-selection policy has not been changed.
+the parity checks. No business-key root-selection policy has been introduced.
 
 Keeping legal-unit processing serial while parallelizing formal establishments is a narrower candidate
-that preserves legal-unit allocation order. A fresh 400-LU/800-ES experiment plus nine relationships passed
+that preserves allocation order relative to this branch's serial phase with the same whole-slot packing.
+A fresh 400-LU/800-ES experiment plus nine relationships passed
 exact domain and chosen-root parity at four-way ES concurrency. Parallel legal-unit
 processing needs either equivalent deterministic allocation or an explicitly agreed root-selection policy
 before it can satisfy strict chosen-root parity. The small unit-only speed measurements below do not
-establish that compatibility.
+establish that compatibility. These references do not restore the released batch-packing function.
+Packing itself can reorder surrogate allocation, so this experiment does not establish chosen-root
+identity parity against the pre-591 release.
 
 ## Verification
 
@@ -124,6 +129,9 @@ establish that compatibility.
   holistic input, exact final unit/version totals and mixed/existing/informal serial fallbacks. Its injected
   batch-tail error occurs after real unit writes and asserts rollback plus failed leaf, job and wrapper.
   This regression uses one connection and does not establish cross-connection locking behaviour.
+- SQL378 asserts exact memberships and levels for a cycle with a lower-ID terminal tail, a previously
+  valid cycle, a natural-root chain and a multi-root component. It verifies bounded root validity,
+  influencing-member eligibility, preserved custom overrides and stable group identities on replay.
 - `tmp/591/concurrent-acceptance.py` uses simultaneous PostgreSQL connections on identical private inputs:
   400 new legal units and 800 new formal establishments. All nine imported domain tables match the
   original serial function after generated-ID and audit-timestamp normalization, including parent links,
