@@ -1,0 +1,29 @@
+# Throwaway Zabbix 7.0 to prove `./sb monitor template zabbix` imports cleanly
+# (STATBUS-541 AC6), driven by test/monitor/zabbix-import-test.sh.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+  server:
+    image: zabbix/zabbix-server-pgsql:alpine-7.0-latest
+    environment:
+      DB_SERVER_HOST: postgres
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+    depends_on: [postgres]
+  web:
+    image: zabbix/zabbix-web-nginx-pgsql:alpine-7.0-latest
+    environment:
+      ZBX_SERVER_HOST: server
+      DB_SERVER_HOST: postgres
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+      PHP_TZ: UTC
+    ports:
+      - "127.0.0.1:18541:8080"
+    depends_on: [server]

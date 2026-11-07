@@ -127,6 +127,14 @@ jobs:
       - name: PostgREST receives the selected site settings
         run: bash test/config/postgrest-environment-test.sh
 
+      # STATBUS-541 AC6: the Zabbix template must import into a real Zabbix 7
+      # (two shape errors were only found by a real import). Docker is on the
+      # ubuntu runner; the official images start in about 30 seconds.
+      - name: The Zabbix template imports into Zabbix 7
+        run: |
+          go -C cli build -o ../sb .
+          bash test/monitor/zabbix-import-test.sh ./sb
+
   # go-lint (STATBUS-176) — King-approved quality gate: staticcheck, errcheck,
   # ineffassign, nilness, exactly (cli/.golangci.yml pins the analyzer set and
   # disables golangci-lint's own default issue caps — max-issues-per-linter /
