@@ -12,7 +12,7 @@ myhome="$(eval echo "~$me")"
 fail=0
 
 out="$(SUDO_USER="$me" HOME="$myhome" bash "$SCRIPT" --help 2>&1)"; rc=$?
-want="Run sudo -i first, then run this command again."
+want="Run 'sudo -i' first, then run this command again."
 if [[ $rc -ne 0 ]] && grep -Fxq "$want" <<<"$out"; then
   echo "PASS plain-sudo refused (rc=$rc): $want"
 else
