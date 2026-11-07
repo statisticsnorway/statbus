@@ -54,6 +54,12 @@
     fflush()
     next
 }
+# The next step that follows it when no automatic certificate can come.
+/^Install your certificate with: cd ~\/statbus && \.\/sb cert install <file>$/ {
+    print
+    fflush()
+    next
+}
 # The site check announces a wait before it starts, so the minute is never silent.
 /^Waiting up to [0-9]+ (minute|minutes|seconds) for https:\/\/[A-Za-z0-9.-]+(:[0-9]+)? to get its automatic certificate \.\.\.$/ {
     print

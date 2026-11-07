@@ -154,6 +154,10 @@ func verifyAdvertisedSite(installDir string, budget, interval time.Duration) (wa
 	for _, w := range warnings {
 		fmt.Println("HTTPS is not working yet: " + w)
 	}
+	// No automatic certificate can come, so the operator's own is the way on.
+	if len(warnings) > 0 && noCertificateReason != "" {
+		fmt.Println("Install your certificate with: cd ~/statbus && ./sb cert install <file>")
+	}
 	if len(fatalReasons) > 0 {
 		return warnings, fmt.Errorf("the advertised site is not serving: %s", strings.Join(fatalReasons, "; "))
 	}
