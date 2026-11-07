@@ -725,6 +725,10 @@ type databaseBackup struct {
 	Elapsed time.Duration
 }
 
+func (b databaseBackup) summary() string {
+	return fmt.Sprintf("%s in %s", humanBytes(b.Bytes), formatProgressDuration(b.Elapsed, false))
+}
+
 // backupDatabase rsyncs the live Postgres data volume into a PERSISTENT
 // snapshot dir, committed by an atomic directory rename (CHANGE 2 / task #12,
 // replacing the prior per-stamp .tmp→final scheme). Returns the path of the

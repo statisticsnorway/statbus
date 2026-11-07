@@ -8812,7 +8812,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		return err
 	}
 	backupPath := backup.Path
-	progress.Write("Backing up database ... ok (%s in %s)", humanBytes(backup.Bytes), formatProgressDuration(backup.Elapsed, false))
+	progress.Write("Backing up database ... ok (%s)", backup.summary())
 	progress.Write("  at %s", homeRelativePath(backup.Path))
 
 	// STATBUS-228: NOTHING RECORDS backup_path HERE. The postgres SERVER is stopped at
