@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T18:12:00Z'
-updated_date: '2026-11-07T20:00:00Z'
+updated_date: '2026-11-07T20:07:00Z'
 labels:
   - build
   - ci
@@ -26,7 +26,7 @@ Seen 2026-11-07: v2026.11.2-rc.02 Test Hardening 42399643767, install-stack buil
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 postgres/Dockerfile fetches the key with curl --fail and bounded retries (or the key is vendored with its fingerprint checked), so an error page or a dropped connection never reaches gpg
-- [ ] #2 A local docker build of the db stage succeeds, and a build with the key URL unreachable fails with a clear message naming the URL
+- [x] #2 A local docker build of the db stage succeeds, and a build with the key URL unreachable fails with a clear message naming the URL
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -35,4 +35,6 @@ Seen 2026-11-07: v2026.11.2-rc.02 Test Hardening 42399643767, install-stack buil
 2026-11-07: In Progress, fixed test-first. RED c398e79f9 reproduces partial-response/HTTP/unreachable failures against the Dockerfile's actual RUN command. GREEN e8bd3d53d downloads to a temporary file with fail-on-HTTP, bounded retries and explicit URL diagnostics before GnuPG imports it. No TLS or signing verification bypass. Actual Docker ppa/base builds passed, including partial-key then HTTP503 then success with byte-identical keyring, and unreachable URL fails within its budget. Evidence: tmp/575-{red,green,docker-base,docker-transient,docker-unreachable}.log, tmp/575-worker-journal.md. Coordinator independently runs postgres/test_key_download.py. Permanent Harness Selftest coverage committed 0b4e3ff89. Exact-SHA CI and next candidate gate still pending, so ticket remains In Progress.
 
 Acceptance precision: the local successful build exercised ppa/base (repository key, signed apt update and PostgreSQL server packages), not the full pg-runtime extension image. Leave AC2 unchecked until the full db-image build is verified; the unreachable ppa build and partial-response fixture are already verified.
+
+2026-11-07 20:07 UTC: full local pg-runtime Docker build now passed, exit0 in386.9s, image sha256:6cc164a7d557bcfc68cf9ea94737847d19ca819027575f9ee71e294995d4dc54. This includes all runtime extensions, not just ppa/base. Log tmp/575-docker-runtime.log. Together with the unreachable-URL failure and partial/503 recovery builds, AC2 is now verified. Coordinator independently reran all4 fault tests green in41.3s. Await exact-SHA CI and candidate gates before Done.
 <!-- SECTION:NOTES:END -->
