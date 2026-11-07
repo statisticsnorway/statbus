@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T20:39:00Z'
+updated_date: '2026-11-07T20:44:00Z'
 labels:
   - import
   - performance
@@ -97,4 +97,11 @@ Processing medians including body+explicitCOMMIT and client scheduling, excludin
 Root independent verifier recomputes all expected ES/stat eras and payloads, every batch timed exactly once, full12table parity and graph/history/counter checks from retained observations. Evidence: tmp/591/sql-saga/FOLLOWUP-REPORT.md, followup-f1107_202817_2402/, tmp/591/verify-saga-mixture.mjs and verify-saga-mixture-balanced.log. The initial failed smoke is retained; all timed controls use the same explicit import-aware client search path. Fresh-upload/default-worker context diagnosis remains separate from this direct-client adaptation.
 
 No tracked runtime adoption, mixed scheduler broadening, Crystal/Go benchmark, Norway operation or591push. Parent moves/cross-enterprise dependency safety, safe worker error-boundary integration, production throughput, owner datepolicy and explicit push approval remain open. All four acceptance criteria remain unchecked.
+
+### Final attribution and default-context checks, November 7, 2026 at 20:42 UTC
+With checks enabled on installed SQL Saga 1.4, four separately frozen controls isolate concurrency: one client takes 7.401/7.972 s, four clients 2.513/2.771 s. Medians are 7.686 versus 2.642 s, an observed 2.91x ratio on this small fixture, not a full-register prediction. All four pass the same genuine 400-insert/800-update, exact histories/payloads/parents, twelve-table, graph/override/history/counter checks, including explicit COMMIT.
+
+A fresh default-path upload creates schema-qualified procedure snapshots. The actual default SQL worker then finishes all 1,200 rows with the expected 2,000 ES versions and 3,200 statistic versions, parents and history A/B/C, retaining current serial mixed-job dispatch. The prior unqualified-snapshot failure uses the reused creator context, not this tested default upload/worker path. Before landing, a narrow followup will reproduce and fix the current 591 handler allowlist's search-path-sensitive text comparison using procedure identity. Mixed eligibility and SQL Saga adoption remain unchanged.
+
+Root independent verification passes. Evidence: tmp/591/sql-saga/short-n1107_203900_99673/, short-controls.py/.log, and tmp/591/verify-saga-mixture-serial-enabled-final.log. Sources are unchanged, with zero retained Saga database sessions at audit. The comparison is complete: leaving checks enabled removes the trigger-toggle bottleneck, concurrency gives a separate measured gain, and experimental deferral has no demonstrated additional speed advantage. Any later deferral adoption still needs the separately prototyped safe failure boundary. No runtime adoption, 591 push or Norway operations. All four acceptance criteria remain open.
 <!-- SECTION:NOTES:END -->
