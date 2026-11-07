@@ -264,3 +264,71 @@ the actual-worker prototype bodies (`tmp/591/wakeup-migration-roundtrip.log`).
 Startup recovery after an unclean PostgreSQL stop can separately lose unlogged rows while a range-less
 collector is queued. Rabbit owns that pre-existing recovery defect as STATBUS-589. The publication
 interleaving repair does not establish host-crash recovery, full Norway performance or release readiness.
+
+### SQL Saga prototype: enabled checks versus transaction-end deferral
+
+The isolated comparison freezes `prototype/defer-temporal-checks` at
+`953617761d31c7f27ac12a32acb5fe3f01bbb51f`, against installed SQL Saga 1.4. Only three SQL files
+differ from the immutable release, with no native-library change. Candidate SQL is overlaid only into
+fresh private databases. This is separate from deferring STATBUS change-wakeup publication above.
+
+Twelve clean-import runs execute the real SQL worker state machine with 400 serial LU rows, 800 ES
+rows in forty eligible concurrent leaves and nine serial relationship rows. All twelve canonical
+business tables, exact parents and counters match. Keeping LU insertion order fixed also preserves
+chosen roots, although that stricter identity comparison is not required when insertion order changes.
+Two forward/reversed blocks give these median ES-stage times:
+
+| Clean-import control | First block | Second block |
+|---|---:|---:|
+| Installed ordinary checks | 4.186 s | 17.280 s |
+| Candidate ordinary checks | 4.073 s | 14.534 s |
+| Candidate explicit deferral | 4.320 s | 6.829 s |
+
+The second block has severe shared-host load and large variation. These measurements do not establish
+a reproducible additional clean-insert gain from deferral. They exercise the SQL worker procedure,
+not the Crystal binary or Go supervisor.
+
+Sixteen separate historical-update trials genuinely analyze 800 existing ES updates into twenty
+dependency-complete batches, then produce 1,600 ES versions. They contain **no new insert operation**,
+so they are not an insert/update-mixture acceptance test. Processing wall includes all batch bodies,
+their explicit COMMITs, connection creation and bounded client scheduling. Median results are:
+
+| Existing-unit update control | First block | Second block |
+|---|---:|---:|
+| Serial, original trigger toggling | 13.620 s | 11.325 s |
+| Four clients, original trigger toggling | 12.236 s | 13.923 s |
+| Four clients, candidate ordinary enabled checks | 2.192 s | 2.356 s |
+| Four clients, candidate explicit deferral | 1.901 s | 3.095 s |
+
+The large demonstrated benefit is avoiding per-batch trigger disable/enable table locks. Explicit
+deferral is not consistently faster than ordinary enabled checks. The ordinary enabled update control
+uses candidate SQL, so an installed-release enabled/no-toggle control remains necessary. Current mixed
+job scheduler eligibility is unchanged. Historical-update scheduling here uses independent clients
+calling the real batch function, not an adopted mixed-job worker dispatch path.
+
+All 28 comparisons pass exact business-state parity, temporal parent coverage, graph membership and
+valid-root checks, real custom-root-override replay, counters, analytics drain and history A/B/C.
+Real-table probes reject an invalid deferred ES parent at COMMIT with exact rollback. An unrepaired
+temporal parent gap is rejected, while a second merge repairing the interior gap commits correctly.
+Source databases remain unchanged. Evidence and limits: `tmp/591/sql-saga/REPORT.md`, its run manifests,
+and `tmp/591/verify-saga-{clean-update,second-block}-observations.log`.
+
+#### Deferred errors must reach the batch failure boundary
+
+A separate actual SQL-worker probe demonstrates why COMMIT-only validation is not sufficient for
+integration. An invalid parent written after real batch work raises 23503 at the worker's COMMIT.
+Business rows and counters roll back exactly, but the earlier committed leaf claim remains
+`processing`, and the job remains `processing_data`. This is a limitation of the proposed deferral
+integration, not a defect introduced into the current non-deferring application path.
+
+A private prototype flushes only the API-selected FK constraints at the end of batch domain work,
+inside the existing exception boundary and before common progress/wakeup locks. The same invalid
+write then produces a failed leaf, failed job and failed processing parent with exact domain rollback.
+A valid eight-row import completes all four leaves and exact expected parent/name/date rows.
+
+Private worker probes load the current failure-hook command registration as well as current function
+bodies. With current seed metadata, the COMMIT-only failure reproduces and both fixed controls pass.
+Evidence: `tmp/591/saga-worker/README.md`, `1107_201950_23714-results.json` and
+`acceptance-current-metadata.log` in that directory. No tracked runtime adoption follows from these
+probes. True mixed-action input, installed ordinary-check control, dependency scope and production
+measurements remain separate gates.

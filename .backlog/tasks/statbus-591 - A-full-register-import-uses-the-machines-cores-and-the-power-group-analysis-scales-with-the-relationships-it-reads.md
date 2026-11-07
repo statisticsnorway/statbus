@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T19:58:00Z'
+updated_date: '2026-11-07T20:22:00Z'
 labels:
   - import
   - performance
@@ -27,8 +27,6 @@ Import jobs remain serial because one job can depend on another. Analysis identi
 ### Zoom in
 Rune run A (November 7, 2026, rc.18, full BRREG, 62 GB RAM): legal-unit analysis 816 s and processing 2,184 s, establishment analysis 745 s and processing 1,670 s. Relationship analysis 1,147 s includes a 1,024 s holistic power_group_link call. Import queue span 6,625 s, task time 6,539 s, full load to idle 10,240 s. Evidence: tmp/rune-measure/A/summary.md.
 
-Implementation design and measured local evidence: doc/import-concurrent-batches-design.md and the notes below. Local import-speed work stays on statbus-591-import-speed until owner review. Rune validation is separate from rabbit's history-release upgrade U and clean run B.
-
 ### Closing review
 - Documentation: dependency/concurrency design, doc/import-system.md, measured performance evidence.
 - Verification: exact serial-domain parity, failure/replay/barrier behavior, full fast suite, real worker measurements and rune acceptance.
@@ -37,7 +35,7 @@ Implementation design and measured local evidence: doc/import-concurrent-batches
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 One import job processes its batched steps concurrently while respecting analysed row dependencies; the full BRREG downloads import on rune preserves the business data, parent links and exact temporal power-group memberships of its matched serial reference, allowing insertion-order-dependent automatic root choices while validating roots and preserving explicit custom overrides
+- [ ] #1 One import job processes its analyzed dependency-safe batches concurrently, and the full BRREG downloads import on rune matches its serial reference's business data, parent links and exact temporal power-group memberships
 - [ ] #2 The full BRREG downloads import on rune has a measured load-to-idle span below run A's 10,240 seconds (rc.18, 2026-11-07), using the same installation and input files with a comparable declared validity date
 - [ ] #3 Power-group analysis preserves the reference relationships and temporal group memberships, with valid algorithm-derived roots and preserved custom overrides, on graph-size scaling fixtures and rune's 33,710-row BRREG file; recorded scaling measurements and rune runtime improve on the 1,024-second rc.18 baseline
 - [ ] #4 [Owner] Choose the job-provided valid_from policy: start-of-year means January 1 of the declared file/snapshot year, allowing validity from that year start; file-date means the declared file/snapshot calendar date, allowing validity only from that snapshot date. Record the choice and resulting date in this ticket and doc/import-system.md, and verify that it sets job-provided valid_from instead of the execution day
@@ -46,7 +44,7 @@ Implementation design and measured local evidence: doc/import-concurrent-batches
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-All STATBUS-591 runtime work remains local on statbus-591-import-speed, with owner review and explicit push authorization outstanding. All four acceptance criteria remain open. Queue default remains one. Design and detailed evidence: doc/import-concurrent-batches-design.md, tmp/journal.md and tmp/591/. Historical investigation notes remain in Git and in tmp/591/ticket-591-before-saga-review-cleanup.md.
+All STATBUS-591 runtime work remains local on statbus-591-import-speed, with owner review and explicit push authorization outstanding. All four acceptance criteria remain open. Queue default remains one. Rune validation of591 is separate from rabbit's history-release upgrade U and clean run B. Design and detailed evidence: doc/import-concurrent-batches-design.md, tmp/journal.md and tmp/591/. Historical investigation notes remain in Git and in tmp/591/ticket-591-before-saga-review-cleanup.md.
 
 ### Full-register reference, not a claimed result
 Rune run A used rc.18 and the full BRREG downloads on 2026-11-07: legal-unit analysis/processing 816/2,184 s; establishment 745/1,670 s; relationship analysis 1,147 s including the 1,024-second holistic power_group_link call. Import span 6,625 s, task time 6,539 s, load-to-idle 10,240 s. Source: tmp/rune-measure/A/summary.md. Rabbit's history-release run B does not contain the local 591 prototypes.
@@ -80,5 +78,14 @@ Rabbit owns the separately reproduced pre-existing startup recovery defect as ST
 ### SQL Saga branch verification authorized at19:46UTC
 Owner19:51: power-group inputs are small relative to LU/ES, so do not add power-group concurrency. Keep holistic graph analysis/processing serial and retain the measured SQL improvements. SQL Saga experiments target independent legal-unit/establishment batches, not parallel graph computation.
 
-Branch prototype/defer-temporal-checks is frozen at953617761d31c7f27ac12a32acb5fe3f01bbb51f. Read-only preflight confirms PostgreSQL18.6/sql_saga1.4 and only three runtime SQL files differ from releasedv1.4, with no C/native changes. An OpenAI6.1 implementation worker owns tmp/591/sql-saga/ and unique private clones only. Compare current ordinary checks, branch ordinary checks and explicit transaction-end FK deferral on clean inserts and genuine mixed/history imports. Include COMMIT and exact parent/root/counter/integrity/rollback assertions. No adoption, host-wide installation, shared-library/database change, Norway operation or push. Results are not yet available. The owner root-policy clarification above now applies to these comparisons. The separate valid_from decision remains open.
+Branch prototype/defer-temporal-checks is frozen at953617761d31c7f27ac12a32acb5fe3f01bbb51f. Read-only preflight confirms PostgreSQL18.6/sql_saga1.4 and only three runtime SQL files differ from releasedv1.4, with no C/native changes. All candidate SQL overlays and import probes use fresh uniquely named private clones. No adoption, host-wide installation, shared-library/database change, Norway operation or push. The owner root-policy clarification above applies. The separate valid_from decision remains open.
+
+### SQL Saga comparison observed at20:20UTC
+Twelve clean and sixteen genuine historical-update trials pass exact12business-table parity, parent coverage, valid graph membership/root checks, real custom override replay, counters and historyA/B/C. Clean ES medians installed/candidate-ordinary/deferred:4.186/4.073/4.320s in block1,17.280/14.534/6.829s in block2. Block2 hostload is severe, so no reproducible extra clean-insert deferral gain is established.
+
+Historical800-update processing medians including COMMIT: serial trigger-toggle13.620/11.325s, four-client toggle12.236/13.923s, candidate ordinary-enabled2.192/2.356s, candidate deferred1.901/3.095s across the two reversed blocks. The large gain is avoiding trigger-toggle table locks, not a consistent additional deferral gain. This input has zero insert operations, and mixed scheduling uses bounded direct batch calls rather than an adopted application dispatch path. A true analyzed insert+update fixture and installed-v1.4 enabled/no-toggle control remain in progress. Evidence: tmp/591/sql-saga/REPORT.md and root independent verify-saga-{clean-update,second-block}-observations.log. All source fingerprints remain unchanged.
+
+Root actual SQL-worker adoption probe1107_201950_23714 reproduces a required integration boundary: deferred FK23503 at worker COMMIT rolls back exact domain/counters but leaves the committed leaf claim processing and job processing_data. A private API-selected FK IMMEDIATE flush inside process_batch's existing error boundary, before common progress/wakeup locks, produces failed leaf/job/parent and exact rollback for the same actual invalid-parent write. Valid8newES completes4leaves/job8of8 with exact expected names/dates/parents. Source fixture initially lacked the current failure-hook command metadata, so the first failed probe is retained and current seed registration is copied only to new clones. The current-metadata reproduction and both private fixed controls pass. No Crystal-client, crash-recovery or adoption claim. Evidence: tmp/591/saga-worker/README.md, acceptance-current-metadata.log and1107_201950_23714-results.json.
+
+All four acceptance criteria remain unchecked. Local data and SQL-worker verification do not establish full-register throughput, broad existing-unit dependency safety or release readiness.
 <!-- SECTION:NOTES:END -->
