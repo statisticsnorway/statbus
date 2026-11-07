@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -46,6 +47,19 @@ type templateTrigger struct {
 
 func TestZabbixTemplateParsesAsZabbix7Export(t *testing.T) {
 	template := ZabbixTemplate()
+	// Zabbix 7 import refuses any uuid that is not a UUIDv4 written as 32 hex
+	// digits ("UUIDv4 is expected", STATBUS-541 AC6 against Zabbix 7.0.32).
+	uuidV4 := regexp.MustCompile(`^[0-9a-f]{12}4[0-9a-f]{3}[89ab][0-9a-f]{15}$`)
+	seen := map[string]bool{}
+	for _, m := range regexp.MustCompile(`uuid: (\S+)`).FindAllStringSubmatch(template, -1) {
+		if !uuidV4.MatchString(m[1]) {
+			t.Errorf("uuid %s is not a UUIDv4", m[1])
+		}
+		if seen[m[1]] {
+			t.Errorf("uuid %s is used twice", m[1])
+		}
+		seen[m[1]] = true
+	}
 	if !strings.Contains(template, "UserParameter=statbus.monitor,/home/statbus/statbus/sb monitor status --format json") {
 		t.Fatal("header does not carry the UserParameter line")
 	}
