@@ -3,13 +3,15 @@ id: STATBUS-576
 title: >-
   The upgrade backup line states the snapshot size, not only the bytes newly
   copied
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-07T19:07:00Z'
+updated_date: '2026-11-07T19:52:00Z'
 labels:
   - upgrade
   - ux
 dependencies: []
+type: bug
 ordinal: 503204
 ---
 

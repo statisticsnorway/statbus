@@ -3,13 +3,15 @@ id: STATBUS-575
 title: >-
   The db image build survives a dropped connection to postgresql.org while
   fetching the apt key
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-07T18:12:00Z'
+updated_date: '2026-11-07T19:52:00Z'
 labels:
   - build
   - ci
 dependencies: []
+type: bug
 ordinal: 502204
 ---
 

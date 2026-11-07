@@ -3,15 +3,17 @@ id: STATBUS-589
 title: >-
   Crash recovery with a lost change log and a pending collector leaves changed
   units underived
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-07T18:00:00Z'
+updated_date: '2026-11-07T19:52:00Z'
 labels:
   - bug
   - worker
   - recovery
 dependencies: []
 priority: high
+type: bug
 ordinal: 501204
 ---
 

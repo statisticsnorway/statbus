@@ -6,12 +6,13 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-11-07T12:37:00Z'
-updated_date: '2026-11-07T16:39:00Z'
+updated_date: '2026-11-07T19:52:00Z'
 labels:
   - caddy
   - upgrade
 dependencies: []
 priority: high
+type: bug
 ordinal: 500204
 ---
 

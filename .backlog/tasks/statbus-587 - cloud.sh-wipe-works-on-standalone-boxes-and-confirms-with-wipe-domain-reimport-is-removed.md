@@ -6,11 +6,12 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-11-07T10:37:00Z'
-updated_date: '2026-11-07T11:26:00Z'
+updated_date: '2026-11-07T19:52:00Z'
 labels:
   - cloud
 dependencies: []
 priority: high
+type: bug
 ordinal: 499204
 ---
 

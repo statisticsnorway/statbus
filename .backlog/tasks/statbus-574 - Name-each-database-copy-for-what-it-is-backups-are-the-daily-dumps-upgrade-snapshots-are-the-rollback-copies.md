@@ -6,10 +6,11 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-11-06T10:36:00Z'
-updated_date: '2026-11-06T16:48:00Z'
+updated_date: '2026-11-07T19:52:00Z'
 labels: []
 dependencies: []
 priority: medium
+type: enhancement
 ordinal: 493204
 ---
 

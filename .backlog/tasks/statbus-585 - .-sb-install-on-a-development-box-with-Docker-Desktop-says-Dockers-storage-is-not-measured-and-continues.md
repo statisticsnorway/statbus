@@ -6,11 +6,12 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-11-06T17:28:00Z'
-updated_date: '2026-11-06T21:45:00Z'
+updated_date: '2026-11-07T19:52:00Z'
 labels:
   - bug
 dependencies: []
 priority: medium
+type: bug
 ordinal: 497204
 ---
 
