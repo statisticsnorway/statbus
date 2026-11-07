@@ -14,7 +14,7 @@ logs under `tmp/` are local working files of the measuring agent; the summaries 
 | BRREG downloads | `./test/import_benchmark.sh --dataset downloads` (full register) | 3,118,352 statistical unit rows |
 
 Local runs: one laptop, Docker PostgreSQL 18. Production figures: rune (62 GB RAM).
-Sections 1-7 use read-only production observations or local experiments; section 8 records an observed production upgrade and rebuild.
+Sections 1-7 use read-only production observations or local experiments; sections 8-9 record an observed production upgrade, rebuild and matched-input clean import.
 
 ## 1. Disk: history storage
 
@@ -181,5 +181,68 @@ Sources: rabbit's `statbus_test` checkout, `tmp/rune-measure/U/summary.md`, `run
 `births-check.out`, `before-mem.txt`, `after-mem.txt` and `watch.log` (memory sample at 19:20:42 UTC).
 Historical task-time source: `tmp/558-build/91-rune-pipeline-share.txt` in the measuring agent's checkout.
 
-Run B, a clean full-register import on the new RC, is still pending. None of the separate STATBUS-591
+Run B below measures a clean full-register import on the same RC. None of the separate STATBUS-591
 import-concurrency prototypes are included in this RC or these measurements.
+
+## 9. Norway clean import B with identical files (2026-11-07)
+
+Run A used `v2026.11.1-rc.18` (`360b1a253`); run B used `v2026.11.2-rc.02` (`2e7e20641`). Both ran on rune,
+with the same three BRREG input files and `valid_from` **2026-11-07**. File sizes and SHA256 match, including a
+second checksum of the files on Norway after B completed. Rabbit performed the owner-authorized wipe and
+import; the final read-only collection at 21:33:50 UTC required all three jobs finished, both import and
+analytics queues idle, and no failed tasks.
+
+| Measurement | Run A | Run B |
+|---|---:|---:|
+| First import task to final analytics stop, wall time | 10,240 s | **7,325 s** |
+| Import queue span, wall time | 6,625 s | 6,717 s |
+| Import processing, summed task time | 6,539 s | 6,607 s |
+| Analytics tail after the import, wall time | 3,614 s | **608 s** |
+| `statistical_unit_refresh_batch`, summed task time | 17,846 s | **6,780 s** |
+| Refresh batches / longest batch | 7,816 / 63 s | **4,771 / 11 s** |
+| Database size (`pg_size_pretty`) | 37 GB | **29 GB** |
+
+Load-to-idle is **28.47% shorter** (48 min 35 s saved, 1.398 times as fast for this complete load).
+The import step itself did **not** get faster: its span rose 1.39%. The observed gain is in analytics:
+refresh batches use **62.01% less summed task time**, and the post-import tail falls from about an hour to
+about ten minutes. Summed task time is not wall time, because analytics tasks overlap. This is one matched
+A/B observation of the release as a whole, not an isolated measurement of each fix or a STATBUS-591 result.
+
+B's first import task started at **19:30:30.290123 UTC**, the last import task stopped at **21:22:27.719437**,
+and the last analytics task stopped at **21:32:35.490461**. The tail in the table is rounded directly from
+those timestamps. The earlier A summary's 3,615 s tail subtracts the separately rounded overall spans;
+rounding A's timestamp difference directly gives 3,614 s.
+
+The uploaded/imported row counters match A for all three jobs. Per-job phase durations, rounded seconds:
+
+| Job | Uploaded / imported rows, both runs | Analysis A / B | Processing A / B |
+|---|---:|---:|---:|
+| Legal units | 1,134,476 / 1,134,475 | 816 / 842 | 2,184 / 2,246 |
+| Establishments | 823,768 / 823,767 | 745 / 677 | 1,670 / 1,701 |
+| Relationships | 33,710 / 29,504 | 1,147 / 1,197 | 60 / 53 |
+
+There are **0 failed tasks**, not zero rejected rows. B's saved collection does not contain a row-error or
+warning breakdown, so matching imported counters is not a claim of identical row-level diagnostics.
+
+B completes 47 import-triggered analytics pipelines, with **21,181 analytics tasks and 13,127 s summed task
+time**. The interval-filtered query excludes a retained seed `collect_changes` task from 16:47:46 UTC
+(1.043 ms). The generic query's 17,089 s analytics span and 48 collectors include that task and are not
+B's elapsed time or pipeline count. A's recorded 30-collector aggregate was not interval-filtered, so the
+pipeline counts are not presented as a like-for-like comparison.
+
+All four final `statistical_unit` stock counts equal A and U's values in section 8. All eight history summary
+rows (`hash_partition IS NULL`, year 2026 and November 2026) have those exact `exists_count` and
+`countable_count` values. Births, deaths and name changes are zero. A's **39 establishment births become 0**,
+as required by the separately verified rule C, not by lost stock. These are stock and summary checks,
+not an exhaustive comparison of every domain row or history cell.
+
+The highest database-container memory sample is **23.41 GiB of its 32 GiB limit**, at **21:32:28 UTC**,
+from 117 minute-scale samples between 19:30:54 and 21:33:31 UTC. This is a sampled peak, not a continuous
+high-water mark. Run A has no comparable saved memory series, so no memory reduction is claimed. B's full
+import peak is separate from U's recalculation-only peak of 9.791 GiB.
+
+Sources: hibiscus's `tmp/rune-measure/A/inputs.txt`, `run-meta.txt`, `after-import.out`, `after-import-2.out`
+and `history-totals.out`; rabbit's `statbus_test/tmp/rune-measure/B/inputs.txt`, `run.log`,
+`final-inputs-upgrade-preflight.out`, `collect-readonly.sql`, `after-run.out`, `after-meta.txt`,
+`filtered-final.sql/.out` and `watch.log`. The independent offline verification and standalone patch are
+retained in hibiscus's `tmp/release-doc-B-20261107/`.
