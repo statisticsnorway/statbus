@@ -1,8 +1,9 @@
 # STATBUS-591: concurrent processing of one import job's batches (design draft)
 
-Status: prototype in progress, not released. Whole-unit grouping is implemented and undergoing regression
-checks. Concurrent scheduling remains unimplemented. Branch `statbus-591-import-speed`. Evidence:
-`tmp/journal.md`, `tmp/rune-measure/A/import-tasks.out`.
+Status: implemented on local branch `statbus-591-import-speed`, not released. Whole-slot grouping passed
+127 shared and two isolated fast tests. Concurrent scheduling passed its private SQL regression and a
+small simultaneous-connection parity probe. Full-suite and real-worker BRREG measurements are pending.
+Evidence: `tmp/journal.md`, `tmp/591/`, `tmp/rune-measure/A/import-tasks.out`.
 
 ## Where the time goes (rune run A, rc.18, full BRREG)
 
@@ -63,11 +64,49 @@ Do batch numbers have to stay the same between runs?
 
 In `processing_data`, one `import_job_process` task spawns one child per batch under a concurrent parent;
 the import queue gets concurrency N. Holistic process steps and the transition to `finished` run after the
-children, as the next serial step. Batches that would toggle triggers run serially (prototype rule).
+children, as the next serial step. Different import jobs remain serial because their inputs can depend on
+previous jobs. The existing worker already has concurrent fibers and a child barrier, so this needs no
+Crystal worker change. The migration leaves the queue's default concurrency unchanged at one.
 
-## Proof
+The first dispatch scope is deliberately narrow:
+- New legal units with new enterprises, or new formal establishments with resolved legal-unit parents.
+- Every processing row is an insert and every founding unit belongs to one batch.
+- Every non-holistic processing handler belongs to the known unit, location, activity, contact, statistical
+  variable or tag handlers. A custom handler retains serial execution until its dependencies are understood.
 
-- pg_regress: a job with several rows per unit, establishments of one legal unit with primary changes, new and
-  existing units, processed concurrently, gives row-for-row the units of a serial run; no two batches share a key.
-- Benchmark: selection and full downloads, N = 1, 2, 4, 8: wall, import queue span, derive after the import,
-  memory, lock waits; row-for-row unit comparison against a serial run (AC1).
+Mixed operations, reused unit targets and informal establishments retain serial execution. A clean file
+with multiple historical versions can still analyse as mixed insert/replace operations and remain serial.
+That is an implementation boundary, not a claim that concurrent updates are logically impossible.
+Deferring SQL Saga's temporal constraint checks may remove trigger-DDL serialization, but dependencies
+and final-state integrity must still be established separately.
+
+Each batch holds a transaction-scoped advisory lock, publishes row states and its atomic counter delta in
+the same transaction, and treats an already committed batch as a zero-work replay. A unique task index
+records one leaf per job and batch. Batch failures roll back domain writes and fail the worker leaf. Its
+after-procedure records the failed job and row diagnostics outside the worker's handler savepoint, so the
+failed state survives rollback and propagates through parent fan-in. Completed siblings may remain
+committed, as with earlier serial batches. Holistic steps cannot run after a failed fan-in.
+
+## Verification
+
+- SQL373 asserts complete historical units, complete legal-unit parent groups, exact row-target packing and
+  whole hash slots, including a collision between different dependency keys.
+- SQL375 exercises real worker fan-out, per-leaf progress, replay, the serial continuation barrier, complete
+  holistic input, exact final unit/version totals and mixed/existing/informal serial fallbacks. Its injected
+  batch-tail error occurs after real unit writes and asserts rollback plus failed leaf, job and wrapper.
+  This regression uses one connection and does not establish cross-connection locking behaviour.
+- `tmp/591/concurrent-acceptance.py` uses simultaneous PostgreSQL connections on identical private inputs:
+  400 new legal units and 800 new formal establishments. All nine imported domain tables match the
+  original serial function after generated-ID and audit-timestamp normalization, including parent links,
+  versions and exact counters. Observed active leaves reach the configured 2, 4 and 8.
+
+| Execution | Wall time |
+|---|---:|
+| Original serial function | 20.437 s |
+| Two connections | 8.415 s |
+| Four connections | 7.791 s |
+| Eight connections | 7.847 s |
+
+These are small-fixture measurements in a fixed run order, not a production speed claim. The real Crystal
+worker selection/full-download comparisons, memory and lock measurements, full regression suite and
+Norway acceptance criteria remain to be completed before choosing a production concurrency setting.
