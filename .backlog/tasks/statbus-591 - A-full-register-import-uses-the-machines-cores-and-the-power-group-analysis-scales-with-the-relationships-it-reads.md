@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T16:16:00Z'
+updated_date: '2026-11-07T16:27:00Z'
 labels:
   - import
   - performance
@@ -56,4 +56,6 @@ Rune run A (rc.18, 2026-11-07): relationship job analysis 12:06:40-12:25:47 (1,1
 Part 1 design notes (hibiscus 2026-11-07, not started, needs owner decisions). Run A import task time: LU analysis 811 s + processing 2,139 s; ES 739 + 1,643; processing = 142 + 103 batches of 8,000 rows at 12-35 s each, strictly serial (import queue concurrency 1; the job reschedules one task per unit of work). The worker already runs concurrent children with N fibers (analytics). Proposal: in processing_data, one import_job_process task spawns one child per batch under a concurrent parent; import queue concurrency N; holistic process steps and 'finished' run after the children, as the next serial sibling. Batches must not share a unit: assign processing batches by a hash of the unit the analysis resolved (legal_unit_id for LU and ES rows, so establishments of one legal unit stay in one batch and primary demotion never races; founding_row_id groups stay together), not by row_id ranges. Shared counters (import_job.imported_rows) become one update after the children. Decisions needed: (a) hash on resolved unit id vs row ranges for new units (new units have no id: use founding_row_id); (b) N; (b) whether analysis batches also go concurrent (smaller gain: ~1-3 s per task). Evidence tmp/rune-measure/A/import-tasks.out, journal 13:57.
 
 2026-11-07 16:16 design draft: doc/import-concurrent-batches-design.md (grouping by founding_row_id / legal_unit_id, two-level slots, why batch numbers need only be fixed per job, trigger-toggling batches stay serial).
+
+2026-11-07 16:27 mixed imports: batches with updates call sql_saga.disable_temporal_triggers (ALTER TABLE, table lock + global state), so they stay serial this round. A transaction-local 'delay checks to commit' in sql_saga would let them run concurrently: task written to ../sql_saga/todo.md (Backlog, 'Delay temporal FK checks to commit'), for a separate agent. Grouping fix 31b842d4c (test 373) done.
 <!-- SECTION:NOTES:END -->
