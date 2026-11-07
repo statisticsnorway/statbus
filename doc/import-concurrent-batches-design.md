@@ -1,12 +1,12 @@
 # STATBUS-591: concurrent processing of one import job's batches (design draft)
 
-Status: implemented on local branch `statbus-591-import-speed`, not released. Whole-slot grouping passed
-127 shared and two isolated fast tests. Concurrent scheduling passed its private SQL regression and a
-small simultaneous-connection parity probe. Actual Crystal-worker BRREG selection measurements now show
-repeated gains after batch-tail wakeup publication, with exact domain and history consistency checks.
-A graph extension found a chosen-root identity difference after concurrent new legal-unit allocation.
-The final full suite and full-register measurements remain pending, and unrestricted legal-unit
-concurrency is not yet an exact-output-equivalent release candidate.
+Status: implemented on local branch `statbus-591-import-speed`, not released. The final integrated fast
+suite passed all 132 shared and two isolated tests, and clean database-documentation regeneration left
+no changes. Actual Crystal-worker BRREG selection measurements show repeated gains after batch-tail
+wakeup publication, with exact domain and history consistency checks. A graph extension found a
+chosen-root identity difference after concurrent new legal-unit allocation. Full-register measurements
+remain pending, and unrestricted legal-unit concurrency is not yet an exact-output-equivalent release
+candidate.
 Evidence: `tmp/journal.md`, `tmp/591/`, `tmp/rune-measure/A/import-tasks.out`.
 
 ## Where the time goes (rune run A, rc.18, full BRREG)
@@ -131,6 +131,11 @@ identity parity against the pre-591 release.
 
 ## Verification
 
+The final complete `./dev.sh test fast` run passed 132 shared and two isolated tests in 463 seconds
+on `e9927efc9`, source version `20261107180400`. Clean post-commit `./dev.sh generate-doc-db` regenerated
+the same definitions with no changes or deletions. Generated explain/performance artifacts were restored.
+Evidence: `tmp/591/test-final-fast-verified.log` and `tmp/591/doc-db-final-after-commit.log`.
+
 - SQL373 asserts complete historical units, complete legal-unit parent groups, exact row-target packing and
   whole hash slots, including a collision between different dependency keys.
 - SQL376 asserts assignment and state/priority transitions for 24,000 accepted rows after analysis changed
@@ -145,6 +150,16 @@ identity parity against the pre-591 release.
 - SQL377 asserts scoped publication, nested dirty-state restoration, rollback, ordinary writes and
   no-op behavior. It exercises both specialized trigger guards, including unconditional DELETE
   scheduling, and exact real region/location unit IDs and validity ranges.
+- SQL314 captures phase-one identifier and enterprise links and checks that successful and rejected
+  later rows retain those exact parents. A rolled-back wrong-parent mutation demonstrates detection.
+- SQL321 preserves exact row/job errors, warnings, states and counters, and asserts that stored context
+  remains nonempty. Incidental implementation stack text is not the display contract.
+- SQL344 captures the selected source and target identities before an enterprise move, then checks
+  exact API keys, propagated change ranges and final business/analytics membership.
+- A final-definition replay of the retained 29,503 BRREG relationship edges matches all relationship
+  rows and all 444 chosen-root rows exactly. The processing call took 17.732 seconds locally, using
+  synthetic referenced legal-unit metadata, not a full-register import. Evidence:
+  `tmp/591/pg-process-brreg-final-private-key.log` and the retained exact CSV comparisons.
 - `tmp/591/concurrent-acceptance.py` uses simultaneous PostgreSQL connections on identical private inputs:
   400 new legal units and 800 new formal establishments. All nine imported domain tables match the
   original serial function after generated-ID and audit-timestamp normalization, including parent links,
@@ -179,18 +194,17 @@ legal-unit processing batch and four establishment batches, so eight fibers cann
 leaves. It has no cycle/multi-root records and does not establish their chosen-root compatibility.
 
 Live lock inspection identified `worker.base_change_log_has_pending` as the shared tuple blocking
-independent batches. `worker.log_base_change` updates that singleton at the first domain write and
-retains its lock until the batch commits. A scratch prototype is testing publication of the pending bit,
-collector task and notification at the batch tail while preserving every transactional change-log append.
-This is not temporal constraint deferral. The durable bit must still commit with the domain changes,
-because it is the crash witness for the unlogged change log.
+independent batches. Before the repair, `worker.log_base_change` updated that singleton at the first
+domain write and retained its lock until the batch committed. The validated repair below publishes the
+pending bit, collector task and notification at the batch tail while preserving every transactional
+change-log append. This is not temporal constraint deferral. The durable bit still commits with the
+domain changes, because it is the crash witness for the unlogged change log.
 
 Evidence: `tmp/591/selection-v2-results.json`, per-run row snapshots and 0.2-second lock samples, and
 `tmp/591/selection-v2-n4-live-blockers.txt`. Sampled whole-DB-container memory peaked between 5.75 and
 6.02 GiB. That includes shared buffers and cached data from other retained databases, not an isolated
 per-run memory footprint. Runs used a fixed order. The next section records deferred-wakeup verification.
-The final full regression suite, full-download comparisons and Norway acceptance remain before choosing
-production concurrency.
+Full-download comparisons and Norway acceptance remain before choosing production concurrency.
 
 ### Real Crystal worker: validated batch-tail wakeup prototype
 
