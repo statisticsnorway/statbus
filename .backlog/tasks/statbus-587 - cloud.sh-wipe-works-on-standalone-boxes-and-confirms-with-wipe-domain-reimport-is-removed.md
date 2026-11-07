@@ -3,10 +3,10 @@ id: STATBUS-587
 title: >-
   cloud.sh wipe works on standalone boxes and confirms with 'wipe <domain>';
   reimport is removed
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-07T10:37:00Z'
-updated_date: '2026-11-07T10:37:00Z'
+updated_date: '2026-11-07T11:26:00Z'
 labels:
   - cloud
 dependencies: []
