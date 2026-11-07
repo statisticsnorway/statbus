@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-04T00:43:00Z'
-updated_date: '2026-11-06T18:21:00Z'
+updated_date: '2026-11-07T16:10:00Z'
 labels:
   - performance
   - worker
@@ -65,4 +65,6 @@ Fix: a power-group batch passes empty ranges ('{}') for the other unit types, so
 2026-11-06 11:52 Landed in local master 67488988e (fast-forward, owner 11:41: land the whole set, then one release with one full recalculation). Not pushed. Fast suite on that tip 124/124 (tmp/test-stack-fast.log).
 
 2026-11-06 18:17 AC1/AC2 measured: full Norway recalculation on statbus_local (local master fb57ed58f) at DB_MEM_LIMIT=4G, half the 8G the AC names, so 8G is covered with margin. Worker exit 0, wall 2,883 s. No OOM kill (OOMKilled=false, 0 restarts, no kill lines in the db log). Memory 1.3-1.9 GiB most of the run; peak 3.89 GiB of 4 GiB for ~90 s while derive_statistical_history_facet_delta_partition ran 4 at a time. AC2: 64 power-group batches, 124 s total, longest 3.8 s for 401 groups (was 61-90 s each). Checks: staging drained (0 rows); 2026 year-end stock equals a direct count from statistical_unit for all four unit types. Task time: refresh_batch 6,475 s (3,165 tasks), history partitions 2,991 s, unit facet partitions 774 s. Evidence: tmp/566-4g/ (run-meta.txt, mem.log, tasks.txt, peak.txt, pg-batches.txt, check-bc.log, install-log.md).
+
+2026-11-07 hibiscus: owner 16:09 plan. Local master rebased onto origin 3282c0af7 (97 commits, 0 merges, patch identical) and pushed as branch statbus-history-release for rabbit to cut an RC from. Rabbit owns: RC cut + gate, Norway upgrade (run U), Norway wipe + full import (run B), release if green. Owner's doc/db review of the migrations was not done; owner approved the plan and the push. Ticket goes Done when that release passes (CI green on the released SHA; 558 also needs run U).
 <!-- SECTION:NOTES:END -->

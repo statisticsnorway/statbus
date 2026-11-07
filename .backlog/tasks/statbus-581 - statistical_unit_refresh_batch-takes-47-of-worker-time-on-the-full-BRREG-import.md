@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-06T18:15:00Z'
+updated_date: '2026-11-07T16:10:00Z'
 labels:
   - performance
   - worker
@@ -80,4 +80,6 @@ Rolled-back checks on import_benchmark_43190: batch 22285 view 2,335 ms -> 69 ms
 2026-11-06 14:06 Renumbered from local STATBUS-574: origin already has a different STATBUS-574 (name database copies, rabbit's swarm). This is 581; earlier notes and commit messages say STATBUS-574 for this ticket; test 370 and the migration comments now say 581.
 
 2026-11-06 18:13 owner decision: a faster import step (import_job_process, now the longest path) is not part of this release; owner has ideas to discuss after it. Benchmark databases import_benchmark_40149 and import_benchmark_43190 dropped with owner's approval; the logs remain.
+
+2026-11-07 hibiscus: owner 16:09 plan. Local master rebased onto origin 3282c0af7 (97 commits, 0 merges, patch identical) and pushed as branch statbus-history-release for rabbit to cut an RC from. Rabbit owns: RC cut + gate, Norway upgrade (run U), Norway wipe + full import (run B), release if green. Owner's doc/db review of the migrations was not done; owner approved the plan and the push. Ticket goes Done when that release passes (CI green on the released SHA; 558 also needs run U).
 <!-- SECTION:NOTES:END -->

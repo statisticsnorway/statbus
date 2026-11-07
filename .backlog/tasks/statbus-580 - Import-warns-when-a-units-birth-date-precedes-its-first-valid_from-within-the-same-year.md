@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-05T16:49:00Z'
-updated_date: '2026-11-06T15:44:00Z'
+updated_date: '2026-11-07T16:10:00Z'
 labels:
   - import
   - history
@@ -48,4 +48,6 @@ doc/import-system.md describes the warning.
 2026-11-06 14:06 Renumbered from local STATBUS-573: origin already has a different STATBUS-573 (setup SSH key retry, rabbit's swarm). Ids agreed with rabbit: this is 580, the unit refresh speed ticket is 581, rabbit uses 575-579. Earlier notes and commit messages on local master say STATBUS-573 for this ticket; test 369, its fixtures and the migration comments now say 580.
 
 2026-11-06 15:44 Owner review: the warning belongs on valid_from (the birth date is the fact, valid_from is the field to correct), with the consequence in its explanation. Owner approved the wording: 'After the birth date D in the same year. If the unit existed from birth, set valid_from to D. Why: history counts the unit as added in <Month YYYY>, not as born, so it is missing from the births of <YYYY>.' Test ad531bb3b (369 expects valid_from_raw; on the previous migration all 5 warnings were under birth_date_raw), change 70bbb9de4. Fast suite 124/124 (tmp/test-580-valid-from-fast.log).
+
+2026-11-07 hibiscus: owner 16:09 plan. Local master rebased onto origin 3282c0af7 (97 commits, 0 merges, patch identical) and pushed as branch statbus-history-release for rabbit to cut an RC from. Rabbit owns: RC cut + gate, Norway upgrade (run U), Norway wipe + full import (run B), release if green. Owner's doc/db review of the migrations was not done; owner approved the plan and the push. Ticket goes Done when that release passes (CI green on the released SHA; 558 also needs run U).
 <!-- SECTION:NOTES:END -->

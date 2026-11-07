@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-06T19:21:00Z'
+updated_date: '2026-11-07T16:10:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -256,4 +256,6 @@ AC1 scope: full Norway checked on the committed build (above); the 10-year datab
 2026-11-06 19:15 rebased local master onto origin/master ce9669a78 (after v2026.11.1-rc.17); tip 3e4b68ea6, 80 commits ahead, 0 merges, combined patch identical to before the rebase. Fast suite: all 124 shared + 2 isolated tests pass (tmp/test-rebased-fast.log). Not pushed. AC3: tests 367 (incremental equals rebuild after unit edits) and 368 (after a failed flush) pass; import benchmark check A on the full BRREG downloads: 0 divergent delta rows (tmp/574impl/bench-downloads.log). The old contribution is read from statistical_unit before the flush (option b, measured against the alternatives in the 2026-11-04 notes, tmp/558-shd/24-per-range-cost.log). Norway incremental cycle, 437 units: 4.1 s staging + 0.54 s apply. Open: AC6 = rune upgrade run U (owner 18:12), AC7 = owner review then push+CI, AC8 = owner adoption.
 
 2026-11-06 19:21 AC8: owner confirms the design was adopted (one table of changes, per-version counting, moves counted on both sides, births rule C) and is implemented in full. The owner's review on 2026-11-07 looks for defects in that implementation (AC7), not for a new design decision.
+
+2026-11-07 hibiscus: owner 16:09 plan. Local master rebased onto origin 3282c0af7 (97 commits, 0 merges, patch identical) and pushed as branch statbus-history-release for rabbit to cut an RC from. Rabbit owns: RC cut + gate, Norway upgrade (run U), Norway wipe + full import (run B), release if green. Owner's doc/db review of the migrations was not done; owner approved the plan and the push. Ticket goes Done when that release passes (CI green on the released SHA; 558 also needs run U).
 <!-- SECTION:NOTES:END -->

@@ -4,7 +4,7 @@ title: Stored history facet differs from its own definition for May 2026 on Norw
 status: In Progress
 assignee: []
 created_date: '2026-11-04T00:21:00Z'
-updated_date: '2026-11-06T19:16:00Z'
+updated_date: '2026-11-07T16:10:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -54,4 +54,6 @@ North Star: the stored history facet always equals its definition run on the cur
 2026-11-06 11:52 Landed in local master 67488988e (fast-forward, owner 11:41: land the whole set, then one release with one full recalculation). Not pushed. Fast suite on that tip 124/124 (tmp/test-stack-fast.log).
 
 2026-11-06 19:15 rebased local master onto origin/master ce9669a78 (after v2026.11.1-rc.17); tip 3e4b68ea6, 80 commits ahead, 0 merges, combined patch identical to before the rebase. Fast suite: all 124 shared + 2 isolated tests pass (tmp/test-rebased-fast.log). Not pushed. AC2: statistical_history_facet is now a view over statistical_history_facet_delta (STATBUS-558), so it is its definition; no stored copy can lag. Norway after a full derive: stock equal to the former definition in all 1,185,556 cells checked (2026 year, months 5 and 11; tmp/558-onetable/23-compare-fixed.log). Test 365 (rename only, same employees): name_change_count 1 as the definition, passes.
+
+2026-11-07 hibiscus: owner 16:09 plan. Local master rebased onto origin 3282c0af7 (97 commits, 0 merges, patch identical) and pushed as branch statbus-history-release for rabbit to cut an RC from. Rabbit owns: RC cut + gate, Norway upgrade (run U), Norway wipe + full import (run B), release if green. Owner's doc/db review of the migrations was not done; owner approved the plan and the push. Ticket goes Done when that release passes (CI green on the released SHA; 558 also needs run U).
 <!-- SECTION:NOTES:END -->

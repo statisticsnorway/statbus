@@ -3,10 +3,10 @@ id: STATBUS-591
 title: >-
   A full register import uses the machine's cores, and the power-group analysis
   scales with the relationships it reads
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T12:32:00Z'
+updated_date: '2026-11-07T16:10:00Z'
 labels:
   - import
   - performance
