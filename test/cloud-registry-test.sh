@@ -296,7 +296,7 @@ test_all_entrypoint() {
             ;;
         wipe)
             set +e
-            output=$(printf 'dev\ndemo\net\njo\nma\nmw\nug\nua\ngh\n' | run_cloud wipe all 2>&1); rc=$?
+            output=$(printf 'wipe %s.statbus.org\n' dev demo et jo ma mw ug ua gh | run_cloud wipe all 2>&1); rc=$?
             set -e
             assert_eq "0" "$rc" "wipe all exit"
             assert_eq "9" "$(wc -l <"$SSH_LOG" | xargs)" "wipe all eligible count"
@@ -310,15 +310,6 @@ test_all_entrypoint() {
             assert_not_contains "$(cat "$SSH_LOG")" "niue.statbus.org" "import all never contacts cloud"
             for code in dev demo et jo ma mw ug ua gh; do assert_contains "$output" "$code: skipped" "import all skip $code"; done
             ;;
-        reimport)
-            set +e
-            output=$(printf 'no\n' | run_cloud reimport all selection test@example.com 2>&1); rc=$?
-            set -e
-            assert_eq "0" "$rc" "reimport all exit"
-            assert_contains "$(cat "$SSH_LOG")" "statbus@rune.statbus.org" "reimport all contacts standalone"
-            assert_not_contains "$(cat "$SSH_LOG")" "niue.statbus.org" "reimport all never contacts cloud"
-            for code in dev demo et jo ma mw ug ua gh; do assert_contains "$output" "$code: skipped" "reimport all skip $code"; done
-            ;;
         inspect|ssh)
             set +e
             output=$(run_cloud "$verb" all 2>&1); rc=$?
@@ -329,13 +320,15 @@ test_all_entrypoint() {
             ;;
     esac
 }
-for verb in create wipe inspect import reimport ssh; do test_all_entrypoint "$verb"; done
+for verb in create wipe inspect import ssh; do test_all_entrypoint "$verb"; done
 
 set +e
 output=$(run_cloud 2>&1); rc=$?
 set -e
 [ "$rc" -ne 0 ] || fail "usage without a command must fail"
-assert_contains "$output" "accepting 'all': create, wipe, import, reimport" "help lists all-capable group verbs"
+assert_contains "$output" "accepting 'all': create, wipe, import (" "help lists all-capable group verbs"
+assert_contains "$output" "wipe <code>: deletes that box's database" "help says wipe deletes the database"
+assert_not_contains "$output" "reimport" "help has no reimport"
 assert_contains "$output" "refusing 'all': inspect, ssh" "help lists single-target group verbs"
 
 # Finding 5: retired trust variable fails plainly, and the create helper uses
@@ -362,11 +355,41 @@ assert_dispatch_refusal() {
     assert_eq "" "$(cat "$SSH_LOG")" "$verb mismatch before SSH"
 }
 assert_dispatch_refusal create no "Name" vX
-assert_dispatch_refusal wipe no
 assert_dispatch_refusal inspect no
 assert_dispatch_refusal import dev selection test@example.com
-assert_dispatch_refusal reimport dev selection test@example.com
 assert_dispatch_refusal ssh dev
+
+# STATBUS-587: wipe of one standalone box deletes its database volume and
+# reinstalls, after the operator types the action and the box's domain; the
+# bare code is no confirmation (Norway's code is the word "no").
+set +e
+output=$(printf 'wipe no.statbus.org\n' | run_cloud wipe no 2>&1); rc=$?
+set -e
+assert_eq "0" "$rc" "wipe no exit"
+assert_contains "$output" "Type 'wipe no.statbus.org' to confirm" "wipe no names action and domain"
+assert_contains "$(cat "$SSH_LOG")" "statbus@rune.statbus.org" "wipe no reaches rune"
+assert_contains "$(cat "$SSH_LOG")" "docker volume rm" "wipe no removes the database volume"
+assert_contains "$(cat "$SSH_LOG")" "./sb install --non-interactive" "wipe no reinstalls"
+for answer in no 'wipe no'; do
+    set +e
+    output=$(printf '%s\n' "$answer" | run_cloud wipe no 2>&1); rc=$?
+    set -e
+    [ "$rc" -ne 0 ] || fail "wipe no confirmed by '$answer' must refuse"
+    assert_eq "" "$(cat "$SSH_LOG")" "wipe no confirmed by '$answer' must not connect"
+done
+# A cloud slot asks the same way.
+set +e
+output=$(printf 'dev\n' | run_cloud wipe dev 2>&1); rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "wipe dev confirmed by the bare code must refuse"
+assert_contains "$output" "Type 'wipe dev.statbus.org' to confirm" "wipe dev names action and domain"
+assert_eq "" "$(cat "$SSH_LOG")" "refused wipe dev must not connect"
+# reimport is gone: wipe, then import, each says what it does.
+set +e
+output=$(run_cloud reimport no selection test@example.com 2>&1); rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "reimport must be an unknown command"
+assert_eq "" "$(cat "$SSH_LOG")" "reimport must not connect"
 
 # STATBUS-451 uses the same helper as the actual fleet proof. These local
 # transport/binary doubles are source checks, never guest acceptance.

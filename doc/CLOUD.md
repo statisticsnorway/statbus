@@ -750,15 +750,19 @@ One fleet-level entry point is available from the repo root:
 ./cloud.sh install no              # re-run install.sh on rune (pinned or prerelease)
 ./cloud.sh install all             # same for the complete fleet
 ./cloud.sh inspect cloud           # cloud-slot credentials and URLs
+./cloud.sh wipe no                 # DELETE rune's database and reinstall it empty (asks: type 'wipe no.statbus.org')
 ./cloud.sh import no selection     # schedule the Norway BRREG sample import
 ./cloud.sh ssh no                  # interactive shell as statbus@rune.statbus.org
 ```
 
 For group-only verbs, `all` has an explicit contract. `create all` and `wipe all`
 run each cloud entry and print one skip line for every standalone entry. `import
-all` and `reimport all` run each standalone entry and print one skip line for
+all` runs each standalone entry and prints one skip line for
 every cloud entry. These commands exit successfully when at least one eligible
-entry ran. `inspect all` is refused because inspection is one fleet-wide cloud
+entry ran. `wipe <code>` deletes one box's database and reinstalls it empty, on a
+cloud slot or a standalone host; it asks you to type `wipe <domain>`, never the
+bare code. A fresh load is two commands, each saying what it does: `wipe no`, then
+`import no downloads`. `inspect all` is refused because inspection is one fleet-wide cloud
 report, so use `inspect cloud`. `ssh all` is refused because an interactive shell
 requires one box code.
 

@@ -88,9 +88,10 @@ start_cloud_log() {
 usage() {
     echo "Usage: $0 <command> [args]"
     echo "Targets: all | <code> | stable | prerelease | cloud | standalone"
-    echo "Commands: status, health, notify, upgrade, install, rescue, tail, create, wipe, inspect, import, reimport, ssh"
-    echo "Group-only verbs accepting 'all': create, wipe, import, reimport (run eligible entries; print one skip per ineligible entry)."
+    echo "Commands: status, health, notify, upgrade, install, rescue, tail, create, wipe, inspect, import, ssh"
+    echo "Group-only verbs accepting 'all': create, wipe, import (run eligible entries; print one skip per ineligible entry; wipe all covers cloud boxes only)."
     echo "Group-only verbs refusing 'all': inspect, ssh (these operations require a single scope or box)."
+    echo "wipe <code>: deletes that box's database and reinstalls it empty (cloud or standalone; asks you to type the code)."
     exit 1
 }
 
@@ -218,8 +219,8 @@ resolve_single_target() {
 
 verb_group() {
     case "$1" in
-        create|wipe|inspect) echo cloud ;;
-        import|reimport|ssh) echo standalone ;;
+        create|inspect) echo cloud ;;
+        import|ssh) echo standalone ;;
         *) echo all ;;
     esac
 }
@@ -789,11 +790,13 @@ cmd_install_one() {
 }
 
 cmd_wipe_one() {
-    local target="$1" confirm
+    local target="$1" confirm phrase
+    phrase="wipe $(entry_domain "$target")"
     echo "WARNING: This will DELETE the database on $target and recreate from scratch."
     echo "ALL DATA WILL BE LOST."
-    read -r -p "Type the server name to confirm: " confirm
-    if [ "$confirm" != "$target" ]; then
+    echo "Type '$phrase' to confirm:"
+    read -r confirm
+    if [ "$confirm" != "$phrase" ]; then
         echo "Aborted."
         exit 1
     fi
@@ -807,7 +810,13 @@ cmd_wipe() {
     local target="$1" code group ran=0
     if [ "$target" != all ]; then
         validate_code "$target"
-        cmd_wipe_one "$target"
+        # One box: a standalone box gets its production-safe wipe
+        # (STATBUS-587); a cloud slot its dev.sh recreate-database.
+        if [ "$(entry_group "$target")" = standalone ]; then
+            cmd_standalone_wipe "$target"
+        else
+            cmd_wipe_one "$target"
+        fi
         return
     fi
     for code in $(all_codes); do
@@ -900,8 +909,11 @@ cmd_standalone_wipe() {
     echo "WARNING: This will DELETE the database for the '$resolved_target' deployment"
     echo "         (serving $dom, hosted on $fqdn) and recreate it from scratch."
     echo "ALL DATA WILL BE LOST."
-    read -r -p "Type '$resolved_target' to confirm: " confirm
-    if [ "$confirm" != "$resolved_target" ]; then
+    # The confirmation names the action and the domain: a bare box code is no
+    # answer, since Norway's code is the word "no" (STATBUS-587).
+    echo "Type 'wipe $dom' to confirm:"
+    read -r confirm
+    if [ "$confirm" != "wipe $dom" ]; then
         echo "Aborted."
         exit 1
     fi
@@ -929,7 +941,7 @@ cmd_standalone_wipe() {
     echo "--- $resolved_target wipe complete ---"
 }
 
-# resolve_user_email returns the email to use for cmd_import / cmd_reimport.
+# resolve_user_email returns the email to use for cmd_import.
 # Precedence: explicit --user-email FLAG > STATBUS_REIMPORT_USER_EMAIL env >
 # interactive prompt (TTY only). Aborts with a clear message on a closed
 # stdin (e.g. piped invocation in CI) so the caller fixes the call site
@@ -1032,48 +1044,6 @@ cmd_import() {
     [ "$ran" -eq 1 ]
 }
 
-# cmd_reimport is shorthand for `wipe <name>` + `import <name>
-# <variant>` — the typical flow when the operator wants a clean DB +
-# fresh BRREG load in one command (e.g. before a major release that
-# invalidates the prior import). The wipe prompt's typed-confirm step
-# still runs, so the destructive action is acknowledged.
-cmd_reimport() {
-    local target="$1"
-    local variant="${2:-}"
-    local email_flag="${3:-}"
-    if [ "$target" = all ]; then
-        local code group ran=0
-        for code in $(all_codes); do
-            group=$(entry_group "$code")
-            if [ "$group" != standalone ]; then
-                echo "$code: skipped (reimport is only available for standalone targets)"
-                continue
-            fi
-            cmd_reimport "$code" "$variant" "$email_flag"
-            ran=1
-        done
-        [ "$ran" -eq 1 ]
-        return
-    fi
-    local resolved_target
-    resolved_target=$(resolve_single_target "$target")
-    # Validate variant up-front BEFORE the destructive wipe so a typo
-    # doesn't cost the operator a wipe + retype the long confirm.
-    case "$variant" in
-        selection|downloads) ;;
-        "") echo "ERROR: reimport requires variant: selection or downloads" >&2; exit 1 ;;
-        *)  echo "ERROR: unknown variant '$variant'. Valid: selection | downloads" >&2; exit 1 ;;
-    esac
-    # Resolve email up-front so the operator catches a missing flag
-    # BEFORE they sit through the wipe's destructive confirm step.
-    local email
-    email=$(resolve_user_email "$email_flag")
-
-    cmd_standalone_wipe "$resolved_target"
-    echo
-    echo "Wipe complete. Scheduling fresh BRREG $variant import as $email ..."
-    cmd_import "$resolved_target" "$variant" "$email"
-}
 
 
 # Main
@@ -1152,12 +1122,6 @@ case "$1" in
         start_cloud_log import "$2"
         assert_verb_target_group import "$2" || exit $?
         cmd_import "$2" "$3" "${4:-}"
-        ;;
-    reimport)
-        [ $# -lt 3 ] && { echo "Error: reimport requires <target> <selection|downloads>"; usage; }
-        start_cloud_log reimport "$2"
-        assert_verb_target_group reimport "$2" || exit $?
-        cmd_reimport "$2" "$3" "${4:-}"
         ;;
     ssh)
         [ $# -lt 2 ] && { echo "Error: ssh requires a box code"; usage; }
