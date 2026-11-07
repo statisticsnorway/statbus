@@ -2146,7 +2146,7 @@ EOF
         # NORMAL rather than exceptional. A detached mechanism shipped on top of
         # a host-side-only guard would be shipping the failure mode as a
         # feature. It ships here WITH the postmaster authority, never before it.
-        shift
+        # Global action parsing has already consumed `detached`.
         if [ $# -eq 0 ]; then
             echo "Usage: ./dev.sh detached <dev.sh args...>" >&2
             echo "  e.g. ./dev.sh detached test fast" >&2
@@ -2166,19 +2166,19 @@ EOF
         # The log is the interface. A detached run's output must be readable by
         # someone who did not start it — including after the starter is gone.
         #
-        # HONEST LIMIT: "$*" re-splits the arguments on whitespace, so an
-        # argument containing spaces does not survive. Correct for every use
-        # this command exists for (`detached test fast`, `detached
-        # migrate-and-test fast`) and stated rather than hidden, because the
-        # failure would otherwise be a silently different command. If a caller
-        # ever needs to pass a quoted argument, this must become printf %q —
-        # not be discovered by someone debugging a mangled invocation.
+        # Serialize each argument independently for the explicit Bash child.
+        # The outer quoting also preserves workspace/log paths through tmux's
+        # command shell, including spaces and apostrophes.
+        printf -v _DETACHED_COMMAND '%q ' ./dev.sh "$@"
+        printf -v _DETACHED_RUN 'cd %q && %s 2>&1 | tee %q' \
+            "$WORKSPACE" "$_DETACHED_COMMAND" "$_DETACHED_LOG"
+        printf -v _DETACHED_SHELL 'bash -o pipefail -c %q' "$_DETACHED_RUN"
         tmux -L "$_DETACHED_SOCKET" new-session -d -s "$_DETACHED_SESSION" \
-            "cd '$WORKSPACE' && ./dev.sh $* 2>&1 | tee '$_DETACHED_LOG'"
+            "$_DETACHED_SHELL"
 
         echo "Detached run started."
         echo "  session : $_DETACHED_SESSION   (socket: $_DETACHED_SOCKET)"
-        echo "  command : ./dev.sh $*"
+        echo "  command : $_DETACHED_COMMAND"
         echo "  log     : $_DETACHED_LOG"
         echo ""
         echo "  Follow:   tail -f $_DETACHED_LOG"

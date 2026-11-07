@@ -20,6 +20,7 @@ on:
       - '.github/actions/**'
       - '.github/workflows/harness-selftest.yaml'
       - 'dev.sh'
+      - 'test/dev-detached-test.sh'
 
 permissions:
   contents: read
@@ -41,6 +42,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openssh-server tmux expect gnupg
       - name: Prove PostgreSQL signing-key downloads recover from partial responses and fail within their budget (STATBUS-575)
         run: python3 postgres/test_key_download.py
+      - name: Prove detached dev commands preserve the requested argument vector (STATBUS-578)
+        run: bash test/dev-detached-test.sh
       - name: Prove harness failure paths
         run: ./dev.sh test-harness
       - name: Prove public installer failures stay useful and redacted

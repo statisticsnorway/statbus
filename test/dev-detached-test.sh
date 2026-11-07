@@ -30,10 +30,10 @@ set -euo pipefail
 if [[ "${1:-}" == detached ]]; then
     exec bash ./launcher.sh "$@"
 fi
+trap 'printf "%s\n" "$?" > child-exit' EXIT
 printf '%s\0' "$@" > child-args
 status=$(cat expected-status)
 echo "safe child finished: exit $status"
-printf '%s\n' "$status" > child-exit
 exit "$status"
 SH
 cat > "$FIXTURE/bin/tmux" <<'SH'
