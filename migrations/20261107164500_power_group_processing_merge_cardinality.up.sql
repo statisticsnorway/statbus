@@ -295,9 +295,15 @@ BEGIN
             WHEN nr.root_count IS NULL OR nr.root_count = 0 THEN 'cycle'::public.power_group_root_status
             WHEN nr.root_count > 1 THEN 'multi'::public.power_group_root_status
         END AS derived_root_status,
-        -- Pick the natural root LU (for multi: smallest id; for cycle: comp_id as synthetic root)
-        COALESCE(nr.min_root_lu_id, c.comp_id) AS derived_root_legal_unit_id
-    FROM (SELECT DISTINCT comp_id FROM _lu_comp) AS c
+        -- Multi: smallest natural root. Cycle: smallest influencing member,
+        -- as required by power_root_validate_root_membership().
+        COALESCE(nr.min_root_lu_id, c.min_influencing_lu_id) AS derived_root_legal_unit_id
+    FROM (
+        SELECT comp.comp_id, min(lr.influencing_id) AS min_influencing_lu_id
+        FROM public.legal_relationship AS lr
+        JOIN _lu_comp AS comp ON comp.lu_id = lr.influencing_id
+        GROUP BY comp.comp_id
+    ) AS c
     JOIN _cluster_pg AS cpg ON cpg.root_legal_unit_id = c.comp_id
     LEFT JOIN (
         SELECT comp_id, count(*) AS root_count, min(lu_id) AS min_root_lu_id
