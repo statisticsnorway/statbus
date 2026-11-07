@@ -31,10 +31,33 @@ func certWarningFixture(t *testing.T, name, site string, notBefore, notAfter tim
 func stubUseAnyway(t *testing.T, answer bool) *[]string {
 	t.Helper()
 	var asked []string
-	saved := askUseCertificateAnyway
+	saved, savedCan := askUseCertificateAnyway, certCanAsk
 	askUseCertificateAnyway = func(label string) bool { asked = append(asked, label); return answer }
-	t.Cleanup(func() { askUseCertificateAnyway = saved })
+	certCanAsk = func() bool { return true }
+	t.Cleanup(func() { askUseCertificateAnyway, certCanAsk = saved, savedCan })
 	return &asked
+}
+
+// Unattended (no terminal: the certificate came from STATBUS_TLS_*), the
+// explicit input is the answer: the warning is printed and the certificate is
+// installed, never a hang or a silent refusal.
+func TestInstallCustomCertificateUnattendedWarnsAndInstalls(t *testing.T) {
+	now := time.Now()
+	dir, certPath, keyPath := certWarningFixture(t, "other.example.org", "statbus.example.org", now.Add(-time.Hour), now.Add(24*time.Hour))
+	savedCan := certCanAsk
+	certCanAsk = func() bool { return false }
+	t.Cleanup(func() { certCanAsk = savedCan })
+	var err error
+	out := pickerCapture(t, func() { _, err = installCustomCertificate(dir, []string{certPath, keyPath}, nil) })
+	if err != nil {
+		t.Fatalf("unattended install refused: %v", err)
+	}
+	if !strings.Contains(out, "⚠ This certificate does not cover statbus.example.org.") {
+		t.Fatalf("unattended install did not warn:\n%s", out)
+	}
+	if cert, _ := readEnvConfigCertValues(t, dir); cert == "" {
+		t.Fatal("unattended certificate did not reach .env.config")
+	}
 }
 
 // An expired certificate, or one that does not cover the site, is warned about
