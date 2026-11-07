@@ -91,4 +91,40 @@ FROM (SELECT legal_unit_id, count(DISTINCT batch_seq) AS batches
 \echo "373.5 all jobs finished with every row imported"
 SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug LIKE 'import\_373\_%' ORDER BY slug;
 
+-- Two-level packing: singleton groups fill a batch exactly and a hash slot stays whole.
+RESET ROLE;
+CREATE TABLE public.t373_packing (
+    row_id integer PRIMARY KEY, founding_row_id integer, action text,
+    state public.import_data_state, batch_seq integer
+);
+INSERT INTO public.t373_packing
+SELECT n, n, 'use', 'analysed', NULL FROM generate_series(1, 20) AS n;
+SELECT admin.import_job_assign_batch_seq(
+    p_data_table_name => 't373_packing', p_batch_size => 4,
+    p_for_processing => true, p_new_state => 'processing');
+
+\echo
+\echo "373.6 twenty singleton units fill five batches of four"
+SELECT batch_seq, count(*) AS rows
+FROM public.t373_packing GROUP BY batch_seq ORDER BY batch_seq;
+
+TRUNCATE public.t373_packing;
+WITH collisions AS (
+    SELECT abs(hashtext('unit:' || n)::bigint) % 16384 AS slot, min(n) AS first_key, max(n) AS last_key
+    FROM generate_series(1, 1000) AS n GROUP BY slot HAVING count(*) > 1
+    ORDER BY slot LIMIT 1
+)
+INSERT INTO public.t373_packing
+SELECT n, n, 'use', 'analysed', NULL
+FROM collisions CROSS JOIN LATERAL unnest(ARRAY[first_key, last_key]) AS n;
+SELECT admin.import_job_assign_batch_seq(
+    p_data_table_name => 't373_packing', p_batch_size => 1,
+    p_for_processing => true, p_new_state => 'processing');
+
+\echo
+\echo "373.7 an oversized slot keeps its two different units in one batch"
+SELECT count(DISTINCT founding_row_id) AS units, count(DISTINCT batch_seq) AS batches,
+       min(batch_seq) AS first_batch
+FROM public.t373_packing;
+
 ROLLBACK;
