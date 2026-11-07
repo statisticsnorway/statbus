@@ -148,11 +148,10 @@ guide_text() {
                      Full name of this server: $cert_domain
                      At "Did that connect?": on your laptop run
                      ops/manual-box.sh try-ssh statbus, then answer y
-  4. Ownership:      find /home/statbus -xdev -user root    (expect no output)
-  5. Certificate:    on your laptop: ops/manual-box.sh cert      (a Windows-style PFX)
+  4. Certificate:    on your laptop: ops/manual-box.sh cert      (a Windows-style PFX)
                      or: ops/manual-box.sh cert pem          (fullchain.pem + privkey.pem)
-  6. Install:        leave the root shell (exit), then: sudo -iu statbus
-                     (or log in directly: ops/manual-box.sh ssh statbus)
+  5. Install:        from the root shell: sudo -iu statbus
+                     (or log in again directly: ops/manual-box.sh ssh statbus)
                      curl -fsSL https://statbus.org/rc/install.sh | bash
                      Domain: $cert_domain
                      Country name: United Nations, country code: un
@@ -160,10 +159,10 @@ guide_text() {
                      country list, so the installer accepts it without a note)
                      Certificate: yes, pick ~/Documents/certificate-from-it,
                      password $cert_password
-  7. Health:         cd ~/statbus && ./sb monitor status; curl -s https://$cert_domain/monitor
-  8. Uninstall:      (as statbus) curl -fsSL https://statbus.org/rc/uninstall.sh | bash
+  6. Health:         cd ~/statbus && ./sb monitor status; curl -s https://$cert_domain/monitor
+  7. Uninstall:      (as statbus) curl -fsSL https://statbus.org/rc/uninstall.sh | bash
                      (keep users, credentials and the database backup: the defaults)
-  9. Reinstall:      (as statbus) step 6 again; it ends by naming the newest kept backup and ./sb db restore
+  8. Reinstall:      (as statbus) step 5 again; it ends by naming the newest kept backup and ./sb db restore
   Start over:        ops/manual-box.sh rebuild
 GUIDE
 }
@@ -255,7 +254,7 @@ echo "Trusted:  the test CA is in this box's trust store"
 REMOTE
     cat <<EOF
 
-Use it like an operator: step 6 of the walkthrough (ops/manual-box.sh guide).
+Use it like an operator: step 5 of the walkthrough (ops/manual-box.sh guide).
 EOF
 }
 

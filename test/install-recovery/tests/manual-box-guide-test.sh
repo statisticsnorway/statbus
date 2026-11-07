@@ -26,8 +26,9 @@ for want in \
     "Release:           v2026.11.1-rc.06 (the newest candidate; statbus.org/rc/ runs it)" \
     "curl -fsSL https://statbus.org/rc/setup.sh | bash" \
     "curl -fsSL https://statbus.org/rc/install.sh | bash" \
+    "5. Install:        from the root shell: sudo -iu statbus" \
     "curl -fsSL https://statbus.org/rc/uninstall.sh | bash" \
-    "9. Reinstall:      (as statbus) step 6 again; it ends by naming the newest kept backup and ./sb db restore"; do
+    "8. Reinstall:      (as statbus) step 5 again; it ends by naming the newest kept backup and ./sb db restore"; do
     if grep -Fq -- "$want" <<<"$out"; then
         echo "PASS guide shows: $want"
     else
