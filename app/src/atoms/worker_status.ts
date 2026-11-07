@@ -225,6 +225,9 @@ export const setWorkerStatusAtom = atom(
         updatedStatus.derivingUnits = null;
       } else if (status) {
         updatedStatus.isDerivingUnits = true;
+        if (prevStatus.derivingUnits) {
+          updatedStatus.derivingUnits = { ...prevStatus.derivingUnits, active: true, pending: false };
+        }
       }
     } else if (type === 'is_deriving_reports') {
       // Don't clear pending reports — the pipeline_progress event has richer data.
@@ -234,6 +237,10 @@ export const setWorkerStatusAtom = atom(
         updatedStatus.derivingReports = null;
       } else if (status) {
         updatedStatus.isDerivingReports = true;
+        // A start notification advances queued work even before detailed progress arrives.
+        if (prevStatus.derivingReports) {
+          updatedStatus.derivingReports = { ...prevStatus.derivingReports, active: true, pending: false };
+        }
       }
     }
 
