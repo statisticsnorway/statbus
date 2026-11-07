@@ -3,10 +3,11 @@
 Status: implemented on local branch `statbus-591-import-speed`, not released. The final integrated fast
 suite passed all 132 shared and two isolated tests, and clean database-documentation regeneration left
 no changes. Actual Crystal-worker BRREG selection measurements show repeated gains after batch-tail
-wakeup publication, with exact domain and history consistency checks. Root-parity probes found chosen
-logical-root differences from both whole-slot packing and concurrent new legal-unit allocation.
-Full-register measurements remain pending, and the current legal-unit packing/dispatch is not yet an
-exact-output-equivalent release candidate, even with queue concurrency one.
+wakeup publication, with exact domain and history consistency checks. Automatically chosen roots can
+change when packing or concurrent legal-unit creation changes insertion order. The owner confirmed
+that this is part of the root-selection algorithm, not by itself a regression. Exact temporal group
+membership and relationship parity remain required, together with valid roots and preserved custom
+overrides. Full-register measurements and the SQL Saga comparison remain pending.
 Evidence: `tmp/journal.md`, `tmp/591/`, `tmp/rune-measure/A/import-tasks.out`.
 
 ## Where the time goes (rune run A, rc.18, full BRREG)
@@ -108,47 +109,43 @@ batch's domain, log, counter and notification effects. Ordinary writes still pub
 Every publisher unconditionally locks the durable pending row. The collector acquires that lock before
 its drain snapshot, so its flag clear cannot overtake a committed publisher and erase the witness.
 
-### Open compatibility boundary: ambiguous power-group roots
+### Insert-order-dependent roots and membership parity
 
 `import.process_power_group_link` chooses the smallest natural-root legal-unit ID for a multi-root group,
 or the smallest influencing-member legal-unit ID for a cycle. Excluding terminal members repairs a
 previous failure when the smallest component member could not satisfy root-membership validation.
-Every previously valid minimum-ID choice remains unchanged. These are surrogate IDs. Concurrent insertion of new
-legal units changes allocation order, so the same graph can choose a different logical root even though
-its relationships, membership, BFS levels and cycle/multi classification are unchanged. An exact graph
-probe reproduced three such differences at concurrency four or eight. Chosen root identifiers remain in
-the parity checks. No business-key root-selection policy has been introduced.
+Every previously valid minimum-ID choice remains unchanged. These are surrogate IDs, so changing
+insertion order can change the logical unit chosen as an automatic root.
 
-Keeping legal-unit processing serial while parallelizing formal establishments is a narrower candidate
-that preserves allocation order relative to this branch's serial phase with the same whole-slot packing.
-A fresh 400-LU/800-ES experiment plus nine relationships passed
-exact domain and chosen-root parity at four-way ES concurrency. Parallel legal-unit
-processing needs either equivalent deterministic allocation or an explicitly agreed root-selection policy
-before it can satisfy strict chosen-root parity. The small unit-only speed measurements below do not
-establish that compatibility. These references do not restore the released batch-packing function.
+The owner confirmed on November 7, 2026 at 19:56 UTC that insertion order is intentionally part of this
+algorithm. A different automatic root is not by itself a regression. The main parity requirement is the
+same temporal group membership. Comparisons must also preserve relationships, group attributes,
+parent links and explicit custom-root overrides, and validate automatic roots and levels against the
+graph rules. Report automatic root differences separately rather than treating them as missing members
+or introducing an unrequested deterministic business-key policy.
 
-A later six-run private comparison now isolates the packing effect. All runs use the exact original
-serial processing phase, the same final power-group processor and zero concurrent leaves. Released
-row-ID packing and row-ID packing with refreshed action statistics match across both repeats.
-Whole-slot packing changes two chosen logical roots on both repeats: cycle `591000010` becomes
-`591000006`, and multi-root `591000012` becomes `591000014`. All nine canonical base tables,
-relationships, group business rows, memberships and BFS levels still match. Thus queue concurrency
-one is not a sufficient strict-root-compatibility guard. Evidence:
-`tmp/591/serial-packing-20261107_185223_3402-results.json` and `serial-packing-root-parity.log`.
+The probes distinguish these effects:
 
-A narrower private-only candidate preserves the exact released assignment routine for insert-only
-new legal-unit jobs with one accepted row per founding unit, keeps legal-unit processing serial,
-and uses whole-slot packing and concurrent dispatch for eligible formal establishments. Two fresh
-reference/candidate pairs on 400 legal units, 800 establishments and nine relationships match all
-canonical domain/graph rows, exact legal-unit allocations and every chosen root. Four establishment
-leaves are active together. The small-fixture establishment phase takes 11.555 versus 3.563 seconds
-and 11.938 versus 3.808 seconds, not a real-worker full-import performance claim. Definitions and
-results are retained in `tmp/591/singleton-lu-safe-20261107_185624_43321-*`.
+- Concurrent new legal-unit allocation changed three logical root choices at concurrency four or eight,
+  while relationships, group membership, BFS levels and cycle/multi classification matched.
+- A six-run private serial-only comparison used the original processing phase, the same final power-group
+  processor and no concurrent leaves. Released row-ID packing and row-ID packing with refreshed action
+  statistics matched. Whole-slot packing changed two automatic roots on both repeats: cycle `591000010`
+  became `591000006`, and multi-root `591000012` became `591000014`. All nine canonical base tables,
+  relationships, group business rows, memberships and BFS levels matched. This isolated an allocation
+  effect, not a membership defect. Evidence: `tmp/591/serial-packing-20261107_185223_3402-results.json`
+  and `serial-packing-root-parity.log`.
+- A narrower private-only alternative kept released singleton-new-LU assignment and LU processing serial,
+  then used whole-slot packing and concurrent formal ES batches. Two fresh reference/candidate pairs
+  matched all canonical rows, exact LU allocation and every root. Four ES leaves were active together.
+  Small-fixture ES times were 11.555 versus 3.563 seconds and 11.938 versus 3.808 seconds. Evidence:
+  `tmp/591/singleton-lu-safe-20261107_185624_43321-*`. This remains useful as a strict-order control,
+  but preserving automatic root identity is no longer a reason to require ES-only concurrency.
 
-This narrower candidate is a scratch prototype, not part of the committed runtime or covered by its
-complete fast-suite pass. Adopting it requires positive dispatch/grouping regressions, mixed/history
-fallback verification, real-worker remeasurement and owner scope approval. Unrestricted parallel
-legal-unit creation still needs deterministic compatible allocation or an agreed root-selection policy.
+The narrower alternative is not part of the committed runtime or covered by its complete fast-suite pass.
+Any adopted dispatch or temporal-check change still needs positive dependency, failure, replay and
+mixed/history tests, real-worker measurement and full-register acceptance. Power-group analysis and
+processing remain holistic and serial. SQL Saga experiments target independent LU/ES batches.
 
 ## Verification
 
