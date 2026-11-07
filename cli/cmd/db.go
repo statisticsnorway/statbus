@@ -316,9 +316,8 @@ var dbDownloadCmd = &cobra.Command{
 	Long: `Download a database dump from a remote StatBus deployment via SSH.
 
 The code corresponds to the deployment slot (e.g., "no", "dev", "demo").
-Resolves the slot's box from the fleet registry in cloud.sh, so multi-tenant
-niue slots and standalone hosts (Norway on rune.statbus.org) both work, and
-streams a pg_dump.`,
+Resolves the slot's box from the fleet registry in cloud.sh, so a multi-tenant
+slot and a standalone host both work, and streams a pg_dump.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
