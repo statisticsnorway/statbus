@@ -1,0 +1,120 @@
+-- STATBUS-591: a processing batch holds whole units, so batches can run concurrently.
+--
+-- The process phase runs one transaction per batch (admin.import_job_process_batch). Two batches
+-- that hold rows of the same unit would both temporal_merge that unit, and two batches with
+-- establishments of the same legal unit would both demote and promote its primary establishment.
+-- So every row of a unit shares one batch: legal-unit rows by founding_row_id, which
+-- import.analyse_external_idents sets to the unit's key (existing legal unit id + 1e9, new unit
+-- its first row), and formal establishment rows by the legal unit they belong to.
+--
+-- Fixture: 40 legal units, ten of them with three rows over time (2020, 2021, 2022, renamed each year),
+-- the rows of one unit spread through the file; and test/data/03_norwegian-establishments-over-time.csv
+-- (ten rows: establishments of two legal units, several rows per establishment). Both jobs run with
+-- processing_batch_size 2, so that row-id ranges would split units across batches.
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\echo "Test 373 (STATBUS-591): processing batches hold whole units"
+"Test 373 (STATBUS-591): processing batches hold whole units"
+CALL test.set_user_from_email('test.admin@statbus.org');
+-- Batches that update existing units disable the temporal triggers, and sql_saga notices it per batch.
+SET client_min_messages = warning;
+\o /dev/null
+\set ECHO none
+-- Legal units: 30 single-row units and ten units with three yearly rows, ordered by year so each
+-- multi-row unit's rows lie ten rows apart.
+INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review, processing_batch_size)
+SELECT id, 'import_373_lu', 'Test 373 legal units', 'Test 373', false, 2
+FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+INSERT INTO public.import_373_lu_upload (valid_from, valid_to, tax_ident, name, sector_code, legal_form_code, data_source_code)
+SELECT valid_from, valid_to, tax_ident, name, '2100', 'AS', 'brreg'
+FROM (
+    SELECT (y - 2020) * 100 + n AS ord, y || '-01-01' AS valid_from,
+           CASE WHEN y = 2022 THEN 'infinity' ELSE y || '-12-31' END AS valid_to,
+           (373000000 + n)::text AS tax_ident, 'T373 unit ' || n || ' ' || y AS name
+    FROM generate_series(1, 10) AS n, generate_series(2020, 2022) AS y
+    UNION ALL
+    SELECT 50 + n, '2020-01-01', 'infinity', (373000100 + n)::text, 'T373 single ' || n
+    FROM generate_series(1, 30) AS n
+) AS rows ORDER BY ord;
+CALL worker.process_tasks(p_queue => 'import');
+\echo
+
+\echo "373.1 the legal-unit job finished with all 60 rows imported in many batches"
+"373.1 the legal-unit job finished with all 60 rows imported in many batches"
+SELECT j.state, j.imported_rows, count(DISTINCT dt.batch_seq) > 10 AS many_batches
+FROM public.import_job AS j, public.import_373_lu_data AS dt
+WHERE j.slug = 'import_373_lu' AND dt.action = 'use'
+GROUP BY j.state, j.imported_rows;
+  state   | imported_rows | many_batches 
+----------+---------------+--------------
+ finished |            60 | t
+(1 row)
+
+\echo
+
+\echo "373.2 every legal unit's rows share one processing batch"
+"373.2 every legal unit's rows share one processing batch"
+SELECT count(*) AS units_with_several_rows,
+       count(*) FILTER (WHERE batches = 1) AS units_in_one_batch
+FROM (SELECT founding_row_id, count(DISTINCT batch_seq) AS batches
+      FROM public.import_373_lu_data WHERE action = 'use'
+      GROUP BY founding_row_id HAVING count(*) > 1) AS u;
+ units_with_several_rows | units_in_one_batch 
+-------------------------+--------------------
+                      10 |                 10
+(1 row)
+
+\echo
+
+\echo "373.3 each multi-row unit has its three yearly versions"
+"373.3 each multi-row unit has its three yearly versions"
+SELECT count(*) AS units, count(*) FILTER (WHERE versions = 3) AS units_with_three_versions
+FROM (SELECT lu.id, count(*) AS versions FROM public.legal_unit AS lu
+      WHERE lu.name LIKE 'T373 unit %' GROUP BY lu.id) AS v;
+ units | units_with_three_versions 
+-------+---------------------------
+    10 |                        10
+(1 row)
+
+-- Establishments: ten rows of two legal units.
+INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review, processing_batch_size)
+SELECT id, 'import_373_lu2', 'Test 373 legal units over time', 'Test 373', false, 8000
+FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+\copy public.import_373_lu2_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,data_source_code) FROM 'test/data/03_norwegian-legal-units-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+CALL worker.process_tasks(p_queue => 'import');
+INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review, processing_batch_size)
+SELECT id, 'import_373_es', 'Test 373 establishments', 'Test 373', false, 2
+FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates';
+\copy public.import_373_es_upload(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,data_source_code,unit_size_code,employees,turnover) FROM 'test/data/03_norwegian-establishments-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+CALL worker.process_tasks(p_queue => 'import');
+\echo
+
+\echo "373.4 each legal unit's establishment rows share one processing batch"
+"373.4 each legal unit's establishment rows share one processing batch"
+SELECT count(*) AS legal_units, count(*) FILTER (WHERE batches = 1) AS legal_units_in_one_batch
+FROM (SELECT legal_unit_id, count(DISTINCT batch_seq) AS batches
+      FROM public.import_373_es_data WHERE action = 'use' AND legal_unit_id IS NOT NULL
+      GROUP BY legal_unit_id) AS l;
+ legal_units | legal_units_in_one_batch 
+-------------+--------------------------
+           2 |                        2
+(1 row)
+
+\echo
+
+\echo "373.5 all jobs finished with every row imported"
+"373.5 all jobs finished with every row imported"
+SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug LIKE 'import\_373\_%' ORDER BY slug;
+      slug      |  state   | total_rows | imported_rows 
+----------------+----------+------------+---------------
+ import_373_es  | finished |         10 |            10
+ import_373_lu  | finished |         60 |            60
+ import_373_lu2 | finished |          2 |             2
+(3 rows)
+
+ROLLBACK;

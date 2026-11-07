@@ -18,6 +18,8 @@ BEGIN;
 \echo "Test 373 (STATBUS-591): processing batches hold whole units"
 
 CALL test.set_user_from_email('test.admin@statbus.org');
+-- Batches that update existing units disable the temporal triggers, and sql_saga notices it per batch.
+SET client_min_messages = warning;
 
 \o /dev/null
 \set ECHO none
