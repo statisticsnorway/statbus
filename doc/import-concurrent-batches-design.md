@@ -2,7 +2,9 @@
 
 Status: implemented on local branch `statbus-591-import-speed`, not released. Whole-slot grouping passed
 127 shared and two isolated fast tests. Concurrent scheduling passed its private SQL regression and a
-small simultaneous-connection parity probe. Full-suite and real-worker BRREG measurements are pending.
+small simultaneous-connection parity probe. A graph extension of that probe found a chosen-root identity
+difference after concurrent new legal-unit allocation. Full-suite and real-worker BRREG measurements are
+pending, and unrestricted legal-unit concurrency is not yet an exact-output-equivalent release candidate.
 Evidence: `tmp/journal.md`, `tmp/591/`, `tmp/rune-measure/A/import-tasks.out`.
 
 ## Where the time goes (rune run A, rc.18, full BRREG)
@@ -11,10 +13,14 @@ Evidence: `tmp/journal.md`, `tmp/591/`, `tmp/rune-measure/A/import-tasks.out`.
 |---|---:|---:|---|
 | Legal units, 1,134,476 rows | 811 s | 2,139 s | 142 batches of 8,000 rows, 12-35 s each, one at a time |
 | Establishments, 823,768 rows | 739 s | 1,643 s | 103 batches, same |
-| Relationships, 33,710 rows | 1,147 s | 60 s | power_group_link analysis 1,024 s (fixed: 0.7 s) |
+| Relationships, 33,710 rows | 1,147 s | 60 s | power_group_link analysis 1,024 s on rune |
 
 Processing is 3,782 s of the 6,625 s import queue. Analysis batches are 1-3 s each (32,768 rows), so the gain is
 in processing.
+
+The equality-join analysis prototype took 0.66 s on the local full-file fixture, versus 264 s locally before
+the change. It has not yet been measured against rune's 1,024 s baseline. Legal-unit and establishment
+times in this table sum their batched step tasks, not every phase-transition invocation.
 
 ## What two concurrent batches could collide on (process phase, one transaction per batch)
 
@@ -60,6 +66,11 @@ Do batch numbers have to stay the same between runs?
   within this job. Moving an establishment between parents across its historical rows can bridge group keys:
   concurrent dispatch must verify that each founding unit remains in one batch and fall back to serial if not.
 
+Packing refreshes the import data table's `action` statistics once after analysis and before dispatch.
+Upload-time statistics describe NULL actions, not the accepted rows being packed. On a 24,000-row fixture,
+that stale estimate made slot aggregation repeat inside a nested loop and exceeded the 10-second test
+limit. Refreshing only `action` kept the same assignment and completed the regression in 0.27 seconds.
+
 ## Running the batches
 
 In `processing_data`, one `import_job_process` task spawns one child per batch under a concurrent parent;
@@ -87,10 +98,27 @@ after-procedure records the failed job and row diagnostics outside the worker's 
 failed state survives rollback and propagates through parent fan-in. Completed siblings may remain
 committed, as with earlier serial batches. Holistic steps cannot run after a failed fan-in.
 
+### Open compatibility boundary: ambiguous power-group roots
+
+`import.process_power_group_link` chooses the smallest natural-root legal-unit ID for a multi-root group,
+or the smallest component legal-unit ID for a cycle. These are surrogate IDs. Concurrent insertion of new
+legal units changes allocation order, so the same graph can choose a different logical root even though
+its relationships, membership, BFS levels and cycle/multi classification are unchanged. An exact graph
+probe reproduced three such differences at concurrency four or eight. Chosen root identifiers remain in
+the parity checks, and the existing root-selection policy has not been changed.
+
+Keeping legal-unit processing serial while parallelizing formal establishments is a narrower candidate
+that preserves legal-unit allocation order. A fresh-input parity experiment is pending. Parallel legal-unit
+processing needs either equivalent deterministic allocation or an explicitly agreed root-selection policy
+before it can satisfy strict chosen-root parity. The small unit-only speed measurements below do not
+establish that compatibility.
+
 ## Verification
 
 - SQL373 asserts complete historical units, complete legal-unit parent groups, exact row-target packing and
   whole hash slots, including a collision between different dependency keys.
+- SQL376 asserts assignment and state/priority transitions for 24,000 accepted rows after analysis changed
+  upload-time NULL actions, with complete dependency groups, exact whole-slot packing and bounded runtime.
 - SQL375 exercises real worker fan-out, per-leaf progress, replay, the serial continuation barrier, complete
   holistic input, exact final unit/version totals and mixed/existing/informal serial fallbacks. Its injected
   batch-tail error occurs after real unit writes and asserts rollback plus failed leaf, job and wrapper.
