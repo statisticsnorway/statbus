@@ -13,7 +13,7 @@ logs under `tmp/` are local working files of the measuring agent; the summaries 
 | BRREG selection | `./test/import_benchmark.sh --dataset selection` | |
 | BRREG downloads | `./test/import_benchmark.sh --dataset downloads` (full register) | 3,118,352 statistical unit rows |
 
-Local runs: one laptop, Docker PostgreSQL 18. Production figures: rune (32 GB RAM), read-only queries.
+Local runs: one laptop, Docker PostgreSQL 18. Production figures: rune (62 GB RAM), read-only queries.
 
 ## 1. Disk: history storage
 
