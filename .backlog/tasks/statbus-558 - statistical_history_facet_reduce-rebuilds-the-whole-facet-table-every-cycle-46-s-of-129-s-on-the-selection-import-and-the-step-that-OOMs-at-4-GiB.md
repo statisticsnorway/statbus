@@ -3,10 +3,10 @@ id: STATBUS-558
 title: >-
   History reports from sparse delta tables: compatibility views and fast read
   functions replace the dense history facet
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-07T17:02:00Z'
+updated_date: '2026-11-07T19:27:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -101,7 +101,7 @@ Evidence: tmp/558-shd/ (README.md, scripts 01-25 with logs).
 - [x] #3 The incremental update after unit edits equals a full rebuild (tests 367 and 368, and the import benchmark's check A), with the chosen way of finding a changed unit's old contribution prototyped and measured against the alternatives
 - [x] #4 Full rebuild and incremental cycle on full Norway take less time than the dense-table pipeline's history steps
 - [x] #5 Migration, worker step and tests 008, 094, 096, 107, 204, 318, 322, 325, 346, 364 pass
-- [ ] #6 Released per-commit image upgrades a guest with data to this migration and the history rebuild completes (install/upgrade testing)
+- [x] #6 Released per-commit image upgrades a guest with data to this migration and the history rebuild completes (install/upgrade testing)
 - [x] #7 [Owner] reviews the local commits; then pushed, with CI green for the pushed SHA
 - [x] #8 [Owner] adopts the design before push; recorded in this ticket's notes (2026-11-05 15:41-16:48: one table, per-version counting, moves both sides, births rule C). Adoption lets the push go ahead; rejection returns the design to prototyping
 <!-- AC:END -->
@@ -260,4 +260,6 @@ AC1 scope: full Norway checked on the committed build (above); the 10-year datab
 2026-11-07 hibiscus: owner 16:09 plan. Local master rebased onto origin 3282c0af7 (97 commits, 0 merges, patch identical) and pushed as branch statbus-history-release for rabbit to cut an RC from. Rabbit owns: RC cut + gate, Norway upgrade (run U), Norway wipe + full import (run B), release if green. Owner's doc/db review of the migrations was not done; owner approved the plan and the push. Ticket goes Done when that release passes (CI green on the released SHA; 558 also needs run U).
 
 2026-11-07 17:02 (rabbit): statbus-history-release 7b171ac1c fast-forwarded onto master and pushed as 72f1d7fd1; CI green for that SHA: Fast Tests 42393130629, Go Test, app build & lint, Harness Selftest 42392507183, Images. Ships in the next RC (rc.23). Owner approved the plan and the push (16:09). AC6 waits for run U on Norway (rc.22 -> rc.23).
+
+AC6 proven on Norway (run U, 2026-11-07): released v2026.11.2-rc.02 (2e7e20641) upgraded no.statbus.org from v2026.11.1 with the run A data (3.1 M statistical units) in 76 s (migration 20261104130602 1.6 s), and the history rebuild it scheduled completed: 19:03:04-19:23:40, 1,236 s wall, 4,111 s task time, 3,684 tasks, 0 failed (full recalculation 2026-11-02: 16,960 s; history steps 2,559 s -> 689 s). History totals equal before and after for exists_count and countable_count (ES 823,767, LU 1,134,475, EN 1,134,475, PG 25,635, year 2026 and 2026-11). ES births 2026 39 -> 0 by births rule C: all 39 have birth_date before valid_from 2026-11-07 (born_on_or_after_valid_from = 0). DB peak 9.0 GiB; database 37 -> 31 GB; history storage 6.6 GB -> 188 MB. Gate for the RC green (Orchestrator 42399643747). Numbers: statbus_test tmp/rune-measure/U/summary.md.
 <!-- SECTION:NOTES:END -->
