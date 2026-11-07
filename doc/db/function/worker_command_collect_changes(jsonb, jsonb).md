@@ -19,6 +19,11 @@ DECLARE
     v_direct_mode BOOLEAN;
     v_all_units BOOLEAN;
 BEGIN
+    -- Import-batch publishers hold this singleton at their transaction tail.
+    -- Ordinary producers publish immediately. Lock before taking a drain snapshot
+    -- so a committed append cannot lose its pending bit during flag clearing.
+    PERFORM 1 FROM worker.base_change_log_has_pending FOR UPDATE;
+
     v_direct_mode :=
         p_payload ? 'establishment_id_ranges'
         OR p_payload ? 'legal_unit_id_ranges'

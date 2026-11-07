@@ -5,6 +5,7 @@ CREATE OR REPLACE FUNCTION admin.import_job_process_one_batch(job import_job, p_
 AS $function$
 DECLARE
     v_rows_processed integer;
+    v_previous_wakeup_state jsonb;
     error_message text;
     error_context text;
 BEGIN
@@ -19,6 +20,7 @@ BEGIN
     END IF;
 
     BEGIN
+        v_previous_wakeup_state := worker.begin_deferred_base_change_wakeup();
         CALL admin.import_job_process_batch(job, p_batch_seq);
         EXECUTE format($SQL$
             UPDATE public.%1$I SET state = 'processed'
@@ -28,6 +30,7 @@ BEGIN
         -- Keep this atomic increment at the transaction tail so progress remains live without
         -- holding the shared job row throughout temporal_merge or its supporting queries.
         UPDATE public.import_job SET imported_rows = imported_rows + v_rows_processed WHERE id = job.id;
+        PERFORM worker.end_deferred_base_change_wakeup(v_previous_wakeup_state);
     EXCEPTION
         WHEN deadlock_detected OR serialization_failure THEN
             RAISE;

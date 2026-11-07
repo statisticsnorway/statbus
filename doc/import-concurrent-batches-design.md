@@ -2,9 +2,11 @@
 
 Status: implemented on local branch `statbus-591-import-speed`, not released. Whole-slot grouping passed
 127 shared and two isolated fast tests. Concurrent scheduling passed its private SQL regression and a
-small simultaneous-connection parity probe. A graph extension of that probe found a chosen-root identity
-difference after concurrent new legal-unit allocation. Full-suite and real-worker BRREG measurements are
-pending, and unrestricted legal-unit concurrency is not yet an exact-output-equivalent release candidate.
+small simultaneous-connection parity probe. Actual Crystal-worker BRREG selection measurements now show
+repeated gains after batch-tail wakeup publication, with exact domain and history consistency checks.
+A graph extension found a chosen-root identity difference after concurrent new legal-unit allocation.
+The final full suite and full-register measurements remain pending, and unrestricted legal-unit
+concurrency is not yet an exact-output-equivalent release candidate.
 Evidence: `tmp/journal.md`, `tmp/591/`, `tmp/rune-measure/A/import-tasks.out`.
 
 ## Where the time goes (rune run A, rc.18, full BRREG)
@@ -98,6 +100,14 @@ after-procedure records the failed job and row diagnostics outside the worker's 
 failed state survives rollback and propagates through parent fan-in. Completed siblings may remain
 committed, as with earlier serial batches. Holistic steps cannot run after a failed fan-in.
 
+Change-log appends and integrity checks stay immediate. A transaction-local batch scope defers only
+analytics wakeup publication until the same transaction's tail. Main-log, region and specialized
+relationship/root producers retain their own guards and request publication through one helper.
+Nested scopes propagate dirty requests, while rollback restores the caller state and removes the
+batch's domain, log, counter and notification effects. Ordinary writes still publish immediately.
+Every publisher unconditionally locks the durable pending row. The collector acquires that lock before
+its drain snapshot, so its flag clear cannot overtake a committed publisher and erase the witness.
+
 ### Open compatibility boundary: ambiguous power-group roots
 
 `import.process_power_group_link` chooses the smallest natural-root legal-unit ID for a multi-root group,
@@ -132,6 +142,9 @@ identity parity against the pre-591 release.
 - SQL378 asserts exact memberships and levels for a cycle with a lower-ID terminal tail, a previously
   valid cycle, a natural-root chain and a multi-root component. It verifies bounded root validity,
   influencing-member eligibility, preserved custom overrides and stable group identities on replay.
+- SQL377 asserts scoped publication, nested dirty-state restoration, rollback, ordinary writes and
+  no-op behavior. It exercises both specialized trigger guards, including unconditional DELETE
+  scheduling, and exact real region/location unit IDs and validity ranges.
 - `tmp/591/concurrent-acceptance.py` uses simultaneous PostgreSQL connections on identical private inputs:
   400 new legal units and 800 new formal establishments. All nine imported domain tables match the
   original serial function after generated-ID and audit-timestamp normalization, including parent links,
@@ -175,5 +188,47 @@ because it is the crash witness for the unlogged change log.
 Evidence: `tmp/591/selection-v2-results.json`, per-run row snapshots and 0.2-second lock samples, and
 `tmp/591/selection-v2-n4-live-blockers.txt`. Sampled whole-DB-container memory peaked between 5.75 and
 6.02 GiB. That includes shared buffers and cached data from other retained databases, not an isolated
-per-run memory footprint. Runs used a fixed order. Deferred-wakeup verification, the final full regression
-suite, full-download comparisons and Norway acceptance remain before choosing production concurrency.
+per-run memory footprint. Runs used a fixed order. The next section records deferred-wakeup verification.
+The final full regression suite, full-download comparisons and Norway acceptance remain before choosing
+production concurrency.
+
+### Real Crystal worker: validated batch-tail wakeup prototype
+
+The same selection files were measured twice on fresh private databases, reversing the run order in
+the second pair. The serial reference uses its original processing phase and receives no wakeup
+prototype. Both sides use this branch's whole-slot packing and power-group processing fixes.
+
+| Pair and execution order | Serial worker wall | Four-way worker wall | Serial import span | Four-way import span |
+|---|---:|---:|---:|---:|
+| Serial, then four-way | 84.899 s | 73.124 s | 73.087 s | 46.348 s |
+| Four-way, then serial | 117.041 s | 92.566 s | 102.785 s | 66.357 s |
+
+Within these pairs, import completion was 35-37% shorter and total worker time 14-21% shorter. Absolute
+times varied substantially on the shared host, so these are local prototype observations, not a
+production estimate. Four establishment leaves were active together. The selection still has only
+one legal-unit batch and no ambiguous root records, so it does not establish parallel legal-unit
+allocation compatibility. The queue default remains one.
+
+All twelve normalized domain tables match exactly across the four runs, including parent links,
+relationship rows and every retained root field. Exact processed/error counters agree and history
+checks A/B/C pass in every run. Inputs contain the same one establishment error. Sampled whole shared
+database-container memory was approximately 6.0-6.6 GiB, including other databases' buffers/cache.
+
+Independent two-connection acceptance pauses the collector after its DELETE, then publishes another
+change through deferred import, ordinary main-log and ordinary region paths. The repaired protocol
+retains the exact remaining IDs, a TRUE durable pending witness and one pending collector, then
+collects exactly those IDs. Both writers can reach post-domain-write barriers before either commits.
+Rollback emits no domain/log/task/notification effects. The legacy region publisher fails that same
+forced race, demonstrating why every producer participates in the new protocol.
+
+Evidence: `tmp/591/wakeup-selection-v1-results.json`,
+`tmp/591/wakeup-selection-v2-reversed-results.json`, the per-run rows and lock samples,
+`tmp/591/wakeup-selection-inputs.sha256`, and
+`tmp/591/deferred-change-wakeup-acceptance-w20261107_1757frozen-after.json`.
+The seven frozen SQL files and hashes are in `tmp/591/wakeup-frozen-20261107-1756/`.
+Private migration up/down/up restores the original six definitions and metadata exactly and reproduces
+the actual-worker prototype bodies (`tmp/591/wakeup-migration-roundtrip.log`).
+
+Startup recovery after an unclean PostgreSQL stop can separately lose unlogged rows while a range-less
+collector is queued. Rabbit owns that pre-existing recovery defect as STATBUS-589. The publication
+interleaving repair does not establish host-crash recovery, full Norway performance or release readiness.
