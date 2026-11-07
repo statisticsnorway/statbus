@@ -29,14 +29,19 @@ type exportedTemplate struct {
 					Type       string   `yaml:"type"`
 					Parameters []string `yaml:"parameters"`
 				} `yaml:"preprocessing"`
+				Triggers []templateTrigger `yaml:"triggers"`
 			} `yaml:"items"`
-			Triggers []struct {
-				Name       string `yaml:"name"`
-				Expression string `yaml:"expression"`
-				Priority   string `yaml:"priority"`
-			} `yaml:"triggers"`
+			// Zabbix 7 refuses triggers here ("unexpected tag triggers",
+			// STATBUS-541 AC6 import): a trigger on one item lives in that item.
+			TemplateLevelTriggers []templateTrigger `yaml:"triggers"`
 		} `yaml:"templates"`
 	} `yaml:"zabbix_export"`
+}
+
+type templateTrigger struct {
+	Name       string `yaml:"name"`
+	Expression string `yaml:"expression"`
+	Priority   string `yaml:"priority"`
 }
 
 func TestZabbixTemplateParsesAsZabbix7Export(t *testing.T) {
@@ -100,20 +105,33 @@ func TestZabbixTemplateParsesAsZabbix7Export(t *testing.T) {
 		t.Fatalf("dependent items = %d, want %d", dependents, 2+len(checksSeen))
 	}
 
-	if len(tmpl.Triggers) == 0 {
+	if len(tmpl.TemplateLevelTriggers) != 0 {
+		t.Fatalf("%d triggers at template level; Zabbix 7 import refuses them there", len(tmpl.TemplateLevelTriggers))
+	}
+	triggersByItem := map[string][]templateTrigger{}
+	for _, item := range tmpl.Items {
+		for _, trigger := range item.Triggers {
+			if !strings.Contains(trigger.Expression, "/StatBus/"+item.Key+")") {
+				t.Errorf("trigger %q under item %q refers to another item: %s", trigger.Name, item.Key, trigger.Expression)
+			}
+			triggersByItem[item.Key] = append(triggersByItem[item.Key], trigger)
+		}
+	}
+	if len(triggersByItem) == 0 {
 		t.Fatal("no triggers")
 	}
 	var hasStatusTrigger, hasStaleTrigger bool
-	for _, trigger := range tmpl.Triggers {
-		if strings.Contains(trigger.Expression, "statbus.status") {
-			hasStatusTrigger = true
-		}
-		if strings.Contains(trigger.Expression, "statbus.checked_at_unixtime") &&
-			strings.Contains(trigger.Expression, ">300") {
-			hasStaleTrigger = true
-		}
-		if trigger.Priority == "" {
-			t.Errorf("trigger %q has no priority", trigger.Name)
+	for key, triggers := range triggersByItem {
+		for _, trigger := range triggers {
+			if key == "statbus.status" {
+				hasStatusTrigger = true
+			}
+			if key == "statbus.checked_at_unixtime" && strings.Contains(trigger.Expression, ">300") {
+				hasStaleTrigger = true
+			}
+			if trigger.Priority == "" {
+				t.Errorf("trigger %q has no priority", trigger.Name)
+			}
 		}
 	}
 	if !hasStatusTrigger {
