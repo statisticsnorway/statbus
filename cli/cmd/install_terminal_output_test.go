@@ -76,6 +76,7 @@ func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
 		"HTTPS is not working yet: https://statbus-no-public-dns.invalid answered with HTTP status 500",
 		"HTTPS is not working yet: https://statbus-manual.statbus-test.local did not answer; statbus-manual.statbus-test.local is not a public name, so no automatic certificate can be issued for it",
 		"HTTPS is not working yet: https://statbus.example.org did not answer; public DNS does not send statbus.example.org to this server, so no automatic certificate can be issued yet",
+		"Install your certificate with: cd ~/statbus && ./sb cert install <file>",
 		"Waiting up to 1 minute for https://statbus.example.org to get its automatic certificate ...",
 	} {
 		input.WriteString(line + "\n")
