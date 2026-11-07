@@ -197,16 +197,11 @@ echo ""
 echo "── waiting for the candidate to reach 'ready' (register → ready) ──"
 wait_for_upgrade_candidate_ready "$VM_NAME" "$HEAD_SHA" "$TICK_WAIT_S"
 
-# STATBUS-579: seed stale operational metadata and an obsolete same-family RC
-# before the real supervised upgrade. Completion must retire that completed RC
-# and run installed-row retention, not just persist the new completed row. The
-# fixture is confined to this disposable guest and never changes domain data.
-LEDGER_FIXTURE_SHA="5790000000000000000000000000000000000001"
+# STATBUS-579: seed stale operational metadata before the real supervised
+# upgrade. Its completed row and retention plan come from the product's genuine
+# register/schedule/dispatch path. Same-family completed-RC retirement requires
+# a real prior RC installation, as exercised by the Norway candidate hop.
 VM_EXEC bash -c "cd ~/statbus && ./sb psql -v ON_ERROR_STOP=1 -c \"INSERT INTO public.system_info(key,value) VALUES ('install_last_error','579 stale failure'),('install_last_error_at','579 stale timestamp'),('install_last_bundle_path','579 stale bundle') ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value;\""
-if [[ "$INSTALL_TARGET_TAG" = *-rc.* ]]; then
-    LEDGER_FIXTURE_VERSION="${INSTALL_TARGET_TAG%-rc.*}-rc.00"
-    VM_EXEC bash -c "cd ~/statbus && ./sb psql -v ON_ERROR_STOP=1 -c \"INSERT INTO public.upgrade(commit_sha,commit_version,commit_tags,release_status,summary,state,committed_at,started_at,completed_at,log_relative_file_path) VALUES ('$LEDGER_FIXTURE_SHA','$LEDGER_FIXTURE_VERSION',ARRAY['$LEDGER_FIXTURE_VERSION'],'prerelease','579 obsolete completed RC fixture','completed',now()-interval '30 days',now()-interval '29 days',now()-interval '29 days','579-obsolete-rc.log');\""
-fi
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 5 — SCHEDULE the ready candidate (./sb upgrade schedule)
@@ -325,7 +320,7 @@ echo ""
 echo "── completed ledger finishing (STATBUS-579) ──"
 LEDGER_READY=0
 for _ in $(seq 1 30); do
-    LEDGER_STATE=$(VM_EXEC bash -c "cd ~/statbus && ./sb psql -v ON_ERROR_STOP=1 -tA -c \"SELECT CASE WHEN EXISTS(SELECT 1 FROM public.upgrade WHERE commit_sha='$HEAD_SHA' AND state='completed') AND (SELECT count(*) FROM public.system_info WHERE key IN ('install_last_error','install_last_error_at','install_last_bundle_path') AND value='')=3 AND NOT EXISTS(SELECT 1 FROM public.upgrade WHERE commit_sha='$LEDGER_FIXTURE_SHA') THEN 'finished' ELSE 'pending' END;\"" | tr -d ' \r\n')
+    LEDGER_STATE=$(VM_EXEC bash -c "cd ~/statbus && ./sb psql -v ON_ERROR_STOP=1 -tA -c \"SELECT CASE WHEN (SELECT count(*) FROM public.upgrade WHERE commit_sha='$HEAD_SHA' AND state='completed')=1 AND (SELECT count(*) FROM public.system_info WHERE key IN ('install_last_error','install_last_error_at','install_last_bundle_path') AND value='')=3 AND (SELECT count(*) FROM public.upgrade_retention_plan('all',(SELECT id FROM public.upgrade WHERE commit_sha='$HEAD_SHA')))=0 THEN 'finished' ELSE 'pending' END;\"" | tr -d ' \r\n')
     if [ "$LEDGER_STATE" = "finished" ]; then
         LEDGER_READY=1
         break
@@ -334,10 +329,10 @@ for _ in $(seq 1 30); do
 done
 if [ "$LEDGER_READY" != 1 ]; then
     echo "✗ completed ledger finishing did not converge: $LEDGER_STATE" >&2
-    VM_EXEC bash -c "cd ~/statbus && ./sb psql -c \"SELECT commit_sha,state,commit_version FROM public.upgrade WHERE commit_sha IN ('$HEAD_SHA','$LEDGER_FIXTURE_SHA'); SELECT key,value FROM public.system_info WHERE key IN ('install_last_error','install_last_error_at','install_last_bundle_path'); SELECT * FROM public.upgrade_retention_plan('all',(SELECT id FROM public.upgrade WHERE commit_sha='$HEAD_SHA'));\"" >&2 || true
+    VM_EXEC bash -c "cd ~/statbus && ./sb psql -c \"SELECT commit_sha,state,commit_version FROM public.upgrade ORDER BY id; SELECT key,value FROM public.system_info WHERE key IN ('install_last_error','install_last_error_at','install_last_bundle_path'); SELECT * FROM public.upgrade_retention_plan('all',(SELECT id FROM public.upgrade WHERE commit_sha='$HEAD_SHA'));\"" >&2 || true
     exit 1
 fi
-echo "  ✓ exact target completed, failure banner cleared, obsolete RC retired and retention settled"
+echo "  ✓ exact target completed, failure banner cleared and product retention plan settled"
 if [ "${HARNESS_ASSERT_DISK_POLICY:-0}" = 1 ]; then
     POLICY=$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get STATBUS_DISK_MIN_GB && ./sb dotenv -f .env.config get STATBUS_DISK_RECOMMENDED_GB')
     [ "$POLICY" = $'20\n40' ] || { echo "disk policy changed across upgrade/fixup: $POLICY" >&2; exit 1; }
