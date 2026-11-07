@@ -23,16 +23,30 @@ func TestMaintenancePathAlignment(t *testing.T) {
 	containerPath := maintenanceFlagContainerPath() // /statbus-maintenance/active
 
 	// 1. Both Caddy templates' @maintenance matcher must check EXACTLY the
-	//    in-container path the writer targets through the mount.
+	//    in-container path the writer targets through the mount: the file
+	//    matcher's own root is the mount target and it tries the flag name.
+	//    A bare `file /statbus-maintenance/active` resolves against the site
+	//    root (/srv) and never matches (STATBUS-588); real Caddy proves the
+	//    behaviour in test/caddy-maintenance-route-test.sh.
 	for _, rel := range []string{
 		"caddy/templates/standalone.caddyfile.tmpl",
 		"caddy/templates/private.caddyfile.tmpl",
 	} {
 		body := readRepoFile(t, repoRoot, rel)
-		want := "file " + containerPath
-		if !strings.Contains(body, want) {
-			t.Errorf("%s: @maintenance matcher must contain %q (writer↔template split — STATBUS-089); the writer targets host %s",
-				rel, want, maintenanceFlagHostPath())
+		start := strings.Index(body, "@maintenance {")
+		if start < 0 {
+			t.Errorf("%s: no @maintenance matcher", rel)
+			continue
+		}
+		block := body[start:]
+		if end := strings.Index(block, "handle @maintenance"); end > 0 {
+			block = block[:end]
+		}
+		for _, want := range []string{"root " + maintenanceMountTarget, "try_files /" + maintenanceFlagName} {
+			if !strings.Contains(block, want) {
+				t.Errorf("%s: @maintenance file matcher must contain %q so it checks %s (writer↔template split — STATBUS-089/588); the writer targets host %s",
+					rel, want, containerPath, maintenanceFlagHostPath())
+			}
 		}
 	}
 
