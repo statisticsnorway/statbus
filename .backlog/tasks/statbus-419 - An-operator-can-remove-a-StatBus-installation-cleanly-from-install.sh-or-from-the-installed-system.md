@@ -3,10 +3,10 @@ id: STATBUS-419
 title: >-
   An operator can remove a StatBus installation cleanly, from install.sh or from
   the installed system
-status: In Progress
+status: Done
 assignee: []
 created_date: 2026-09-25 13:08
-updated_date: '2026-11-06T16:48:00Z'
+updated_date: '2026-11-07T11:21:00Z'
 labels:
   - installer
 dependencies: []
@@ -51,9 +51,9 @@ Removal is destructive, so the defaults protect what cannot be recreated:
 - [x] #3 On a real box, install, uninstall, and a fresh install on the same box all succeed (`6-uninstall-reinstall.sh`, rc.17 LXD PASS)
 - [x] #4 `doc/DEPLOYMENT.md` documents both entry points and the hosted URL
 - [x] #5 [Owner] Decide whether the uninstaller must print the list of what it will delete before asking for confirmation, and record it in Implementation Notes. No: check this and set Done. Yes: add that listing as a new criterion.
-- [ ] #6 Owner decision 2026-11-02: a file StatBus creates lives in one place. While installed, users and credentials live only inside ~/statbus (.users.yml, .env.credentials); install moves a kept ~/statbus.users.yml and ~/statbus.env.credentials into the checkout (no second copy in the home). Uninstall asks 'Keep the users? [Y/n]' and 'Keep the credentials? [Y/n]'; a kept file is moved out to ~/statbus.users.yml or ~/statbus.env.credentials (mode 0600), and ~/statbus is always removed completely. uninstall.sh and ./sb uninstall behave the same; a test covers install, uninstall with both kept, and a fresh install that picks both up
-- [ ] #7 uninstall.sh run after sudo -iu statbus stops the user upgrader: it supplies XDG_RUNTIME_DIR=/run/user/<uid> when unset and that directory belongs to the user (observed failing on the manual box 2026-11-02 with v2026.11.0)
-- [ ] #8 Uninstall removes what the install created beside the checkout: ~/statbus-maintenance always, ~/statbus-backups (pre-upgrade backups) together with the database dumps; the plan lists both, or 'Keep: ~/statbus-backups' when the dumps are kept (observed left behind on the manual box 2026-11-03 with rc.04)
+- [x] #6 Owner decision 2026-11-02: a file StatBus creates lives in one place. While installed, users and credentials live only inside ~/statbus (.users.yml, .env.credentials); install moves a kept ~/statbus.users.yml and ~/statbus.env.credentials into the checkout (no second copy in the home). Uninstall asks 'Keep the users? [Y/n]' and 'Keep the credentials? [Y/n]'; a kept file is moved out to ~/statbus.users.yml or ~/statbus.env.credentials (mode 0600), and ~/statbus is always removed completely. uninstall.sh and ./sb uninstall behave the same; a test covers install, uninstall with both kept, and a fresh install that picks both up
+- [x] #7 uninstall.sh run after sudo -iu statbus stops the user upgrader: it supplies XDG_RUNTIME_DIR=/run/user/<uid> when unset and that directory belongs to the user (observed failing on the manual box 2026-11-02 with v2026.11.0)
+- [x] #8 Uninstall removes what the install created beside the checkout: ~/statbus-maintenance always, ~/statbus-backups (pre-upgrade backups) together with the database dumps; the plan lists both, or 'Keep: ~/statbus-backups' when the dumps are kept (observed left behind on the manual box 2026-11-03 with rc.04)
 - [x] #9 Kept database dumps live outside the checkout, like users and credentials (owner decision 2026-11-05). Uninstall asks about dumps and backups only when ~/statbus/dbdumps holds a dump or ~/statbus-backups holds a backup, and names what it found; with nothing to keep it asks nothing and removes the empty folders. Kept dumps move to ~/statbus.dbdumps/ (never overwriting a different file), so ~/statbus is removed completely
 - [x] #10 A fresh install moves ~/statbus.dbdumps/ back into ~/statbus/dbdumps/ and ends with a hint naming the restore command for the kept dumps; it never restores by itself. The install never deletes files it did not create: a kept ~/statbus/dbdumps left by an older uninstall is moved out first instead of being removed with a failed clone (observed: statbus_git_clone removed any ~/statbus without .git, deleting kept dumps, since v2026.09.0)
 <!-- AC:END -->
@@ -101,4 +101,6 @@ AC9/AC10 (2026-11-06), test first:
 AC8 is refined by the owner decision of 2026-11-05 (backup = daily pg_dump, upgrade snapshot = ~/statbus-backups): the upgrade snapshots are always removed, never kept with the backups, so the plan no longer prints 'Keep: ~/statbus-backups'. TestUninstallRemovesTheInstallsHomeFolders now asserts that in both cases.
 
 rc.15 gate GREEN 2026-11-06 (v2026.11.1-rc.15 at 91d060e64; Orchestrator 42246017808: Smoke 42246222921, Hardening, Fast Tests, Deploy to dev 42248010572, LXD Fork Fleet 42248246593, Upgrade Arc Harness 42248399837). 6-uninstall-reinstall PASS in the LXD fleet with the kept-backup flow.
+
+rc.18 manual box 2026-11-07, logs tmp/manual-rc18-setup-evidence.log and tmp/manual-rc18-install-evidence.log (from tmp/statbus-manual-session.log). AC6: uninstall (keep users, credentials, the 1 database backup: defaults) moved /home/statbus/statbus/.users.yml -> ~/statbus.users.yml, .env.credentials -> ~/statbus.env.credentials, dbdumps/un_20261107_105010.pg_dump -> ~/statbus.dbdumps/ (mode 0600) and removed ~/statbus completely; the reinstall moved all three back ('Moved ... (one copy)', 'Moved the 1 kept backup ...'), created the administrator from ~/statbus/.users.yml and ended with the restore hint 'cd ~/statbus && ./sb db restore un_20261107_105010.pg_dump'. A typed non-DELETE answer cancelled the first run ('Removal cancelled.'). AC7: statbus was reached with sudo -iu statbus (guide step 5); the uninstall log shows 'Removed .../default.target.wants/statbus-upgrader@statbus.service' and every container stopped; TestUninstall...XDG (uninstall_test.go:1343) covers the missing XDG_RUNTIME_DIR. AC8: the plan listed 'Path (recursively): /home/statbus/statbus-maintenance' and '/home/statbus/statbus-upgrade-snapshots', removed with the checkout (the reinstall recreated them). Owner: the install moving kept files back without asking is sensible; no extra prompt.
 <!-- SECTION:NOTES:END -->

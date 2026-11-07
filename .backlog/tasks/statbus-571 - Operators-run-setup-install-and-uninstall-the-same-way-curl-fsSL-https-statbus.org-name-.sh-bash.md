@@ -3,10 +3,10 @@ id: STATBUS-571
 title: >-
   Operators run setup, install and uninstall the same way: curl -fsSL
   https://statbus.org/<name>.sh | bash
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-04T10:27:00Z'
-updated_date: '2026-11-06T17:21:00Z'
+updated_date: '2026-11-07T11:21:00Z'
 labels:
   - installer
   - setup
@@ -34,7 +34,7 @@ Found 2026-11-04: `curl -fsSL https://statbus.org/setup.sh | bash` does nothing 
 - [x] #2 Each script cut short at any point runs nothing: bash exits 2 with no output from the script
 - [x] #3 setup run piped without a terminal and without --non-interactive refuses, naming --non-interactive and its config file, instead of reading answers from the pipe
 - [x] #4 README, DEPLOYMENT, setup-ubuntu-lts.md and the manual-box guide show only the piped form, statbus.org for stable and statbus.org/rc/ for candidates
-- [ ] #5 [Owner] On the manual box with the next candidate, setup, install and uninstall are each run piped from statbus.org/rc/ and finish normally
+- [x] #5 [Owner] On the manual box with the next candidate, setup, install and uninstall are each run piped from statbus.org/rc/ and finish normally
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -46,4 +46,6 @@ Found 2026-11-04: `curl -fsSL https://statbus.org/setup.sh | bash` does nothing 
 - **AC4:** README, DEPLOYMENT (removal, setup, quick install), setup-ubuntu-lts.md (stable, rc, pinned asset URL; options after bash -s --), hetzner-bootstrap.md, setup's header comment and the manual-box guide show only the piped form. Pinned setup is the release asset URL (first carried by v2026.10.1).
 
 2026-11-06 17:20 UTC: the piped form ran on Uganda (curl -fsSL https://statbus.org/rc/setup.sh | bash -s -- --only-stages ...) with v2026.11.1-rc.15 and completed. The stable v2026.11.0 setup did nothing when piped (its main guard predates 684444096), so a piped stable setup works only once this release is stable (tmp/583-piped-setup-stable-vs-rc15.log).
+
+rc.18 manual box 2026-11-07, logs tmp/manual-rc18-setup-evidence.log and tmp/manual-rc18-install-evidence.log (from tmp/statbus-manual-session.log): setup (curl -fsSL https://statbus.org/rc/setup.sh | bash, as root via sudo -i), install (curl ... /rc/install.sh | bash, as statbus) and uninstall (curl ... /rc/uninstall.sh | bash) each ran piped from statbus.org/rc/ at v2026.11.1-rc.18 and finished: setup all 9 stages verified; install 19/19 'Installation complete!' (twice, incl. recovery after Ctrl-C at the administrator email: 'The previous install was interrupted; continuing it'); uninstall 'Removal complete'; reinstall complete.
 <!-- SECTION:NOTES:END -->
