@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/creack/pty"
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
@@ -14,20 +15,15 @@ import (
 // terminal-side file (what the installer reads the password from).
 func openTestTerminal(t *testing.T) *os.File {
 	t.Helper()
-	master, err := os.OpenFile("/dev/ptmx", os.O_RDWR|unix.O_NOCTTY, 0)
+	master, terminal, err := pty.Open()
 	if err != nil {
-		t.Skipf("no pseudo-terminal available: %v", err)
+		t.Fatalf("open pseudo-terminal pair: %v", err)
 	}
 	t.Cleanup(func() { _ = master.Close() })
-	name, err := ptsName(master)
-	if err != nil {
-		t.Skipf("cannot name the pseudo-terminal: %v", err)
-	}
-	terminal, err := os.OpenFile(name, os.O_RDWR|unix.O_NOCTTY, 0)
-	if err != nil {
-		t.Skipf("cannot open %s: %v", name, err)
-	}
 	t.Cleanup(func() { _ = terminal.Close() })
+	if !term.IsTerminal(int(terminal.Fd())) {
+		t.Fatal("pseudo-terminal terminal side is not a terminal")
+	}
 	return terminal
 }
 

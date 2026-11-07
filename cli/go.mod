@@ -3,6 +3,7 @@ module github.com/statisticsnorway/statbus/cli
 go 1.25.5
 
 require (
+	github.com/creack/pty v1.1.24
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/sys v0.45.0
