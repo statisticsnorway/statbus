@@ -593,10 +593,15 @@ _retry_db_read() {
 
 _snapshot_demo_data_counts_once() {
     local query raw rc=0
+    # statistical_history counts the period totals (hash_partition IS NULL).
+    # Releases before the STATBUS-558 delta tables also stored one row per hash
+    # partition; the delta views give totals only. The totals are the same rows
+    # in both (558 parity), so a snapshot taken before an upgrade across that
+    # change compares equal after it.
     query="SELECT 'statistical_unit=' || (SELECT count(*) FROM public.statistical_unit) ||
     ',legal_unit=' || (SELECT count(*) FROM public.legal_unit) ||
     ',establishment=' || (SELECT count(*) FROM public.establishment) ||
-    ',statistical_history=' || (SELECT count(*) FROM public.statistical_history);"
+    ',statistical_history=' || (SELECT count(*) FROM public.statistical_history WHERE hash_partition IS NULL);"
     raw=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
         "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
         <<< "$query") || rc=$?
@@ -635,12 +640,25 @@ snapshot_demo_data_counts() {
 # we lose everything?" assertion. Acceptable post-recovery shapes
 # include partial loss (one table empty, others populated) — but that
 # would still fail here, surfacing what was lost.
+#
+# statistical_history is derived by the worker. A migration that replaces its
+# storage leaves it empty until the rebuild it schedules has run, so an empty
+# table is judged after worker.tasks drains, as in
+# assert_demo_data_counts_match_snapshot below.
 assert_demo_data_present() {
     local vm_name="$1"
     local snapshot entries entry table count
     local failed=0
 
     snapshot=$(snapshot_demo_data_counts "$vm_name") || return 1
+    if [[ ",$snapshot," == *"=0,"* ]]; then
+        echo "  … a demo-data table reads empty while the worker may be deriving ($snapshot); waiting for worker.tasks to drain"
+        if ! wait_for_worker_quiesce "$vm_name" "${DEMO_WORKER_QUIESCE_MAX_WAIT_S:-300}"; then
+            echo "  ✗ the worker did not drain; judging the last reading"
+        else
+            snapshot=$(snapshot_demo_data_counts "$vm_name") || return 1
+        fi
+    fi
     IFS=',' read -r -a entries <<< "$snapshot"
     for entry in "${entries[@]}"; do
         table=${entry%%=*}
