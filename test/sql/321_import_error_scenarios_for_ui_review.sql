@@ -197,8 +197,13 @@ VALUES
 -- ============================================================================
 \echo '=== Phase 3: Processing imports ==='
 
--- Process all pending import tasks
+-- The persisted error contracts below assert the exact failure message, every
+-- row's errors/warnings and its job linkage. Suppress only the worker call's
+-- incidental warning dump, whose PG_EXCEPTION_CONTEXT follows the call stack.
+SHOW client_min_messages \gset t321_
+SET LOCAL client_min_messages = error;
 CALL worker.process_tasks(p_queue => 'import');
+SET LOCAL client_min_messages = :'t321_client_min_messages';
 
 -- ============================================================================
 -- PHASE 4: DISPLAY RESULTS
@@ -221,7 +226,22 @@ ORDER BY slug;
 \echo ''
 \echo '--- Job 1: LU Analysis Errors (errors_lu_analysis) ---'
 \echo 'Job-level error (if any):'
-SELECT error FROM public.import_job WHERE slug = 'errors_lu_analysis';
+-- Context remains stored for UI diagnostics. Display the user-facing error
+-- object without the implementation-specific PL/pgSQL call stack.
+SELECT error::jsonb - 'context' AS error FROM public.import_job WHERE slug = 'errors_lu_analysis';
+
+\echo 'Failed batch rows retain the exact job error and stored diagnostics:'
+SELECT count(*) AS failed_rows,
+       bool_and((d.state = 'error'
+           AND d.errors->>'process_batch_error' = j.error::jsonb->>'error_in_processing_batch') IS TRUE) AS linked_batch_error,
+       bool_and((jsonb_typeof(d.errors->'context') = 'string'
+           AND length(d.errors->>'context') > 0) IS TRUE) AS row_diagnostics_available,
+       (jsonb_typeof(j.error::jsonb->'context') = 'string'
+           AND length(j.error::jsonb->>'context') > 0) IS TRUE AS job_diagnostics_available
+FROM public.errors_lu_analysis_data AS d
+CROSS JOIN public.import_job AS j
+WHERE j.slug = 'errors_lu_analysis'
+GROUP BY j.error;
 
 \echo 'All rows (showing state, action, errors, warnings):'
 SELECT 
@@ -230,7 +250,7 @@ SELECT
     LEFT(name_raw, 30) as name,
     state,
     action,
-    CASE WHEN errors IS NOT NULL AND errors != '{}' THEN errors ELSE NULL END as errors,
+    NULLIF(errors - 'context', '{}'::jsonb) as errors,
     CASE WHEN warnings IS NOT NULL AND warnings != '{}' THEN warnings ELSE NULL END as warnings
 FROM public.errors_lu_analysis_data
 ORDER BY row_id;
@@ -243,7 +263,7 @@ SELECT
     name_raw as name,
     state,
     action,
-    errors,
+    errors - 'context' AS errors,
     warnings
 FROM public.errors_es_formal_data
 ORDER BY row_id;
@@ -256,7 +276,7 @@ SELECT
     name_raw as name,
     state,
     action,
-    errors,
+    errors - 'context' AS errors,
     warnings
 FROM public.errors_lu_missing_ident_data
 ORDER BY row_id;
