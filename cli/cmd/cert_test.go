@@ -1236,7 +1236,7 @@ func TestCertHelp_ContainsExamples(t *testing.T) {
 		findInLong []string
 	}{
 		{"cert", certCmd.Long, certCmd.Example,
-			[]string{"AUTOMATIC", "CUSTOM", "A national PKI typically issues a PFX file, installed with:", "./sb cert show"}},
+			[]string{"AUTOMATIC", "CUSTOM", "A certificate exported from Windows is usually a PFX file, installed with:", "./sb cert show"}},
 		{"show", certShowCmd.Long, certShowCmd.Example,
 			[]string{"Source", "Issuer", "Subject", "SANs", "SHA-256"}},
 		{"install", certInstallCmd.Long, certInstallCmd.Example,
