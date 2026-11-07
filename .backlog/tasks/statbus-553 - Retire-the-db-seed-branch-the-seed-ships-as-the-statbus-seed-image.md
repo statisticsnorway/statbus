@@ -4,7 +4,7 @@ title: 'Retire the db-seed branch: the seed ships as the statbus-seed image'
 status: In Progress
 assignee: []
 created_date: '2026-10-30T23:21:00Z'
-updated_date: '2026-11-02T15:17:00Z'
+updated_date: '2026-11-07T16:39:00Z'
 labels: []
 dependencies: []
 type: chore
@@ -47,4 +47,6 @@ CI: Go Test 41150713984 success on 14ecf9e42. rabbit confirmed: goes into rc.04;
 rc.04 failed its gate (STATBUS-382, unrelated). 14ecf9e42 is in v2026.10.6-rc.05 (tag at b6164e846). AC #3 waits for the stable release built from that line to be installed on every box.
 
 2026-11-02 owner: parked until the next stable release has propagated to every box; then delete origin/db-seed, the local branch and the statbus-db-seed worktree (AC 3, 4).
+
+2026-11-07: v2026.11.1 stable published (contains 14ecf9e42). dev took rc.22 (same commit); no (rune) upgraded to rc.22 = 3282c0af7 at 16:35 UTC. AC3 waits for gh, et, jo, ua (./cloud.sh install, needs owner OK) and the stable followers (demo, ug, ma, mw) to report v2026.11.1.
 <!-- SECTION:NOTES:END -->

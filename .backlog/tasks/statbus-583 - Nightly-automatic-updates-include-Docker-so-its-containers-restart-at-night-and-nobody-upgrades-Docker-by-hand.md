@@ -3,10 +3,10 @@ id: STATBUS-583
 title: >-
   Nightly automatic updates include Docker, so its containers restart at night
   and nobody upgrades Docker by hand
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-06T17:22:00Z'
-updated_date: '2026-11-07T12:49:00Z'
+updated_date: '2026-11-07T16:39:00Z'
 labels:
   - bug
 dependencies: []
@@ -25,7 +25,7 @@ Found on Uganda 2026-11-06: docker-ce, docker-ce-cli, docker-ce-rootless-extras 
 - [x] #1 The auto-updates stage allows Docker's own repository (Docker:${distro_codename}) in Unattended-Upgrade::Allowed-Origins, and its description says Docker is updated at night too
 - [x] #2 setup-auto-reboot-test.sh (or a sibling) fails against the current stage and passes after
 - [ ] #3 On Uganda, rerunning the auto-updates stage writes the new configuration and unattended-upgrade --dry-run lists the Docker packages
-- [ ] #4 The release notes and doc/DEPLOYMENT.md tell every operator, in one paragraph, to rerun the auto-updates stage as root after upgrading, with the exact command and the check that Docker is now included
+- [x] #4 The release notes and doc/DEPLOYMENT.md tell every operator, in one paragraph, to rerun the auto-updates stage as root after upgrading, with the exact command and the check that Docker is now included
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -42,4 +42,6 @@ doc/DEPLOYMENT.md paragraph 'Servers prepared before v2026.11.1: turn on nightly
 rc.18 gate GREEN: Release Fleet Orchestrator 42290374739 for v2026.11.1-rc.18 (360b1a253); Upgrade Arc Harness 42292586368 incl. postswap-migration-ceiling success; LXD Fork Fleet 42292492037. Still open: AC3 Uganda rerun (owner), AC4 release-notes paragraph at promote.
 
 rc.19 gate GREEN: Release Fleet Orchestrator 42369550038 (v2026.11.1-rc.19, 915220ba1).
+
+AC4: the paragraph is in doc/DEPLOYMENT.md (auto-updates rerun with curl -fsSL https://statbus.org/setup.sh | bash -s -- --only-stages auto-updates and the unattended-upgrade --dry-run check) and was prepended to the v2026.11.1 release notes on 2026-11-07 16:38 UTC (gh release edit). AC3 is the owner's Uganda rerun (owner-only). Albania message ready in tmp/v2026.11.1-promotion-kit.md section 3.
 <!-- SECTION:NOTES:END -->

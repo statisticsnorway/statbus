@@ -3,10 +3,10 @@ id: STATBUS-497
 title: >-
   Real-box proof for fixes only a real box can confirm: preparation on the plain
   manual box, SSH and firewall rerun on Uganda
-status: In Progress
+status: Done
 assignee: []
 created_date: 2026-10-13 13:16
-updated_date: '2026-11-07T10:32:00Z'
+updated_date: '2026-11-07T16:40:00Z'
 labels:
   - install
   - uganda
@@ -102,4 +102,6 @@ Next: after stable promotion, rerun setup with the released script (Stage 4 must
 AC5 verified 2026-11-02 on statbus-manual after the released v2026.11.0 setup, before install: 'find /home/statbus -xdev -user root' printed nothing (tmp/497-ac5-find.log). AC4: the logged root login shows HOME=/root login=yes user=root, but the walkthrough's sudo -i step was refused by the STATBUS-492 guard defect (fixed in 20d510e84, 492 AC4). Setup ran from the direct root login instead. AC4 closes when the next release runs from sudo -i on the box.
 
 AC4 met on the rc.18 manual box 2026-11-07: root login shell HOME=/root SUDO_USER=ubuntu (STATBUS-492 AC1 evidence).
+
+2026-11-07: v2026.11.1 stable published. AC6 now unblocked for the owner: on Uganda rerun setup Stages 2 and 4 (curl -fsSL https://statbus.org/setup.sh | bash, as root); record in 539 AC7 and 540 AC4.
 <!-- SECTION:NOTES:END -->

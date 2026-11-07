@@ -3,10 +3,10 @@ id: STATBUS-588
 title: >-
   During an upgrade every page answers with the maintenance page, and /monitor
   stays readable
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-07T12:37:00Z'
-updated_date: '2026-11-07T15:10:00Z'
+updated_date: '2026-11-07T16:39:00Z'
 labels:
   - caddy
   - upgrade
@@ -33,7 +33,7 @@ Nothing in the automated runs fetched a page during maintenance or fetched /moni
 <!-- AC:BEGIN -->
 - [x] #1 The standalone and private Caddy templates match the maintenance marker at /statbus-maintenance/active itself (config test renders the templates and runs the matcher form; red before, green after)
 - [x] #2 On a real installation, with the marker present, / and /login answer 503 with the maintenance page and /monitor answers 200; without it they answer normally (observed on the manual box)
-- [ ] #3 The LXD happy-upgrade scenario fetches /monitor before, during and after the upgrade (200) and / during it (503 maintenance page), so every gate proves both
+- [x] #3 The LXD happy-upgrade scenario fetches /monitor before, during and after the upgrade (200) and / during it (503 maintenance page), so every gate proves both
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -42,4 +42,6 @@ Nothing in the automated runs fetched a page during maintenance or fetched /moni
 Red: test/caddy-maintenance-route-test.sh (real caddy:2 on each template's @maintenance block) failed for standalone and private: marker present, / and /login answered 200 (tmp/588-red.log; 726343150). Fix d09f06ced: file { root /statbus-maintenance; try_files /active }. Green 13/13 (tmp/588-green.log); runs in Harness Selftest. AC2 on the rc.18 manual box (tmp/588-box-check.log): with the fixed matcher in the running proxy, no marker: / 307, /login 200, /monitor 200; marker: / 503 (maintenance page), /login 503, /monitor 200 status ok; removed: normal again; original config restored.
 
 rc.21 gate (Upgrade Arc Harness 42380900182) failed on postswap-severed-proxy-refusal and postswap-stopped-proxy-recovery: once Caddy served the maintenance page, the post-swap self-heal completion in resumeNewSb exposed that it never removed ~/statbus-maintenance/active. Install's advertised-site check got 503. Red test 4eadb18c9 (TestPostSwapSelfHealCompletionRequiresCleanFinishing), fix 5a119f49e. rc.22 cut in progress.
+
+AC3 proven: rc.22 Test Smoke 42386429515 (0-happy-upgrade in LXD): "/monitor serves the health reading before/during maintenance/after the upgrade (HTTP 503, status critical ... no backups yet)" and "maintenance page served while the marker is present; /monitor serves the reading; site back after". /monitor answers 503 on the fresh harness box because it honestly reads critical (no backups, 7-day CA); the assert accepts 200 or 503 with the JSON. rc.22 gate green (Orchestrator 42386321497), arcs 33/33 including the two postswap-*-proxy arcs fixed by 5a119f49e. Released in v2026.11.1.
 <!-- SECTION:NOTES:END -->

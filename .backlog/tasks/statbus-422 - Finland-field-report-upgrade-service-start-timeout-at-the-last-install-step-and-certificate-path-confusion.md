@@ -3,10 +3,10 @@ id: STATBUS-422
 title: >-
   Finland field report 2026-09-25: each finding fixed, proven or handed to its
   owner
-status: In Progress
+status: Done
 assignee: []
 created_date: 2026-09-27 10:07
-updated_date: '2026-11-07T11:21:00Z'
+updated_date: '2026-11-07T16:40:00Z'
 labels:
   - installer
 dependencies: []
@@ -114,4 +114,6 @@ AC4 partial evidence (an upgraded box, not a fresh install): after rc.03 dev Dep
 - **2026-11-04, rc.07 box run -> `f9d7f2d8f` (rc.08):** home search found nothing, the operator then ran manual-box cert (PFX into ~/Documents/certificate-from-it) and answered '.' three times; a typed folder was only inspected directly, so the subfolder was never searched. Now a typed folder whose certificates sit in subfolders is searched like the home and offered in the same one pick (pickInstallCert shared with the home search). TestInstallCertPathTypedFolderSearchesBelow reproduces the sequence: red (tmp/cert-typed-folder-red.log: produced []), green (tmp/cert-typed-folder-green.log); all Cert|Picker tests green.
 
 rc.18 manual box 2026-11-07, logs tmp/manual-rc18-setup-evidence.log and tmp/manual-rc18-install-evidence.log (from tmp/statbus-manual-session.log): the owner tried the certificate picker on the plain manual box with rc.18 (the AC6 precondition). Findings fixed and committed for rc.19: three unusable paths now ask 'Do you have a certificate to install now?' again (996b265e1); no to the one found certificate asks for another file or folder (01bd181cf red, f49d10351 green); an expired, not-yet-valid or other-name certificate warns and asks 'Use it anyway?' (0159f7364, aec3bc008 red, b3a8bf399 green); the footer names ./sb cert install when no automatic certificate can come (93399b06d, 5520f129f red, 4d977ceb4 green); cert help names no customer country and says a Windows export is usually a PFX (8a1545301..d090998ba). A PFX copied in mid-run was found, opened with its password, covered the site, and the install completed with HTTPS answering. AC6 remains: send Ville the instruction once the stable release carries these.
+
+2026-11-07: v2026.11.1 stable published (3282c0af7, rc.22). Message for Ville drafted in statbus_test tmp/ville-v2026.11.1-message.md (setup.sh as root, install.sh as statbus, certificate picker, ./sb cert install fallback). AC6 is owner-only: owner sends it; record the sent message here.
 <!-- SECTION:NOTES:END -->

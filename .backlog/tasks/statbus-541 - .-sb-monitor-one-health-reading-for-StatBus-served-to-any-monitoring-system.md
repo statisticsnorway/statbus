@@ -1,10 +1,10 @@
 ---
 id: STATBUS-541
 title: './sb monitor: one health reading for StatBus, served to any monitoring system'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-30T11:50:00Z'
-updated_date: '2026-11-07T12:49:00Z'
+updated_date: '2026-11-07T16:39:00Z'
 labels:
   - monitoring
   - operations
@@ -47,7 +47,7 @@ Out of scope: Nagios template (the plugin contract is built in), Prometheus, ema
 - [x] #5 The public JSON contains no paths, addresses, emails, user names or log text (a test asserts the allowed fields and detail phrases)
 - [x] #6 ./sb monitor template zabbix prints a template that imports into Zabbix 7 without errors
 - [x] #7 ./sb monitor template uptime prints the /monitor URL for this site and the expected HTTP status
-- [ ] #8 During an upgrade the reading shows status upgrading (exit 1) and returns to ok afterwards, observed on a real upgrade run
+- [x] #8 During an upgrade the reading shows status upgrading (exit 1) and returns to ok afterwards, observed on a real upgrade run
 - [x] #9 The operator docs carry one paragraph that points at ./sb monitor and its templates
 <!-- AC:END -->
 
@@ -94,4 +94,6 @@ Dev on v2026.10.6-rc.02 (2026-10-30 19:32 UTC): https://dev.statbus.org/monitor 
 AC4 on the rc.18 manual box (tmp/541-box-check.log): /monitor 200 before, 200 during maintenance (marker present), 503 with tmp/monitor.critical, 200 after the marker is removed. The check found that the maintenance page itself was never served (STATBUS-588, fixed d09f06ced).
 
 AC6: a real import into Zabbix 7.0.32 (official images, throwaway compose) first failed twice: 'unexpected tag triggers' at template level, then 'UUIDv4 is expected' (15 of 16 ids). Red tests eb38b2190, d21267d65; fix 9ec00efd2 (triggers under their items, deterministic UUIDv4 ids). Import now OK: StatBus template with 10 items, 4 triggers (tmp/zabbix/import-test-green.log, tmp/zabbix/import-test-script.log). test/monitor/zabbix-import-test.sh runs it in Go Test (86b0ded44).
+
+AC8 observed on Norway (no.statbus.org) upgrading rc.18 -> rc.22 on 2026-11-07: https://no.statbus.org/monitor answered 200 with status "upgrading" from 16:26:27 to 16:35:57 UTC (107 samples every ~5 s, log tmp/no-rc22-monitor.log in statbus_test), then 200 status "ok" version v2026.11.1-rc.22 at 16:36:00. Released in v2026.11.1.
 <!-- SECTION:NOTES:END -->
