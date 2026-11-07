@@ -377,6 +377,7 @@ export default function ImportJobsPage() {
     () => [
       {
         id: "select",
+        size: 40,
         header: ({ table }) => (
           <Checkbox
             checked={
@@ -402,7 +403,7 @@ export default function ImportJobsPage() {
       {
         id: "id",
         accessorKey: "id",
-        minSize: 50,
+        size: 60,
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="ID" />
         ),
@@ -936,6 +937,7 @@ export default function ImportJobsPage() {
       },
       {
         id: "actions",
+        size: 48,
         cell: ({ row, table }) => {
           const job = row.original;
           const handleApproveReject = async (

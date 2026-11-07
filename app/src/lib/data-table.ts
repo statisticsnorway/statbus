@@ -27,12 +27,14 @@ export function getCommonPinningStyles<TData>({
         : isFirstRightPinnedColumn
           ? "4px 0 -4px hsl(var(--border)) inset"
           : undefined
-      : undefined,
+      : isFirstRightPinnedColumn
+        ? "inset 1px 0 0 rgb(228 228 231)"
+        : undefined,
     left: isPinned === "left" ? `${column.getStart("left")}px` : undefined,
     right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
-    opacity: isPinned ? 0.97 : 1,
     position: isPinned ? "sticky" : "relative",
-    background: isPinned ? "hsl(var(--background))" : "hsl(var(--background))",
+    // A pinned cell covers the cells scrolling beneath it, so it is opaque white.
+    background: isPinned ? "white" : undefined,
     width: column.getSize(),
     zIndex: isPinned ? 1 : 0,
   };
