@@ -54,3 +54,24 @@ if assert_demo_data_counts_match_snapshot "$VM_NAME" "$SNAPSHOT" > "$TMP_ROOT/ou
 fi
 grep -q "actual:   $MID_REBUILD" "$TMP_ROOT/out3"
 echo 'PASS: a difference that survives the drain fails'
+
+# 4. Derived history empty right after the upgrade (the migration dropped the
+#    old tables and scheduled the rebuild), filled once the worker drains: pass.
+#    v2026.11.2-rc.01 Test Smoke 42395943541 read statistical_history=0 3 s after
+#    the upgrade completed.
+EMPTY_HISTORY='statistical_unit=126,legal_unit=23,establishment=50,statistical_history=0'
+printf '%s\n%s\n' "$EMPTY_HISTORY" "$SNAPSHOT" > "$TMP_ROOT/readings"
+: > "$TMP_ROOT/quiesce-calls"
+assert_demo_data_present "$VM_NAME" > "$TMP_ROOT/out4"
+grep -q 'all demo-data tables populated' "$TMP_ROOT/out4"
+[ "$(wc -l < "$TMP_ROOT/quiesce-calls" | tr -d ' ')" = 1 ]
+echo 'PASS: an empty derived table is judged after the worker drains'
+
+# 5. Still empty after the drain: the catastrophic-loss indicator fires.
+printf '%s\n%s\n' "$EMPTY_HISTORY" "$EMPTY_HISTORY" > "$TMP_ROOT/readings"
+if assert_demo_data_present "$VM_NAME" > "$TMP_ROOT/out5"; then
+    echo 'FAIL: a table still empty after the drain was accepted' >&2
+    exit 1
+fi
+grep -q 'public.statistical_history has 0 rows' "$TMP_ROOT/out5"
+echo 'PASS: a table still empty after the drain fails'
