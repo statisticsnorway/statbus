@@ -4,7 +4,7 @@ title: './sb monitor: one health reading for StatBus, served to any monitoring s
 status: In Progress
 assignee: []
 created_date: '2026-10-30T11:50:00Z'
-updated_date: '2026-11-07T12:39:00Z'
+updated_date: '2026-11-07T12:49:00Z'
 labels:
   - monitoring
   - operations
@@ -45,7 +45,7 @@ Out of scope: Nagios template (the plugin contract is built in), Prometheus, ema
 - [x] #3 The upgrader writes tmp/monitor.json every 60 s (atomic rename); status reads it by default, reports unknown when it is older than 3 minutes, and runs the checks live with --live or when no reading exists
 - [x] #4 Caddy serves /monitor publicly above the maintenance handler: 200 with the JSON for ok/warning/upgrading, 503 for critical/unknown; verified on a running instance, including during maintenance
 - [x] #5 The public JSON contains no paths, addresses, emails, user names or log text (a test asserts the allowed fields and detail phrases)
-- [ ] #6 ./sb monitor template zabbix prints a template that imports into Zabbix 7 without errors
+- [x] #6 ./sb monitor template zabbix prints a template that imports into Zabbix 7 without errors
 - [x] #7 ./sb monitor template uptime prints the /monitor URL for this site and the expected HTTP status
 - [ ] #8 During an upgrade the reading shows status upgrading (exit 1) and returns to ok afterwards, observed on a real upgrade run
 - [x] #9 The operator docs carry one paragraph that points at ./sb monitor and its templates
@@ -92,4 +92,6 @@ Dev on v2026.10.6-rc.02 (2026-10-30 19:32 UTC): https://dev.statbus.org/monitor 
 2026-10-31 defect found by Go Test 41207728986 at 0eaeb68cb: TestRunMonitorStatus* (cmd) and TestCheckFixtures/backup_* (internal/monitor) failed on 2026-10-31 with no cli change since the last green run 41198731000: backupsCheck measured age with time.Since (wall clock) while the reading's CheckedAt and the fixtures pin now=2026-10-30. Fix 4c39dba2e: backupsCheck takes the reading's now; fixtures use it. Red before (FAIL cli/cmd on the parent), green after (ok cli/cmd, ok internal/monitor).
 
 AC4 on the rc.18 manual box (tmp/541-box-check.log): /monitor 200 before, 200 during maintenance (marker present), 503 with tmp/monitor.critical, 200 after the marker is removed. The check found that the maintenance page itself was never served (STATBUS-588, fixed d09f06ced).
+
+AC6: a real import into Zabbix 7.0.32 (official images, throwaway compose) first failed twice: 'unexpected tag triggers' at template level, then 'UUIDv4 is expected' (15 of 16 ids). Red tests eb38b2190, d21267d65; fix 9ec00efd2 (triggers under their items, deterministic UUIDv4 ids). Import now OK: StatBus template with 10 items, 4 triggers (tmp/zabbix/import-test-green.log, tmp/zabbix/import-test-script.log). test/monitor/zabbix-import-test.sh runs it in Go Test (86b0ded44).
 <!-- SECTION:NOTES:END -->
