@@ -93,25 +93,36 @@ BEGIN
         clusters AS (
             SELECT DISTINCT root_legal_unit_id FROM hierarchy WHERE NOT is_cycle
         ),
-        -- Find existing power_group for each cluster (via legal_relationship base table)
+        -- Find existing power_group for each cluster (via legal_relationship base table):
+        -- a relationship touches the cluster at either end, matched by equality on each end.
         cluster_pg AS (
-            SELECT c.root_legal_unit_id,
-                   (SELECT lr.derived_power_group_id
-                    FROM public.legal_relationship AS lr
-                    JOIN hierarchy AS h ON (lr.influencing_id = h.legal_unit_id OR lr.influenced_id = h.legal_unit_id)
-                        AND lr.valid_range && h.valid_range
-                    WHERE h.root_legal_unit_id = c.root_legal_unit_id
-                      AND lr.derived_power_group_id IS NOT NULL
-                    LIMIT 1) AS existing_power_group_id
+            SELECT c.root_legal_unit_id, min(touch.derived_power_group_id) AS existing_power_group_id
             FROM clusters AS c
+            LEFT JOIN (
+                SELECT h.root_legal_unit_id, lr.derived_power_group_id
+                FROM hierarchy AS h
+                JOIN public.legal_relationship AS lr
+                    ON lr.influencing_id = h.legal_unit_id AND lr.valid_range && h.valid_range
+                WHERE lr.derived_power_group_id IS NOT NULL
+                UNION ALL
+                SELECT h.root_legal_unit_id, lr.derived_power_group_id
+                FROM hierarchy AS h
+                JOIN public.legal_relationship AS lr
+                    ON lr.influenced_id = h.legal_unit_id AND lr.valid_range && h.valid_range
+                WHERE lr.derived_power_group_id IS NOT NULL
+            ) AS touch ON touch.root_legal_unit_id = c.root_legal_unit_id
+            GROUP BY c.root_legal_unit_id
         ),
-        -- Map each data table row to its cluster root
+        -- Map each data table row to its cluster root, through either end of the relationship
         row_clusters AS (
-            SELECT dt.row_id,
-                   h.root_legal_unit_id
-            FROM public.%1$I AS dt
-            JOIN hierarchy AS h ON (dt.influencing_id = h.legal_unit_id OR dt.influenced_id = h.legal_unit_id)
-            WHERE dt.action = 'use'
+            SELECT dt.row_id, min(h.root_legal_unit_id) AS root_legal_unit_id
+            FROM (
+                SELECT dt.row_id, dt.influencing_id AS legal_unit_id FROM public.%1$I AS dt WHERE dt.action = 'use'
+                UNION ALL
+                SELECT dt.row_id, dt.influenced_id FROM public.%1$I AS dt WHERE dt.action = 'use'
+            ) AS dt
+            JOIN hierarchy AS h ON h.legal_unit_id = dt.legal_unit_id
+            GROUP BY dt.row_id
         )
         UPDATE public.%1$I AS dt
         SET cluster_root_legal_unit_id = rc.root_legal_unit_id,
