@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-07T17:14:00Z'
+updated_date: '2026-11-07T17:25:00Z'
 labels:
   - import
   - performance
@@ -66,4 +66,8 @@ Part 1 design notes (hibiscus 2026-11-07, not started, needs owner decisions). R
 
 2026-11-07 17:09: Regression-before-implementation375 committed12b531485. Scheduler5fcf8c4b2 adds clean new-LU/formal-ES fan-out with whole dependency batches, serial job/holistic barriers, replay-safe atomic counters, and failure after-hook outside worker savepoint. Default import concurrency remains1. Original failed-job/completed-wrapper case now yields failed leaf+job+wrapper with zero partial domain writes. Both directions of20261107164600 verified privately, down restores exact live original function and up/down/up matches. Local seed/dev integrated, paired doc/db regenerated without deletions. Named373/374/375 passed the real dev.sh harness. Full fast suite and real Crystal BRREG selection N1/2/4/8 still pending/running. No import-speed branch push or rune mutation.
 Power-group processing1caea283a: remove redundant merge-candidate nonnull filter and use equivalent EXCEPT BFS seeds. Synthetic6kgroup first-load31.535s->4.463s for predicate fix. A29,503-edge BRREG graph replay after predicate fix51.576s->13.863s with EXCEPT seeds, all canonical relationship and444power_root rows identical. This replay uses synthetic LU metadata, not a full production import.374detects old runtime regression, final374+117/118/119/120/366 all6pass. Diagnostics tmp/591/pg-process-journal.md and pg-process-regress-suite/. AC1/AC2 remain unverified on rune, AC3 date choice remains open.
+
+2026-11-07 17:25 local-only prototype: actual Crystal BRREG selection reference completed in174.1s with exact domain snapshots and history checks A/B/C passing, but91.397s was an analysis-to-processing transition, not useful import work. Minimal24k-row rollback fixture reproduced stale upload-time NULL action statistics: original assignment exceeded10s; refreshing action statistics once at the phase boundary passed in0.267s. Committed e25728465 with SQL376 and regenerated definition. Replayed the three unreleased schema migrations on seed/dev after verifying no active imports or batch task history; integrated373/376 PASS (7.356s/0.273s). Fresh real-worker comparison still pending, so174.1s is not accepted as the performance baseline.
+
+A stricter graph parity probe found a real chosen-root identity difference after parallel legal-unit allocation: all nine relationships, power-group memberships, BFS levels and cycle/multi statuses agree at N1/2/4/8, but three ambiguous components choose different logical root tax identifiers at N4/N8. Existing process_power_group_link explicitly picks the minimum legal-unit surrogate ID, so allocation order matters. No root policy or expected output has been changed and no root identity was normalized away. Evidence tmp/591/graph-parity-g20261107_1720-results.json and per-N snapshots. A scratch experiment is testing serial legal units plus concurrent formal establishments as a strict-parity fallback. Unrestricted legal-unit concurrency is not yet an exact-output-equivalent release candidate. No push or rune changes.
 <!-- SECTION:NOTES:END -->
