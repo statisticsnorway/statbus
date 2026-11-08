@@ -791,11 +791,15 @@ _lxd_demo_build() {
     VM_NAME=$saved_vm VM_IP=$saved_ip
     [ "$rc" -eq 0 ] || { lxd_capture_failure "$base"; return "$rc"; }
     _lxd_host lxc stop "$base" || return
-    _lxd_host lxc snapshot "$base" checkpoint || return
+    # The checkpoint is the readiness publication observed by demo readers and
+    # reclaim. Write its complete identity first so the snapshot and its forks
+    # inherit the same provenance as the base. Before publication, a failed
+    # builder remains unsnapshotted and follows the bounded ownership reclaim.
     _lxd_host lxc config set "$base" user.statbus.demo_parent "$parent_base" || return
     _lxd_host lxc config set "$base" user.statbus.candidate "$tag" || return
     _lxd_host lxc config set "$base" user.statbus.producer demo || return
     _lxd_host lxc config set "$base" user.statbus.run_id "${GITHUB_RUN_ID:-manual}" || return
+    _lxd_host lxc snapshot "$base" checkpoint || return
     _lxd_mark "demo layer $base/checkpoint built from $parent_base in $(($(date +%s)-start))s"
 }
 # _lxd_fork_from_base <base> <name> <checkpoint-kind> [storage-pool] — the
