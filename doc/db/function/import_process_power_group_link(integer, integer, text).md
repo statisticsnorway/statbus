@@ -282,7 +282,8 @@ BEGIN
     );
     CREATE INDEX ON _natural_roots (comp_id);
 
-    -- Count natural roots per component to classify cycle/multi
+    -- Count natural roots per component to classify cycle/multi.
+    -- Only multi-root and cyclic components need an automatic root choice.
     IF to_regclass('pg_temp._comp_status') IS NOT NULL THEN
         DROP TABLE _comp_status;
     END IF;
@@ -293,23 +294,109 @@ BEGIN
         CASE
             WHEN nr.root_count IS NULL OR nr.root_count = 0 THEN 'cycle'::public.power_group_root_status
             WHEN nr.root_count > 1 THEN 'multi'::public.power_group_root_status
-        END AS derived_root_status,
-        -- Multi: smallest natural root. Cycle: smallest influencing member,
-        -- as required by power_root_validate_root_membership().
-        COALESCE(nr.min_root_lu_id, c.min_influencing_lu_id) AS derived_root_legal_unit_id
-    FROM (
-        SELECT comp.comp_id, min(lr.influencing_id) AS min_influencing_lu_id
-        FROM public.legal_relationship AS lr
-        JOIN _lu_comp AS comp ON comp.lu_id = lr.influencing_id
-        GROUP BY comp.comp_id
-    ) AS c
+        END AS derived_root_status
+    FROM (SELECT DISTINCT comp_id FROM _lu_comp) AS c
     JOIN _cluster_pg AS cpg ON cpg.root_legal_unit_id = c.comp_id
     LEFT JOIN (
-        SELECT comp_id, count(*) AS root_count, min(lu_id) AS min_root_lu_id
+        SELECT comp_id, count(*) AS root_count
         FROM _natural_roots
         GROUP BY comp_id
     ) AS nr ON nr.comp_id = c.comp_id
     WHERE nr.root_count IS NULL OR nr.root_count = 0 OR nr.root_count > 1;
+
+    -- Select within atomic relationship/custom-override periods. Retain the
+    -- previous root while eligible; only a vacancy starts a new business-attribute
+    -- comparison. Later statistics or a stronger newcomer cannot preempt it.
+    IF to_regclass('pg_temp._root_period') IS NOT NULL THEN
+        DROP TABLE _root_period;
+    END IF;
+    CREATE TEMP TABLE _root_period ON COMMIT DROP AS
+    WITH boundary AS (
+        SELECT cs.comp_id, point.on_date
+        FROM _comp_status AS cs
+        JOIN _lu_comp AS c ON c.comp_id = cs.comp_id
+        JOIN public.legal_relationship AS lr ON lr.influencing_id = c.lu_id
+        CROSS JOIN LATERAL (VALUES (lr.valid_from), (lr.valid_until)) AS point(on_date)
+        UNION
+        SELECT cs.comp_id, point.on_date
+        FROM _comp_status AS cs
+        JOIN public.power_root AS pr ON pr.power_group_id = cs.power_group_id
+        CROSS JOIN LATERAL (VALUES (pr.valid_from), (pr.valid_until)) AS point(on_date)
+    ),
+    ordered_boundary AS (
+        SELECT comp_id, on_date AS valid_from,
+               lead(on_date) OVER (PARTITION BY comp_id ORDER BY on_date) AS valid_until
+        FROM boundary
+    ),
+    period AS (
+        SELECT comp_id, valid_from, valid_until,
+               row_number() OVER (PARTITION BY comp_id ORDER BY valid_from) AS period_seq
+        FROM ordered_boundary
+        WHERE valid_until IS NOT NULL
+    ),
+    candidate AS (
+        -- Multi-root components choose among their natural roots. Cycles choose
+        -- among influencing members, so a terminal tail cannot become the root.
+        SELECT cs.comp_id, nr.lu_id
+        FROM _comp_status AS cs
+        JOIN _natural_roots AS nr ON nr.comp_id = cs.comp_id
+        WHERE cs.derived_root_status = 'multi'
+        UNION
+        SELECT cs.comp_id, lr.influencing_id
+        FROM _comp_status AS cs
+        JOIN _lu_comp AS c ON c.comp_id = cs.comp_id
+        JOIN public.legal_relationship AS lr ON lr.influencing_id = c.lu_id
+        WHERE cs.derived_root_status = 'cycle'
+    ),
+    rank_stat AS (
+        SELECT sd.id
+        FROM public.stat_definition AS sd
+        WHERE sd.enabled AND sd.type IN ('int', 'float')
+        ORDER BY sd.priority NULLS LAST, sd.id
+        LIMIT 1
+    ),
+    ranked_candidate AS (
+        SELECT p.comp_id, p.period_seq, ca.lu_id,
+               stat_value.value, unit_name.name, ident.ident
+        FROM period AS p
+        JOIN candidate AS ca ON ca.comp_id = p.comp_id
+        LEFT JOIN LATERAL (
+            SELECT COALESCE(sfu.value_int::double precision, sfu.value_float) AS value
+            FROM public.stat_for_unit AS sfu
+            JOIN rank_stat ON rank_stat.id = sfu.stat_definition_id
+            WHERE sfu.legal_unit_id = ca.lu_id
+              AND sfu.valid_from <= p.valid_from AND p.valid_from < sfu.valid_until
+            LIMIT 1
+        ) AS stat_value ON true
+        LEFT JOIN LATERAL (
+            SELECT lu.name
+            FROM public.legal_unit AS lu
+            WHERE lu.id = ca.lu_id
+              AND lu.valid_from <= p.valid_from AND p.valid_from < lu.valid_until
+            LIMIT 1
+        ) AS unit_name ON true
+        LEFT JOIN LATERAL (
+            SELECT ei.ident
+            FROM public.external_ident AS ei
+            JOIN public.external_ident_type AS eit ON eit.id = ei.type_id
+            WHERE ei.legal_unit_id = ca.lu_id AND ei.ident IS NOT NULL
+            ORDER BY eit.priority NULLS LAST, ei.ident
+            LIMIT 1
+        ) AS ident ON true
+        WHERE EXISTS (
+            SELECT 1 FROM public.legal_relationship AS lr
+            WHERE lr.influencing_id = ca.lu_id
+              AND lr.valid_from <= p.valid_from AND p.valid_from < lr.valid_until
+        )
+    )
+    SELECT p.comp_id, p.period_seq, p.valid_from, p.valid_until,
+           array_agg(rc.lu_id ORDER BY rc.value DESC NULLS LAST,
+                     rc.name NULLS LAST, rc.ident NULLS LAST, rc.lu_id)
+               FILTER (WHERE rc.lu_id IS NOT NULL) AS candidates
+    FROM period AS p
+    LEFT JOIN ranked_candidate AS rc ON rc.comp_id = p.comp_id AND rc.period_seq = p.period_seq
+    GROUP BY p.comp_id, p.period_seq, p.valid_from, p.valid_until;
+    CREATE UNIQUE INDEX ON _root_period (comp_id, period_seq);
 
     IF to_regclass('pg_temp._power_root_source') IS NOT NULL THEN
         DROP TABLE _power_root_source;
@@ -324,28 +411,33 @@ BEGIN
         edit_by_user_id integer
     ) ON COMMIT DROP;
 
-    -- Build power_root source rows from cycle/multi components.
-    -- Use the union of valid_ranges from the component's relationships as the time span.
-    INSERT INTO _power_root_source (power_group_id, derived_root_legal_unit_id, derived_root_status, custom_root_legal_unit_id, valid_range, edit_by_user_id)
-    SELECT
-        cs.power_group_id,
-        cs.derived_root_legal_unit_id,
-        cs.derived_root_status,
-        -- Carry forward existing custom_root if any
-        existing_pr.custom_root_legal_unit_id,
-        lr_range.valid_range,
-        _current_user_id
-    FROM _comp_status AS cs
-    CROSS JOIN LATERAL (
-        -- Get distinct valid_ranges for relationships in this component
-        SELECT DISTINCT lr.valid_range
-        FROM public.legal_relationship AS lr
-        JOIN _lu_comp AS c ON c.lu_id = lr.influencing_id
-        WHERE c.comp_id = cs.comp_id
-    ) AS lr_range
+    -- Business attributes break ties at a vacancy. Keeping the incumbent first
+    -- makes each decision last until that candidate ceases to influence in the
+    -- group. A returning former root does not displace its valid successor.
+    WITH RECURSIVE choice AS (
+        SELECT p.comp_id, p.period_seq, p.valid_from, p.valid_until,
+               p.candidates[1] AS lu_id
+        FROM _root_period AS p
+        WHERE p.period_seq = 1
+        UNION ALL
+        SELECT p.comp_id, p.period_seq, p.valid_from, p.valid_until,
+               CASE WHEN previous.lu_id = ANY(p.candidates) THEN previous.lu_id
+                    ELSE p.candidates[1] END AS lu_id
+        FROM choice AS previous
+        JOIN _root_period AS p ON p.comp_id = previous.comp_id
+          AND p.period_seq = previous.period_seq + 1
+    )
+    INSERT INTO _power_root_source (power_group_id, derived_root_legal_unit_id,
+        derived_root_status, custom_root_legal_unit_id, valid_range, edit_by_user_id)
+    SELECT cs.power_group_id, ch.lu_id, cs.derived_root_status,
+           existing_pr.custom_root_legal_unit_id,
+           daterange(ch.valid_from, ch.valid_until, '[)'), _current_user_id
+    FROM choice AS ch
+    JOIN _comp_status AS cs ON cs.comp_id = ch.comp_id
     LEFT JOIN public.power_root AS existing_pr
-        ON existing_pr.power_group_id = cs.power_group_id
-        AND existing_pr.valid_range && lr_range.valid_range;
+      ON existing_pr.power_group_id = cs.power_group_id
+     AND existing_pr.valid_from <= ch.valid_from AND ch.valid_from < existing_pr.valid_until
+    WHERE ch.lu_id IS NOT NULL;
 
     GET DIAGNOSTICS _row_count = ROW_COUNT;
     RAISE DEBUG '[Job %] process_power_group_link: power_root source rows: % (cycle/multi PGs)', p_job_id, _row_count;
