@@ -14,9 +14,12 @@ Both `samples/norway/brreg/brreg-import-selection.sh` and
 `--year 2024` means `2024-01-01`. An exact date such as
 `--valid-from 2024-02-29` is supplied to the legal-unit, establishment and
 legal-relationship jobs. Selection slugs use that date's year. Download job
-slugs retain their existing format-version names. Selection retains its existing
-`ON CONFLICT DO NOTHING` behavior: rerunning an existing year slug does not
-redate that job. Review existing job validity before reusing a selection slug.
+slugs retain their existing format-version names. With explicit validity, both
+loaders first read all three target job slugs and refuse any existing
+`default_valid_from` mismatch, including NULL. The refusal identifies conflicting
+jobs and occurs before setup, definition changes or uploads. Matching or absent
+jobs may proceed. A failed preflight query also stops the loader before writes.
+Invocations without explicit validity keep their legacy conflict behavior.
 
 Set `USER_EMAIL` to an existing database user. `--help` needs neither an email
 nor database contact. Invalid calendar dates, missing values, duplicate options,

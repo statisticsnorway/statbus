@@ -28,6 +28,9 @@ if [ -n "$BRREG_DATABASE" ]; then
 fi
 sb_psql() { "$WORKSPACE/sb" psql ${DB_ARGS[@]+"${DB_ARGS[@]}"} -v ON_ERROR_STOP=1 "$@"; }
 
+# Refuse explicit date conflicts before setup, definitions or uploads.
+brreg_check_existing_validity downloads
+
 # Verify user exists in auth.users
 if ! sb_psql -t -c "select id from public.user where email = '${USER_EMAIL}'" | grep -q .; then
   echo "Error: No user found with email ${USER_EMAIL}"

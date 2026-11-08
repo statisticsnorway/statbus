@@ -19,7 +19,18 @@ cat >"$TMP/sb" <<'STUB'
 [ -z "${EXPECT_DATABASE:-}" ] || { [ "$1" = psql ] && [ "$2" = -d ] && [ "$3" = "$EXPECT_DATABASE" ]; } || exit 90
 [ -z "${EXPECT_EMAIL:-}" ] || [ "$USER_EMAIL" = "$EXPECT_EMAIL" ] || exit 91
 printf '%s\n' "$@" >>"$CAPTURE"
-cat >/dev/null
+if [[ "${!#}" = *'BRREG explicit validity preflight'* ]]; then
+    printf 'READ_PREFLIGHT\n' >>"$CAPTURE.events"
+    if [ "${PREFLIGHT_ERROR:-0}" = 1 ]; then exit 92; fi
+    printf '%s' "${EXISTING_MISMATCH:-}"
+    exit 0
+fi
+input=$(cat)
+if [[ "${!#}" = *'INSERT INTO public.import_job'* || "${!#}" = *'\copy '* ]] || [ -n "$input" ]; then
+    printf 'WRITE\n' >>"$CAPTURE.events"
+else
+    printf 'READ\n' >>"$CAPTURE.events"
+fi
 echo user-id
 STUB
 cat >"$TMP/bin/ssh" <<'STUB'
@@ -30,13 +41,33 @@ STUB
 chmod +x "$TMP/sb" "$TMP/bin/ssh"
 export PATH="$TMP/bin:$PATH"
 fail() { echo "FAIL: $*" >&2; exit 1; }
-run_loader() { : >"$CAPTURE"; USER_EMAIL=test@example.com bash "$TMP/samples/norway/brreg/brreg-import-$1.sh" "${@:2}" >"$TMP/output" 2>&1; }
+run_loader() { : >"$CAPTURE"; : >"$CAPTURE.events"; USER_EMAIL=test@example.com bash "$TMP/samples/norway/brreg/brreg-import-$1.sh" "${@:2}" >"$TMP/output" 2>&1; }
 assert_job_dates() {
     local actual
     actual=$(awk '/SELECT def.id,/ { getline; getline; gsub(/^[[:space:]]+/, ""); print }' "$CAPTURE")
     [ "$actual" = "$(printf "'%s'::DATE,\n'%s'::DATE,\n'%s'::DATE," "$1" "$1" "$1")" ] || fail "all three job dates: $actual"
 }
 for loader in selection downloads-from-tmp; do
+    for validity in '--valid-from 2024-02-29' '--year 2024'; do
+        # Both explicit interfaces must refuse a conflict before any setup write.
+        # shellcheck disable=SC2086
+        if EXISTING_MISMATCH='import_roller conflict' run_loader "$loader" $validity; then fail "$loader accepted existing date mismatch"; fi
+        [ "$(cat "$CAPTURE.events")" = READ_PREFLIGHT ] || fail "$loader conflict must stop at read-only preflight"
+        grep -q 'existing.*validity' "$TMP/output" || fail 'actionable conflict error'
+        for unit in hovedenhet underenhet roller; do
+            slug=import_${unit}_2025
+            [ "$loader" != selection ] || slug=import_${unit}_2024_selection
+            grep -q "'$slug'" "$CAPTURE" || fail "preflight includes $slug"
+        done
+    done
+    if PREFLIGHT_ERROR=1 run_loader "$loader" --year 2024; then fail 'preflight query failure accepted'; fi
+    [ "$(cat "$CAPTURE.events")" = READ_PREFLIGHT ] || fail 'query failure must stop before writes'
+    EXPECT_DATABASE=fixture run_loader "$loader" --year 2024 --database fixture
+    [ "$(head -1 "$CAPTURE.events")" = READ_PREFLIGHT ] || fail 'preflight must precede all setup operations'
+    grep -q '^WRITE$' "$CAPTURE.events" || fail 'matching/absent dates must continue to setup'
+    EXISTING_MISMATCH='legacy conflicting date' run_loader "$loader"
+    [ "$(head -1 "$CAPTURE.events")" = READ ] || fail 'legacy invocation must keep original read-first behavior'
+    grep -q '^WRITE$' "$CAPTURE.events" || fail 'legacy invocation must proceed unchanged'
     run_loader "$loader" --valid-from 2024-02-29
     assert_job_dates 2024-02-29
     EXPECT_DATABASE=fixture run_loader "$loader" --valid-from 2024-02-29 --database fixture
@@ -63,7 +94,11 @@ for loader in selection downloads-from-tmp; do
     env -u USER_EMAIL bash "$TMP/samples/norway/brreg/brreg-import-$loader.sh" --help >"$TMP/output"
     [ ! -s "$CAPTURE" ] || fail 'help contacted sb'
 done
-run_cloud() { : >"$CAPTURE"; bash "$TMP/cloud.sh" import "$@" >"$TMP/output" 2>&1; }
+run_cloud() { : >"$CAPTURE"; : >"$CAPTURE.events"; bash "$TMP/cloud.sh" import "$@" >"$TMP/output" 2>&1; }
+for variant in selection downloads; do
+    if EXEC_SSH=1 EXISTING_MISMATCH='existing validity conflict' run_cloud no "$variant" test@example.com --year 2024; then fail 'cloud accepted explicit conflict'; fi
+    [ "$(cat "$CAPTURE.events")" = READ_PREFLIGHT ] || fail 'cloud conflict must stop before setup writes'
+done
 EXEC_SSH=1 EXPECT_DATABASE=fixture EXPECT_EMAIL=test@example.com STATBUS_REIMPORT_USER_EMAIL=ignored@example.com run_cloud no selection test@example.com --valid-from 2024-02-29 --database fixture
 assert_job_dates 2024-02-29
 # The SSH shell must preserve email as data, not execute its metacharacters.

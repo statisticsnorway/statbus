@@ -762,7 +762,9 @@ Import syntax is `./cloud.sh import <target> <selection|downloads> [email]
 locally before SSH, including target metadata queries. `--help` after the variant
 requires no email or connection. Email precedence remains positional email,
 `STATBUS_REIMPORT_USER_EMAIL`, then an interactive prompt. Explicit validity is
-forwarded to all three jobs and `--year` means January 1. With no option, selection
+forwarded to all three jobs and `--year` means January 1. Before setup or uploads,
+the loaders refuse explicit validity that conflicts with any existing target job.
+With no option, selection
 keeps current-year January 1 and downloads keeps execution date. Those legacy
 defaults do not settle STATBUS-591 AC3's pending owner policy. See
 [BRREG operator validity](import-system.md#brreg-operator-validity).
