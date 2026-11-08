@@ -1,8 +1,10 @@
+NOTICE:  identifier "pg_regress/380_statbus_591_mixed_and_informal_concurrent_batches" will be truncated to "pg_regress/380_statbus_591_mixed_and_informal_concurrent_batche"
 \set ECHO none
 -- test/setup.sql output suppressed for cleaner test output
 \echo -- test/setup.sql done, test output follows
 -- test/setup.sql done, test output follows
 \set ECHO none
+Installed import queue default|4
 LU exact histories: existing retain 2020, all four retain 2021 and 2022
 T380 LU 1 2020|2020-01-01|2021-01-01
 T380 LU 1 2021|2021-01-01|2022-01-01

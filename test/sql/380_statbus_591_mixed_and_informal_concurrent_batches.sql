@@ -13,6 +13,8 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \o
 \set ECHO none
 RESET ROLE;
+SELECT 'Installed import queue default', default_concurrency
+FROM worker.queue_registry WHERE queue = 'import';
 -- STATBUS-591: genuine analysis results, real worker fanout and fan-in.
 -- One SQL connection verifies the protocol, not simultaneous connection locks.
 CREATE TABLE test.t380_observations (seq integer GENERATED ALWAYS AS IDENTITY, observation text);

@@ -35,7 +35,7 @@ BEGIN
         INSERT INTO worker.base_change_log (establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids, valid_ranges)
         VALUES (v_est_ids, v_lu_ids, '{}'::int4multirange, '{}'::int4multirange, v_valid_ranges);
 
-        PERFORM worker.publish_base_change_wakeup();
+        PERFORM worker.request_base_change_wakeup();
     END IF;
 
     RETURN NULL;

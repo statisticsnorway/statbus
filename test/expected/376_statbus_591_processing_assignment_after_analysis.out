@@ -1,0 +1,95 @@
+-- STATBUS-591: processing assignment sees the rows analysis has accepted.
+--
+-- Import analysis changes action from NULL to use after the upload statistics
+-- were collected. Whole-slot packing must assign those accepted rows in bounded
+-- time even when the old statistics say that no row has action use.
+-- Fixture: 24,000 accepted rows, two per legal unit, and one skipped row.
+-- The public assignment function must preserve whole groups and slots, exact
+-- floor-based slot packing, and the atomic processing-state/priority transition.
+BEGIN;
+SET LOCAL statement_timeout = '10s';
+CREATE TABLE public.t376_assignment (
+    row_id integer PRIMARY KEY,
+    legal_unit_id integer,
+    enterprise_id integer,
+    founding_row_id integer,
+    action public.import_row_action_type,
+    state public.import_data_state,
+    batch_seq integer,
+    last_completed_priority integer
+);
+INSERT INTO public.t376_assignment
+SELECT n, (n + 1) / 2, NULL, n, NULL, 'analysing', (n - 1) / 8000 + 1, 100
+FROM generate_series(1, 24001) AS n;
+ANALYZE public.t376_assignment;
+UPDATE public.t376_assignment
+SET action = CASE WHEN row_id <= 24000 THEN 'use'::public.import_row_action_type
+                  ELSE 'skip'::public.import_row_action_type END;
+SELECT clock_timestamp() AS started \gset
+SELECT admin.import_job_assign_batch_seq(
+    p_data_table_name => 't376_assignment', p_batch_size => 8000,
+    p_for_processing => true, p_new_state => 'processing', p_reset_priority => true
+) AS assigned_rows \gset
+SELECT extract(epoch FROM clock_timestamp() - :'started'::timestamptz) AS seconds \gset
+\echo "376.1 all accepted rows are assigned and transitioned within five seconds"
+"376.1 all accepted rows are assigned and transitioned within five seconds"
+SELECT :assigned_rows AS assigned_rows, :seconds < 5 AS under_5_seconds,
+       count(*) FILTER (WHERE action = 'use' AND batch_seq IS NOT NULL) AS assigned_use_rows,
+       count(*) FILTER (WHERE action = 'use' AND state = 'processing' AND last_completed_priority = 0) AS transitioned_use_rows,
+       count(*) FILTER (WHERE action = 'skip' AND state = 'error' AND batch_seq IS NULL) AS skipped_error_rows
+FROM public.t376_assignment;
+ assigned_rows | under_5_seconds | assigned_use_rows | transitioned_use_rows | skipped_error_rows 
+---------------+-----------------+-------------------+-----------------------+--------------------
+         24000 | t               |             24000 |                 24000 |                  1
+(1 row)
+
+\echo "376.2 both rows of each accepted legal unit share one processing batch"
+"376.2 both rows of each accepted legal unit share one processing batch"
+SELECT count(*) AS legal_units,
+       count(*) FILTER (WHERE rows = 2 AND batches = 1) AS whole_legal_units
+FROM (
+    SELECT legal_unit_id, count(*) AS rows, count(DISTINCT batch_seq) AS batches
+    FROM public.t376_assignment WHERE action = 'use'
+    GROUP BY legal_unit_id
+) AS units;
+ legal_units | whole_legal_units 
+-------------+-------------------
+       12000 |             12000
+(1 row)
+
+CREATE TEMP TABLE t376_slots ON COMMIT DROP AS
+SELECT abs(hashtext('lu:' || legal_unit_id)::bigint) % 16384 AS slot,
+       count(*) AS rows, count(DISTINCT batch_seq) AS batches, min(batch_seq) AS batch_seq
+FROM public.t376_assignment WHERE action = 'use'
+GROUP BY abs(hashtext('lu:' || legal_unit_id)::bigint) % 16384;
+\echo "376.3 every complete slot uses the batch containing its first accepted row"
+"376.3 every complete slot uses the batch containing its first accepted row"
+SELECT bool_and(batches = 1) AS whole_slots,
+       bool_and(batch_seq = expected_batch) AS exact_floor_packing
+FROM (
+    SELECT s.*, 1 + floor(COALESCE(
+        sum(rows) OVER (ORDER BY slot ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0
+    ) / 8000) AS expected_batch
+    FROM t376_slots AS s
+) AS expected;
+ whole_slots | exact_floor_packing 
+-------------+---------------------
+ t           | t
+(1 row)
+
+\echo "376.4 row-sized batches cover all 24000 accepted rows with whole-slot overflow only"
+"376.4 row-sized batches cover all 24000 accepted rows with whole-slot overflow only"
+SELECT count(*) AS batches, min(batch_seq) AS first_batch, max(batch_seq) AS last_batch,
+       sum(rows) AS assigned_rows,
+       bool_and(rows <= 8000 + (SELECT max(rows) - 1 FROM t376_slots)) AS bounded_whole_slot_overflow
+FROM (
+    SELECT batch_seq, count(*) AS rows
+    FROM public.t376_assignment WHERE action = 'use'
+    GROUP BY batch_seq
+) AS batches;
+ batches | first_batch | last_batch | assigned_rows | bounded_whole_slot_overflow 
+---------+-------------+------------+---------------+-----------------------------
+       3 |           1 |          3 |         24000 | t
+(1 row)
+
+ROLLBACK;
