@@ -752,8 +752,20 @@ One fleet-level entry point is available from the repo root:
 ./cloud.sh inspect cloud           # cloud-slot credentials and URLs
 ./cloud.sh wipe no                 # DELETE rune's database and reinstall it empty (asks: type 'wipe no.statbus.org')
 ./cloud.sh import no selection     # schedule the Norway BRREG sample import
+./cloud.sh import no selection operator@example.com --valid-from 2024-02-29
+./cloud.sh import no downloads operator@example.com --year 2024 --database scratch
 ./cloud.sh ssh no                  # interactive shell as statbus@rune.statbus.org
 ```
+
+Import syntax is `./cloud.sh import <target> <selection|downloads> [email]
+[--valid-from YYYY-MM-DD | --year YYYY] [--database NAME]`. Options are validated
+locally before SSH, including target metadata queries. `--help` after the variant
+requires no email or connection. Email precedence remains positional email,
+`STATBUS_REIMPORT_USER_EMAIL`, then an interactive prompt. Explicit validity is
+forwarded to all three jobs and `--year` means January 1. With no option, selection
+keeps current-year January 1 and downloads keeps execution date. Those legacy
+defaults do not settle STATBUS-591 AC3's pending owner policy. See
+[BRREG operator validity](import-system.md#brreg-operator-validity).
 
 For group-only verbs, `all` has an explicit contract. `create all` and `wipe all`
 run each cloud entry and print one skip line for every standalone entry. `import

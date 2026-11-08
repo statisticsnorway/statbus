@@ -4,8 +4,13 @@ set -e # Exit on any failure for any command
 set -u # Treat unset variables as an error
 
 # Initialize variables with defaults
-CLI_EXTRA_ARGS=""
 DEBUG=${DEBUG:-}
+
+# Validate before database contact.
+# shellcheck source=samples/norway/brreg/brreg-import-options.sh
+source "$(dirname "${BASH_SOURCE[0]}")/brreg-import-options.sh"
+brreg_parse_options "$@"
+if [ "$BRREG_HELP" -eq 1 ]; then brreg_help; exit 0; fi
 
 # Check for required USER_EMAIL environment variable
 if [ -z "${USER_EMAIL:-}" ]; then
@@ -18,8 +23,8 @@ WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../../.. && pwd )"
 # The database to load into: --database NAME, else the deployment's own
 # database. test/import_benchmark loads a throwaway database this way.
 DB_ARGS=()
-if [ "${1:-}" = "--database" ] && [ -n "${2:-}" ]; then
-  DB_ARGS=(-d "$2")
+if [ -n "$BRREG_DATABASE" ]; then
+  DB_ARGS=(-d "$BRREG_DATABASE")
 fi
 sb_psql() { "$WORKSPACE/sb" psql ${DB_ARGS[@]+"${DB_ARGS[@]}"} -v ON_ERROR_STOP=1 "$@"; }
 
@@ -31,10 +36,9 @@ fi
 
 if [ -n "${DEBUG:-}" ]; then
   set -x # Print all commands before running them - for easy debugging.
-  CLI_EXTRA_ARGS=" --verbose"
 fi
 
-cd $WORKSPACE
+cd "$WORKSPACE"
 
 echo "Setting up Statbus for Norway"
 sb_psql < samples/norway/getting-started.sql
@@ -42,8 +46,7 @@ sb_psql < samples/norway/getting-started.sql
 legal_unit_file=$WORKSPACE/tmp/enheter.csv
 establishment_file=$WORKSPACE/tmp/underenheter_filtered.csv
 
-TODAY=$(date +%Y-%m-%d)
-IMPORT_YEAR=$(date +%Y)
+TODAY=${BRREG_VALID_FROM:-$(date +%Y-%m-%d)}
 
 echo "Setting up import jobs for BRREG data with valid_from=${TODAY}"
 

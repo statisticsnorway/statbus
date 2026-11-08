@@ -21,6 +21,10 @@ on:
       - '.github/workflows/harness-selftest.yaml'
       - 'dev.sh'
       - 'test/dev-detached-test.sh'
+      - 'cloud.sh'
+      - 'samples/norway/brreg/**'
+      - 'test/brreg-validity-test.sh'
+      - 'test/cloud-registry-test.sh'
 
 permissions:
   contents: read
@@ -55,6 +59,8 @@ jobs:
         run: bash test/install/install-keeps-kept-backups-test.sh
       - name: Prove the installer finds the release when GitHub's release list does not answer (STATBUS-582)
         run: bash test/install/install-release-lookup-test.sh
+      - name: Prove explicit BRREG validity reaches loader transports without side effects on refusal (STATBUS-591)
+        run: bash test/brreg-validity-test.sh
       - name: Prove cloud.sh targets the registered fleet and doc/CLOUD.md lists the same slots (STATBUS-356)
         run: bash test/cloud-registry-test.sh
       - name: Prove every page answers with the maintenance page during an upgrade and /monitor stays readable (STATBUS-588)
