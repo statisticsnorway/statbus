@@ -10,16 +10,7 @@ BEGIN
         END IF;
     END IF;
 
-    UPDATE worker.base_change_log_has_pending
-    SET has_pending = TRUE WHERE has_pending = FALSE;
-
-    INSERT INTO worker.tasks (command, payload)
-    VALUES ('collect_changes', '{"command":"collect_changes"}'::jsonb)
-    ON CONFLICT (command)
-    WHERE command = 'collect_changes' AND state = 'pending'::worker.task_state
-    DO NOTHING;
-
-    PERFORM pg_notify('worker_tasks', 'analytics');
+    PERFORM worker.publish_base_change_wakeup();
     RETURN NULL;
 END;
 $function$

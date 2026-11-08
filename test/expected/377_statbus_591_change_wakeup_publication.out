@@ -1,0 +1,18 @@
+\set ECHO none
+-- test/setup.sql output suppressed for cleaner test output
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\set ECHO none
+Write: exact log, pending flag, one collector
+t|t|t|t
+Write with flag already TRUE: both IDs logged, pending flag, one collector
+t|t|t|t
+Empty statement: no log, false pending flag, no collector
+t|t|t
+Specialized producers: nine exact guard cases each, including unconditional empty DELETE
+legal_relationship|9|t
+power_root|9|t
+Region with no affected locations: no log, no publication
+t|t|t
+Affected region: exact unit and validity log, pending flag, one collector
+t|t|t|t

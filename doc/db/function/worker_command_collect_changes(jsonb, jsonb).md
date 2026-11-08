@@ -19,6 +19,12 @@ DECLARE
     v_direct_mode BOOLEAN;
     v_all_units BOOLEAN;
 BEGIN
+    -- Lock the pending-flag singleton before the drain snapshot. Publishers
+    -- (worker.publish_base_change_wakeup) update the same row, so a change
+    -- committed after this snapshot sets the flag only after the clear below,
+    -- and the flag stays TRUE for the next collector.
+    PERFORM 1 FROM worker.base_change_log_has_pending FOR UPDATE;
+
     v_direct_mode :=
         p_payload ? 'establishment_id_ranges'
         OR p_payload ? 'legal_unit_id_ranges'
