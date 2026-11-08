@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-08T08:34:00Z'
+updated_date: '2026-11-08T09:18:00Z'
 labels:
   - import
   - performance
@@ -88,4 +88,8 @@ Positive375regression written before fix: default path creates waiting concurren
 Root replayed exactly two unpublished dispatcher/wakeup migrations on verified idle statbus_local/statbus_seed. Frozen normal fast suite132shared+2isolated PASS November7 21:11:22UTC, complete schema-doc generation21:12:08with no unintended deletions and only paired processing-phase doc. Explain/performance outputs restored. Logs: tmp/591/handler-identity-integration.log, test-handler-identity-fast-frozen.log and doc-db-handler-identity-frozen.log.
 First full run also passed134SQLcases but root edited design guide during run and checkout-stability guard correctly rejected whole command. Preserved diagnosis/failure, frozen retry PASS without weakened guard. Dirty-tree release freshness stamps intentionally withheld, no release/CI claim. Earlier full132shared+2isolated463s at e9927efc9 and clean post-commit doc generation are retained in test-final-fast-verified.log/doc-db-final-after-commit.log.314/321/344positive business identity/error/counter tests have original failures and mutation proofs in d86033bc4/3fe5b77b9/e9927efc9.
 Rabbit owns independent pre-existing crash-recovery589. Our rollback-state probe is not a host-crash test. All four591criteria remain open until authorized integration, date policy, full-register evidence, CI and release acceptance.
+
+2026-11-08 09:17 UTC, read-only local retention inventory: 118 statbus_591* databases total 16,240,811,018 bytes (15.125 GiB), zero other sessions at capture. tmp/591 contains 1,282 evidence files, 1,211,555,458 bytes (1.128 GiB). This checkout's dbdumps has 29 files including .gitkeep, 3,009,015,734 bytes (2.802 GiB), and ~/statbus-backups is empty. A separate import_benchmark_41768 (872,527,551 bytes) has unverified ownership/need and is preserved. Reproducible local catalog/metadata evidence and caveats: tmp/retained-inventory-20261108/README.md, databases.sql/json and files.mjs/json. No remote query, migration, benchmark/test rerun or data deletion. Inventory is complete, but cleanup remains a separate owner-authorized follow-up after prototype review and fixture-retention decisions. Preserve tmp diagnostics and raw red/green/parity evidence. No 591 acceptance criterion is satisfied by this housekeeping and all four remain unchecked.
+
+Morning handover correction, November 8 at 09:12 UTC: Reports ticket577 is now Done on master's 571336064. Its real rc04 Firefox observation showed waiting, labeled running, 69% progress, history merging at 76%, then idle at 08:57:31 UTC. Saved verified-acceptance.json and complete browser-transitions.json were independently inspected under statbus_test/tmp/rune-measure/reports-rc04-20261108/, without rerunning Norway work. The previous paragraph describing open Reports browser acceptance was the earlier overnight state. Final stable-promotion verdict is still awaited from rabbit and this separate Reports acceptance does not authorize or satisfy STATBUS-591.
 <!-- SECTION:NOTES:END -->
