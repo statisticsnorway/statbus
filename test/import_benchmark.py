@@ -9,7 +9,7 @@ Benchmark the BRREG import through the real worker, in an isolated database.
 4. Reports the time per command, checks counts, records benchmarks, and replays
    each child command repeatedly to catch plans that degrade after the 5th call
 
-Run with: ./test/import_benchmark.sh [--dataset selection|downloads] [-t TIMEOUT]
+Run with: ./test/import_benchmark.sh [--dataset selection|downloads|mixed] [-t TIMEOUT]
 """
 
 import os
@@ -22,6 +22,8 @@ import atexit
 import logging
 import threading
 import json
+import hashlib
+import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -55,6 +57,25 @@ NC = '\033[0m'
 TEST_DB = None
 LOG_FILE = None
 LAST_WORKER_RUN = {}
+LAST_LOAD_RUN = {}
+
+
+def calendar_date(value):
+    """Require the loader's literal ISO date, including a real Gregorian day."""
+    if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+        raise argparse.ArgumentTypeError("must be a calendar date in YYYY-MM-DD form")
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be a valid calendar date in years 0001..9999") from None
+    return value
+
+
+def calendar_year(value):
+    """Normalize a Gregorian year to the loader's four-digit YYYY contract."""
+    if not re.fullmatch(r"[0-9]{1,4}", value) or not 1 <= int(value) <= 9999:
+        raise argparse.ArgumentTypeError("must be a year in 1..9999")
+    return f"{int(value):04d}"
 
 
 def positive_int(value):
@@ -157,7 +178,17 @@ def concurrency_acceptance(observation, minimum):
             "evidence": "durable_process_intervals"}
 
 
-def collect_observation():
+def measured_imports(dataset, jobs, leaves):
+    """Fixture SQL execution is not evidence of measured Crystal execution."""
+    if dataset != "mixed":
+        return jobs, leaves
+    jobs = [job for job in jobs if job["slug"] in
+            ("import_mixed_lu", "import_mixed_es", "import_mixed_informal")]
+    measured_ids = {str(job["id"]) for job in jobs}
+    return jobs, [leaf for leaf in leaves if str(leaf["job_id"]) in measured_ids]
+
+
+def collect_observation(dataset="selection"):
     """Read actual configuration and durable evidence before plan replays."""
     conn = get_conn()
     try:
@@ -179,9 +210,10 @@ def collect_observation():
             leaves = [dict(row) for row in cur.fetchall()]
             cur.execute("""SELECT id, slug, state::text, total_rows, imported_rows, error_count, warning_count,
                                   analysis_start_at, analysis_stop_at, processing_start_at, processing_stop_at,
-                                  data_table_name, error
+                                  data_table_name, error, default_valid_from
                              FROM public.import_job ORDER BY id""")
             jobs = [dict(row) for row in cur.fetchall()]
+            jobs, leaves = measured_imports(dataset, jobs, leaves)
             for job in jobs:
                 cur.execute(sql.SQL("SELECT state::text, count(*) AS count FROM public.{} GROUP BY state ORDER BY state")
                             .format(sql.Identifier(job["data_table_name"])))
@@ -400,6 +432,11 @@ def drop_all_test_databases():
 # ============================================================================
 
 DATASETS = {
+    "mixed": {
+        "description": "Bounded synthetic mixed LU/formal ES/informal ES histories (3200 measured rows)",
+        "setup_sql": "test/import_benchmark_mixed.sql",
+        "check_sql": "test/import_benchmark_mixed_check.sql",
+    },
     "selection": {
         "description": "BRREG selection (~29K rows, like test 401)",
         "loader": "samples/norway/brreg/brreg-import-selection.sh",
@@ -416,22 +453,50 @@ DATASETS = {
         "files": [
             "tmp/enheter.csv",
             "tmp/underenheter_filtered.csv",
+            "tmp/roller_legal_relationships.csv",
         ],
+        "optional_files": ["tmp/roller_legal_relationships.csv"],
         "slug_like": "import_%_2025",
     },
 }
 
 
-def setup_test_data(dataset="selection"):
+def source_metadata(dataset):
+    """Record exact loader input bytes and optional-input absence for run provenance."""
+    sources = []
+    ds = DATASETS[dataset]
+    for relative in ds.get("files", []):
+        path = WORKSPACE / relative
+        optional = relative in ds.get("optional_files", [])
+        if optional and not path.exists():
+            sources.append({"path": relative, "present": False, "size_bytes": None, "sha256": None})
+            continue
+        digest = hashlib.sha256()
+        with path.open("rb") as source:
+            for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                digest.update(chunk)
+        sources.append({"path": relative, "present": True, "size_bytes": path.stat().st_size,
+                        "sha256": digest.hexdigest()})
+    return sources
+
+
+def setup_test_data(dataset="selection", valid_from=None, year=None):
     """Load the dataset through its loader script, the same one ./cloud.sh
     import runs on an installation, into this run's isolated database."""
+    global LAST_LOAD_RUN
     ds = DATASETS[dataset]
+    if "setup_sql" in ds:
+        run_psql_file(ds["setup_sql"])
+        return
 
     log_print(f"\n{BLUE}Setting up test data: {ds['description']}...{NC}")
 
     for path in ds["files"]:
         full_path = WORKSPACE / path
         if not full_path.exists():
+            if path in ds.get("optional_files", []):
+                log_print(f"  Optional source absent: {path}")
+                continue
             log_print(f"{RED}ERROR: CSV not found: {full_path}{NC}", "error")
             if dataset == "downloads":
                 log_print("  Download with samples/norway/brreg/download-to-tmp.sh", "error")
@@ -447,10 +512,19 @@ def setup_test_data(dataset="selection"):
     log_print(f"  Running {ds['loader']} --database {TEST_DB}...")
     env = os.environ.copy()
     env["USER_EMAIL"] = "test.admin@statbus.org"
-    result = subprocess.run(
-        [str(WORKSPACE / ds["loader"]), "--database", TEST_DB],
-        cwd=WORKSPACE, env=env, text=True, capture_output=True,
-    )
+    loader_args = [str(WORKSPACE / ds["loader"]), "--database", TEST_DB]
+    if valid_from is not None:
+        loader_args.extend(["--valid-from", valid_from])
+    elif year is not None:
+        loader_args.extend(["--year", year])
+    LAST_LOAD_RUN = {"start_at": datetime.now(timezone.utc)}
+    try:
+        result = subprocess.run(
+            loader_args,
+            cwd=WORKSPACE, env=env, text=True, capture_output=True,
+        )
+    finally:
+        LAST_LOAD_RUN["stop_at"] = datetime.now(timezone.utc)
     log.debug(result.stdout)
     if result.returncode != 0:
         log_print(f"{RED}Loader failed ({result.returncode}):{NC}\n{result.stdout[-2000:]}\n{result.stderr[-2000:]}", "error")
@@ -560,7 +634,20 @@ def run_worker(test_db, timeout_seconds=300, debug=True):
     return proc.returncode, output_lines, elapsed
 
 
-def run_concurrent_test(timeout_seconds=300, debug=True, result=None, require_import_concurrency=None):
+def check_dataset(dataset):
+    """Run dataset-specific positive assertions with psql's fail-fast contract."""
+    check_sql = DATASETS[dataset].get("check_sql")
+    if check_sql is None:
+        return {"status": "not_applicable", "passed": True}
+    try:
+        output = run_psql_file(check_sql)
+        return {"status": "passed", "passed": True, "sql_file": check_sql, "summary": output.strip()}
+    except Exception as error:
+        return {"status": "failed", "passed": False, "sql_file": check_sql, "error": str(error)}
+
+
+def run_concurrent_test(timeout_seconds=300, debug=True, result=None, require_import_concurrency=None,
+                        dataset="selection"):
     """Run the real Crystal worker and verify results."""
     log_print(f"\n{'='*60}")
     log_print(f"  Concurrent Worker Test (real Crystal worker)")
@@ -573,7 +660,7 @@ def run_concurrent_test(timeout_seconds=300, debug=True, result=None, require_im
     if result is None:
         result = {}
     result["worker"] = dict(LAST_WORKER_RUN)
-    observation = collect_observation()
+    observation = collect_observation(dataset)
     result.update(observation)
     acceptance = concurrency_acceptance(observation["processing_overlap"], require_import_concurrency)
     result["import_concurrency_acceptance"] = acceptance
@@ -643,6 +730,12 @@ def run_concurrent_test(timeout_seconds=300, debug=True, result=None, require_im
             log_print(f"    {'TOTAL':<50} {grand_tasks:>4} {grand_total:>7}ms")
     conn.close()
 
+    # Record the dataset's domain assertions before optional diagnostic replays.
+    dataset_check = check_dataset(dataset)
+    result.setdefault("checks", {})["dataset"] = dataset_check
+    if not dataset_check["passed"]:
+        log_print(f"{RED}  Dataset check failed: {dataset_check.get('error')}{NC}", "error")
+
     # Concurrency-corruption gate — three layers
     consistent, consistency_summary = check_consistency()
 
@@ -652,10 +745,11 @@ def run_concurrent_test(timeout_seconds=300, debug=True, result=None, require_im
 
     plans_stable = run_repeated_call_benchmarks() if not failed else True
 
-    result["checks"] = {"consistency": {"passed": consistent, "summary": consistency_summary},
+    result["checks"] = {"dataset": dataset_check,
+                        "consistency": {"passed": consistent, "summary": consistency_summary},
                         "repeated_call_plans_stable": plans_stable}
     success = (returncode == 0 and not LAST_WORKER_RUN.get("timed_out", False)
-               and not failed and consistent and plans_stable and acceptance["passed"])
+               and not failed and consistent and plans_stable and acceptance["passed"] and dataset_check["passed"])
     result["success"] = success
     if success:
         log_print(f"\n{GREEN}{'='*60}")
@@ -1079,6 +1173,11 @@ def parse_args(argv=None):
     )
     parser.add_argument("-t", "--timeout", type=int, default=600,
                         help="Worker timeout in seconds (default: 600)")
+    validity = parser.add_mutually_exclusive_group()
+    validity.add_argument("--valid-from", type=calendar_date, metavar="YYYY-MM-DD",
+                          help="Forward an explicit validity date to the BRREG loader")
+    validity.add_argument("--year", type=calendar_year, metavar="YYYY",
+                          help="Forward a year (1..9999) to the BRREG loader as YYYY")
     parser.add_argument("--skip-setup", action="store_true",
                         help="Skip DB creation and data load (use current PGDATABASE)")
     parser.add_argument("--cleanup", action="store_true",
@@ -1104,6 +1203,10 @@ def parse_args(argv=None):
     parser.add_argument("--require-import-concurrency", type=positive_int, metavar="MIN",
                         help="Acceptance assertion only: require MIN concurrent processing leaves proven by durable intervals (>=1). Does not change queue configuration")
     args = parser.parse_args(argv)
+    if (args.valid_from is not None or args.year is not None) and (
+            args.dataset == "mixed" or args.skip_setup or args.list or args.cleanup_all
+            or args.timing or args.repeated_calls):
+        parser.error("--valid-from and --year require a selection/downloads worker run with setup")
     if (args.result_json is not None or args.require_import_concurrency is not None) and (
             args.list or args.cleanup_all or args.timing or args.repeated_calls):
         parser.error("--result-json and --require-import-concurrency require a worker benchmark run")
@@ -1111,8 +1214,9 @@ def parse_args(argv=None):
 
 
 def main(argv=None):
-    global TEST_DB
+    global TEST_DB, LAST_LOAD_RUN
     args = parse_args(argv)
+    LAST_LOAD_RUN = {}
 
     if args.cleanup_all:
         drop_all_test_databases()
@@ -1134,25 +1238,34 @@ def main(argv=None):
     log_print(f"{BLUE}Log file: {LOG_FILE}{NC}")
 
     result = {"schema_version": 1, "success": False, "dataset": args.dataset,
+              "requested_validity": {"valid_from": args.valid_from, "year": args.year},
+              "checks": {"dataset": {"status": "not_run", "passed": False}},
               "timeout_seconds": args.timeout, "log_file": str(LOG_FILE)}
     try:
         if not args.skip_setup:
             create_isolated_db()
             atexit.register(lambda: drop_isolated_db(force=args.cleanup))
-            setup_test_data(args.dataset)
+            if args.result_json is not None:
+                result["source_files"] = source_metadata(args.dataset)
+            if args.valid_from is not None or args.year is not None:
+                setup_test_data(args.dataset, valid_from=args.valid_from, year=args.year)
+            else:
+                setup_test_data(args.dataset)
         else:
             env = pg_env()
             TEST_DB = env.get("PGDATABASE", "statbus")
             log_print(f"Using existing database: {TEST_DB}")
 
         success = run_concurrent_test(timeout_seconds=args.timeout, debug=not args.no_debug,
-                                      result=result, require_import_concurrency=args.require_import_concurrency)
+                                      result=result, require_import_concurrency=args.require_import_concurrency, dataset=args.dataset)
         return 0 if success else 1
     except Exception as error:
         result["error"] = {"type": type(error).__name__, "message": str(error)}
         log_print(f"{RED}Benchmark failed: {error}{NC}", "error")
         return 1
     finally:
+        if LAST_LOAD_RUN:
+            result["load"] = dict(LAST_LOAD_RUN)
         result["database"] = TEST_DB
         if args.result_json is not None:
             write_result(args.result_json, result)
