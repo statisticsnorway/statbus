@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-08T10:15:00Z'
+updated_date: '2026-11-08T17:25:00Z'
 labels:
   - import
   - performance
@@ -21,18 +21,19 @@ ordinal: 499204
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-A full register imports faster by using the machine's cores without changing the resulting business data. This iteration must improve the measured rune baseline while preserving business data and temporal power-group membership. Automatic roots follow insertion order and may differ, but must be valid and preserve explicit custom overrides. It does not assume an unmeasured one-hour target.
+A full register imports faster by using the machine's cores without changing business data or exact temporal power-group membership. The owner-approved next candidate is serial-only, followed by a separate completed concurrency experiment. No unmeasured one-hour target is assumed.
 
-### Zoom out
-Import jobs remain serial because one job can depend on another. Analysis identifies the row dependencies that determine which processing batches of one job can run concurrently.
+### Current split, owner November 8 14:59-15:06 UTC
+The next RC includes linear import analysis/processing improvements, the ordinary publisher/collector race repair and verified deterministic root selection. It excludes dependency packing, concurrent dispatch and batch-tail publication. That RC is the serial reference. Then rebase, restore and finish concurrency with an enabled default of three or four using the existing reports-worker queue mechanism. Require the complete SQL suite and test/import_benchmark.sh with the real worker, observed overlap and domain/history parity. Do not repeat a second full serial benchmark.
 
-### Zoom in
-Rune run A (November 7, 2026, rc.18, full BRREG, 62 GB RAM): legal-unit analysis 816 s and processing 2,184 s, establishment analysis 745 s and processing 1,670 s. Relationship analysis 1,147 s includes a 1,024 s holistic power_group_link call. Import queue span 6,625 s, task time 6,539 s, full load to idle 10,240 s. Evidence: tmp/rune-measure/A/summary.md.
+### Power-group roots
+The new candidate chooses once at group start by the first enabled numeric statistic in priority order (largest), then name and highest-priority external identifier. Internal id breaks only an otherwise exact tie. Keep a valid incumbent despite changing statistics or stronger newcomers. Choose a successor on departure and keep it when a former root returns. Preserve custom overrides and group membership. This supersedes the earlier insertion-order allowance for the new candidate.
 
-### Closing review
-- Documentation: dependency/concurrency design, doc/import-system.md, measured performance evidence.
-- Verification: exact serial-domain parity, failure/replay/barrier behavior, full fast suite, real worker measurements and rune acceptance.
-- Cleanup: retain diagnostic scripts and logs in tmp/. Do not delete benchmark databases or production data automatically.
+### Matched reference
+Rune run A (November 7, 2026, rc.18, full BRREG, 62 GB host RAM): legal-unit analysis/processing816/2184s, establishment745/1670s, relationship1147/60s; power_group_link analysis1024s. Import span6625s, summed import tasks6539s, load to idle10240s. A/B baseline files are retained separately under tmp/591/baselines/. Prior history-release B is not a591 import-speed result.
+
+### Acceptance and holds
+All four acceptance criteria remain open. Rabbit owns serial integration, named RC gates and any explicitly authorized host operation. Norway is halted. The next stable release is HARD HELD until the owner personally approves the review. Date defaults and residual security decisions remain open. Retain diagnostics and databases until authorized cleanup.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -46,13 +47,13 @@ Rune run A (November 7, 2026, rc.18, full BRREG, 62 GB RAM): legal-unit analysis
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Rebase the bounded import prototype on current master and preserve released recovery/progress fixes.
-2. Implement and maintain the complete owner-review guide. Delegate release/CLI/date forwarding to rabbit and scoped documentation to a6.1worker.
-3. Verify the combined schema and runtime with local migrations, full fast suite, frontend checks and complete schema-doc generation. Diagnose every failure and add failing regressions for newly discovered defects.
-4. Commit explicit owned paths, coordinate the FF push with rabbit, inspect exact-SHA CI, and deliver a named release candidate through all real gates.
-5. Record matched full-register import measurements, parity, errors, memory, queue concurrency and declared snapshot date. Prior B is only the history-release reference.
-6. Keep all four criteria open until satisfied. The owner's validity-date choice and personal review checklist remain required.
-7. HARD HOLD: do not promote the next stable release until the owner explicitly approves the reviews. RC authorization does not authorize final stable or destructive Norway work.
+1. Deliver root-only34c1087ff with recorded original-failure/fixed-success, complete SQL suite and paired schema documentation to rabbit.
+2. Rabbit integrates only serial linear fixes, ordinary collector race correctness and the root change. Verify exact source CI, clean release stamps and named-RC guest gates. Exclude import packing, dispatcher and batch-tail deferral.
+3. Use that serial RC as the reference. Any Norway operation requires a fresh target-confirmed operator go. Preserve per-job analysis/processing and exact input/date provenance, do not run a duplicate full serial benchmark.
+4. Rebase onto the serial reference, restore the concurrency changes and finish dependency-safe eligibility for actual update/informal cases. Use the existing queue concurrency mechanism with a sensible enabled default3or4. SQLSaga branch evaluation is separate and requires proof, not assumptions.
+5. Run the complete SQL suite and literal test/import_benchmark.sh using the real worker. Observe actual concurrent leaves and compare business rows, temporal parent/group membership, overrides, errors/counters and historyA/B/C against the serial reference. Diagnose each failure test-first.
+6. Commit explicit owned paths, coordinate pushes with rabbit, inspect CI status/conclusion for the exact integrated SHA, record measured evidence and only check criteria actually satisfied.
+7. Keep personal review items in the Owner decisions todo group and discuss one at a time. Do not choose the validity default, infer Norway permission, delete retained evidence or promote the next stable without the owner's explicit approval.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -112,4 +113,14 @@ Morning handover correction, November 8 at 09:12 UTC: Reports ticket577 is now D
 Combined integration verified November8 10:14UTC: frozen clean57aa183009dbdb0a6fa7b0e947e13be83bd59ae5 full fast suite PASS134shared+2isolated=136, including371,372–378andreleased390crash recovery. Full schema documentation regeneration completed successfully with no deletions. The only drift was six redundant deparser aliases in non-first UNION arms of statistical_unit_def, saved separately and excluded as unrelated generated noise. Explain/performance output drift was saved and restored. App type check, lint(0errors/5warnings),25suites/208tests and production build PASS. Initial Jest extra-separator invocation ran no tests, diagnosed and corrected without code changes. Logs: tmp/591/combined-rc-{fast-frozen,doc-db,app-tsc,app-lint,app-test-corrected,app-build}.log. Two isolated fast cases094/143 are not the standalone small-history benchmark.
 
 Master advanced only by592ticket closureab81814a9. Rebased after frozen checks to c91c274b0ba8d0682ba0c6595213764e76eaa0fc, exact git diff confirms tested migrations/tests/app/CLI/docs byte-identical, range-diff at tmp/591/combined-rc-ticket-rebase-range-diff.txt. No needless SQL rerun for that ticket-only rebase. Complete owner review guide is committed/linked, all personal approvals unchecked. Rabbit accepted combined named-RC coordination and the hard next-stable hold after receiving the exact09:55owner instruction. Date policy remains unchosen, explicit date/year loader interface is delegated to rabbit, no Saga adoption or new production-wipe authorization. Coordinated candidate push/CI/RC/full-register acceptance remain pending and all four criteria stay unchecked.
+
+2026-11-08 owner decisions14:59-15:06UTC: the next RC is SERIAL ONLY. Include linear analysis/processing improvements, ordinary publisher/collector race correctness repair and verified deterministic roots. Exclude dependency packing, concurrent dispatch and batch-tail publication. That RC is the serial reference. After it, rebase and restore/finish concurrency with an enabled default3or4 through the existing reports-worker queue mechanism and the literal test/import_benchmark.sh real worker. No duplicate full serial benchmark. The earlier full serial downloads benchmark was explicitly stopped15:04 and its partial database retained. All unresolved personal review/date/security questions remain open.
+
+B4 root decision15:06 supersedes the earlier insertion-order allowance for this new candidate: first enabled numeric stat by configured priority (largest), then name, highest-priority external identifier and internal id only for an otherwise exact tie. Choose at group start and retain while eligible, including changed statistics/stronger late entrants. On departure select a successor at that date and retain it when the former root returns. Custom overrides preserved. Component membership/relationships/BFS/classification are unchanged by this root projection. New forward migration20261108165702, paired reverse from captured live definition and positive379 were committed/pushed as root-only34c1087ffd638ca08369ec49617b17a07039110f on origin/statbus-591-import-speed17:21UTC. Rabbit notified to CHERRY-PICK ONLY this commit onto the serial split, not integrate its old concurrency-containing parent history.
+
+Verified root evidence: original minimum-ID routine fails the declared outputs. Initial ranking draft also failed stronger late-entry/departure/return cases before atomic-period prototype implementation. Final unchanged fixture: original executes/rolls back then fails root assertion; final produces exact10temporal root eras plus custom override/replay (tmp/591/root-final-original.log,root-final-current.log). Targeted379/378/119 and isolated403 PASS. Complete fast135shared+094/143=137PASS17:19UTC (rt4-fast.log); complete docgenexit0, paired procedure doc retained, unrelated generated drift reviewed/restored. Full private up/down/up routine definition+COMMENT byte-identical, empty stderr (root-final-roundtrip*). Root handoff tmp/591/root-serial-handoff.md. Exact root-branch AppCI42504570079 is IN_PROGRESS at17:22UTC, not yet a green CI claim. Master serial integration/full RC guest gates remain rabbit-owned and distinct.
+
+All four STATBUS-591 acceptance criteria remain unchecked. This root-only delivery does not establish a full-register concurrent speedup, update/informal eligibility, SQLSaga adoption, validity-default policy, Norway operator permission or personal stable-release approval. Norway remains halted; next stable HARD HELD for owner personal review.
+
+2026-11-08 17:25UTC exact-source CI: App42504570079 for34c1087ffd638ca08369ec49617b17a07039110f has status=completed, conclusion=success, explicitly read through gh run list (tmp/591/root-exact-ci.json). Root code was remote-ref verified after task-branch push. Full Go/Images/SQL and fresh RC guest acceptance must be evaluated on rabbit's actual serial-only integrated master source, not inferred from branch AppCI. Separate docs-only59eee26e1 corrects worker pool documentation: configured concurrencyN startsNconcurrentfibers plus one serialcoordinator, verified against cli/src/worker.cr251-309. It changes no worker runtime, queue default or import eligibility. All four591criteria remain unchecked and next-stable personal-review/Norway holds remain.
 <!-- SECTION:NOTES:END -->
