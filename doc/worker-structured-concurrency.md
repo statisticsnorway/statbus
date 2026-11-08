@@ -100,7 +100,7 @@ The parent remains in `waiting` state until ALL children (including dynamically 
 
 ## How Fibers Cooperate
 
-Each queue has **1 serial fiber** and **N concurrent fibers** (where N = concurrency - 1).
+Each queue has **1 serial fiber** and **N concurrent fibers**, where N is the queue's configured concurrency. In [`cli/src/worker.cr`](../cli/src/worker.cr), queue discovery starts the serial coordinator separately and starts the concurrent pool with `concurrency.times`. A configured concurrency of 4 therefore means four concurrent executors plus one serial coordinator.
 Two fiber types serve two purposes:
 
 1. **Serial fiber** (1 per queue) — ensures **predictability**. Walks the serial path depth-first, one task at a time. Picks top-level tasks and serial children.
@@ -182,7 +182,7 @@ so execution order is enforced structurally by serial `child_mode`.
 
 ## Example: How process_tasks handles 4 levels
 
-Traced for the analytics queue (1 serial fiber + 3 concurrent fibers):
+Traced for the analytics queue at concurrency 4 (1 serial fiber + 4 concurrent fibers):
 
 1. Serial fiber picks `collect_changes` (depth=0). Handler pre-spawns entire tree.
    Has-children check → `waiting`.
@@ -193,8 +193,8 @@ Traced for the analytics queue (1 serial fiber + 3 concurrent fibers):
    Picks `derive_statistical_unit` (depth=2). Handler spawns concurrent batch
    grandchildren → `waiting`.
 4. Serial fiber: `process_tasks(serial)` detects concurrent parent
-   `derive_statistical_unit` (depth=2) → **exits**. Crystal wakes 3 concurrent fibers.
-5. All 3 concurrent fibers process batch tasks (depth=3) in parallel via
+   `derive_statistical_unit` (depth=2) → **exits**. Crystal wakes 4 concurrent fibers.
+5. All 4 concurrent fibers process batch tasks (depth=3) in parallel via
    `SKIP LOCKED`.
 6. All batches complete → `derive_statistical_unit` auto-completes.
    Concurrent fibers find no more concurrent parents → signal done.
