@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-08T11:06:00Z'
+updated_date: '2026-11-08T11:31:00Z'
 labels:
   - import
   - performance
@@ -116,4 +116,6 @@ Master advanced only by592ticket closureab81814a9. Rebased after frozen checks t
 Coordinator integration 2026-11-08 10:40 UTC: accepted origin/statbus-591-import-speed exact2d8092b3314d0296d567aaeaac49fe6cc34f7f81 and rebased only five unpublished operator/security commits onto it, checkpoint7841df9852f2f5bf84d64ee8132c523306f6f328. Range-diff proves identical patches, and migrations/doc-db/SQL tests byte-identical to handed-off tested136-case source. Root applied all five missing forward migrations to verified local seed, generated types with no changes. Explicit valid-from/year interface and cloud transport pass; final actual PostgreSQL guarded loaders verify all3job dates in four fresh date/year scenarios, both legacy defaults, and both conflict paths refuse while preserving whole jobs/definitions/tasks. RED download conflict previously mutated all3dates. Evidence tmp/591-date-real and tmp/591-date-interface, exact limitations in owner guide. Security593 compatible patches plus bounded Zod query arrays now included, fullfrontend229tests/build pass, residual advisory gates explicit. No date policy selected, all four591criteria remain open. No full-register591measurement or Norway wipe/deployment claimed. Next stable HARD HELD for personal review. Final exact-SHA CI/namedRC/fullguest gates remain next.
 
 2026-11-08 11:06 UTC coordinator: original combined9c7 full SQL134shared+094/143 passed, but exact Go CI caught unpublished migration timestamps older than published v2026.11.2. STATBUS-594 repairs only five unreleased identities, preserving every body and all released files: 20261107133923->20261108104710,162052->104711,164500->104712,164600->104713,180400->104714 (new prefixes20261108). Actual fresh/incremental schema and seed-domain equivalence proven, full CLI Go passed176.5s, local seed/template safely rebuilt with old DBs retained. No ledger edits or Norway operations. Corrected-source SQL/CI/named guest gates remain before candidate acceptance. Next stable HARD HELD for owner personal review, full-register591 acceptance/date choice remain open.
+
+2026-11-08 11:30 UTC: corrected source e3f240065fa0a789148908af6d72f5e524f35778 passed full134shared+094/143SQL, clean doc/types stamps, complete CLI Go and all seven exact-source CI workflows. Actual normal prerelease v2026.11.3-rc.01 tagged11:29UTC at that SHA; nine assets, fresh candidate CI and real install/upgrade/recovery guest gates still pending. No earlier benchmark is counted as full-register591 acceptance. Operator date/default policy remains unchosen, import queue default1. Next stable remains HARD HELD for owner personal review. No Norway wipe/deployment or other fleet installs authorized.
 <!-- SECTION:NOTES:END -->
