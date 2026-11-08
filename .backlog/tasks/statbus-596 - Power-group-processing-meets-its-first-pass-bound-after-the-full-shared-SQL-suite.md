@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-08T17:56:00Z'
-updated_date: '2026-11-08T18:09:00Z'
+updated_date: '2026-11-08T18:20:00Z'
 labels:
   - database
   - performance
@@ -45,4 +45,6 @@ STATBUS-454 repaired the diagnostic lifecycle. Genuine artifact 13628031707 reta
 2026-11-08 17:59 UTC: the prior note timestamp17:57 was written at17:56, a note-time typo, not an additional run. Controlled actual131shared sequence670035pd88 started17:57, network-none exact published-image cluster, database serial_full596 cloned from inspected e6 baseline, writable git-archived source and auto_explain nested-statement plans with timing instrumentation off. Initial40cases pass. Original procedure dumped before experiments to tmp/serial-rc/596-process-power-group-link-original.sql, SHA25685459459a3697b918068b3eb713b87fbf9bff4b4911ea9916f2bc12f4b63c7e1. Actual downloaded artifact ZIP hash verified and embedded results.tar equals every extracted result byte. No tracked SQL changes.
 
 2026-11-08 18:09 UTC: controlled actual131shared sequence670035pd88 completed exit0 in432.3s on local ARM using exact published e6 DB image and seed. SQL374 total38239ms, timed first CALL4709.102ms. The two relationship UPDATEs cost1708.401ms and1693.590ms. A separate24,378.899ms range_agg assertion rescans6004logrows6000times, outside the timed first pass, so it does not explain the hosted boolean failure. First-pass pending singleton27pages, no observed lock wait. Preserved full596-shared.log, full596-postgres-plans.log, results and596-storage-observed.log under tmp/serial-rc. Full-suite state alone on ARM is insufficient to reproduce. Next purposeful CI change captures actual hosted nested plans and configuration, with timing instrumentation off and no product SQL or threshold changes.
+
+2026-11-08 18:20 UTC: reviewed diagnostic-only26e99184e. Root independently passed20collector/5profiling positive cases, Actionlint and ShellCheck. Exact tracked initialization body executed on the owned network-none published PostgreSQL18 cluster: all8fresh-session settings match and actual analyzed1.05secondquery plan emitted. Exact final log-capture body then consumed actual PostgreSQL logs using the real sb dotenv parser, preserved plan/row bytes and redacted the known fixture secret, status0. First root harness incorrectly expected Docker stdout only; Docker actual stderr carried the plans and product retained them correctly. Corrected harness checks both streams and passed, initial failure retained. Evidence tmp/serial-rc/596-root-{final-review,initialization-final,log-capture-corrected}.log and corresponding retained directories. Separate plan capture/upload now runs after either SQL success or failure, strict SQL outcome and thresholds unchanged. Instrumented timings are diagnostics, not performance acceptance. Next normal push/CI seeks actual hosted slow plan.
 <!-- SECTION:NOTES:END -->
