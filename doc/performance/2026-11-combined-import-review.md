@@ -1,5 +1,28 @@
 # Combined history and import owner review (November 2026)
 
+## Current review context, November 8 at 23:02 UTC
+
+The serial-only candidate described below is retained as history. A separate enabled-default-four concurrency branch has now completed the real full-register import and independent correctness checks. Read the [current validation report](2026-11-concurrent-import-validation.md) for its exact source, six phase times, row accounting, observed overlap, memory and limits. This is not an owner approval or a controlled local-versus-Norway speed comparison.
+
+The latest overnight instruction is **reviewed landing only**: no new RC, tag or release. Rabbit separately owns the owner's authorized serial Norway import and subsequent full recalculation. No experimental concurrency deployment is authorized by that serial run.
+
+The following discussion IDs retain the owner's numbering. Work through them one at a time, and leave personal decisions unchecked:
+
+| ID | Current context and remaining question |
+| --- | --- |
+| **B1** | Dependency-closed LU, formal ES and informal ES batches now have actual mixed-worker and full-register evidence. Same enterprise or target parent stays in one batch; a founding identity crossing assigned parents falls back to serial. Review the concrete [dependency examples](../import-concurrent-batches-design.md#dependency-examples), not a request to approve speculative restrictions. Primary-demotion footprint acceptance is still a root-review gate. |
+| **B2** | Successful committed siblings remain after another batch fails. Duplicate invocation and bounded worker retries are not operator recovery. No replay button, terminal-job reset or whole-job undo is delivered. Review the [failure/recovery distinction](2026-11-concurrent-import-validation.md#b2-retry-duplicate-safety-and-operator-recovery) and the concrete cross-connection test before deciding the recovery contract. |
+| **B3** | Only the shared wakeup publication is deferred to the batch tail. Integrity checks and exact change-log appends happen during domain writes. The tail publishes once, then commit exposes domain rows, counters and notification together. Reports continue to consume committed change logs; UI progress never exposed uncommitted rows before either. See the [transaction timeline](../import-concurrent-batches-design.md#transaction-and-publication-timeline). |
+| **B4** | The measured concurrency runtime retains existing eligible-root selection. The separate `34c1087ff` business-attribute/root-lifetime proposal is not included in these results and remains a personal review item. |
+| **C1** | Explicit benchmark date November 7 controls comparison only. The choice between execution day, declared snapshot day and declared year start remains open; no default policy was silently changed. |
+| **C2** | Import default four is installed through the existing queue registry, matching analytics' default and using the existing worker. No manual environment override was needed for the observed four-way run. It is an enabled default, not an unproved adaptive memory-sizing algorithm. |
+| **C3** | No SQL Saga prototype was adopted. Enabled installed checks and parallelism have separate controls; experimental deferral showed no established additional benefit. Do not attribute the result only to longer commits or imply a branch dependency. |
+| **C4** | Per-advisory component, reachability and remediation remain in the [security review](../security-dependency-review-20261108.md), owned by Rabbit. The concurrency benchmark is not security risk acceptance. |
+| **D1–D3** | Root review findings, exact final integration/CI and personal approval remain separate gates. Overnight landing authorization does not authorize another release or experimental Norway deployment. |
+| **E1–E6** | [Current measured results and evidence](2026-11-concurrent-import-validation.md#e1-six-import-phases-and-row-outcomes), including the separate worker and post-worker diagnostic intervals. |
+
+## Earlier serial-candidate checklist and evidence
+
 **Stable release hold:** The owner authorized integration, push and a named release candidate on November 8 at 09:55, but explicitly prohibited the next stable release until their personal reviews are complete. Integration or a green RC does not constitute that approval. This checklist is for the owner to review and mark, not a record of completed review.
 
 **Serial-only scope (owner decision November 8, 14:59 to 15:16 UTC):** Import concurrency ships enabled with sensible defaults or not at all. This candidate contains only the serial improvements: power-group analysis equality joins, power-group processing merge cardinality with the cycle-tail root repair, and the collector/publisher pending-flag lock order. Whole-unit packing, concurrent batch dispatch and batch-tail wakeup deferral were removed from the candidate tree (formerly migrations `20261108104711`, `20261108104713` and the deferral part of `20261108104714`, published only in `v2026.11.3-rc.01`/`rc.02`). The first-parent history was rebuilt without the concurrency commits, then a tree-preserving merge retained rc.02 ancestry to satisfy the release gate. The old commits remain reachable through that merge, and master advanced without a force push. Later concurrency work must rebase onto this serial reference, not merge its old candidate tree back.
