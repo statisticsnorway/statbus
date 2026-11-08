@@ -149,6 +149,13 @@ processing remain holistic and serial. SQL Saga experiments target independent L
 
 ## Verification
 
+The combined candidate's five unreleased migration pairs were subsequently renumbered to
+`20261108104710` through `20261108104714` after `v2026.11.2` was published. Their SQL bodies
+and relative dependency order are unchanged. This puts new migrations after the released
+maximum `20261107200300` for both fresh replay and incremental upgrades. Current candidate
+acceptance is recorded in the [combined review guide](performance/2026-11-combined-import-review.md)
+and STATBUS-594. The earlier measurements below retain their actual tested versions.
+
 The final complete `./dev.sh test fast` run passed 132 shared and two isolated tests in 463 seconds
 on `e9927efc9`, source version `20261107180400`. Clean post-commit `./dev.sh generate-doc-db` regenerated
 the same definitions with no changes or deletions. Generated explain/performance artifacts were restored.

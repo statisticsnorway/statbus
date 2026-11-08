@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-08T10:40:00Z'
+updated_date: '2026-11-08T11:06:00Z'
 labels:
   - import
   - performance
@@ -114,4 +114,6 @@ Combined integration verified November8 10:14UTC: frozen clean57aa183009dbdb0a6f
 Master advanced only by592ticket closureab81814a9. Rebased after frozen checks to c91c274b0ba8d0682ba0c6595213764e76eaa0fc, exact git diff confirms tested migrations/tests/app/CLI/docs byte-identical, range-diff at tmp/591/combined-rc-ticket-rebase-range-diff.txt. No needless SQL rerun for that ticket-only rebase. Complete owner review guide is committed/linked, all personal approvals unchecked. Rabbit accepted combined named-RC coordination and the hard next-stable hold after receiving the exact09:55owner instruction. Date policy remains unchosen, explicit date/year loader interface is delegated to rabbit, no Saga adoption or new production-wipe authorization. Coordinated candidate push/CI/RC/full-register acceptance remain pending and all four criteria stay unchecked.
 
 Coordinator integration 2026-11-08 10:40 UTC: accepted origin/statbus-591-import-speed exact2d8092b3314d0296d567aaeaac49fe6cc34f7f81 and rebased only five unpublished operator/security commits onto it, checkpoint7841df9852f2f5bf84d64ee8132c523306f6f328. Range-diff proves identical patches, and migrations/doc-db/SQL tests byte-identical to handed-off tested136-case source. Root applied all five missing forward migrations to verified local seed, generated types with no changes. Explicit valid-from/year interface and cloud transport pass; final actual PostgreSQL guarded loaders verify all3job dates in four fresh date/year scenarios, both legacy defaults, and both conflict paths refuse while preserving whole jobs/definitions/tasks. RED download conflict previously mutated all3dates. Evidence tmp/591-date-real and tmp/591-date-interface, exact limitations in owner guide. Security593 compatible patches plus bounded Zod query arrays now included, fullfrontend229tests/build pass, residual advisory gates explicit. No date policy selected, all four591criteria remain open. No full-register591measurement or Norway wipe/deployment claimed. Next stable HARD HELD for personal review. Final exact-SHA CI/namedRC/fullguest gates remain next.
+
+2026-11-08 11:06 UTC coordinator: original combined9c7 full SQL134shared+094/143 passed, but exact Go CI caught unpublished migration timestamps older than published v2026.11.2. STATBUS-594 repairs only five unreleased identities, preserving every body and all released files: 20261107133923->20261108104710,162052->104711,164500->104712,164600->104713,180400->104714 (new prefixes20261108). Actual fresh/incremental schema and seed-domain equivalence proven, full CLI Go passed176.5s, local seed/template safely rebuilt with old DBs retained. No ledger edits or Norway operations. Corrected-source SQL/CI/named guest gates remain before candidate acceptance. Next stable HARD HELD for owner personal review, full-register591 acceptance/date choice remain open.
 <!-- SECTION:NOTES:END -->
