@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-08T21:35:00Z'
-updated_date: '2026-11-08T21:46:00Z'
+updated_date: '2026-11-08T21:53:00Z'
 labels:
   - performance
   - norway
@@ -25,7 +25,7 @@ Owner authorized Norway reset on November 8, 2026 at 21:33 UTC, explicitly requi
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Norway target and exact published serial candidate are verified, a restorable backup and secure configuration archive are retained before database recreation, and the recreated installation is healthy with the serial migration definitions and import concurrency one
+- [x] #1 Norway target and exact published serial candidate are verified, a restorable backup and secure configuration archive are retained before database recreation, and the recreated installation is healthy with the serial migration definitions and import concurrency one
 - [ ] #2 The complete matching three-file BRREG downloads dataset is loaded with baseline hashes and controlled validity date, all import jobs finish and analytics reaches idle, and row counts, rejected rows, graph/history totals and timings are recorded
 - [ ] #3 After the full load completes, a separately initiated full recalculation finishes with no failed tasks and preserved stock/history totals, with its wall and per-command task times recorded
 - [ ] #4 A durable report compares same-host old Norway import and recalculation timings to this run, records exact versions, inputs, configuration and comparability limits, and claims no stable approval or experimental concurrency acceptance
@@ -41,4 +41,6 @@ Verify target and candidate; retain and verify backup/config/baseline; deploy ex
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-08 21:44 UTC: owner authorization at21:33 explicitly covers Norway reset, full big dataset and a separate post-load full recalculation, not a new release/stable promotion. Verified latest published candidate v2026.11.3-rc.03/fc1830fe410b19007056ef0853ad9e491d7f4ad9. Actual Norway/rune is stable929fe787, schema20261107200300, idle/0failed, DB32G. It never applied removed711/713, so reset is for the explicitly requested clean reference, not repair of observed obsolete Norway objects. All3files match oldB SHA256/byte sizes, controlled validity2026-11-07. Baseline actual root53750 completed3684/3684tasks today08:36:26.699674->08:57:29.641707:1262.942033wall_s/4158.636576task_s. Old graph108851business-key records retained, error rows LU1/ES1/LR4206 and warnings53592/26321 saved. Fresh backup dbdumps/no_20261108_223654.pg_dump2744843430bytes SHA25636d6575762d6d3d5c2c49442748a8616f1c5c0098cf2b5d2a752b9644400ec10, full pg_restore archive read and SHA checkPASS21:44:30,36logs retained. Secure config/users/binary/untracked archive11175118bytes SHA4f85f5be777d602c96524a0939d2b23533a945e3f012f56b06cfa859b3f3d322 under /home/statbus/statbus-retained/597-serial-rc03-20261108 (700/600). No restore into a database claimed. Registered/scheduled existingrc03 through actualdaemon21:44:54, upgrade progressing normally. Evidence tmp/rune-measure/C-serial-rc03/. No acceptance criteria checked yet.
+
+2026-11-08 21:53UTC: completed existing named rc03 normal daemon upgrade at21:49:06.990803, then verified backup/config/binary/volume/idle and reset ONLY statbus-no-db-data. Supported ./sb install --non-interactive completed21:53:19 exit0, exact publishedfc183seed restored. Positive accepted reference comparison matched all10routine hashes, migration710/712/714 and default serial importqueue1. Freshjobs0/units0/users15, DB34359738368bytes, monitorallok5/5services/API/site/worker/upgrader, no marker. Durable whole-three-file wrapper launched on remote Norway with controlleddate2026-11-07, followed by separately guarded fullrecalculation only after verified complete load+analytics. Full completion/timings/parity not yet claimed. Evidence tmp/rune-measure/C-serial-rc03/{recreate.log,recreated-readiness.log,recreated-definitions.out,recreated-state.json,full-run.sh}.
 <!-- SECTION:NOTES:END -->
