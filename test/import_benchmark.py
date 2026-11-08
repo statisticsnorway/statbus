@@ -21,10 +21,18 @@ import argparse
 import atexit
 import logging
 import threading
+import json
+from datetime import date, datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 
-import psycopg2
-import psycopg2.extras
+try:
+    import psycopg2
+    import psycopg2.extras
+    from psycopg2 import sql
+except ModuleNotFoundError:
+    # Offline reporting/unit tests use only the standard library.
+    psycopg2 = None
 
 # ============================================================================
 # Configuration
@@ -46,6 +54,149 @@ NC = '\033[0m'
 # Global test database name (set during setup)
 TEST_DB = None
 LOG_FILE = None
+LAST_WORKER_RUN = {}
+
+
+def positive_int(value):
+    """Acceptance thresholds describe at least one executing processing leaf."""
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be an integer >= 1") from None
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be an integer >= 1")
+    return number
+
+
+def interval_summary(intervals):
+    """Sweep durable half-open [start, stop) handler intervals, not samples.
+
+    Stops at a timestamp take effect before starts at that timestamp. Missing
+    endpoints cannot prove execution overlap and are reported separately.
+    """
+    events = {}
+    complete = incomplete = 0
+    for start, stop in intervals:
+        if start is None or stop is None:
+            incomplete += 1
+            continue
+        if stop < start:
+            raise ValueError("process_stop_at precedes process_start_at")
+        complete += 1
+        if stop == start:
+            continue
+        events[start] = events.get(start, 0) + 1
+        events[stop] = events.get(stop, 0) - 1
+    active = peak = 0
+    previous = None
+    histogram = {}
+    for at, delta in sorted(events.items()):
+        if previous is not None and at > previous:
+            seconds = (at - previous).total_seconds()
+            histogram[active] = histogram.get(active, 0.0) + seconds
+            peak = max(peak, active)
+        active += delta
+        previous = at
+    points = sorted(events)
+    return {
+        "evidence": "durable_process_intervals",
+        "interval_semantics": "[process_start_at, process_stop_at)",
+        "complete_intervals": complete,
+        "incomplete_intervals": incomplete,
+        "max_concurrent_processing_leaves": peak,
+        "overlap_seconds": sum(seconds for count, seconds in histogram.items() if count >= 2),
+        "seconds_by_concurrency": {str(count): seconds for count, seconds in sorted(histogram.items())},
+        "span_seconds": (points[-1] - points[0]).total_seconds() if points else 0.0,
+    }
+
+
+def phase_summary(job, phase):
+    start, stop = job[f"{phase}_start_at"], job[f"{phase}_stop_at"]
+    if start is not None and stop is not None and stop < start:
+        raise ValueError(f"Job {job['id']} {phase} stop precedes start")
+    return {"start_at": start, "stop_at": stop,
+            "duration_seconds": (stop - start).total_seconds() if start is not None and stop is not None else None}
+
+
+def summarize_jobs(jobs, leaves):
+    """Keep job identity and phase chronology separate from global overlap."""
+    results = []
+    for job in jobs:
+        row = dict(job)
+        for phase in ("analysis", "processing"):
+            row[phase] = phase_summary(job, phase)
+        job_leaves = [leaf for leaf in leaves if str(leaf["job_id"]) == str(job["id"])]
+        row["processing_leaves"] = job_leaves
+        row["processing_overlap"] = interval_summary(
+            (leaf["process_start_at"], leaf["process_stop_at"]) for leaf in job_leaves)
+        results.append(row)
+    return results
+
+
+def json_value(value):
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    raise TypeError(f"Cannot serialize {type(value).__name__}")
+
+
+def write_result(path, result):
+    """Publish a complete JSON document atomically, including failed runs."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + f".{os.getpid()}.tmp")
+    temporary.write_text(json.dumps(result, default=json_value, indent=2, allow_nan=False) + "\n")
+    temporary.replace(path)
+
+
+def concurrency_acceptance(observation, minimum):
+    actual = observation["max_concurrent_processing_leaves"]
+    passed = minimum is None or actual >= minimum
+    return {"required_minimum": minimum, "observed_actual": actual, "passed": passed,
+            "evidence": "durable_process_intervals"}
+
+
+def collect_observation():
+    """Read actual configuration and durable evidence before plan replays."""
+    conn = get_conn()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT queue, default_concurrency FROM worker.queue_registry ORDER BY queue")
+            queues = [dict(row) for row in cur.fetchall()]
+            cur.execute("SELECT state::text, count(*) AS count FROM worker.tasks GROUP BY state ORDER BY state")
+            task_states = {row["state"]: row["count"] for row in cur.fetchall()}
+            cur.execute("""SELECT min(process_start_at) AS start_at, max(process_stop_at) AS stop_at,
+                                  extract(epoch FROM max(process_stop_at)-min(process_start_at)) AS span_seconds
+                             FROM worker.tasks""")
+            span = dict(cur.fetchone())
+            cur.execute("""SELECT t.id, t.payload->>'job_id' AS job_id, t.state::text,
+                                  t.process_start_at, t.process_stop_at, t.process_duration_ms
+                             FROM worker.tasks AS t
+                            WHERE t.command = 'import_job_process_batch'
+                              AND NOT EXISTS (SELECT 1 FROM worker.tasks AS child WHERE child.parent_id = t.id)
+                            ORDER BY t.process_start_at NULLS LAST, t.id""")
+            leaves = [dict(row) for row in cur.fetchall()]
+            cur.execute("""SELECT id, slug, state::text, total_rows, imported_rows, error_count, warning_count,
+                                  analysis_start_at, analysis_stop_at, processing_start_at, processing_stop_at,
+                                  data_table_name, error
+                             FROM public.import_job ORDER BY id""")
+            jobs = [dict(row) for row in cur.fetchall()]
+            for job in jobs:
+                cur.execute(sql.SQL("SELECT state::text, count(*) AS count FROM public.{} GROUP BY state ORDER BY state")
+                            .format(sql.Identifier(job["data_table_name"])))
+                counts = {row["state"]: row["count"] for row in cur.fetchall()}
+                job["actual_data_rows"] = {"total": sum(counts.values()), "by_state": counts,
+                                           "processed": counts.get("processed", 0), "error": counts.get("error", 0)}
+        return {"queue_registry": queues,
+                "configured_environment_overrides": {key: os.environ[key] for key in
+                    ("WORKER_QUEUE_CONCURRENCY", "WORKER_DEFAULT_CONCURRENCY") if key in os.environ},
+                "task_states": task_states, "failed_task_count": task_states.get("failed", 0),
+                "worker_task_span": span, "jobs": summarize_jobs(jobs, leaves),
+                "processing_overlap": interval_summary(
+                    (leaf["process_start_at"], leaf["process_stop_at"]) for leaf in leaves)}
+    finally:
+        conn.close()
 
 
 def setup_logging():
@@ -115,6 +266,8 @@ def pg_env():
 
 def get_conn(dbname=None):
     """Create a psycopg2 connection using the same credentials as sb psql"""
+    if psycopg2 is None:
+        raise RuntimeError("psycopg2 is required for database runs. Use ./test/import_benchmark.sh")
     env = pg_env()
     return psycopg2.connect(
         host=env.get("PGHOST", "localhost"),
@@ -354,7 +507,8 @@ def run_worker(test_db, timeout_seconds=300, debug=True):
         env["DEBUG"] = "1"
 
     log_print(f"\n{BLUE}Starting worker: {' '.join(cmd)}{NC}")
-    start = time.time()
+    started_at = datetime.now(timezone.utc)
+    start = time.monotonic()
 
     proc = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -394,7 +548,10 @@ def run_worker(test_db, timeout_seconds=300, debug=True):
     # Wait for reader thread to finish draining output
     reader.join(timeout=5)
 
-    elapsed = time.time() - start
+    elapsed = time.monotonic() - start
+    LAST_WORKER_RUN.clear()
+    LAST_WORKER_RUN.update(start_at=started_at, stop_at=datetime.now(timezone.utc),
+                           wall_seconds=elapsed, returncode=proc.returncode, timed_out=timed_out)
 
     if timed_out:
         log_print(f"\n{RED}Worker KILLED after {elapsed:.1f}s (timeout: {timeout_seconds}s){NC}")
@@ -403,7 +560,7 @@ def run_worker(test_db, timeout_seconds=300, debug=True):
     return proc.returncode, output_lines, elapsed
 
 
-def run_concurrent_test(timeout_seconds=300, debug=True):
+def run_concurrent_test(timeout_seconds=300, debug=True, result=None, require_import_concurrency=None):
     """Run the real Crystal worker and verify results."""
     log_print(f"\n{'='*60}")
     log_print(f"  Concurrent Worker Test (real Crystal worker)")
@@ -413,6 +570,18 @@ def run_concurrent_test(timeout_seconds=300, debug=True):
     log_print(f"{'='*60}")
 
     returncode, output, elapsed = run_worker(TEST_DB, timeout_seconds, debug)
+    if result is None:
+        result = {}
+    result["worker"] = dict(LAST_WORKER_RUN)
+    observation = collect_observation()
+    result.update(observation)
+    acceptance = concurrency_acceptance(observation["processing_overlap"], require_import_concurrency)
+    result["import_concurrency_acceptance"] = acceptance
+    log_print(f"\n  Proven processing leaf concurrency: {acceptance['observed_actual']} "
+              f"(durable handler intervals)")
+    if not acceptance["passed"]:
+        log_print(f"{RED}  Import concurrency requirement unmet: required >= "
+                  f"{require_import_concurrency}, observed {acceptance['observed_actual']}{NC}", "error")
 
     # Query final task states
     conn = get_conn()
@@ -483,14 +652,19 @@ def run_concurrent_test(timeout_seconds=300, debug=True):
 
     plans_stable = run_repeated_call_benchmarks() if not failed else True
 
-    success = returncode == 0 and not failed and consistent and plans_stable
+    result["checks"] = {"consistency": {"passed": consistent, "summary": consistency_summary},
+                        "repeated_call_plans_stable": plans_stable}
+    success = (returncode == 0 and not LAST_WORKER_RUN.get("timed_out", False)
+               and not failed and consistent and plans_stable and acceptance["passed"])
+    result["success"] = success
     if success:
         log_print(f"\n{GREEN}{'='*60}")
         log_print(f"  SUCCESS: Worker processed all tasks in {elapsed:.1f}s; counts consistent")
         log_print(f"{'='*60}{NC}")
     else:
         log_print(f"\n{RED}{'='*60}")
-        log_print(f"  FAILED: returncode={returncode}, failed_tasks={len(failed)}, consistent={consistent}")
+        log_print(f"  FAILED: returncode={returncode}, failed_tasks={observation['failed_task_count']}, "
+                  f"consistent={consistent}, concurrency_met={acceptance['passed']}")
         if not consistent:
             log_print(f"  {consistency_summary}", "error")
         log_print(f"{'='*60}{NC}")
@@ -898,7 +1072,7 @@ def show_timing(dbname):
 # Main
 # ============================================================================
 
-if __name__ == "__main__":
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description="Test concurrent worker processing with isolated database",
         epilog="Databases are RETAINED by default for comparison. Use --cleanup to delete."
@@ -925,7 +1099,20 @@ if __name__ == "__main__":
                         help="Enable debug logging in worker (default: true)")
     parser.add_argument("--no-debug", action="store_true",
                         help="Disable debug logging in worker")
-    args = parser.parse_args()
+    parser.add_argument("--result-json", type=Path, metavar="PATH",
+                        help="Write machine-readable run evidence, including failures, to PATH")
+    parser.add_argument("--require-import-concurrency", type=positive_int, metavar="MIN",
+                        help="Acceptance assertion only: require MIN concurrent processing leaves proven by durable intervals (>=1). Does not change queue configuration")
+    args = parser.parse_args(argv)
+    if (args.result_json is not None or args.require_import_concurrency is not None) and (
+            args.list or args.cleanup_all or args.timing or args.repeated_calls):
+        parser.error("--result-json and --require-import-concurrency require a worker benchmark run")
+    return args
+
+
+def main(argv=None):
+    global TEST_DB
+    args = parse_args(argv)
 
     if args.cleanup_all:
         drop_all_test_databases()
@@ -946,15 +1133,30 @@ if __name__ == "__main__":
 
     log_print(f"{BLUE}Log file: {LOG_FILE}{NC}")
 
-    if not args.skip_setup:
-        create_isolated_db()
-        atexit.register(lambda: drop_isolated_db(force=args.cleanup))
-        setup_test_data(args.dataset)
-    else:
-        env = pg_env()
-        TEST_DB = env.get("PGDATABASE", "statbus")
-        log_print(f"Using existing database: {TEST_DB}")
+    result = {"schema_version": 1, "success": False, "dataset": args.dataset,
+              "timeout_seconds": args.timeout, "log_file": str(LOG_FILE)}
+    try:
+        if not args.skip_setup:
+            create_isolated_db()
+            atexit.register(lambda: drop_isolated_db(force=args.cleanup))
+            setup_test_data(args.dataset)
+        else:
+            env = pg_env()
+            TEST_DB = env.get("PGDATABASE", "statbus")
+            log_print(f"Using existing database: {TEST_DB}")
 
-    debug = not args.no_debug
-    success = run_concurrent_test(timeout_seconds=args.timeout, debug=debug)
-    sys.exit(0 if success else 1)
+        success = run_concurrent_test(timeout_seconds=args.timeout, debug=not args.no_debug,
+                                      result=result, require_import_concurrency=args.require_import_concurrency)
+        return 0 if success else 1
+    except Exception as error:
+        result["error"] = {"type": type(error).__name__, "message": str(error)}
+        log_print(f"{RED}Benchmark failed: {error}{NC}", "error")
+        return 1
+    finally:
+        result["database"] = TEST_DB
+        if args.result_json is not None:
+            write_result(args.result_json, result)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
