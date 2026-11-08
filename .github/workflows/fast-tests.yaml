@@ -265,6 +265,9 @@ jobs:
           docker compose logs db | tail -30
           exit 1
 
+      - name: Verify regression diagnostic collection
+        run: bash test/fast-ci-regression-diagnostics-test.sh .github/workflows/fast-tests.yaml tmp/fast-ci-diagnostics-selftest
+
       - name: Run fast test suite
         id: sql_tests
         # workflow_run / RC-tag push: request the published seed image
@@ -331,11 +334,32 @@ jobs:
       - name: Show regression diffs on failure
         if: failure() && steps.sql_tests.outcome == 'failure'
         run: |
-          if [ -f test/regression.out ] && [ -r test/regression.out ]; then
-            ./dev.sh diff-fail-all pipe
-          else
-            echo "SQL step failed with no readable pg_regress summary. Inspect the SQL step output."
+          set -euo pipefail
+          mkdir -p tmp/fast-ci-regression
+          status=0
+          # dev.sh accumulates the whole run's TAP on the host. pg_regress
+          # writes its own summary/diff inside db, possibly for the last child.
+          if [ -f test/regression.out ]; then
+            cp test/regression.out tmp/fast-ci-regression/host-regression.out
+            cat tmp/fast-ci-regression/host-regression.out
           fi
+          for file in regression.out regression.diffs; do
+            echo "=== db:/statbus/test/$file ==="
+            docker compose exec -T --workdir /statbus db cat "/statbus/test/$file" \
+              2> "tmp/fast-ci-regression/$file.stderr" \
+              | tee "tmp/fast-ci-regression/$file" || status=$?
+            cat "tmp/fast-ci-regression/$file.stderr" >&2
+          done
+          exit "$status"
+
+      - name: Upload regression diagnostics
+        if: always() && steps.sql_tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-ci-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          path: tmp/fast-ci-regression/
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Cleanup
         if: always()
