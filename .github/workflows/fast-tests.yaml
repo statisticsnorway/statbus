@@ -337,11 +337,13 @@ jobs:
           set -euo pipefail
           mkdir -p tmp/fast-ci-regression
           status=0
-          # dev.sh accumulates the whole run's TAP on the host. pg_regress
-          # writes its own summary/diff inside db, possibly for the last child.
-          if [ -f test/regression.out ]; then
+          # A passing isolated pg_regress child can remove both summaries.
+          # The host summary can also be unreadable to the runner.
+          if [ -f test/regression.out ] && [ -r test/regression.out ]; then
             cp test/regression.out tmp/fast-ci-regression/host-regression.out
             cat tmp/fast-ci-regression/host-regression.out
+          else
+            echo "Host pg_regress summary unreadable or absent; collecting container results."
           fi
           for file in regression.out regression.diffs; do
             echo "=== db:/statbus/test/$file ==="
@@ -350,6 +352,43 @@ jobs:
               | tee "tmp/fast-ci-regression/$file" || status=$?
             cat "tmp/fast-ci-regression/$file.stderr" >&2
           done
+          # Per-test outputs survive different-name isolated children even when
+          # regression.out/diffs are removed. Extract as the runner, not the
+          # container's owner, so mode-600 outputs remain readable.
+          docker compose exec -T --workdir /statbus db \
+            tar -cf - -C /statbus/test results \
+            > tmp/fast-ci-regression/results.tar \
+            2> tmp/fast-ci-regression/results.tar.stderr || status=$?
+          cat tmp/fast-ci-regression/results.tar.stderr >&2
+          if [ -s tmp/fast-ci-regression/results.tar ]; then
+            tar --no-same-owner -xf tmp/fast-ci-regression/results.tar \
+              -C tmp/fast-ci-regression \
+              2> tmp/fast-ci-regression/results.extract.stderr || status=$?
+            cat tmp/fast-ci-regression/results.extract.stderr >&2
+          fi
+          mkdir -p tmp/fast-ci-regression/diffs
+          shopt -s nullglob
+          found_result=false
+          for result in tmp/fast-ci-regression/results/*.out; do
+            found_result=true
+            name=${result##*/}
+            diff_status=0
+            diff -u --label "test/expected/$name" --label "db:/statbus/test/results/$name" \
+              "test/expected/$name" "$result" \
+              > "tmp/fast-ci-regression/diffs/$name.diff" \
+              2> "tmp/fast-ci-regression/diffs/$name.stderr" || diff_status=$?
+            if [ "$diff_status" -ne 0 ]; then
+              echo "=== per-test diff: $name ==="
+              cat "tmp/fast-ci-regression/diffs/$name.diff"
+              cat "tmp/fast-ci-regression/diffs/$name.stderr" >&2
+              # diff=1 is the expected SQL mismatch, not a collection error.
+              if [ "$diff_status" -gt 1 ]; then status=$diff_status; fi
+            fi
+          done
+          if [ "$found_result" = false ]; then
+            echo "::error::No per-test pg_regress outputs recovered."
+            if [ "$status" -eq 0 ]; then status=1; fi
+          fi
           exit "$status"
 
       - name: Upload regression diagnostics
