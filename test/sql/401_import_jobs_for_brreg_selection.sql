@@ -132,12 +132,44 @@ CALL worker.process_tasks(p_queue => 'import');
 -- ============================================================================
 BEGIN;
 
-\echo 'Check the states of the import job tasks'
-SELECT queue, t.command, state, error
-  FROM worker.tasks AS t
-  JOIN worker.command_registry AS c on t.command = c.command
- WHERE t.command = 'import_job_process'
- ORDER BY priority;
+\echo Legal unit accepted rows match processed/imported rows and retain a completed serial wrapper
+SELECT count(*) FILTER (WHERE d.action = 'use') AS accepted,
+       count(*) FILTER (WHERE d.action = 'use' AND d.state = 'processed') AS processed,
+       j.imported_rows AS imported, w.child_mode, w.state
+FROM public.import_hovedenhet_2025_selection_data AS d
+CROSS JOIN public.import_job AS j
+JOIN worker.tasks AS w ON (w.payload->>'job_id')::integer = j.id AND w.command = 'import_job'
+WHERE j.slug = 'import_hovedenhet_2025_selection'
+GROUP BY j.imported_rows, w.child_mode, w.state;
+\echo Establishment accepted rows match processed/imported rows
+SELECT count(*) FILTER (WHERE d.action = 'use') AS accepted,
+       count(*) FILTER (WHERE d.action = 'use' AND d.state = 'processed') AS processed,
+       j.imported_rows AS imported
+FROM public.import_underenhet_2025_selection_data AS d
+CROSS JOIN public.import_job AS j
+WHERE j.slug = 'import_underenhet_2025_selection'
+GROUP BY j.imported_rows;
+\echo Each assigned establishment batch has exactly one successful leaf and completed concurrent dispatcher/serial wrapper
+WITH batches AS (
+    SELECT batch_seq, count(*) AS accepted
+    FROM public.import_underenhet_2025_selection_data WHERE action = 'use'
+    GROUP BY batch_seq
+), leaves AS (
+    SELECT (t.payload->>'batch_seq')::integer AS batch_seq, count(*) AS leaves,
+           bool_and(t.state = 'completed' AND t.error IS NULL
+                    AND d.state = 'completed' AND d.child_mode = 'concurrent'
+                    AND w.state = 'completed' AND w.child_mode = 'serial') AS successful
+    FROM worker.tasks AS t
+    JOIN worker.tasks AS d ON d.id = t.parent_id
+    JOIN worker.tasks AS w ON w.id = d.parent_id
+    JOIN public.import_job AS j ON j.id = (t.payload->>'job_id')::integer
+    WHERE j.slug = 'import_underenhet_2025_selection' AND t.command = 'import_job_process_batch'
+    GROUP BY (t.payload->>'batch_seq')::integer
+)
+SELECT count(*) AS batches, sum(b.accepted) AS accepted,
+       bool_and(COALESCE(l.leaves = 1 AND l.successful, false)) AS covered,
+       (SELECT count(*) FROM leaves) = count(*) AS all_batches
+FROM batches AS b LEFT JOIN leaves AS l USING (batch_seq);
 
 \echo 'Check import job state after processing (deterministic)'
 SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, import_completed_pct
@@ -288,7 +320,11 @@ COMMIT;
 BEGIN;
 
 \echo Check the state of all tasks before running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+SELECT c.queue, t.state, bool_and(t.error IS NULL) AS successful
+FROM worker.tasks AS t
+JOIN worker.command_registry AS c USING (command)
+WHERE c.queue <> 'maintenance'
+GROUP BY c.queue, t.state ORDER BY c.queue, t.state;
 
 COMMIT;
 
@@ -298,7 +334,11 @@ CALL worker.process_tasks(p_queue => 'analytics');
 BEGIN;
 
 \echo Check the state of all tasks after running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+SELECT c.queue, t.state, bool_and(t.error IS NULL) AS successful
+FROM worker.tasks AS t
+JOIN worker.command_registry AS c USING (command)
+WHERE c.queue <> 'maintenance'
+GROUP BY c.queue, t.state ORDER BY c.queue, t.state;
 
 COMMIT;
 
@@ -308,7 +348,11 @@ CALL worker.process_tasks();
 BEGIN;
 
 \echo Check the state of all tasks after final processing.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+SELECT c.queue, t.state, bool_and(t.error IS NULL) AS successful
+FROM worker.tasks AS t
+JOIN worker.command_registry AS c USING (command)
+WHERE c.queue <> 'maintenance'
+GROUP BY c.queue, t.state ORDER BY c.queue, t.state;
 
 COMMIT;
 

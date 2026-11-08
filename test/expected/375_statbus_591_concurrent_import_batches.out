@@ -1,0 +1,96 @@
+\set ECHO none
+-- test/setup.sql output suppressed for cleaner test output
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\set ECHO none
+LU fanout: serial wrapper, waiting concurrent dispatcher, one leaf per batch, blocked serial continuation
+serial|waiting|concurrent|4|4|1|processing_data|0
+LU batch coverage: exactly one scheduled leaf matches each assigned processing batch
+4
+LU first leaf: exactly one unit, counter advanced once, holistic pending
+processing_data|1|1|3|1|1|0
+LU replay: one completed leaf, same imported row and version
+1|1|1|1
+LU serial barrier: continuation stays pending until every leaf completes
+1|waiting|1|0
+LU fan-in: dispatcher completed, all rows imported, finalization still pending
+processing_data|4|completed|4|0
+LU final: four units, four exact versions, four enterprises, holistic sees four
+4|4|4|4
+import_375_lu|4|4
+ES fanout: four parent groups, four leaves, eight new insert rows
+waiting|concurrent|4|4|8
+ES first leaf: two establishments of one parent, serial continuation blocked
+processing_data|2|2|0
+ES final: eight units and versions, four parents, exactly one primary per parent
+8|8|4|4
+4
+import_375_es|8|8
+import_375_lu|4|4
+Reused ES analysis: four existing establishment targets across four parent batches
+4|4|4
+Reused ES fanout: four existing-target parent batches dispatch concurrently
+waiting|concurrent|4|processing_data|0
+Reused ES first leaf: serial continuation waits with three rows still processing
+serial|processing_data|1|1|3|1
+Reused ES fan-in: all rows imported before serial finalization
+processing_data|4|completed
+Reused ES final: four existing units have their requested replacement versions
+4|4
+History analysis: four inserts and eight non-inserts in four whole-unit batches
+4|8|4|4
+History fanout: four whole mixed-operation histories dispatch concurrently
+waiting|concurrent|4|processing_data|0
+History first leaf: one complete three-row history, serial continuation waits
+serial|processing_data|3|3|9|1
+History fan-in: all rows imported before serial finalization
+processing_data|12|completed
+History final: four units retain all twelve exact yearly versions
+4|12|12
+Mixed fanout: existing and new targets dispatch in two concurrent batches
+waiting|concurrent|2|processing_data|0
+Mixed first leaf: one processed row and one pending processing row
+serial|processing_data|1|1|1|1
+Mixed fan-in: both rows imported before serial finalization
+processing_data|2|completed
+Mixed final: both target units have their requested final names
+2|2
+Reused targets: four rows resolve to four existing units
+4|4
+Reused fanout: four existing units dispatch concurrently
+waiting|concurrent|4|processing_data|0
+Reused first leaf: serial continuation waits with three rows still processing
+serial|processing_data|1|1|3|1
+Reused fan-in: all rows imported before serial finalization
+processing_data|4|completed
+Reused final: four additional versions on the four original units
+4|4
+Informal fanout: four independent enterprise batches dispatch concurrently
+waiting|concurrent|4|processing_data|0
+Informal first leaf: serial continuation waits with three rows still processing
+serial|processing_data|1|1|3|1
+Informal fan-in: all rows imported before serial finalization
+processing_data|4|completed
+Informal final: four establishments, four versions, four enterprise parents
+4|4|4
+Failure fanout: four eligible leaves wait before the injected batch tail failure
+waiting|concurrent|4
+Failed leaf: durable job failure and task failure before remaining siblings drain
+failed|0|t|0
+Failed batch: job and wrapper failed, zero imported, error recorded, holistic unrun
+failed|failed|0|t|0|0|0
+Failed job transitions: processing_data leads to failed rather than finished
+{upload_completed,preparing_data,analysing_data,processing_data,failed}
+Finished totals: successful jobs preserve exact input and imported row counts
+import_375_es|finished|8|8
+import_375_es_reused|finished|4|4
+import_375_history|finished|12|12
+import_375_informal|finished|4|4
+import_375_lu|finished|4|4
+import_375_mixed|finished|2|2
+import_375_reused|finished|4|4
+Final registry totals: thirteen enterprises, nine legal units with twenty-two versions, twelve establishments
+13|9|22|12|12
+Caller paths: each clean worker dispatch has two leaves and finishes two units, versions and enterprises
+"$user", public|waiting|concurrent|2|2|finished|2|2|2|2|2
+"$user", public, import|waiting|concurrent|2|2|finished|2|2|2|2|2
