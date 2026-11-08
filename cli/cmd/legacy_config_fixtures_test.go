@@ -16,8 +16,11 @@ func TestLegacyReleaseConfigGenerationEntryPoints_STATBUS445(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fixtures) != 4 {
-		t.Fatalf("expected four release fixtures, got %d: %v", len(fixtures), fixtures)
+	for _, release := range []string{"v2026.08.0", "v2026.09.0", "v2026.09.2", "v2026.09.3"} {
+		fixture := filepath.Join("..", "internal", "config", "testdata", "legacy-config", release)
+		if !slices.Contains(fixtures, fixture) {
+			t.Fatalf("required historical release fixture %s not found in %v", release, fixtures)
+		}
 	}
 
 	entryPoints := []struct {

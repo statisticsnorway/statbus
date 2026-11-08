@@ -54,7 +54,7 @@ func prepareLegacyConfigFixture(t *testing.T, release string) (string, []byte, [
 }
 
 func TestOperatorConfigSnapshotRestoresLegacyPlacementAfterTargetMigration(t *testing.T) {
-	for _, release := range []string{"v2026.08.0", "v2026.09.0", "v2026.09.2"} {
+	for _, release := range []string{"v2026.08.0", "v2026.09.0", "v2026.09.2", "v2026.11.1", "v2026.11.2"} {
 		t.Run(release, func(t *testing.T) {
 			projDir, configBefore, credentialsBefore := prepareLegacyConfigFixture(t, release)
 			backupPath := filepath.Join(t.TempDir(), backupSyncingName)
