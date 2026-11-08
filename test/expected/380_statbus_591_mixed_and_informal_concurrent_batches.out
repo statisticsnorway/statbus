@@ -1,0 +1,97 @@
+\set ECHO none
+-- test/setup.sql output suppressed for cleaner test output
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\set ECHO none
+LU exact histories: existing retain 2020, all four retain 2021 and 2022
+T380 LU 1 2020|2020-01-01|2021-01-01
+T380 LU 1 2021|2021-01-01|2022-01-01
+T380 LU 1 2022|2022-01-01|infinity
+T380 LU 2 2020|2020-01-01|2021-01-01
+T380 LU 2 2021|2021-01-01|2022-01-01
+T380 LU 2 2022|2022-01-01|infinity
+T380 LU 3 2021|2021-01-01|2022-01-01
+T380 LU 3 2022|2022-01-01|infinity
+T380 LU 4 2021|2021-01-01|2022-01-01
+T380 LU 4 2022|2022-01-01|infinity
+Formal parent batches: all child histories and siblings stay with their legal parent
+4
+Formal exact histories
+T380 ES 1 2020|2020-01-01|2021-01-01
+T380 ES 1 2021|2021-01-01|2022-01-01
+T380 ES 1 2022|2022-01-01|infinity
+T380 ES 2 2020|2020-01-01|2021-01-01
+T380 ES 2 2021|2021-01-01|2022-01-01
+T380 ES 2 2022|2022-01-01|infinity
+T380 ES 3 2021|2021-01-01|2022-01-01
+T380 ES 3 2022|2022-01-01|infinity
+T380 ES 4 2021|2021-01-01|2022-01-01
+T380 ES 4 2022|2022-01-01|infinity
+T380 ES 5 2021|2021-01-01|2022-01-01
+T380 ES 5 2022|2022-01-01|infinity
+T380 ES 6 2021|2021-01-01|2022-01-01
+T380 ES 6 2022|2022-01-01|infinity
+T380 ES 7 2021|2021-01-01|2022-01-01
+T380 ES 7 2022|2022-01-01|infinity
+T380 ES 8 2021|2021-01-01|2022-01-01
+T380 ES 8 2022|2022-01-01|infinity
+Formal primary and temporal parent coverage at each version start
+2020-01-01|2|2|2|2
+2021-01-01|8|4|4|8
+2022-01-01|8|4|4|8
+Informal exact histories
+T380 informal 1 2020|2020-01-01|2021-01-01
+T380 informal 1 2021|2021-01-01|2022-01-01
+T380 informal 1 2022|2022-01-01|infinity
+T380 informal 2 2020|2020-01-01|2021-01-01
+T380 informal 2 2021|2021-01-01|2022-01-01
+T380 informal 2 2022|2022-01-01|infinity
+T380 informal 3 2021|2021-01-01|2022-01-01
+T380 informal 3 2022|2022-01-01|infinity
+T380 informal 4 2021|2021-01-01|2022-01-01
+T380 informal 4 2022|2022-01-01|infinity
+Informal independent enterprise parents and primary histories
+4|10|4|10
+Shared LU analysis: three existing units, two enterprise dependencies, two whole-parent batches
+3|2|2|2
+Shared LU fanout: two complete enterprise leaves
+waiting|concurrent|2
+Shared LU final: three exact versions, two enterprise parents, two primary units
+3|3|2|2|3
+Shared informal analysis: three existing units, two enterprise dependencies, two whole-parent batches
+3|2|2|2
+Shared informal fanout: two complete enterprise leaves
+waiting|concurrent|2
+Shared informal final: three exact versions, two enterprise parents, two primary units
+3|3|2|2|3
+Retained formal children remain covered by complete legal-parent histories
+8|18|18
+Current shared-enterprise groups each retain one primary unit
+legal_unit|3
+informal|3
+Custom handler retains serial processing and runs once per complete batch
+serial|processing_data|1|1|1|1
+finished|2|2|2|2
+Finished jobs preserve exact input and imported counts
+import_380_custom|finished|2|2
+import_380_es|finished|16|16
+import_380_informal|finished|8|8
+import_380_lu|finished|8|8
+import_380_seed_es|finished|2|2
+import_380_seed_informal|finished|2|2
+import_380_seed_lu|finished|2|2
+import_380_shared_informal|finished|3|3
+import_380_shared_lu|finished|3|3
+Real worker protocol observations
+import_380_lu analysis: insert:2,update:6 groups=4 batches=4 whole=t
+import_380_lu fanout: waiting|concurrent|4|processing_data|0
+import_380_lu barrier: processing_data|2|waiting|1
+import_380_lu fanin: processing_data|8|completed
+import_380_es analysis: insert:6,update:10 groups=8 batches=4 whole=t
+import_380_es fanout: waiting|concurrent|4|processing_data|0
+import_380_es barrier: processing_data|4|waiting|1
+import_380_es fanin: processing_data|16|completed
+import_380_informal analysis: insert:2,update:6 groups=4 batches=4 whole=t
+import_380_informal fanout: waiting|concurrent|4|processing_data|0
+import_380_informal barrier: processing_data|2|waiting|1
+import_380_informal fanin: processing_data|8|completed
