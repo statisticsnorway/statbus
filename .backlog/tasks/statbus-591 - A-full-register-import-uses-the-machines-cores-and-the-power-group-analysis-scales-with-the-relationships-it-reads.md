@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-08T19:19:00Z'
+updated_date: '2026-11-08T19:45:00Z'
 labels:
   - import
   - performance
@@ -131,4 +131,12 @@ Frozen complete fast SQL and doc regeneration running18:42, not yet claimed pass
 Real default-four Crystal selection import (import_benchmark_32960) finished69.620s, four completed leaves with actualpeak4/14.148s overlap, all jobs finished,0failedtasks/historyABC0/0/0. Root independently compared12business tables to the existing recorded serial reference: exact parity after the same documented logical-ID/auditclock normalization, domain validity dates retained. This is bounded correctness/overlap proof, not a controlled timing gain and not full-register acceptance. Full-register run still pending allpgtests/source/doc gates. No Norway mutation, nextstableheld for personalreview.
 
 November8 19:19UTC: actual concurrent mixed/selection acceptance and 12-table serial parity are recorded in the current description. Benchmark helpers committed345bb4051 after root26offline tests PASS; worker count guide correction fbef8b70e is separately committed. Three new runtime migrations remain uncommitted pending complete all-pg/doc verification. Root corrected the new default migration's schema comments to say one serial coordinator plus configured concurrent child executors; exact comment rollback/new replay verification is pending, with no behavior change. Ox owns exclusive four-clone401/404 diagnostic window; Rat parent-move actual-analysis fixture is offline awaiting release; Pig implements tmp-only independent union-find/BFS/accepted-edge graph validation. Norway untouched, no next-stable approval, fullregister not started.
+
+2026-11-08 19:45 UTC, concurrent branch checkpoint f95da97d7f61450dc12a097cb7221cdee9ab0f81 on statbus-591-concurrency, rebased on serial-only v2026.11.3-rc.03 fc1830fe4. Three NEW forward pairs 20261108182300..02 enable dependency-closed LU/formal/informal batches through the existing worker at import default4, with integrity checks enabled and tail wakeup publication. All released SQL files remain unchanged. Explicit 74-path commit includes paired doc/db, protocol regressions and narrowly reviewed golden changes. Committed tree exactly matches reviewed staged tree 861d47b9068e841b0ec70954717bae09c59d44ba.
+
+Actual frozen acceptance completed19:42UTC: ./dev.sh test all exit0, all143cases (136shared+094/143+400..404) PASS; complete ./dev.sh generate-doc-db exit0 with no schema-object deletions; ./sb types generate exit0 with unchanged types. All1180migration/test/benchmark source-manifest entries identical before/tests/docs. Logs/actualexits: tmp/591/concurrency-v2/final-validation/. Reviewed unrelated plan/timing observations and six view-deparser alias differences retained there and excluded from commit. Freshness stamps honestly withheld for the dirty test tree, no bypass.
+
+Actual up/down/up validates exact routines/ACLs/comments/registries/indexes/ledger and serial440/default1 -> candidate443/default4. Seed and protected-template clone contain exact final definition comments; original data-bearing local DB untouched. The exit2 from a direct connection to the intentionally connection-disabled template was a verification-harness mistake, corrected through a retained clone without rerunning successful migrations.
+
+Literal actual-worker mixed and BRREG-selection default4/no overrides already PASS with peak4, exact business/history outputs and selection12-table equality against retained serial rows. Real parent-move fixtures independently PASS23assertions in each serial/candidate lane, genuine analysis unchanged, exact four eras/parent coverage; this is not a primary-demotion race or tiny-fixture overlap proof. Full-file downloads concurrent benchmark and independent graph/8history/counter acceptance are NEXT, not yet established. Four AC remain unchecked, no completion or full-register speedup claim. No repeated full serial import, no Norway mutation, no Saga adoption, no date-default selection, next stable still held for personal owner approval.
 <!-- SECTION:NOTES:END -->
