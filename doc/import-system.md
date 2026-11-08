@@ -6,6 +6,28 @@ The Statbus import system provides a flexible and robust way to load external da
 
 This system allows defining complex import processes that can affect multiple related tables (like legal units, establishments, locations, activities, contacts, etc.) within a single, manageable import job.
 
+## BRREG operator validity
+
+Both `samples/norway/brreg/brreg-import-selection.sh` and
+`brreg-import-downloads-from-tmp.sh` accept `--valid-from YYYY-MM-DD` or
+`--year YYYY`, together with optional `--database NAME`, in either order.
+`--year 2024` means `2024-01-01`. An exact date such as
+`--valid-from 2024-02-29` is supplied to the legal-unit, establishment and
+legal-relationship jobs. Selection slugs use that date's year. Download job
+slugs retain their existing format-version names. Selection retains its existing
+`ON CONFLICT DO NOTHING` behavior: rerunning an existing year slug does not
+redate that job. Review existing job validity before reusing a selection slug.
+
+Set `USER_EMAIL` to an existing database user. `--help` needs neither an email
+nor database contact. Invalid calendar dates, missing values, duplicate options,
+mutually exclusive validity options and unknown arguments fail before `sb` runs.
+
+Without explicit validity, selection still uses January 1 of the current year
+and downloads still use the execution date. These are compatibility defaults,
+not a choice between start-of-year and snapshot-date policy. The owner decision
+for STATBUS-591 AC3 remains pending. Transport tests validate argument dispatch,
+not database results or real-host import acceptance.
+
 ## Core Concepts
 
 The import system is built around several key database tables and concepts:

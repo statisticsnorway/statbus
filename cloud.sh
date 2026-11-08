@@ -942,7 +942,7 @@ cmd_standalone_wipe() {
 }
 
 # resolve_user_email returns the email to use for cmd_import.
-# Precedence: explicit --user-email FLAG > STATBUS_REIMPORT_USER_EMAIL env >
+# Precedence: explicit positional email > STATBUS_REIMPORT_USER_EMAIL env >
 # interactive prompt (TTY only). Aborts with a clear message on a closed
 # stdin (e.g. piped invocation in CI) so the caller fixes the call site
 # rather than silently importing as a default user.
@@ -957,7 +957,7 @@ resolve_user_email() {
         return 0
     fi
     if [ ! -t 0 ]; then
-        echo "ERROR: --user-email <addr> required (or set STATBUS_REIMPORT_USER_EMAIL)" >&2
+        echo "ERROR: import email required (or set STATBUS_REIMPORT_USER_EMAIL)" >&2
         echo "       The BRREG import script verifies the email exists in public.user;" >&2
         echo "       the import_job rows are then attributed to that user." >&2
         exit 1
@@ -1018,10 +1018,13 @@ cmd_import_one() {
     fqdn=$(entry_ssh_target "$resolved_target")
     dom=$(entry_domain "$resolved_target")
     echo "Scheduling BRREG $variant import on '$resolved_target' ($dom) as $email ..."
+    local email_command script_command
+    printf -v email_command '%q' "$email"
+    printf -v script_command '%q ' "$script" ${BRREG_FORWARD[@]+"${BRREG_FORWARD[@]}"}
     ssh_entry "$resolved_target" "set -e
         cd statbus
-        export USER_EMAIL='${email}'
-        ${script}" 2>&1
+        export USER_EMAIL=${email_command}
+        ${script_command}" 2>&1
     echo "--- $resolved_target $variant import scheduled. Worker will process asynchronously."
     echo "    Watch progress: ./cloud.sh ssh $resolved_target  → ./sb psql -c \"SELECT slug, state FROM public.import_job ORDER BY slug\""
 }
@@ -1118,10 +1121,28 @@ case "$1" in
         cmd_wipe "$2"
         ;;
     import)
+        # shellcheck source=samples/norway/brreg/brreg-import-options.sh
+        source "$SCRIPT_DIR/samples/norway/brreg/brreg-import-options.sh"
+        if [[ "${2:-}" = --help || "${2:-}" = -h ]]; then
+            shift
+            brreg_parse_options "$@"
+            echo 'Usage: ./cloud.sh import <target> <selection|downloads> [email] [options]'
+            brreg_help
+            exit 0
+        fi
         [ $# -lt 3 ] && { echo "Error: import requires <target> <selection|downloads>"; usage; }
-        start_cloud_log import "$2"
-        assert_verb_target_group import "$2" || exit $?
-        cmd_import "$2" "$3" "${4:-}"
+        import_target=$2
+        import_variant=$3
+        shift 3
+        import_email=""
+        if [ $# -gt 0 ] && [[ "$1" != -* ]]; then import_email=$1; shift; fi
+        # Validate locally before target resolution can query remote metadata.
+        brreg_parse_options "$@"
+        if [ "$BRREG_HELP" -eq 1 ]; then brreg_help; exit 0; fi
+        case "$import_variant" in selection|downloads) ;; *) echo "Error: unknown import variant '$import_variant'" >&2; exit 1 ;; esac
+        start_cloud_log import "$import_target"
+        assert_verb_target_group import "$import_target" || exit $?
+        cmd_import "$import_target" "$import_variant" "$import_email"
         ;;
     ssh)
         [ $# -lt 2 ] && { echo "Error: ssh requires a box code"; usage; }

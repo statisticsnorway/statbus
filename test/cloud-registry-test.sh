@@ -8,7 +8,8 @@ trap 'rm -rf "$TMP"' EXIT
 cp "$ROOT/cloud.sh" "$TMP/cloud.sh"
 # The fixture below writes its own sb double. Do not require or copy a local
 # ignored executable, which may be absent in an isolated source worktree.
-mkdir -p "$TMP/ops"
+mkdir -p "$TMP/ops" "$TMP/samples/norway/brreg"
+cp "$ROOT/samples/norway/brreg/brreg-import-options.sh" "$TMP/samples/norway/brreg/"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 assert_eq() { [ "$1" = "$2" ] || fail "$3: expected '$1', got '$2'"; }
