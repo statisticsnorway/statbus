@@ -6,11 +6,13 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-08T09:18:00Z'
+updated_date: '2026-11-08T10:04:00Z'
 labels:
   - import
   - performance
 dependencies: []
+documentation:
+  - doc/performance/2026-11-combined-import-review.md
 type: enhancement
 ordinal: 499204
 ---
@@ -40,6 +42,18 @@ Rune run A (November 7, 2026, rc.18, full BRREG, 62 GB RAM): legal-unit analysis
 - [ ] #3 Power-group analysis preserves the reference relationships and temporal group memberships, with valid algorithm-derived roots and preserved custom overrides, on graph-size scaling fixtures and rune's 33,710-row BRREG file; recorded scaling measurements and rune runtime improve on the 1,024-second rc.18 baseline
 - [ ] #4 [Owner] Choose the job-provided valid_from policy: start-of-year means January 1 of the declared file/snapshot year, allowing validity from that year start; file-date means the declared file/snapshot calendar date, allowing validity only from that snapshot date. Record the choice and resulting date in this ticket and doc/import-system.md, and verify that it sets job-provided valid_from instead of the execution day
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Rebase the bounded import prototype on current master and preserve released recovery/progress fixes.
+2. Implement and maintain the complete owner-review guide. Delegate release/CLI/date forwarding to rabbit and scoped documentation to a6.1worker.
+3. Verify the combined schema and runtime with local migrations, full fast suite, frontend checks and complete schema-doc generation. Diagnose every failure and add failing regressions for newly discovered defects.
+4. Commit explicit owned paths, coordinate the FF push with rabbit, inspect exact-SHA CI, and deliver a named release candidate through all real gates.
+5. Record matched full-register import measurements, parity, errors, memory, queue concurrency and declared snapshot date. Prior B is only the history-release reference.
+6. Keep all four criteria open until satisfied. The owner's validity-date choice and personal review checklist remain required.
+7. HARD HOLD: do not promote the next stable release until the owner explicitly approves the reviews. RC authorization does not authorize final stable or destructive Norway work.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
@@ -92,4 +106,6 @@ Rabbit owns independent pre-existing crash-recovery589. Our rollback-state probe
 2026-11-08 09:17 UTC, read-only local retention inventory: 118 statbus_591* databases total 16,240,811,018 bytes (15.125 GiB), zero other sessions at capture. tmp/591 contains 1,282 evidence files, 1,211,555,458 bytes (1.128 GiB). This checkout's dbdumps has 29 files including .gitkeep, 3,009,015,734 bytes (2.802 GiB), and ~/statbus-backups is empty. A separate import_benchmark_41768 (872,527,551 bytes) has unverified ownership/need and is preserved. Reproducible local catalog/metadata evidence and caveats: tmp/retained-inventory-20261108/README.md, databases.sql/json and files.mjs/json. No remote query, migration, benchmark/test rerun or data deletion. Inventory is complete, but cleanup remains a separate owner-authorized follow-up after prototype review and fixture-retention decisions. Preserve tmp diagnostics and raw red/green/parity evidence. No 591 acceptance criterion is satisfied by this housekeeping and all four remain unchecked.
 
 Morning handover correction, November 8 at 09:12 UTC: Reports ticket577 is now Done on master's 571336064. Its real rc04 Firefox observation showed waiting, labeled running, 69% progress, history merging at 76%, then idle at 08:57:31 UTC. Saved verified-acceptance.json and complete browser-transitions.json were independently inspected under statbus_test/tmp/rune-measure/reports-rc04-20261108/, without rerunning Norway work. The previous paragraph describing open Reports browser acceptance was the earlier overnight state. Final stable-promotion verdict is still awaited from rabbit and this separate Reports acceptance does not authorize or satisfy STATBUS-591.
+
+2026-11-08 09:55 owner authorized integrating this branch on current master, coordinated push and named release candidates. This replaces the previous pending push-authorization gate. HARD RELEASE HOLD: next final stable promotion requires the owner's explicit personal review/approval, including history/schema review and declared valid_from policy. RC/CI success is not that approval. Rabbit informed and retains release/host operations; no destructive Norway authorization inferred. Rebased onto origin/master e38a812c2 at29db7f109, preserved all37commits. Only321expected-output conflict was upstream incidental stack line208->214, with persisted-error assertions preserved. Combined verification and complete version-controlled owner review guide are now in progress. All4acceptance criteria remain unchecked until independently satisfied.
 <!-- SECTION:NOTES:END -->
