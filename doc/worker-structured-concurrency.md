@@ -100,7 +100,9 @@ The parent remains in `waiting` state until ALL children (including dynamically 
 
 ## How Fibers Cooperate
 
-Each queue has **1 serial fiber** and **N concurrent fibers** (where N = concurrency - 1).
+Each queue has **1 serial coordinator fiber** plus **N concurrent fibers**, where N is the configured queue concurrency. A concurrency of four permits four concurrent child tasks. The coordinator is additional, not deducted from that count.
+
+The [worker's queue discovery](../cli/src/worker.cr) reads `worker.queue_registry.default_concurrency`, applies any queue-specific environment override, and starts `concurrency.times` concurrent fibers. This sets the worker pool size; a parent task must still spawn concurrent children to use it.
 Two fiber types serve two purposes:
 
 1. **Serial fiber** (1 per queue) — ensures **predictability**. Walks the serial path depth-first, one task at a time. Picks top-level tasks and serial children.
@@ -182,7 +184,7 @@ so execution order is enforced structurally by serial `child_mode`.
 
 ## Example: How process_tasks handles 4 levels
 
-Traced for the analytics queue (1 serial fiber + 3 concurrent fibers):
+Traced for an analytics queue configured with concurrency four (1 serial coordinator + 4 concurrent fibers):
 
 1. Serial fiber picks `collect_changes` (depth=0). Handler pre-spawns entire tree.
    Has-children check → `waiting`.
@@ -193,8 +195,8 @@ Traced for the analytics queue (1 serial fiber + 3 concurrent fibers):
    Picks `derive_statistical_unit` (depth=2). Handler spawns concurrent batch
    grandchildren → `waiting`.
 4. Serial fiber: `process_tasks(serial)` detects concurrent parent
-   `derive_statistical_unit` (depth=2) → **exits**. Crystal wakes 3 concurrent fibers.
-5. All 3 concurrent fibers process batch tasks (depth=3) in parallel via
+   `derive_statistical_unit` (depth=2) → **exits**. Crystal wakes 4 concurrent fibers.
+5. Up to 4 concurrent fibers process batch tasks (depth=3) in parallel via
    `SKIP LOCKED`.
 6. All batches complete → `derive_statistical_unit` auto-completes.
    Concurrent fibers find no more concurrent parents → signal done.
