@@ -42,8 +42,12 @@ Automated results below are not owner approvals. Local logs remain in `tmp/591/`
 | CLI | Rebuilt from the combined source | `combined-rc-build-sb.log` |
 | Local schema | Released recovery 589 and worker progress migrations applied to idle seed and local databases, template cloned from seed | `combined-rc-migrate-seed.log`, `combined-rc-migrate-local.log`, `combined-rc-create-template.log` |
 | Frontend | Type check passed, lint passed with five warnings, all 25 suites / 208 tests passed, production build passed | `combined-rc-app-tsc.log`, `combined-rc-app-lint.log`, `combined-rc-app-test-corrected.log`, `combined-rc-app-build.log` |
-| Combined SQL / schema docs | Pending full frozen-tree run and complete regeneration | Pending |
+| Combined SQL | Full frozen fast suite passed: 134 shared and two isolated tests, including 371, 372–378 and released recovery regression 390; tested SHA `57aa183009dbdb0a6fa7b0e947e13be83bd59ae5` | `combined-rc-fast-frozen.log` |
+| Schema docs | Complete regeneration passed, with no deletions. Six redundant aliases in non-first UNION arms were the only generated definition drift, retained separately and excluded from the candidate | `combined-rc-doc-db.log`, `combined-rc-doc-deparser-only.diff` |
+| Ticket-only rebase | Rebased onto master `ab81814a9`, checkpoint `c91c274b0`. All migration, SQL test, app, CLI and documentation files are byte-identical to the tested checkpoint | `combined-rc-ticket-rebase-range-diff.txt` |
 | Exact-SHA CI / named RC / real guest | Pending | Pending |
 | Full-register 591 timing / membership / errors / memory | Pending, prior run B is not this candidate | Pending |
+
+The two isolated fast cases are `094_read_only_window_worker_recovery_exemption` and `143_statbus_524_dump_restore_with_addenda`. They are not a new run of the standalone `import_norway_small_history --isolated` benchmark. Its personal code review and any separately requested benchmark evidence remain distinct.
 
 The first Jest invocation mistakenly forwarded a literal `--runInBand` test-path pattern after an extra separator. It ran no tests and exited 1. The corrected command `pnpm run test --runInBand` ran and passed all 208 tests. Both logs are retained, rather than reporting the failed invocation as a product defect.
