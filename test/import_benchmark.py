@@ -24,6 +24,7 @@ import threading
 import json
 import hashlib
 import re
+from contextlib import closing
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -646,6 +647,69 @@ def check_dataset(dataset):
         return {"status": "failed", "passed": False, "sql_file": check_sql, "error": str(error)}
 
 
+def capture_expected_jobs(dataset, skip_setup=False):
+    """Capture measured identity before the worker, validating the loader's job set."""
+    conn = get_conn()
+    with closing(conn), conn.cursor() as cur:
+        cur.execute("SELECT id, slug, data_table_name FROM public.import_job ORDER BY id")
+        available = [{"id": row[0], "slug": row[1], "data_table_name": row[2]} for row in cur.fetchall()]
+    slugs = {job["slug"] for job in available}
+    if dataset == "mixed":
+        required = {"import_mixed_lu", "import_mixed_es", "import_mixed_informal"}
+    elif dataset == "downloads":
+        required = {"import_hovedenhet_2025", "import_underenhet_2025"}
+        roller = "import_roller_2025"
+        # In reuse mode, both a present source and a pre-existing roller job
+        # are evidence that the optional import belongs to this run.
+        if (WORKSPACE / "tmp/roller_legal_relationships.csv").exists() or (skip_setup and roller in slugs):
+            required.add(roller)
+    else:
+        matches = [re.fullmatch(r"import_(hovedenhet|underenhet|roller)_([0-9]{4})_selection", slug)
+                   for slug in slugs]
+        years = {match.group(2) for match in matches if match}
+        if len(years) != 1:
+            raise ValueError(f"selection job snapshot must contain exactly one year, found {sorted(years)}")
+        year = next(iter(years))
+        required = {f"import_{kind}_{year}_selection" for kind in ("hovedenhet", "underenhet", "roller")}
+    missing = required - slugs
+    if missing:
+        raise ValueError(f"expected jobs absent before worker: {sorted(missing)}")
+    selected = [job for job in available if job["slug"] in required]
+    conn = get_conn()
+    with closing(conn), conn.cursor() as cur:
+        for job in selected:
+            cur.execute(sql.SQL("SELECT count(*) FROM public.{}").format(sql.Identifier(job["data_table_name"])))
+            job["uploaded_rows"] = cur.fetchone()[0]
+    return selected
+
+
+def import_job_acceptance(expected, observed):
+    """Require each measured job and every uploaded row to reach a terminal outcome."""
+    errors = []
+    if not expected:
+        errors.append("no expected measured jobs")
+    by_id = {job["id"]: job for job in observed}
+    for identity in expected:
+        job = by_id.get(identity["id"])
+        name = identity["slug"]
+        if job is None or job.get("slug") != name:
+            errors.append(f"{name}: expected job missing or identity changed")
+            continue
+        if job.get("state") != "finished":
+            errors.append(f"{name}: state is {job.get('state')}, expected finished")
+        rows = job.get("actual_data_rows") or {}
+        states = rows.get("by_state") or {}
+        processed, rejected = states.get("processed", 0), states.get("error", 0)
+        if job.get("error") is not None:
+            errors.append(f"{name}: job has a fatal error")
+        if (identity.get("uploaded_rows") is None or job.get("total_rows") is None
+                or rows.get("total") != identity["uploaded_rows"] or rows.get("total") != job["total_rows"]
+                or processed + rejected != rows.get("total") or job.get("imported_rows") != processed
+                or job.get("error_count") != rejected):
+            errors.append(f"{name}: row accounting does not reconcile")
+    return {"passed": not errors, "errors": errors}
+
+
 def run_concurrent_test(timeout_seconds=300, debug=True, result=None, require_import_concurrency=None,
                         dataset="selection"):
     """Run the real Crystal worker and verify results."""
@@ -662,6 +726,9 @@ def run_concurrent_test(timeout_seconds=300, debug=True, result=None, require_im
     result["worker"] = dict(LAST_WORKER_RUN)
     observation = collect_observation(dataset)
     result.update(observation)
+    jobs_check = import_job_acceptance(result.get("expected_jobs", []), observation.get("jobs", []))
+    if not jobs_check["passed"]:
+        log_print(f"{RED}  Import job acceptance failed: {'; '.join(jobs_check['errors'])}{NC}", "error")
     acceptance = concurrency_acceptance(observation["processing_overlap"], require_import_concurrency)
     result["import_concurrency_acceptance"] = acceptance
     log_print(f"\n  Proven processing leaf concurrency: {acceptance['observed_actual']} "
@@ -711,13 +778,9 @@ def run_concurrent_test(timeout_seconds=300, debug=True, result=None, require_im
         """)
         timing_rows = cur.fetchall()
         if timing_rows:
-            # The loader creates one job per file and the worker finishes them
-            # one after another, so analytics run once per finished job
-            # (serialised cycles), as on a real installation. Before
-            # STATBUS-198 the runner created all jobs at once: one cycle.
             cur.execute("SELECT count(*) FROM worker.tasks WHERE command = 'derive_statistical_unit'")
             cycles = cur.fetchone()[0]
-            log_print(f"\n  {BLUE}Pipeline timing breakdown ({cycles} serialised analytics cycle(s), one per finished import job):{NC}")
+            log_print(f"\n  {BLUE}Pipeline timing breakdown ({cycles} derive_statistical_unit task(s)):{NC}")
             log_print(f"    {'Command':<50} {'#':>4} {'Total':>8} {'Min':>8} {'Max':>8} {'Avg':>8}")
             log_print(f"    {'-'*50} {'----':>4} {'--------':>8} {'--------':>8} {'--------':>8} {'--------':>8}")
             for row in timing_rows:
@@ -741,15 +804,28 @@ def run_concurrent_test(timeout_seconds=300, debug=True, result=None, require_im
 
     # Run hierarchy function benchmarks (after analytics pipeline is complete)
     if not failed:
-        run_hierarchy_benchmarks()
+        try:
+            measured_ids = {job["id"] for job in result.get("expected_jobs", [])}
+            measured_jobs = [job for job in observation.get("jobs", []) if job["id"] in measured_ids]
+            if {job["id"] for job in measured_jobs} != measured_ids:
+                raise ValueError("expected measured jobs missing from observation")
+            snapshot = hierarchy_snapshot(measured_jobs, result.get("requested_validity", {}))
+        except ValueError as error:
+            hierarchy = {"status": "not_run", "reason": str(error)}
+            log_print(f"{YELLOW}Hierarchy benchmarks not run: {error}{NC}", "warning")
+        else:
+            hierarchy = run_hierarchy_benchmarks(snapshot)
+    else:
+        hierarchy = {"status": "not_run", "reason": "worker tasks failed"}
 
     plans_stable = run_repeated_call_benchmarks() if not failed else True
 
-    result["checks"] = {"dataset": dataset_check,
+    result["checks"] = {"dataset": dataset_check, "hierarchy": hierarchy, "import_jobs": jobs_check,
                         "consistency": {"passed": consistent, "summary": consistency_summary},
                         "repeated_call_plans_stable": plans_stable}
     success = (returncode == 0 and not LAST_WORKER_RUN.get("timed_out", False)
-               and not failed and consistent and plans_stable and acceptance["passed"] and dataset_check["passed"])
+               and not failed and consistent and plans_stable and acceptance["passed"] and dataset_check["passed"]
+               and jobs_check["passed"])
     result["success"] = success
     if success:
         log_print(f"\n{GREEN}{'='*60}")
@@ -918,31 +994,45 @@ def check_consistency():
     return consistent, summary
 
 
-def run_hierarchy_benchmarks():
-    """Run EXPLAIN ANALYZE benchmarks for hierarchy functions and write to perf file."""
+def hierarchy_snapshot(jobs, requested):
+    """Use the common observed import date, checking any explicit request."""
+    if not jobs or any(job.get("default_valid_from") is None for job in jobs):
+        raise ValueError("import jobs have missing snapshot dates")
+    dates = {job["default_valid_from"] for job in jobs}
+    if len(dates) != 1:
+        raise ValueError("import jobs have differing snapshot dates")
+    snapshot = next(iter(dates))
+    requested_date = requested.get("valid_from")
+    if requested.get("year") is not None:
+        requested_date = f"{requested['year']}-01-01"
+    if requested_date is not None and snapshot != date.fromisoformat(requested_date):
+        raise ValueError(f"observed snapshot {snapshot} differs from requested {requested_date}")
+    return snapshot
+
+
+def run_hierarchy_benchmarks(snapshot_date, write_perf=True):
+    """Run hierarchy probes, optionally writing the performance artifact."""
     perf_dir = WORKSPACE / "test" / "expected" / "performance"
-    perf_dir.mkdir(parents=True, exist_ok=True)
     perf_file = perf_dir / "import_benchmark_hierarchy.perf"
 
     log_print(f"\n{BLUE}Running hierarchy function benchmarks...{NC}")
 
     conn = get_conn()
     conn.autocommit = True
-    with conn.cursor() as cur:
+    with closing(conn), conn.cursor() as cur:
         # Pick the enterprise with the most establishments (deepest hierarchy)
         cur.execute("""
             SELECT su.unit_id
             FROM public.statistical_unit AS su
             WHERE su.unit_type = 'enterprise'
-              AND su.valid_from <= '2025-01-01' AND '2025-01-01' < su.valid_until
+              AND su.valid_from <= %s AND %s < su.valid_until
             ORDER BY su.stats -> 'establishment_count' -> 'count' DESC NULLS LAST
             LIMIT 1
-        """)
+        """, (snapshot_date, snapshot_date))
         row = cur.fetchone()
         if not row:
             log_print(f"{YELLOW}No enterprise found for benchmarks, skipping.{NC}", "warning")
-            conn.close()
-            return
+            return {"status": "not_run", "snapshot_date": snapshot_date, "reason": "no valid enterprise"}
         ent_id = row[0]
 
         # Pick a legal_unit with the most establishments
@@ -950,15 +1040,14 @@ def run_hierarchy_benchmarks():
             SELECT su.unit_id
             FROM public.statistical_unit AS su
             WHERE su.unit_type = 'legal_unit'
-              AND su.valid_from <= '2025-01-01' AND '2025-01-01' < su.valid_until
+              AND su.valid_from <= %s AND %s < su.valid_until
             ORDER BY su.stats -> 'establishment_count' -> 'count' DESC NULLS LAST
             LIMIT 1
-        """)
+        """, (snapshot_date, snapshot_date))
         row = cur.fetchone()
         if not row:
             log_print(f"{YELLOW}No legal_unit found for benchmarks, skipping.{NC}", "warning")
-            conn.close()
-            return
+            return {"status": "not_run", "snapshot_date": snapshot_date, "reason": "no valid legal_unit"}
         lu_id = row[0]
 
         log_print(f"  Enterprise unit_id={ent_id}, Legal unit unit_id={lu_id}")
@@ -966,16 +1055,16 @@ def run_hierarchy_benchmarks():
         # Run 4 EXPLAIN ANALYZE queries
         benchmarks = [
             ("statistical_unit_stats (legal_unit)",
-             "EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_stats('legal_unit', %s, '2025-01-01'::DATE)",
+             "EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_stats('legal_unit', %s, %s::DATE)",
              lu_id),
             ("statistical_unit_stats (enterprise)",
-             "EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_stats('enterprise', %s, '2025-01-01'::DATE)",
+             "EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_stats('enterprise', %s, %s::DATE)",
              ent_id),
             ("relevant_statistical_units (legal_unit)",
-             "EXPLAIN ANALYZE SELECT * FROM public.relevant_statistical_units('legal_unit', %s, '2025-01-01'::DATE)",
+             "EXPLAIN ANALYZE SELECT * FROM public.relevant_statistical_units('legal_unit', %s, %s::DATE)",
              lu_id),
             ("relevant_statistical_units (enterprise)",
-             "EXPLAIN ANALYZE SELECT * FROM public.relevant_statistical_units('enterprise', %s, '2025-01-01'::DATE)",
+             "EXPLAIN ANALYZE SELECT * FROM public.relevant_statistical_units('enterprise', %s, %s::DATE)",
              ent_id),
         ]
 
@@ -987,8 +1076,10 @@ def run_hierarchy_benchmarks():
 
         for label, query, unit_id in benchmarks:
             lines.append(f"## EXPLAIN ANALYZE: {label}")
-            cur.execute(query, (unit_id,))
+            log_print(f"  Starting {label} for unit_id={unit_id} at {snapshot_date}")
+            cur.execute(query, (unit_id, snapshot_date))
             rows = cur.fetchall()
+            log_print(f"  Finished {label}")
             for r in rows:
                 lines.append(r[0])
 
@@ -999,13 +1090,14 @@ def run_hierarchy_benchmarks():
 
             lines.append("")
 
-    conn.close()
-
     # Write perf file
-    with open(perf_file, "w") as f:
-        f.write("\n".join(lines))
-
-    log_print(f"  Benchmark results written to: {perf_file.relative_to(WORKSPACE)}")
+    if write_perf:
+        perf_dir.mkdir(parents=True, exist_ok=True)
+        with open(perf_file, "w") as f:
+            f.write("\n".join(lines))
+        log_print(f"  Benchmark results written to: {perf_file.relative_to(WORKSPACE)}")
+    return {"status": "completed", "snapshot_date": snapshot_date, "enterprise_id": ent_id,
+            "legal_unit_id": lu_id, "probe_count": len(benchmarks)}
 
 
 # A worker fiber keeps one database session and runs one task after another in
@@ -1058,11 +1150,12 @@ def run_repeated_call_benchmarks():
         conn.rollback()
         for command, procedure, payload in commands:
             times_ms = []
-            for _ in range(REPEATED_CALLS):
+            for call_index in range(1, REPEATED_CALLS + 1):
                 # One transaction per call, rolled back, as the worker commits
                 # each task: the plan cache lives in the session, so repeated
                 # calls still reach the generic plan, while row versions and
                 # locks do not pile up in one transaction and skew the timing.
+                log_print(f"  Replaying {command}: call {call_index}/{REPEATED_CALLS}")
                 start = time.perf_counter()
                 cur.execute(f"CALL {procedure}(%s::jsonb)", (psycopg2.extras.Json(payload),))
                 times_ms.append((time.perf_counter() - start) * 1000)
@@ -1141,13 +1234,9 @@ def show_timing(dbname):
         """)
         timing_rows = cur.fetchall()
         if timing_rows:
-            # The loader creates one job per file and the worker finishes them
-            # one after another, so analytics run once per finished job
-            # (serialised cycles), as on a real installation. Before
-            # STATBUS-198 the runner created all jobs at once: one cycle.
             cur.execute("SELECT count(*) FROM worker.tasks WHERE command = 'derive_statistical_unit'")
             cycles = cur.fetchone()[0]
-            log_print(f"\n  {BLUE}Pipeline timing breakdown ({cycles} serialised analytics cycle(s), one per finished import job):{NC}")
+            log_print(f"\n  {BLUE}Pipeline timing breakdown ({cycles} derive_statistical_unit task(s)):{NC}")
             log_print(f"    {'Command':<50} {'#':>4} {'Total':>8} {'Min':>8} {'Max':>8} {'Avg':>8}")
             log_print(f"    {'-'*50} {'----':>4} {'--------':>8} {'--------':>8} {'--------':>8} {'--------':>8}")
             for row in timing_rows:
@@ -1256,6 +1345,7 @@ def main(argv=None):
             TEST_DB = env.get("PGDATABASE", "statbus")
             log_print(f"Using existing database: {TEST_DB}")
 
+        result["expected_jobs"] = capture_expected_jobs(args.dataset, args.skip_setup)
         success = run_concurrent_test(timeout_seconds=args.timeout, debug=not args.no_debug,
                                       result=result, require_import_concurrency=args.require_import_concurrency, dataset=args.dataset)
         return 0 if success else 1

@@ -18,7 +18,7 @@ from unittest.mock import patch
 SPEC = importlib.util.spec_from_file_location("import_benchmark", os.environ.get(
     "BENCHMARK_MODULE_PATH", Path(__file__).with_name("import_benchmark.py")))
 benchmark = importlib.util.module_from_spec(SPEC)
-with patch("logging.FileHandler", return_value=logging.NullHandler()):
+with patch("logging.FileHandler", return_value=logging.NullHandler()), patch.object(Path, "mkdir"):
     SPEC.loader.exec_module(benchmark)
 BASE = datetime(2026, 11, 8, tzinfo=timezone.utc)
 
@@ -193,7 +193,11 @@ class ReportingTests(unittest.TestCase):
             def close(self):
                 pass
 
-        observation = {"failed_task_count": 0,
+        snapshot = benchmark.date(2026, 11, 7)
+        expected_jobs = [{"id": 1, "slug": "import_hovedenhet_2026_selection", "uploaded_rows": 10}]
+        observation = {"failed_task_count": 0, "jobs": [{**expected_jobs[0], "state": "finished",
+                       "default_valid_from": snapshot, "total_rows": 10, "imported_rows": 8, "error_count": 2,
+                       "actual_data_rows": {"total": 10, "by_state": {"processed": 8, "error": 2}}}],
                        "processing_overlap": benchmark.interval_summary([(at(0), at(1))])}
         for minimum, timed_out, returncode, dataset_passed, expected in (
                 (None, False, 0, True, True), (1, False, 0, True, True), (2, False, 0, True, False),
@@ -210,7 +214,7 @@ class ReportingTests(unittest.TestCase):
                     patch.object(benchmark, "run_hierarchy_benchmarks") as hierarchy, \
                     patch.object(benchmark, "run_repeated_call_benchmarks", return_value=True) as plans, \
                     contextlib.redirect_stdout(io.StringIO()):
-                result = {}
+                result = {"expected_jobs": expected_jobs}
                 success = benchmark.run_concurrent_test(result=result, require_import_concurrency=minimum)
                 self.assertEqual(success, expected)
                 self.assertEqual(result["success"], expected)
@@ -218,7 +222,7 @@ class ReportingTests(unittest.TestCase):
                 self.assertEqual(result["checks"]["dataset"]["passed"], dataset_passed)
                 dataset_check.assert_called_once_with("selection")
                 consistency.assert_called_once_with()
-                hierarchy.assert_called_once_with()
+                hierarchy.assert_called_once_with(snapshot)
                 plans.assert_called_once_with()
 
 
@@ -275,6 +279,7 @@ class MixedAdapterTests(unittest.TestCase):
             with patch.object(benchmark, "create_isolated_db"), \
                     patch.object(benchmark, "setup_test_data") as setup, \
                     patch.object(benchmark.atexit, "register"), \
+                    patch.object(benchmark, "capture_expected_jobs", return_value=[{"id": 1, "slug": "import_mixed_lu", "uploaded_rows": 800}]), \
                     patch.object(benchmark, "run_concurrent_test", side_effect=run), \
                     contextlib.redirect_stdout(io.StringIO()):
                 code = benchmark.main(["--dataset", "mixed", "--result-json", str(path),
@@ -405,6 +410,7 @@ class DateAdapterTests(unittest.TestCase):
                 path = Path(directory) / "result.json"
                 with patch.object(benchmark, "create_isolated_db"), patch.object(benchmark.atexit, "register"), \
                         patch.object(benchmark, "setup_test_data") as setup, \
+                        patch.object(benchmark, "capture_expected_jobs", return_value=[{"id": 1, "slug": "import_hovedenhet_2025", "uploaded_rows": 100}]), \
                         patch.object(benchmark, "source_metadata", return_value=metadata) as source, \
                         patch.object(benchmark, "run_concurrent_test", return_value=True), \
                         contextlib.redirect_stdout(io.StringIO()):
@@ -447,6 +453,7 @@ class LoaderTimingTests(unittest.TestCase):
                 path = Path(directory) / "result.json"
                 with patch.object(benchmark, "datetime", Clock), \
                         patch.object(benchmark, "create_isolated_db"), patch.object(benchmark.atexit, "register"), \
+                        patch.object(benchmark, "capture_expected_jobs", return_value=[{"id": 1, "slug": "import_hovedenhet_2024_selection", "uploaded_rows": 100}]), \
                         patch.object(benchmark, "source_metadata", return_value=[]), \
                         patch.object(benchmark.Path, "exists", return_value=True), \
                         patch.object(benchmark.Path, "stat", return_value=SimpleNamespace(st_size=27, st_mode=0o040755)), \
@@ -471,6 +478,7 @@ class LoaderTimingTests(unittest.TestCase):
             path = Path(directory) / "result.json"
             with patch.object(benchmark, "LAST_LOAD_RUN", {"start_at": at(1), "stop_at": at(2)}, create=True), \
                     patch.object(benchmark, "pg_env", return_value={"PGDATABASE": "already_loaded"}), \
+                    patch.object(benchmark, "capture_expected_jobs", return_value=[{"id": 1, "slug": "import_hovedenhet_2026_selection", "uploaded_rows": 100}]), \
                     patch.object(benchmark, "setup_test_data") as setup, \
                     patch.object(benchmark, "source_metadata") as metadata, \
                     patch.object(benchmark, "run_concurrent_test", return_value=True), \
