@@ -460,6 +460,92 @@ WHERE j.slug = 'import_375_fail';
 \echo Failed job transitions: processing_data leads to failed rather than finished
 SELECT array_agg(state ORDER BY seq) FROM test.t375_job_states;
 
+-- Sequential worker calls in this outer transaction exercise the protocol's
+-- per-leaf savepoint behavior, not cross-transaction commit isolation.
+-- Isolate this fixture from the registry totals and caller-path fixtures below.
+SAVEPOINT sibling_failure;
+INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review, processing_batch_size)
+SELECT id, 'import_375_sibling_fail', 'T375 sibling failure', 'T375', false, 1
+FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+INSERT INTO public.import_375_sibling_fail_upload
+    (valid_from, valid_to, tax_ident, name, sector_code, legal_form_code, data_source_code)
+SELECT '2020-01-01', 'infinity', (375500000 + n)::text, 'T375 sibling ' || n, '2100', 'AS', 'brreg'
+FROM generate_series(1, 4) AS n;
+CALL test.t375_to_processing('import_375_sibling_fail');
+CALL test.t375_add_holistic('import_375_sibling_fail');
+CALL worker.process_tasks(p_batch_size => 1, p_queue => 'import', p_mode => 'serial');
+CALL worker.process_tasks(p_batch_size => 1, p_queue => 'import', p_mode => 'concurrent');
+
+-- The existing tail trigger fires when the next leaf marks its input processed,
+-- after the real processing steps have written their domain rows.
+RESET ROLE;
+-- Capture the successful batch's actual unit and enterprise identities before failure.
+CREATE TABLE test.t375_sibling_success AS
+SELECT lu.id, lu.enterprise_id, lu.name, lu.valid_from, lu.valid_until
+FROM public.import_375_sibling_fail_data AS dt
+JOIN public.legal_unit AS lu ON lu.name = dt.name
+WHERE dt.state = 'processed';
+GRANT SELECT ON test.t375_sibling_success TO admin_user;
+CREATE TRIGGER t375_sibling_failure BEFORE UPDATE OF state ON public.import_375_sibling_fail_data
+FOR EACH ROW WHEN (NEW.state = 'processed') EXECUTE FUNCTION test.t375_batch_failure();
+CALL test.set_user_from_email('test.admin@statbus.org');
+CALL worker.process_tasks(p_batch_size => 1, p_queue => 'import', p_mode => 'concurrent');
+
+\echo Sibling failure: one successful leaf, one failed leaf, two untouched pending leaves
+SELECT j.state, j.imported_rows, d.state, w.state,
+       count(*) FILTER (WHERE leaf.state = 'completed'),
+       count(*) FILTER (WHERE leaf.state = 'failed'),
+       count(*) FILTER (WHERE leaf.state = 'pending'),
+       (SELECT count(*) FROM worker.tasks AS continuation
+        WHERE continuation.parent_id = w.id AND continuation.command = 'import_job_process'
+          AND continuation.state = 'pending'),
+       (SELECT count(*) FROM test.t375_holistic WHERE slug = j.slug)
+FROM public.import_job AS j
+JOIN worker.tasks AS d ON (d.payload->>'job_id')::integer = j.id AND d.child_mode = 'concurrent'
+JOIN worker.tasks AS w ON w.id = d.parent_id
+JOIN worker.tasks AS leaf ON leaf.parent_id = d.id AND leaf.command = 'import_job_process_batch'
+WHERE j.slug = 'import_375_sibling_fail'
+GROUP BY j.id, d.id, w.id;
+
+\echo Sibling failure batches: each input and its exact domain version follow its leaf outcome
+SELECT leaf.state, dt.state, count(*),
+       count(lu.id),
+       count(lu.id) FILTER (WHERE lu.name = dt.name
+           AND lu.valid_from = '2020-01-01' AND lu.valid_until = 'infinity')
+FROM public.import_job AS j
+JOIN worker.tasks AS leaf ON (leaf.payload->>'job_id')::integer = j.id
+    AND leaf.command = 'import_job_process_batch'
+JOIN public.import_375_sibling_fail_data AS dt ON dt.batch_seq = (leaf.payload->>'batch_seq')::integer
+LEFT JOIN public.legal_unit AS lu ON lu.name = dt.name
+WHERE j.slug = 'import_375_sibling_fail'
+GROUP BY leaf.state, dt.state
+ORDER BY leaf.state::text, dt.state::text;
+
+\echo Sibling identity: the exact previously captured unit and enterprise version survives
+SELECT count(*), count(lu.id)
+FROM test.t375_sibling_success AS saved
+LEFT JOIN public.legal_unit AS lu ON lu.id = saved.id AND lu.enterprise_id = saved.enterprise_id
+    AND lu.name = saved.name AND lu.valid_from = saved.valid_from AND lu.valid_until = saved.valid_until;
+
+-- Drain only after observing the untouched siblings. Pending leaves complete
+-- without work because the job is already failed. The failed child makes the
+-- dispatcher and wrapper fail after fan-in.
+CALL worker.process_tasks(p_queue => 'import');
+\echo Sibling failure after drain: failed job and parents retain exactly one imported version
+SELECT j.state, j.imported_rows, d.state, w.state,
+       count(*) FILTER (WHERE leaf.state = 'completed'),
+       count(*) FILTER (WHERE leaf.state = 'failed'),
+       (SELECT count(*) FROM public.import_375_sibling_fail_data WHERE state = 'processed'),
+       (SELECT count(*) FROM public.legal_unit WHERE name LIKE 'T375 sibling %'),
+       (SELECT count(*) FROM test.t375_holistic WHERE slug = j.slug)
+FROM public.import_job AS j
+JOIN worker.tasks AS d ON (d.payload->>'job_id')::integer = j.id AND d.child_mode = 'concurrent'
+JOIN worker.tasks AS w ON w.id = d.parent_id
+JOIN worker.tasks AS leaf ON leaf.parent_id = d.id AND leaf.command = 'import_job_process_batch'
+WHERE j.slug = 'import_375_sibling_fail'
+GROUP BY j.id, d.id, w.id;
+ROLLBACK TO SAVEPOINT sibling_failure;
+
 \echo Finished totals: successful jobs preserve exact input and imported row counts
 SELECT slug, state, total_rows, imported_rows FROM public.import_job
 WHERE slug IN ('import_375_lu', 'import_375_es', 'import_375_es_reused', 'import_375_mixed', 'import_375_reused', 'import_375_informal', 'import_375_history') ORDER BY slug;

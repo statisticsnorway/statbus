@@ -81,6 +81,16 @@ Failed batch: job and wrapper failed, zero imported, error recorded, holistic un
 failed|failed|0|t|0|0|0
 Failed job transitions: processing_data leads to failed rather than finished
 {upload_completed,preparing_data,analysing_data,processing_data,failed}
+Sibling failure: one successful leaf, one failed leaf, two untouched pending leaves
+failed|1|waiting|waiting|1|1|2|1|0
+Sibling failure batches: each input and its exact domain version follow its leaf outcome
+completed|processed|1|1|1
+failed|error|1|0|0
+pending|processing|2|0|0
+Sibling identity: the exact previously captured unit and enterprise version survives
+1|1
+Sibling failure after drain: failed job and parents retain exactly one imported version
+failed|1|failed|failed|3|1|1|1|0
 Finished totals: successful jobs preserve exact input and imported row counts
 import_375_es|finished|8|8
 import_375_es_reused|finished|4|4
