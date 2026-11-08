@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-08T23:16:00Z'
+updated_date: '2026-11-08T23:31:00Z'
 labels:
   - import
   - performance
@@ -22,35 +22,24 @@ ordinal: 499204
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-A full register imports faster by using the machine's cores without changing business data, temporal parent links or exact temporal power-group membership. Jobs remain ordered because they can depend on one another. Analysis determines dependency-closed batches within one job.
+Import a full register faster using the machine's cores, without changing business data, temporal parent links or exact power-group membership. Jobs stay ordered because one job may depend on another. Analysis determines dependency-closed batches within each job.
 
-### Current source and scope, November 8 at 23:13 UTC
-Serial reference v2026.11.3-rc.03 is fc1830fe410b19007056ef0853ad9e491d7f4ad9. Preserve Rabbit's later master6fa48382306c160aa0ae09b3a56dc9ec93b29c08, including596's SQL374 fixture ANALYZE, CI diagnostics and597's serial-reference ticket, when rebasing.
+### Current mechanism and source
+Three new forward migrations, 20261108182300 through 20261108182302, support LU, formal-establishment and informal-establishment batches through the existing structured-concurrency worker. Temporal integrity checks remain enabled. Change-log entries are immediate, while shared wakeup publication occurs at the transaction tail. The installed import default is four, without manual environment overrides; holistic graph work stays serial. No SQL Saga prototype is adopted.
 
-Measured concurrency source d25fef3d805db50918a133d0ead1eb8bf57ed840 is pushed on statbus-591-concurrency; runtime f95da97d7f61450dc12a097cb7221cdee9ab0f81. Forward migrations20261108182300..02 use dependency-closed LU/formalES/informalES batches, enabled integrity checks, transaction-tail wakeup publication and installed import default4 through the existing worker. No SQL Saga prototype is adopted. Root-selection proposal34c1087ff is separate and personally unapproved.
+The measured full-register source is d25fef3d805db50918a133d0ead1eb8bf57ed840, runtime f95da97d7f61450dc12a097cb7221cdee9ab0f81. The reviewed integration d6ed885ca9d3ed8d34a5eb2fe25b793cca98c38a is based on Rabbit's master6fa48382306c160aa0ae09b3a56dc9ec93b29c08. Its runtime4c0ae5253 is byte-identical; SQL374's fixture repair, CI diagnostics, serial-reference597 and all882 released migration blobs are preserved. The separate automatic-root proposal34c1087ff is not part of this runtime.
 
-### Observed acceptance
-All143 PostgreSQL cases, actual migration up/down/up, full schema documentation and types passed before the final harness repairs. Real mixed and selection workers used default4/no overrides with actualpeak4, exact parent/primary coverage and historyABC. Selection matched12 retained serial business tables with validity dates preserved.
+### Verified acceptance, November 8 at 23:30 UTC
+The real full-file Crystal worker finished in6967.459 seconds, with three finished jobs,245 completed leaves, peakfour and2842.672 seconds of observed overlap. Exact uploaded/processed/rejected accounting, historyABC, eight reference stocks and independent accepted-edge/component/BFS/membership checks passed. The local8GiB database cannot establish a causal speedup against Norway32GiB. Explicit2026-11-07 is a benchmark control, not a validity-default decision.
 
-Full BRREG downloads import on the local8GiB DB: actual worker6967.459s, import phase span4764.540s, loader-start-to-idle6983.656s. Wrapper11371.490s includes later rollback-only plan diagnostics, not import time. Three inputSHA256s match NorwayA/B before and after. Explicit2026-11-07 is a benchmark control, not a validity-default decision.
+Root code review repaired the benchmark's false-success gate and wrong hierarchy snapshot, with original positive failures and34 passing offline tests. Four actual read-only hierarchy probes completed on the retained register. SQL375 and a separate real-COMMIT observer establish that a later failed batch rolls back while earlier successful siblings remain. Six actual-analysis serial/candidate primary-footprint lanes pass exact business-era, analysis and write-set checks with real overlapping leaves, without forcing flags. These cases do not prove arbitrary custom analyzers safe.
 
-Analysis/processing wall seconds: LU700.376633/2168.835880; ES754.666670/750.475574; LR229.263720/100.266230. Uploaded/imported/rejected: LU1134476/1134475/1; ES823768/823767/1; LR33710/29504/4206. Rejectedrows are stateerror/actionskip, not disjoint categories to add. All3jobsfinished/no fatalerror,245completed leaves/peak4,2842.672s with at least2overlapping. Holistic graph work stayed serial.
+The final clean master-based integration passed all143 PostgreSQL cases at23:29:45 UTC, including the strengthened375 and preserved374. Source manifests stayed identical. Earlier actual migration up/down/up, complete schema documentation/types, mixed/selection real workers and twelve-table serial parity also passed. Rabbit independently checked the actual footprint reports and reran the34 focused tests on the reviewed source. Details, six phase times and limits: doc/performance/2026-11-concurrent-import-validation.md.
 
-Independent read-only22:58 acceptance passed44full-register and18graph assertions: exact jobs/accounting, idle/no failedtasks, historyABC0/0/0, eight saved NorwayB stocks,29504accepted/domainedges,25635components/groups, BFSlevels, eligible/customroots and exact directed-reachable memberships for uniformNov7..infinity. This is not historicalA/B graph equivalence. Sampled DBworking-set maximum6.260GiB/8GiB over429worker samples, not exactprocesspeak. Local8GiB vsNorway32GiB is not a causal throughput comparison.
+### Remaining gates and authorization
+Rabbit's remaining exact-diff/downward-contract review, coordinated fast-forward landing and exact integrated-master CI are still required. Keep this ticket In Progress and all four criteria unchecked until actual rune acceptance and the owner's validity-policy decision are fulfilled. B2 terminal-job recovery is not implemented: duplicate safety and bounded transient retries do not provide a replay button, whole-job undo or terminal-job reset.
 
-### Root review outcomes and remaining gates
-Harness repair ea16135ab follows original positive RED: measured pre-worker identities/uploadedcounts must finish/reconcile, and hierarchy probes use measured dates. Root independently passed8focused+26observer tests. One retained readonly run completed all4actual hierarchy probes atNov7, without rerunning import/worker/history.
-
-Sibling-contract74d275d7b adds exact SQL375 successful-version preservation, laterfailure/pending-leaf/fanin/holistic assertions, manual expectedPASS. Separate literal COMMIT/observer/fault/rollback acceptancePASS. No operator replay or whole-job undo is implied.
-
-Actual primary-footprint pf1108a six private serial/candidate real-worker lanes PASS23:12: swapflagsfalse/false, shared-old-to-empty-targetstrue/true, mixedfalse/true; exact4/5eras/parents/identities/primarycounts and analysis parity. Each candidate has2overlapping completed leaves and disjoint observed pre-processing write footprints. Source/existingroles/templates/logicaldumps unchanged. No forcedflags, runtime defect or arbitrary-custom-analyzer guarantee.
-
-Complete final source review, rebase onto actual Rabbit master, run changed integrated regressions, obtain Rabbit exactdiffreview/coordinatedhandoff, push/inspect exact integratedCI. Current docs and root review are doc/performance/2026-11-concurrent-import-validation.md and tmp/591/concurrency-v2/ROOT-CODE-REVIEW.md.
-
-### Authorization and owner decisions
-Owner21:32 says LANDONLY: no newRC/tag/release/promotion. Rabbit alone has directowner21:33 permission for serialNorway backup/reset/fullimport then separatefullrecalc; no experimental concurrency deployment. Hibiscus will not repeat serial imports or mutateNorway.
-
-All4criteria remain unchecked pending actual rune concurrency acceptance and owner validity-policy decision. B2terminalfailedjob recovery, personal root/security/release review and cleanup approval remain open. Successful committed siblings stay; bounded transient retries and duplicate safety are not terminal-job recovery. Preserve all diagnostics/databases until authorizedcleanup.
+The owner authorized LAND ONLY at21:32: no new RC, tag, release or promotion. Rabbit separately owns a directly authorized serial Norway reference import and later full recalculation, not an experimental concurrency deployment. Personal root/date/security/release reviews remain open. Preserve diagnostics and databases until cleanup is explicitly approved. Earlier dated notes retain their historical scope and do not override this current description.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -166,4 +155,6 @@ Literal actual-worker mixed and BRREG-selection default4/no overrides already PA
 2026-11-08 23:02UTC terminal local fullregister acceptance: d25fef3d8/import_benchmark_64469 workerexit0/6967.459s; wrapperexit0/11371.490s includes later rollback-only plan probes.3matching pre/post hashes; exact3finished jobs with actual processed/error/skip reconciliation;245completed leaves/peak4/2842.672s overlap;ABC0/0/0/eight B stock summaries exact. Independent fullregister+graph+memory reports22:58exit0/stderr0. Worker429samples,6.260GiB/8GiB highest sampledworking-set. Six phases and graphscope limits now durable in doc/performance/2026-11-concurrent-import-validation.md. Originalsourcefreeze ended only after terminal evidence captured. Four rootreview tasks remain before coordinatedLANDONLY integration; no new release, no experimentalNorwaydeployment or causal crossmachinegainclaim. All4AC remainunchecked.
 
 2026-11-08 23:13 UTC root-review follow-through: committed ea16135ab harness repair after original positive RED and root8+26offlineGREEN; retained fullregister readonly4hierarchyprobes completed23:07 atNov7, exit0/stderr0. SQL375 sibling contract74d275d7b/manualexpectedPASS and separate realCOMMIT/observer/domainfault/rollbackPASS. pf1108a six actual serial/candidate primary-footprint lanes exit0 at23:12,32/32checks swap/shared and33/33mixed, exactbusiness/analysisparity, actualoverlappingcandidateleaves, noforcedflags, distinct direct+demotionwrite sets. Source/globalroles/templates/dumps unchanged; windowreleased. Original fullrun/runtime unchanged. Final rebased regression/exactdiffreview/masterCI still pending, no newRC/release. Current description updated rather than leaving prototype-pending claims current. Historical earlier notes retain their dated scope and are not current defaults/authorization.
+
+2026-11-08 23:30 UTC reviewed integration: new branch statbus-591-concurrency-reviewed d6ed885ca9d3ed8d34a5eb2fe25b793cca98c38a is a rebase onto master6fa48382306c160aa0ae09b3a56dc9ec93b29c08. Seven source patches retain identical diffs; runtimef95 maps4c0ae5253, harness ea16135ab maps02c07cb0a, sibling74d275d7b maps8579a3ec3. All26 master note paragraphs and12 missing original concurrency paragraphs merged through Backlog CLI, not discarded on conflict. All882 released migration blobs, SQL374 ANALYZE/strict bound, CI diagnostics and597 remain exact. Fresh exact-identity CLI build and final clean ./dev.sh test all PASS143 cases at23:29:45, actualexit0; source manifests exact. Plan/performance observations preserved then restored only those paths. Independent Rabbit34offline tests and six actual-footprint checks PASS. Evidence tmp/591/concurrency-v2/reviewed-final/ and REVIEWED-LANDING-HANDOFF.md. The first preflight stopped solely on standard generated psql-header padding before build/tests; authored-source check passed without altering expected outputs. Final exactdiff/downward review, coordinated master landing and exactCI remain pending. LAND ONLY, no release/tag/experimental Norway. All4AC remain unchecked.
 <!-- SECTION:NOTES:END -->

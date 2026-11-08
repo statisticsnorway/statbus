@@ -86,7 +86,7 @@ The Docker sampler recorded 429 samples during the actual worker interval. Its h
 
 The 271 samples after worker completion belong to rollback-only diagnostics and are reported separately. Their maximum was 5.729 GiB. Neither interval should be mixed with the Norway run's 32 GiB limit or presented as proof of a causal memory improvement.
 
-## E5: code-review findings and remaining landing work
+## E5: completed code-review findings
 
 The initial full import passed. Root review nevertheless identified additional acceptance and harness work before landing:
 
@@ -121,7 +121,11 @@ The inspected jobs UI offers View Imported Data, state-gated Approve/Reject and 
 
 Retained local evidence is under `tmp/591/concurrency-v2/full-register/`: original `result.json`, benchmark exit and logs, pre/post input checksums, `full-register-acceptance.json`, `graph-acceptance/report.json` and `memory-summary.out`. These diagnostic artifacts are not versioned database fixtures. Keep them until authorized cleanup.
 
-Before this full import, all 143 PostgreSQL cases, full schema documentation, generated types, the actual migration up/down/up comparison, bounded mixed and selection workers, and exact branch application CI passed. New review repairs require their own relevant tests and an exact integrated-source CI result. A branch application check is not a full master gate.
+Before the full import, all 143 PostgreSQL cases, full schema documentation, generated types, the actual migration up/down/up comparison, bounded mixed and selection workers, and exact branch application CI passed. The final reviewed integration subsequently passed **all 143 PostgreSQL cases again** on clean source `d6ed885ca9d3ed8d34a5eb2fe25b793cca98c38a`, November 8 at 23:29:45 UTC: 136 shared cases plus isolated 094, 143 and 400–404. Semantic source manifests stayed identical; generated plan and timing observations were retained separately, then restored.
+
+That reviewed branch is based on master `6fa48382306c160aa0ae09b3a56dc9ec93b29c08`. The rebase preserves all 882 released migration blobs, Rabbit's SQL374 fixture-statistics repair, CI diagnostics and serial-reference ticket. The measured runtime is byte-identical. Original runtime `f95da97d7` maps to `4c0ae5253`, benchmark repair `ea16135ab` to `02c07cb0a`, and sibling regression `74d275d7b` to `8579a3ec3`.
+
+Rabbit independently inspected the source/failure contracts, reran all 8 focused and 26 observer tests on the reviewed source, and independently checked the six actual primary-footprint lanes. Those checks passed. The exact integrated master SHA and its CI result are still pending; local SQL acceptance and a branch application check do not substitute for that gate. Evidence: `tmp/591/concurrency-v2/reviewed-final/` and the exact-diff handoff `REVIEWED-LANDING-HANDOFF.md` in its parent directory.
 
 Rabbit owns a separately authorized serial Norway reference import and subsequent full recalculation. Those operations are not deployment of this experiment. Compare that run only when its saved evidence is available; do not repeat the serial import locally or infer a controlled concurrency gain from different machines.
 
