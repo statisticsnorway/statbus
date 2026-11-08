@@ -1,6 +1,6 @@
 # Combined history and import owner review (November 2026)
 
-## Current review context, November 8 at 23:02 UTC
+## Current review context, November 8 at 23:13 UTC
 
 The serial-only candidate described below is retained as history. A separate enabled-default-four concurrency branch has now completed the real full-register import and independent correctness checks. Read the [current validation report](2026-11-concurrent-import-validation.md) for its exact source, six phase times, row accounting, observed overlap, memory and limits. This is not an owner approval or a controlled local-versus-Norway speed comparison.
 
@@ -10,7 +10,7 @@ The following discussion IDs retain the owner's numbering. Work through them one
 
 | ID | Current context and remaining question |
 | --- | --- |
-| **B1** | Dependency-closed LU, formal ES and informal ES batches now have actual mixed-worker and full-register evidence. Same enterprise or target parent stays in one batch; a founding identity crossing assigned parents falls back to serial. Review the concrete [dependency examples](../import-concurrent-batches-design.md#dependency-examples), not a request to approve speculative restrictions. Primary-demotion footprint acceptance is still a root-review gate. |
+| **B1** | Dependency-closed LU, formal ES and informal ES batches now have actual mixed-worker and full-register evidence. Same enterprise or target parent stays in one batch; a founding identity crossing assigned parents falls back to serial. Review the concrete [dependency examples](../import-concurrent-batches-design.md#dependency-examples), not a request to approve speculative restrictions. Actual built-in-analysis serial/candidate move cases now pass with exact eras and disjoint pre-processing footprints; see the [observed primary-write cases](2026-11-concurrent-import-validation.md#b1-why-the-primary-write-sets-stay-separate). This is not a claim about arbitrary custom analyzers. |
 | **B2** | Successful committed siblings remain after another batch fails. Duplicate invocation and bounded worker retries are not operator recovery. No replay button, terminal-job reset or whole-job undo is delivered. Review the [failure/recovery distinction](2026-11-concurrent-import-validation.md#b2-retry-duplicate-safety-and-operator-recovery) and the concrete cross-connection test before deciding the recovery contract. |
 | **B3** | Only the shared wakeup publication is deferred to the batch tail. Integrity checks and exact change-log appends happen during domain writes. The tail publishes once, then commit exposes domain rows, counters and notification together. Reports continue to consume committed change logs; UI progress never exposed uncommitted rows before either. See the [transaction timeline](../import-concurrent-batches-design.md#transaction-and-publication-timeline). |
 | **B4** | The measured concurrency runtime retains existing eligible-root selection. The separate `34c1087ff` business-attribute/root-lifetime proposal is not included in these results and remains a personal review item. |
