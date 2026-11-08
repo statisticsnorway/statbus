@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-08T11:31:00Z'
+updated_date: '2026-11-08T12:27:00Z'
 labels:
   - import
   - performance
@@ -42,18 +42,6 @@ Rune run A (November 7, 2026, rc.18, full BRREG, 62 GB RAM): legal-unit analysis
 - [ ] #3 Power-group analysis preserves the reference relationships and temporal group memberships, with valid algorithm-derived roots and preserved custom overrides, on graph-size scaling fixtures and rune's 33,710-row BRREG file; recorded scaling measurements and rune runtime improve on the 1,024-second rc.18 baseline
 - [ ] #4 [Owner] Choose the job-provided valid_from policy: start-of-year means January 1 of the declared file/snapshot year, allowing validity from that year start; file-date means the declared file/snapshot calendar date, allowing validity only from that snapshot date. Record the choice and resulting date in this ticket and doc/import-system.md, and verify that it sets job-provided valid_from instead of the execution day
 <!-- AC:END -->
-
-## Implementation Plan
-
-<!-- SECTION:PLAN:BEGIN -->
-1. Rebase the bounded import prototype on current master and preserve released recovery/progress fixes.
-2. Implement and maintain the complete owner-review guide. Delegate release/CLI/date forwarding to rabbit and scoped documentation to a6.1worker.
-3. Verify the combined schema and runtime with local migrations, full fast suite, frontend checks and complete schema-doc generation. Diagnose every failure and add failing regressions for newly discovered defects.
-4. Commit explicit owned paths, coordinate the FF push with rabbit, inspect exact-SHA CI, and deliver a named release candidate through all real gates.
-5. Record matched full-register import measurements, parity, errors, memory, queue concurrency and declared snapshot date. Prior B is only the history-release reference.
-6. Keep all four criteria open until satisfied. The owner's validity-date choice and personal review checklist remain required.
-7. HARD HOLD: do not promote the next stable release until the owner explicitly approves the reviews. RC authorization does not authorize final stable or destructive Norway work.
-<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
@@ -118,4 +106,10 @@ Coordinator integration 2026-11-08 10:40 UTC: accepted origin/statbus-591-import
 2026-11-08 11:06 UTC coordinator: original combined9c7 full SQL134shared+094/143 passed, but exact Go CI caught unpublished migration timestamps older than published v2026.11.2. STATBUS-594 repairs only five unreleased identities, preserving every body and all released files: 20261107133923->20261108104710,162052->104711,164500->104712,164600->104713,180400->104714 (new prefixes20261108). Actual fresh/incremental schema and seed-domain equivalence proven, full CLI Go passed176.5s, local seed/template safely rebuilt with old DBs retained. No ledger edits or Norway operations. Corrected-source SQL/CI/named guest gates remain before candidate acceptance. Next stable HARD HELD for owner personal review, full-register591 acceptance/date choice remain open.
 
 2026-11-08 11:30 UTC: corrected source e3f240065fa0a789148908af6d72f5e524f35778 passed full134shared+094/143SQL, clean doc/types stamps, complete CLI Go and all seven exact-source CI workflows. Actual normal prerelease v2026.11.3-rc.01 tagged11:29UTC at that SHA; nine assets, fresh candidate CI and real install/upgrade/recovery guest gates still pending. No earlier benchmark is counted as full-register591 acceptance. Operator date/default policy remains unchosen, import queue default1. Next stable remains HARD HELD for owner personal review. No Norway wipe/deployment or other fleet installs authorized.
+
+Owner11:55:19 and11:55:59UTC Nov8 explicitly requested a fresh Norway import measurement using the new candidate. Root accepted instruction and planned guarded backup/baseline, same three input hashes and explicit2026-11-07validity, eligible parallel-queue settings, actual fresh import timings/memory/errors, complete analytics idle and temporal/domain parity, then permanent results/review evidence. Next stable remains HARD HELD personal review. Current RC01 full acceptance blocked by595: recovery job128722552493/run42477260886 failed before creating guest due demo checkpoint publication/lineage race. Hardening/Smoke/tagFast/dev passed, other battery jobs continue. No Norway benchmark mutation yet.
+
+2026-11-08 12:21 UTC owner feedback, relayed by Hibiscus12:22, SUPERSEDES the earlier fresh Norway benchmark request: D2 do not wipe/import Norway while concurrency requires a manual knob. Automatic machine-appropriate concurrency remains under design. D1 not approved even after green gates, D3 unfinished/no next stable. Root acknowledged halt immediately. No Norway backup, candidate upgrade, wipe, import scheduling, concurrency setting or service restart was started. Only read-only initial preflight12:04-05, container limits12:13 and one read-only observation prototype12:20:55-59 against the existing finished rc04 baseline occurred. Local diagnostics retained under tmp/591-norway, not591 speed proof. Norway execution todos explicitly superseded/cancelled and stale scheduled execution cancelled. Normal STATBUS-595 gate hygiene continues with frozen harness until active battery ends.
+
+2026-11-08 12:27 UTC: Removed the redundant legacy Implementation Plan section via tracker CLI. Scope, evidence and owner decisions remain in these notes and the committed review guide; execution and validation order live in todos. Latest owner12:21 feedback supersedes the earlier Norway request: D1 not approved even with green gates, D2 no wipe/import, C2 automatic machine-appropriate concurrency under design, D3 no next stable. No Norway backup/upgrade/wipe/import/setting change/restart was started. Only read-only observations occurred. Complete per-ID feedback read from sibling tmp/591/owner-feedback-20261108-1221.md; Hibiscus coordinates substantive answers/design. Root continues only normal595 gate hygiene and preserves all acceptance gaps.
 <!-- SECTION:NOTES:END -->
