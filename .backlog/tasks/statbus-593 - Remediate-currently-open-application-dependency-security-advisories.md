@@ -1,10 +1,10 @@
 ---
 id: STATBUS-593
 title: Remediate currently open application dependency security advisories
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-08T10:21:00Z'
-updated_date: '2026-11-08T10:40:00Z'
+updated_date: '2026-11-08T11:30:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -23,11 +23,13 @@ Read-only GitHub advisory inspection on 2026-11-08 confirms 23 open npm dependen
 - [x] #1 Record current advisory IDs, affected installed versions, fixed-version ranges and runtime or tooling reachability using primary advisory evidence.
 - [x] #2 Apply the smallest compatible dependency fixes and verify resolved lockfile versions, without ignoring alerts or forcing unreviewed major API changes.
 - [x] #3 Relevant sanitization, validation, HTTP and diagram behavior tests plus full frontend typecheck, lint, tests and build pass on the resulting dependency graph.
-- [ ] #4 Record exact committed source CI status and any remaining advisory with an evidence-based mitigation or explicit owner review gate before a future stable release.
+- [x] #4 Record exact committed source CI status and any remaining advisory with an evidence-based mitigation or explicit owner review gate before a future stable release.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Coordinator verification 2026-11-08 10:40 UTC: compatible fixes and primary advisory/reachability ledger are in doc/security-dependency-review-20261108.md. Dependency regressions reproduced real SRI and sanitizer defects before patch. Query-array guard RED11/16 then GREEN16/16, root independently passed21 actual parser/security tests. Full frontend final27suites229tests/typecheck/lint0errors5warnings/productionbuild pass. Compatible graph audit has0critical but1high,3moderate,2low (five unique advisory IDs), not all-clear. Zod query arrays are bounded before JSON.parse and all root/nested Zod traversal, but vendor vulnerability remains unpatched. Residual runtime/major/no-fix review gates remain explicit and next stable is HARD HELD for owner approval. Original security commits211519497/76413f1f8 map unchanged to f7abff119/7841df985 at integrated source7841df9852f2f5bf84d64ee8132c523306f6f328. AC4 remains unchecked pending exact integrated CI and evidence. No alert dismissed or deployed.
+
+2026-11-08 11:30 UTC: exact signed integrated source e3f240065fa0a789148908af6d72f5e524f35778 has all seven required workflows completed/success: Go42474389707,App42474389713,Harness42474389696,Images42474389681,Push/CodeQL42474389092,Notify42474389702,Fast42474688330. Saved tmp/594-source-precut-green.json and source-fast-final.json. Actual clean local production build8.1sPASS writes exact build/type stamps. Normal candidate v2026.11.3-rc.01 tagged this source11:29UTC; its fresh guest gates are not yet complete. Residual five advisory IDs and application-only Zod mitigation remain explicit in doc/security-dependency-review-20261108.md and unchecked owner guide. GitHub push summary now6remaining records(2high/2moderate/2low), not audit count or all-clear. AC4 met for this bounded remediation, no alert dismissed, no deployment/all-advisories-resolved claim. Next stable HARD HELD for personal review.
 <!-- SECTION:NOTES:END -->
