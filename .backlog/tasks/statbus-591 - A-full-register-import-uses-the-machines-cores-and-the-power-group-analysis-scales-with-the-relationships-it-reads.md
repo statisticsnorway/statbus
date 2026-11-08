@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-08T10:04:00Z'
+updated_date: '2026-11-08T10:15:00Z'
 labels:
   - import
   - performance
@@ -108,4 +108,8 @@ Rabbit owns independent pre-existing crash-recovery589. Our rollback-state probe
 Morning handover correction, November 8 at 09:12 UTC: Reports ticket577 is now Done on master's 571336064. Its real rc04 Firefox observation showed waiting, labeled running, 69% progress, history merging at 76%, then idle at 08:57:31 UTC. Saved verified-acceptance.json and complete browser-transitions.json were independently inspected under statbus_test/tmp/rune-measure/reports-rc04-20261108/, without rerunning Norway work. The previous paragraph describing open Reports browser acceptance was the earlier overnight state. Final stable-promotion verdict is still awaited from rabbit and this separate Reports acceptance does not authorize or satisfy STATBUS-591.
 
 2026-11-08 09:55 owner authorized integrating this branch on current master, coordinated push and named release candidates. This replaces the previous pending push-authorization gate. HARD RELEASE HOLD: next final stable promotion requires the owner's explicit personal review/approval, including history/schema review and declared valid_from policy. RC/CI success is not that approval. Rabbit informed and retains release/host operations; no destructive Norway authorization inferred. Rebased onto origin/master e38a812c2 at29db7f109, preserved all37commits. Only321expected-output conflict was upstream incidental stack line208->214, with persisted-error assertions preserved. Combined verification and complete version-controlled owner review guide are now in progress. All4acceptance criteria remain unchecked until independently satisfied.
+
+Combined integration verified November8 10:14UTC: frozen clean57aa183009dbdb0a6fa7b0e947e13be83bd59ae5 full fast suite PASS134shared+2isolated=136, including371,372–378andreleased390crash recovery. Full schema documentation regeneration completed successfully with no deletions. The only drift was six redundant deparser aliases in non-first UNION arms of statistical_unit_def, saved separately and excluded as unrelated generated noise. Explain/performance output drift was saved and restored. App type check, lint(0errors/5warnings),25suites/208tests and production build PASS. Initial Jest extra-separator invocation ran no tests, diagnosed and corrected without code changes. Logs: tmp/591/combined-rc-{fast-frozen,doc-db,app-tsc,app-lint,app-test-corrected,app-build}.log. Two isolated fast cases094/143 are not the standalone small-history benchmark.
+
+Master advanced only by592ticket closureab81814a9. Rebased after frozen checks to c91c274b0ba8d0682ba0c6595213764e76eaa0fc, exact git diff confirms tested migrations/tests/app/CLI/docs byte-identical, range-diff at tmp/591/combined-rc-ticket-rebase-range-diff.txt. No needless SQL rerun for that ticket-only rebase. Complete owner review guide is committed/linked, all personal approvals unchecked. Rabbit accepted combined named-RC coordination and the hard next-stable hold after receiving the exact09:55owner instruction. Date policy remains unchosen, explicit date/year loader interface is delegated to rabbit, no Saga adoption or new production-wipe authorization. Coordinated candidate push/CI/RC/full-register acceptance remain pending and all four criteria stay unchecked.
 <!-- SECTION:NOTES:END -->
