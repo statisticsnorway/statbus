@@ -528,7 +528,7 @@ func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
 		if fetchErr == nil {
 			break
 		}
-		if attempt == preswapFetchMaxAttempts || !(isGitRateLimitFailure(fetchOut) || isGitDiscoveryRefContention(fetchOut)) {
+		if attempt == preswapFetchMaxAttempts || (!isGitRateLimitFailure(fetchOut) && !isGitDiscoveryRefContention(fetchOut)) {
 			return nil, fmt.Errorf("git fetch --tags: %w (%s)", fetchErr, strings.TrimSpace(fetchOut))
 		}
 		gitDiscoveryRetryWait(preswapFetchRetryGaps[attempt-1])
