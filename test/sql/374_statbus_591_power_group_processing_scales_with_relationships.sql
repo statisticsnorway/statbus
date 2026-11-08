@@ -42,6 +42,11 @@ SELECT '2020-01-01'::date, 'T374 unit ' || e.short_name, e.id, true,
        (SELECT id FROM auth.user LIMIT 1), 'Test 374'
 FROM public.enterprise AS e WHERE e.short_name LIKE 'T374\_%';
 
+-- Refresh the bulk-loaded referenced units before PERIOD foreign-key checks.
+-- Their prior empty-table statistics can select a range-only index that scans
+-- all 18,000 units for each relationship insert and derived-field update.
+ANALYZE public.legal_unit;
+
 CREATE TEMP TABLE t374_unit ON COMMIT DROP AS
 SELECT id, row_number() OVER (ORDER BY id) AS n
 FROM public.legal_unit WHERE name LIKE 'T374 unit %';
