@@ -47,9 +47,39 @@ brreg_parse_options() {
         esac
     done
 }
+# Explicit validity is a request, not permission to redate an existing job.
+# Read all three target slugs before either loader can write setup or upload data.
+# sb_psql is supplied by the loader so its --database selection also applies here.
+brreg_check_existing_validity() {
+    [ -n "$BRREG_VALID_FROM" ] || return 0
+    local suffix mismatches
+    case "$1" in
+        selection) suffix="${BRREG_YEAR}_selection" ;;
+        downloads) suffix=2025 ;;
+        *) echo 'Error: unknown BRREG preflight variant' >&2; return 1 ;;
+    esac
+    if ! mismatches=$(sb_psql -X -A -t -c "
+-- BRREG explicit validity preflight
+SELECT slug || ': existing validity ' || COALESCE(default_valid_from::text, 'NULL')
+FROM public.import_job
+WHERE slug IN ('import_hovedenhet_${suffix}', 'import_underenhet_${suffix}', 'import_roller_${suffix}')
+  AND default_valid_from IS DISTINCT FROM '${BRREG_VALID_FROM}'::date
+ORDER BY slug;"); then
+        echo 'Error: could not check existing BRREG job validity. No setup or upload was attempted.' >&2
+        return 1
+    fi
+    if [ -n "$mismatches" ]; then
+        echo "Error: existing BRREG job validity differs from requested ${BRREG_VALID_FROM}:" >&2
+        printf '%s\n' "$mismatches" >&2
+        echo 'No setup or upload was attempted. Review existing jobs before choosing validity.' >&2
+        return 1
+    fi
+}
+
 brreg_help() {
     echo 'Usage: [--database NAME] [--valid-from YYYY-MM-DD | --year YYYY] [--help]'
     echo 'Explicit validity applies to all three jobs. --year means January 1.'
+    echo 'Explicit requests refuse existing job date mismatches before setup or uploads.'
     echo 'Legacy defaults: selection current-year January 1, downloads execution date.'
     echo 'These defaults do not decide owner validity policy (STATBUS-591 AC3 pending).'
 }
