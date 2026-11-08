@@ -4,7 +4,7 @@ title: Demo checkpoint publication is atomic with its lineage metadata
 status: In Progress
 assignee: []
 created_date: '2026-11-08T11:59:00Z'
-updated_date: '2026-11-08T12:28:00Z'
+updated_date: '2026-11-08T12:37:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -20,8 +20,8 @@ RC01 recovery job128722552493/run42477260886 refused its demo checkpoint before 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A deterministic behavioral regression exposes concurrent readers between snapshot creation and lineage publication, fails before the fix and succeeds after it.
-- [ ] #2 Readers reuse only fully published matching demo checkpoints, reject genuinely mismatched lineage, and handle incomplete builders using existing bounded ownership/reclaim rules.
+- [x] #1 A deterministic behavioral regression exposes concurrent readers between snapshot creation and lineage publication, fails before the fix and succeeds after it.
+- [x] #2 Readers reuse only fully published matching demo checkpoints, reject genuinely mismatched lineage, and handle incomplete builders using existing bounded ownership/reclaim rules.
 - [ ] #3 Relevant checkpoint, snapshot-layer and harness regressions pass with first-attempt failure evidence preserved.
 - [ ] #4 The corrected harness runs the failed arc and full candidate recovery gates in real guests before candidate acceptance.
 <!-- AC:END -->
@@ -34,4 +34,6 @@ First-attempt log: tmp/combined-591-594-after-commit-first-failure.log. Failure 
 2026-11-08 12:12 UTC root independently reproduced same-source deterministic regression RED=1 and prototype GREEN=0, including matching publication reuse, snapshot/fork identity, genuine parent/candidate mismatch refusals and interruption at all four metadata writes plus snapshot, with live/dead builder ownership recovery preserved. tmp/595/root-red-green-status.log and root-{red,green}.log. Minimal prepared patch moves the readiness checkpoint after metadata. git apply --check passes. Eight existing shell suites pass in both unchanged/patched copies. Tracked harness remains untouched while current real battery runs. New regression must be explicitly registered in Harness Selftest when landed. Real corrected guest acceptance remains open. Latest owner Norway halt does not halt normal595test hygiene.
 
 2026-11-08 12:28 UTC: Git history independently locates the snapshot-before-metadata ordering in Oct20 commit5f96870f70 and the same bytes in accepted RC04/929fe787. This is a newly exposed pre-existing harness race, not evidence that591introduced a recovery defect. Earlier green runs do not establish this publication interleaving; which prior jobs reused a completed snapshot versus arrived later has not been established. New deterministic regression forces the reader at readiness publication and validates frozen snapshot/fork provenance. Separate tmp/595/ci-registration.patch adds it to the explicit Harness Selftest list, apply-check verified without changing tracked harness. Real current battery remains active with the single preserved first failure, no blind rerun. All four acceptance criteria remain open pending landed/final verification and real corrected guest gates.
+
+2026-11-08 12:37 UTC: Original Arc42477260886 completed/failure with all40jobs terminal and only known128722552493 failed before guest creation; LXD42477211979success, Orchestrator42475935661failure propagated from arc, alljobsterminal. Originalchainexit1/noPIDs. Root explicitly released freeze12:33, then REDc0dc9175d268ff93cbf39887be260bbd9b90c77e registered the deterministic regression in Harness Selftest; minimal GREEN20d60332bb03529c3aa9e22eacdf1cdcbefc34fa moves snapshot after four provenance writes. Root independently reviewed all three paths and ran final tracked publication regression plus eight related suites/syntax/shellcheck PASS15s, tmp/595/root-final-validation.log. Root also ran committed RED-parent backend with its complete relative helper library: actual readiness-boundary assertion fails as intended, tmp/595/root-committed-parent-red.log. First isolated-backend replay lacked relative data-helpers and is retained separately as fixture setup error, not defect proof. AC1/2 verified locally. Source/exactCI and actual corrected guest/full candidate gates remain outstanding, AC3/4 unchecked. No Norway or nextstable authorization.
 <!-- SECTION:NOTES:END -->
