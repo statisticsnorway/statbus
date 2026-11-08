@@ -107,7 +107,9 @@ func TestDiscoveryRefLock_STATBUS592(t *testing.T) {
 				if data, err := os.ReadFile(lock); err != nil || string(data) != "competing writer" {
 					t.Fatalf("lock ownership changed: %q %v", data, err)
 				}
-				git592(t, local, "rev-parse", "refs/tags/v2026.11.2")
+				if got := git592(t, local, "rev-parse", "refs/tags/v2026.11.2"); got != sha {
+					t.Fatalf("fetched tag=%s, want %s", got, sha)
+				}
 			}
 			want := 1
 			if persistent {
@@ -124,6 +126,12 @@ func TestDiscoveryMovedTagImmediate_STATBUS592(t *testing.T) {
 	_, local, sha := repo592(t)
 	git592(t, local, "tag", "v2026.11.2", "HEAD")
 	old := git592(t, local, "rev-parse", "v2026.11.2")
+	// The same fetch also encounters contention. The rejected immutable tag
+	// takes precedence, rather than spending the contention retry budget.
+	lock := filepath.Join(local, ".git/refs/remotes/origin/master.lock")
+	if err := os.WriteFile(lock, []byte("competing writer"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	waits := 0
 	gitDiscoveryRetryWait = func(time.Duration) { waits++ }
 	if _, err := DiscoverTagsViaGit(local); err == nil {

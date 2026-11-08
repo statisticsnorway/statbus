@@ -494,12 +494,27 @@ type GitTag struct {
 	PublishedAt time.Time
 }
 
+// gitDiscoveryRefRace matches Git's compare-and-swap failures on fetched refs.
+// Retrying the unchanged fetch re-reads the winning writer's refs, preserving
+// configured refspecs, pruning, and Git's moved-tag protection.
+var gitDiscoveryRefRace = regexp.MustCompile(`(?m)^(?:error: )?cannot lock ref 'refs/(?:remotes|tags)/[^'\r\n]+': (?:is at [0-9a-f]+ but expected [0-9a-f]+|reference already exists|Unable to create '[^'\r\n]+\.lock': File exists\.)\r?$`)
+
+func isGitDiscoveryRefContention(output string) bool {
+	// A competing writer is recoverable, but an independently rejected update
+	// or fatal transport/authentication failure still needs immediate attention.
+	lower := strings.ToLower(output)
+	if strings.Contains(lower, "[rejected]") || strings.Contains(lower, "fatal:") || strings.Contains(lower, "authentication failed") || strings.Contains(lower, "permission denied") {
+		return false
+	}
+	return gitDiscoveryRefRace.MatchString(output)
+}
+
 var gitDiscoveryRetryWait = time.Sleep
 
 // DiscoverTagsViaGit fetches tags from the remote and returns parsed version tags.
 // Anonymous HTTPS remains supported. When GITHUB_TOKEN is present, git receives
 // it only through invocation-scoped GIT_CONFIG_* environment entries. GitHub
-// rate-limit answers use the same bounded three-attempt policy as preswap fetch.
+// rate-limit answers and competing local ref writers use a bounded three-attempt policy.
 func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
 	// Fetch latest tags from remote, pruning tags deleted upstream.
 	// Without --prune-tags, deleted tags persist locally forever.
@@ -513,7 +528,7 @@ func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
 		if fetchErr == nil {
 			break
 		}
-		if attempt == preswapFetchMaxAttempts || !isGitRateLimitFailure(fetchOut) {
+		if attempt == preswapFetchMaxAttempts || !(isGitRateLimitFailure(fetchOut) || isGitDiscoveryRefContention(fetchOut)) {
 			return nil, fmt.Errorf("git fetch --tags: %w (%s)", fetchErr, strings.TrimSpace(fetchOut))
 		}
 		gitDiscoveryRetryWait(preswapFetchRetryGaps[attempt-1])
