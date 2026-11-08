@@ -268,6 +268,53 @@ jobs:
       - name: Verify regression diagnostic collection
         run: bash test/fast-ci-regression-diagnostics-test.sh .github/workflows/fast-tests.yaml tmp/fast-ci-diagnostics-selftest
 
+      - name: Enable nested slow-query plans
+        # STATBUS-596: diagnostic instrumentation adds overhead. These timings
+        # are not performance acceptance evidence. Keep ordinary psql behavior.
+        run: |
+          set -euo pipefail
+          echo "Diagnostic auto_explain adds overhead; instrumented timings are not performance acceptance evidence."
+          docker compose exec -T db psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          LOAD 'auto_explain';
+          ALTER SYSTEM SET session_preload_libraries = 'auto_explain';
+          ALTER SYSTEM SET auto_explain.log_min_duration = '1000ms';
+          ALTER SYSTEM SET auto_explain.log_nested_statements = 'on';
+          ALTER SYSTEM SET auto_explain.log_analyze = 'on';
+          ALTER SYSTEM SET auto_explain.log_timing = 'off';
+          ALTER SYSTEM SET auto_explain.log_parameter_max_length = '0';
+          ALTER SYSTEM SET log_parameter_max_length = '0';
+          ALTER SYSTEM SET log_parameter_max_length_on_error = '0';
+          SELECT pg_reload_conf() AS reloaded \gset
+          \if :reloaded
+          \else
+          \quit 1
+          \endif
+          SQL
+          verified=false
+          for attempt in $(seq 1 10); do
+            settings=$(docker compose exec -T db psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 -At <<'SQL'
+          WITH requested(ordinal, name) AS (VALUES
+            (1, 'session_preload_libraries'), (2, 'auto_explain.log_min_duration'),
+            (3, 'auto_explain.log_nested_statements'), (4, 'auto_explain.log_analyze'),
+            (5, 'auto_explain.log_timing'), (6, 'auto_explain.log_parameter_max_length'),
+            (7, 'log_parameter_max_length'), (8, 'log_parameter_max_length_on_error')
+          )
+          SELECT string_agg(coalesce(setting, '<missing>'), '|' ORDER BY ordinal)
+          FROM requested LEFT JOIN pg_settings USING (name);
+          SQL
+            )
+            echo "Fresh-connection profiling settings (attempt $attempt): $settings"
+            if [ "$settings" = 'auto_explain|1000|on|on|off|0|0|0' ]; then
+              verified=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$verified" != true ]; then
+            echo "::error::CI nested-plan settings did not become effective in a new connection."
+            exit 1
+          fi
+
       - name: Run fast test suite
         id: sql_tests
         # workflow_run / RC-tag push: request the published seed image
@@ -331,8 +378,52 @@ jobs:
       - name: Worker started read-only restores recurring tasks once writable (STATBUS-551)
         run: WORKER_IN_CONTAINER=1 bash test/worker-seed-read-only-test.sh
 
+      - name: Capture PostgreSQL plans
+        if: always() && (steps.sql_tests.outcome == 'success' || steps.sql_tests.outcome == 'failure')
+        run: |
+          set -euo pipefail
+          mkdir -p tmp/fast-ci-regression
+          # Bound-parameter suppression does not hide SQL literals. Redact known
+          # CI configuration secrets and JWTs in memory before retaining logs.
+          log_status=0
+          : > tmp/fast-ci-regression/postgres.log.stderr
+          python3 - <<'PY' 2> tmp/fast-ci-regression/postgres.collector.stderr || log_status=$?
+          from pathlib import Path
+          import re
+          import subprocess
+          import sys
+          target = Path('tmp/fast-ci-regression')
+          secrets = set()
+          config_keys = set()
+          for source in ('.env', '.env.credentials'):
+              config = subprocess.run(['./sb', 'dotenv', '-f', source, 'parse'], capture_output=True)
+              if config.returncode or not config.stdout:
+                  (target / 'postgres.log.stderr').write_text('Cannot read CI configuration for log redaction.\n')
+                  sys.exit(config.returncode or 1)
+              for line in config.stdout.splitlines():
+                  key, separator, value = line.partition(b'=')
+                  if separator and value and re.search(rb'PASSWORD|SECRET|TOKEN|KEY|WEBHOOK', key, re.I):
+                      secrets.update((value, value.replace(b"'", b"''")))
+                      config_keys.add(key)
+          if not {b'JWT_SECRET', b'POSTGRES_ADMIN_PASSWORD'} <= config_keys:
+              (target / 'postgres.log.stderr').write_text('Cannot read CI configuration for log redaction.\n')
+              sys.exit(1)
+          logs = subprocess.run(['docker', 'compose', 'logs', '--no-color', 'db'], capture_output=True)
+          for name, data in (('postgres.log', logs.stdout), ('postgres.log.stderr', logs.stderr)):
+              for value in sorted(secrets, key=len, reverse=True):
+                  data = data.replace(value, b'[REDACTED]')
+              data = re.sub(rb'\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b', b'[REDACTED JWT]', data)
+              if any(value in data for value in secrets):
+                  raise RuntimeError('CI log redaction check failed')
+              (target / name).write_bytes(data)
+          sys.exit(logs.returncode)
+          PY
+          printf '%s\n' "$log_status" > tmp/fast-ci-regression/postgres.log.status
+          cat tmp/fast-ci-regression/postgres.log.stderr tmp/fast-ci-regression/postgres.collector.stderr >&2
+          exit "$log_status"
+
       - name: Show regression diffs on failure
-        if: failure() && steps.sql_tests.outcome == 'failure'
+        if: always() && steps.sql_tests.outcome == 'failure'
         run: |
           set -euo pipefail
           mkdir -p tmp/fast-ci-regression
@@ -392,7 +483,7 @@ jobs:
           exit "$status"
 
       - name: Upload regression diagnostics
-        if: always() && steps.sql_tests.outcome == 'failure'
+        if: always() && (steps.sql_tests.outcome == 'success' || steps.sql_tests.outcome == 'failure')
         uses: actions/upload-artifact@v4
         with:
           name: fast-ci-regression-${{ github.run_id }}-${{ github.run_attempt }}
