@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-08T17:32:00Z'
+updated_date: '2026-11-08T19:15:00Z'
 labels:
   - import
   - performance
@@ -21,18 +21,16 @@ ordinal: 499204
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-A full register imports faster by using the machine's cores without changing the resulting business data. This iteration must improve the measured rune baseline while preserving business data and temporal power-group membership. Automatic roots follow insertion order and may differ, but must be valid and preserve explicit custom overrides. It does not assume an unmeasured one-hour target.
+A full register imports faster by using the machine’s cores without changing business data, parent links or exact temporal power-group memberships. Algorithm-derived roots must be valid and custom overrides preserved. Improve the measured rune reference, without assuming an unmeasured one-hour target.
 
 ### Zoom out
-Import jobs remain serial because one job can depend on another. Analysis identifies the row dependencies that determine which processing batches of one job can run concurrently.
+Import jobs are serial because one job can depend on another. Dependency analysis identifies safe within-job parallel work. Concurrency must ship enabled with sensible defaults or remain absent, and holistic power-group graph work stays serial. Compare later concurrency against the verified serial reference rather than mixing its algorithms into the baseline.
 
 ### Zoom in
-Rune run A (November 7, 2026, rc.18, full BRREG, 62 GB RAM): legal-unit analysis 816 s and processing 2,184 s, establishment analysis 745 s and processing 1,670 s. Relationship analysis 1,147 s includes a 1,024 s holistic power_group_link call. Import queue span 6,625 s, task time 6,539 s, full load to idle 10,240 s. Evidence: tmp/rune-measure/A/summary.md.
+The serial mechanism uses equality joins for either relationship endpoint, linear power-group processing with corrected merge cardinality and cycle-tail roots, and a durable publisher/collector row-lock protocol. Forward migrations 20261108104710, 20261108104712 and lock-only 20261108104714 define it. Current regressions 372/374/377/378 exercise scaling, exact groups and levels, change publication and cycle-tail membership. The [serial implementation and evidence](../../doc/performance/2026-11-combined-import-review.md#serial-only-rc03-november-8) links the migrations, release acceptance and causal fixture-statistics repair. Earlier concurrency tests and benchmark JSON are historical evidence in Implementation Notes, not acceptance of the serial candidate. Later concurrent batches must rebase on this reference and preserve failure, replay and serial barriers.
 
 ### Closing review
-- Documentation: dependency/concurrency design, doc/import-system.md, measured performance evidence.
-- Verification: exact serial-domain parity, failure/replay/barrier behavior, full fast suite, real worker measurements and rune acceptance.
-- Cleanup: retain diagnostic scripts and logs in tmp/. Do not delete benchmark databases or production data automatically.
+Update the [import system](../../doc/import-system.md) design and [performance review](../../doc/performance/2026-11-combined-import-review.md) with measured parity, performance and the owner’s declared validity policy. Capture reusable preferences and historical lessons in agent memory, while mandatory rules remain version controlled. Preserve diagnostic scripts, logs and benchmark databases until tmp/database cleanup is explicitly authorized. Dated status, holds, measurements and owner decisions belong in Implementation Notes.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -118,4 +116,8 @@ Owner11:55:19 and11:55:59UTC Nov8 explicitly requested a fresh Norway import mea
 2026-11-08 17:28 UTC: Serial-only v2026.11.3-rc.03 at fc1830fe410b19007056ef0853ad9e491d7f4ad9 completed full real release gate17:24, watcher exit0. Release42499809014, Smoke42499918983, Hardening42499809083, tagFast42499809016, dev42500754689, LXD42500921553, Arcs42500990314, Orchestrator42499809081 all completed/success. Arcs39successful plus expected zero-arc refusal skipped. Verified9assets/4binarychecksums/fullSHA/5registrydigests. Additional real-session RED/GREEN reaches exact committed enterprise2 Race committed valid[2020-01-01,infinity),51analytics taskscompleted/log0/flagfalse. Dev ordinary upgrade retained retired schema, so owner-authorized pinnedRC recreation17:16 retained verified15.8MB backup and69logs, then restored exactpublishedserialseed via install. Realhost healthcompleted/upgraderactive and10definitions+queue equalfullreplay, versions710/712/714only/default1. Norway untouched, stable held. Later backlog-only e6eb065f5 Fast42500931828 SQL374failed298s, exactdiffhidden bywronghostdiagnosticpath. Actual e6seed+exactDBimage locallypasses unchanged374(all6000roots/12000relationships/under10s), definitionsmatch, but CIcause NOT established. Diagnostic repair and CIinvestigation remain open. Full591ACs remain unchecked: no full-registerbenchmark, enabledconcurrency or ownerdatepolicy approval. Review guide records source/tree/history nuance and matched serial/concurrentcomparisoncontract.
 
 2026-11-08 17:32 UTC clarification: the original CI diagnostic observed no readable host summary. It has not been established that the path itself was wrong. Later isolated pg_regress invocations replace the shared container summary/diffs; per-test result files are the required durable recovery source. STATBUS-454 is reopened for that repair. Actual e6 published-image SQL372 followed immediately by SQL374 also passes locally, including the unchanged under-ten-second assertion. This narrows reproduction attempts, not the unexplained hosted failure.
+
+2026-11-08 19:14 UTC: STATBUS-596 is verified and Done. Later unchanged-runtime SQL374 failures came from direct-fixture referenced-unit statistics, not hidden concurrency or a required runtime SQL repair. Test-only612a911871fd40b562b20a016a78ca9d3ceccc62 analyzes its18000loaded legal units, preserves real constraints/triggers/all-NULL relationship statistics and10secondbound, passes local133fast cases and all seven exact-source hosted workflows including Fast42512709160/liveDB. Genuine hosted plans show firstCALL4613.711ms, formerly166055.676ms. Repairedfixture still fails originalprocessingbody20758.712ms. Full causal RED/GREEN and successful artifact13630661616/digest are in596 and ownerreviewguide. Runtime serial reference remains v2026.11.3-rc.03/fc1830fe410b19007056ef0853ad9e491d7f4ad9, whose complete real guest gate passed17:24 and backed-up dev recreation is verified. No new Norway operation, benchmark or stable release. All four591criteria remain unchecked: concurrency is deliberately absent from this candidate, full-register comparison and owner validity/root-lifetime/personal review decisions remain open.
+
+2026-11-08 19:16 UTC ticket review: moved the dated run-A baseline out of Description, retaining its complete existing Full-register reference note (10240seconds/load-to-idle and input/resource context). Description now states the serial baseline mechanism, current migration/test links, future enabled-concurrency principle and closing documentation/memory/authorized-cleanup obligations. Retired373/375 concurrency evidence remains historical in these notes, not an invented current file or serial acceptance. All four criteria and owner decisions remain open.
 <!-- SECTION:NOTES:END -->
