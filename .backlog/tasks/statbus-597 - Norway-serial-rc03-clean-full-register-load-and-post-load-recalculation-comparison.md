@@ -3,10 +3,10 @@ id: STATBUS-597
 title: >-
   Norway serial rc03 clean full-register load and post-load recalculation
   comparison
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-08T21:35:00Z'
-updated_date: '2026-11-09T00:12:00Z'
+updated_date: '2026-11-09T00:32:00Z'
 labels:
   - performance
   - norway
@@ -47,4 +47,6 @@ Verify target and candidate; retain and verify backup/config/baseline; deploy ex
 2026-11-08 23:57UTC: all three whole-file imports finished23:32:07.781952UTC and initial analytics reached idle23:48:49.236386UTC. Exact output checks PASS: LU1134475/ES823767/LR29504, rejected1/1/4206 and warning53592/26321/0 rows identical to old baseline, eight history rows/stocks exact, 108851 canonical graph records exact with zero added or removed (29504edges,25635groups,53268memberships,444roots). Load-to-idle6872.802017s, importspan5871.347583s, analytics tail1001.454434s. Separate full recalculation actually dispatched23:48:54.091552UTC, root45578, running. AC2 verified, AC3/4 remain pending. Evidence tmp/rune-measure/C-serial-rc03/{after-load-parity.json,baseline-vs-rc03-graph-summary.json,import-timings.json,recalculation-request.json}. No new release or concurrency deployment.
 
 2026-11-09 00:12UTC: genuine remote runner exit0; separate full recalculation root45578 started2026-11-08T23:48:54.122466Z and completed2026-11-09T00:09:39.286247Z,1245.163781wall_s,3684/3684completed/0failed. Independent saved-artifact checks recomputed wall time and exact command counts, stock/history/job parity, canonical graph bytes and input posthashes. Readonly00:10:56 host stillfc183, three finishedjobs/zeroactive/failed/changelog/pendingflag, monitorhealthy. Old1262.942033s =>1.4077%shorter only, no major recalculation gain. Report doc/performance/2026-11-norway-serial-rc03-comparison.md records all six import phases and thirteen recalculation command totals, baselines/versions/files/config/digests/backups/comparability. Importspan12.59%shorter,load-to-idle6.17%shorter,LRanalysis69.03%shorter,analyticstail64.71%longer. All AC observed. Report/ticket commit and exact-SHA CI pending before Done. No release or experimental Norway deployment.
+
+2026-11-09 00:32UTC: report1aa4164e14a389c223ab20ea8860fcd96b7946ae pushed, all seven exact-SHA workflows status=completed/conclusion=success: CodeQL42538905634,Go42538906128,App42538905973,Images42538905989,Harness42538906097,Notify42538906154,Fast42539218089. Fast displayTitle exercised-sha=1aa4164e14a389c223ab20ea8860fcd96b7946ae; retained terminalJSON/log tmp/rune-measure/C-serial-rc03/report-ci-final.json and report-fast-final.log. Hibiscus independently reviewed report/raw sixphases/thirteencommands/counts/timestamps/graph/errors/hash/terminalhost evidence PASS00:15, no host operations. All four AC verified, closing Done. Stable/personalapproval and experimental Norway deployment remain outside this ticket. Follow-up STATBUS598 stays ToDo, not claimed resolved.
 <!-- SECTION:NOTES:END -->
