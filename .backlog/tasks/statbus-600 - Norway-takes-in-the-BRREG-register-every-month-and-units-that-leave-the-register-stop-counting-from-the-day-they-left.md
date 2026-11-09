@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T20:30:00Z'
+updated_date: '2026-11-09T20:38:00Z'
 labels:
   - import
   - norway
@@ -57,4 +57,6 @@ Evidence of the gap and the feed: `tmp/brreg-feed/` in the Rabbit checkout.
 2026-11-09 20:28 UTC proposed monthly job layout (owner to confirm): four jobs per month, in this order. (1) import_hovedenhet_YYYY_MM, full file, brreg_hovedenhet_2025, insert_or_update: new and changed legal units. (2) import_underenhet_YYYY_MM, same for establishments (after 1, since establishments refer to their legal unit). (3) import_hovedenhet_slettet_YYYY_MM and (4) import_underenhet_slettet_YYYY_MM: deletions from the change feed, rows of organisation number + death_date = slettedato. Deletions run last, so a deletion wins over a stale row in the full file. Evidence that one full-file job covers insert and update: tmp/600-unchanged-reimport-proto.log (an unchanged unit keeps one record, a changed unit gets a new record from the job's valid_from). Detail to build and test: a deletion row needs a record that starts before its slettedato, so a unit deleted late in the previous month stops counting on that day, not on the 1st.
 
 2026-11-09 20:30 UTC deletions dated before the job's month (tmp/journal.md, tmp/600-late-deletion-proto-c.log): a deletion row with valid_from = the job's 1st of month or = slettedato is rejected (date_consistency: death must fall after the record start). Accepted and correct: the *_source_dates definition with per-row valid_from = 1st of the month containing (slettedato - 1 day). Both test units closed on the exact deletion day, kept their names, and the deaths counted in October and November. So deletion jobs 3 and 4 use legal_unit_source_dates / establishment_for_lu_source_dates (or BRREG equivalents), not the job-provided date.
+
+2026-11-09 20:38 UTC owner confirmed the four monthly jobs (Q1). No new import modes are needed, all four use existing definitions: (1) brreg_hovedenhet_2025 and (2) brreg_underenhet_2025, insert_or_update, job-provided valid_from; (3) legal_unit_source_dates and (4) establishment_for_lu_source_dates, per-row valid_from. Prototype tmp/600-deletion-definitions-proto.log: an establishment deletion closes the establishment and keeps its legal unit link. A deletion for a unit StatBus never had is rejected ('Missing required name') and leaves the job waiting_for_review, which would stall an unattended run. So the feed reader only writes deletions for units StatBus already has and counts the others separately as born and deleted within the month.
 <!-- SECTION:NOTES:END -->
