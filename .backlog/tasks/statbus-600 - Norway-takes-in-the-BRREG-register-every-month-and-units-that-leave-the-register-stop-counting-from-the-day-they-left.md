@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T21:26:00Z'
+updated_date: '2026-11-09T21:27:00Z'
 labels:
   - import
   - norway
@@ -87,4 +87,6 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 2026-11-09 21:24 UTC owner: the general status design must be flexible, close to an expression builder over source columns, likely after the import definition editor. Opened STATBUS-601 (depends on STATBUS-546) for it; STATBUS-600 keeps the loader bridge.
 
 2026-11-09 21:25 UTC owner decision Q3b: a legal unit is Passive when konkurs, underAvvikling or underTvangsavviklingEllerTvangsopplosning is true, otherwise Active; establishments stay Active until deleted. Consequence: in the 4,924-unit selection sample 44 legal units become Passive and stop counting (status passive has used_for_counting = false).
+
+2026-11-09 21:27 UTC Q4 evidence (tmp/600-validfrom-births-proto.log): a unit born 2026-11-10 in the file built 2026-12-01 is counted as a November birth from its birth day when the job's valid_from is 2026-11-01. With valid_from 2026-12-01 it exists only from 1 December, is counted as added in December rather than born, and the import warns about it. Owner Uganda note: setup rerun tomorrow (STATBUS-583, 497).
 <!-- SECTION:NOTES:END -->
