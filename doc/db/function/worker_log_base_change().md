@@ -93,7 +93,7 @@ BEGIN
         INSERT INTO worker.base_change_log (establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids, valid_ranges)
         VALUES (v_est_ids, v_lu_ids, v_ent_ids, v_pg_ids, v_valid_range);
 
-        PERFORM worker.publish_base_change_wakeup();
+        PERFORM worker.request_base_change_wakeup();
     END IF;
 
     RETURN NULL;
