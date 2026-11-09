@@ -747,8 +747,9 @@ One fleet-level entry point is available from the repo root:
 ./cloud.sh status                  # version, channel, name, and group for all boxes
 ./cloud.sh notify standalone       # tell standalone hosts to check for updates
 ./cloud.sh upgrade cloud           # force cloud slots to apply latest
-./cloud.sh install no              # re-run install.sh on rune (pinned or prerelease)
-./cloud.sh install all             # same for the complete fleet
+./cloud.sh install no              # re-run install.sh on rune: --version if given, else rune's own channel (prerelease)
+./cloud.sh install stable          # each stable box installs the latest stable release; no candidate
+./cloud.sh install all             # same for the complete fleet, each box on its own channel
 ./cloud.sh inspect cloud           # cloud-slot credentials and URLs
 ./cloud.sh wipe no                 # DELETE rune's database and reinstall it empty (asks: type 'wipe no.statbus.org')
 ./cloud.sh import no selection     # schedule the Norway BRREG sample import

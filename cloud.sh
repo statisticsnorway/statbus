@@ -731,25 +731,35 @@ cmd_install_one() {
             "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag "$resolved_trust_user")" 2>&1) \
             || exit_code=$?
     else
+        # An unpinned install follows the box's own channel, exactly as its
+        # upgrader does: stable boxes get the latest stable release, Norway
+        # and dev the latest candidate. The target named on the command line
+        # only chooses which boxes to visit. Unreadable metadata stops here,
+        # before anything is installed, rather than guessing a channel.
+        local box_metadata box_channel
+        if ! box_metadata=$(read_server_metadata "$server"); then
+            echo "--- Cannot read the channel $server follows; nothing was installed. Check ./sb config show on $server and retry. ---"
+            return 1
+        fi
+        IFS='|' read -r _ box_channel _ <<< "$box_metadata"
         # Gate: verify release artifacts are fully published before touching
         # the server. If CI is still uploading assets or pushing
         # images, abort early — the server stays up and the operator retries.
-        # Rc.63: use --channel so the check resolves to the
-        # current latest RC instead of treating "prerelease" as a
-        # literal tag.
-        echo "Checking release artifacts for channel prerelease are ready..."
-        if ! "$SCRIPT_DIR/sb" release verify-artifacts --channel prerelease; then
+        # Rc.63: use --channel so the check resolves to the channel's current
+        # latest release instead of treating the channel name as a literal tag.
+        echo "Checking release artifacts for channel $box_channel are ready..."
+        if ! "$SCRIPT_DIR/sb" release verify-artifacts --channel "$box_channel"; then
             echo "--- Release artifacts not ready. Retry in ~5 minutes. ---"
             return 1
         fi
-        echo "Installing $server via $INSTALL_URL ..."
+        echo "Installing $server ($box_channel channel) via $INSTALL_URL ..."
         # Step 1: Run install.sh as the app user. No pre-stop: install.sh
         # swaps ./sb via atomic rename (sb.tmp + mv, never ETXTBSY), and
         # `./sb install` refuses-or-takes-over a running upgrade itself
         # (STATBUS-039/-041).
         # Exit code 42 = service needs root (not a failure).
         install_out=$(ssh_entry "$server" \
-            "curl -fsSL ${INSTALL_URL} | bash -s -- --channel prerelease $(trust_flag "$resolved_trust_user")" 2>&1) \
+            "curl -fsSL ${INSTALL_URL} | bash -s -- --channel $box_channel $(trust_flag "$resolved_trust_user")" 2>&1) \
             || exit_code=$?
     fi
     printf '%s\n' "$install_out"
