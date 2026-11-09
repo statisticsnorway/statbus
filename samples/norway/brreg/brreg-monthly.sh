@@ -134,19 +134,38 @@ done
 downloaded=$(date +%s)
 
 echo "== fit files to the definitions"
-sb_psql < "$SCRIPT_DIR/../getting-started.sql" > /dev/null
+if [ "$DRY_RUN" = 0 ]; then
+    sb_psql < "$SCRIPT_DIR/../getting-started.sql" > /dev/null
+    for d in hovedenhet underenhet; do
+        if [ "$(sql_value "SELECT count(*) FROM public.import_definition WHERE slug = 'brreg_${d}_2025';")" = 0 ]; then
+            sb_psql < "$SCRIPT_DIR/create-import-definition-${d}-2025.sql" > /dev/null
+        fi
+    done
+    # A definition created before the status bridge lacks status_code. Add it in place:
+    # re-running the creation script would delete the definition and every job made from it.
+    sb_psql -c "
+        WITH d AS (SELECT id FROM public.import_definition WHERE slug = 'brreg_hovedenhet_2025'),
+        sc AS (
+            INSERT INTO public.import_source_column (definition_id, column_name, priority)
+            SELECT d.id, 'status_code', (SELECT max(priority) + 1 FROM public.import_source_column WHERE definition_id = d.id)
+            FROM d WHERE NOT EXISTS (SELECT 1 FROM public.import_source_column WHERE definition_id = d.id AND column_name = 'status_code')
+            RETURNING id, definition_id)
+        INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose)
+        SELECT sc.definition_id, sc.id, dc.id, 'source_input'
+        FROM sc JOIN public.import_data_column dc ON dc.column_name = 'status_code_raw' AND dc.purpose = 'source_input'
+        JOIN public.import_step s ON s.id = dc.step_id AND s.code = 'status';" > /dev/null
+fi
 for d in hovedenhet underenhet; do
-    if [ "$(sql_value "SELECT count(*) FROM public.import_definition WHERE slug = 'brreg_${d}_2025';")" = 0 ]; then
-        sb_psql < "$SCRIPT_DIR/create-import-definition-${d}-2025.sql" > /dev/null
-    fi
     sql_value "SELECT sc.column_name FROM public.import_source_column sc JOIN public.import_definition d ON d.id = sc.definition_id WHERE d.slug = 'brreg_${d}_2025' ORDER BY sc.priority;" > "$WORK/$d-columns.txt"
+    [ -s "$WORK/$d-columns.txt" ] || fail "import definition brreg_${d}_2025 is missing"
 done
+# A dry run reads a definition it would extend; fit as the real run will.
+grep -qx 'status_code' "$WORK/hovedenhet-columns.txt" || echo status_code >> "$WORK/hovedenhet-columns.txt"
 lu_fit=$("$PYTHON" "$SCRIPT_DIR/brreg-fit-csv.py" --columns "$WORK/hovedenhet-columns.txt" \
     --in "$WORK/enheter.csv" --out "$WORK/hovedenhet.csv" --derive-status)
 es_fit=$("$PYTHON" "$SCRIPT_DIR/brreg-fit-csv.py" --columns "$WORK/underenhet-columns.txt" \
     --in "$WORK/underenheter.csv" --out "$WORK/underenhet.csv" --only-parents "$WORK/enheter.csv")
 echo "$lu_fit"; echo "$es_fit"
-grep -qx 'status_code' "$WORK/hovedenhet-columns.txt" || fail "brreg_hovedenhet_2025 has no status_code column; recreate it from $SCRIPT_DIR/create-import-definition-hovedenhet-2025.sql"
 
 echo "== deletions since ${SINCE}"
 feed_read_on=$(date -u +%Y-%m-%d)
