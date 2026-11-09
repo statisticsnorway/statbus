@@ -176,10 +176,33 @@ feed_read_on=$(date -u +%Y-%m-%d)
 sql_value "SELECT ei.ident || ',' || min(lu.valid_from) FROM public.external_ident ei JOIN public.external_ident_type t ON t.id = ei.type_id JOIN public.legal_unit lu ON lu.id = ei.legal_unit_id WHERE t.code = 'tax_ident' GROUP BY ei.ident;" > "$WORK/known-legal-units.txt"
 sql_value "SELECT ei.ident || ',' || min(es.valid_from) FROM public.external_ident ei JOIN public.external_ident_type t ON t.id = ei.type_id JOIN public.establishment es ON es.id = ei.establishment_id WHERE t.code = 'tax_ident' GROUP BY ei.ident;" > "$WORK/known-establishments.txt"
 lu_del=$("$PYTHON" "$SCRIPT_DIR/brreg-deletions-since.py" --register enheter --since "$SINCE" \
-    --known "$WORK/known-legal-units.txt" --out "$WORK/hovedenhet-slettet.csv")
+    --known "$WORK/known-legal-units.txt" --out "$WORK/hovedenhet-slettet.csv" --gone-out "$WORK/hovedenhet-gone.txt")
 es_del=$("$PYTHON" "$SCRIPT_DIR/brreg-deletions-since.py" --register underenheter --since "$SINCE" \
-    --known "$WORK/known-establishments.txt" --out "$WORK/underenhet-slettet.csv")
+    --known "$WORK/known-establishments.txt" --out "$WORK/underenhet-slettet.csv" --gone-out "$WORK/underenhet-gone.txt")
 echo "$lu_del"; echo "$es_del"
+
+# Units StatBus still counts that are absent from the full file although the feed reports no
+# deletion for them (owner question STATBUS-600 Q5, undecided). They are listed and counted,
+# not closed, until the owner decides what such a unit means.
+sql_value "SELECT DISTINCT ei.ident FROM public.external_ident ei JOIN public.external_ident_type t ON t.id = ei.type_id JOIN public.legal_unit lu ON lu.id = ei.legal_unit_id WHERE t.code = 'tax_ident' AND lu.valid_until = 'infinity' AND lu.death_date IS NULL;" > "$WORK/alive-legal-units.txt"
+sql_value "SELECT DISTINCT ei.ident FROM public.external_ident ei JOIN public.external_ident_type t ON t.id = ei.type_id JOIN public.establishment es ON es.id = ei.establishment_id WHERE t.code = 'tax_ident' AND es.valid_until = 'infinity' AND es.death_date IS NULL;" > "$WORK/alive-establishments.txt"
+missing_counts=$("$PYTHON" - "$WORK" <<'PY'
+import csv, json, sys
+work = sys.argv[1]
+result = {}
+for kind, alive in (("hovedenhet", "alive-legal-units.txt"), ("underenhet", "alive-establishments.txt")):
+    with open(f"{work}/{kind}.csv", newline="", encoding="utf-8") as fitted:
+        in_file = {row["organisasjonsnummer"] for row in csv.DictReader(fitted)}
+    gone = {line.strip() for line in open(f"{work}/{kind}-gone.txt", encoding="utf-8")}
+    missing = sorted(o.strip() for o in open(f"{work}/{alive}", encoding="utf-8")
+                     if o.strip() and o.strip() not in in_file and o.strip() not in gone)
+    with open(f"{work}/{kind}-missing-without-deletion.txt", "w", encoding="utf-8") as out:
+        out.writelines(f"{o}\n" for o in missing)
+    result[kind] = len(missing)
+print(json.dumps(result))
+PY
+)
+echo "missing from the file without a feed deletion (listed, not closed): $missing_counts"
 fitted=$(date +%s)
 
 if [ "$DRY_RUN" = 1 ]; then
@@ -254,6 +277,7 @@ msg=":white_check_mark: BRREG intake ${MONTH} on *${SERVER}*: ${total_rows_lu} l
 if [ "$p_month" != month ] && [ -n "$p_month" ]; then
     msg="${msg} Previous (${p_month}): DB $((p_db / 1024 / 1024)) MB, import ${p_im}s, counted ${p_counted}."
 fi
+msg="${msg} Missing from the file without a BRREG deletion (not closed): ${missing_counts}."
 echo "$msg"
 notify "$msg"
 trap - ERR

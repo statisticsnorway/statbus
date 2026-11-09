@@ -34,6 +34,8 @@ Usage:
   --known    CSV without header, one line per unit StatBus already has:
              organisasjonsnummer,first_valid_from (the start of its first record).
   --state    optional JSON file; receives counts and the last oppdateringsid read.
+  --gone-out optional file; receives every organisasjonsnummer whose last change in the
+             window is Sletting or Fjernet, one per line (the feed's account of who left).
 """
 import argparse
 import csv
@@ -98,6 +100,7 @@ def main():
     parser.add_argument("--known", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--state")
+    parser.add_argument("--gone-out")
     args = parser.parse_args()
 
     with open(args.known, encoding="utf-8") as known_file:
@@ -111,6 +114,9 @@ def main():
     last, last_id = last_change_per_unit(args.register, args.since.isoformat())
     deleted = sorted(orgnr for orgnr, change in last.items() if change == "Sletting")
     removed = sorted(orgnr for orgnr, change in last.items() if change == "Fjernet")
+    if args.gone_out:
+        with open(args.gone_out, "w", encoding="utf-8") as gone_file:
+            gone_file.writelines(f"{orgnr}\n" for orgnr in sorted(deleted + removed))
 
     counts = {"changed_units": len(last), "deleted": len(deleted), "removed_fjernet": len(removed),
               "deleted_unknown_to_statbus": 0, "deleted_without_slettedato": 0,
