@@ -7,7 +7,7 @@ status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-09T12:19:00Z'
-updated_date: '2026-11-09T21:16:00Z'
+updated_date: '2026-11-09T21:17:00Z'
 labels:
   - performance
   - worker
@@ -28,17 +28,17 @@ After a large import, the full-register recalculation reaches idle sooner, with 
 
 ### Zoom out
 
-STATBUS-598 removed three derive overheads: oversized refresh payloads, the change-set temp table, and full scans in the used-code views. The largest remaining step that runs one batch at a time is statistical_unit_flush_staging: 607-659 s on the biggest recalculation of a full BRREG import, when about 1.8M staged rows are matched against the 9 GB statistical_unit table with 40 indexes.
+STATBUS-598 removed three derive overheads: oversized refresh payloads, the change-set temp table, and full scans in the used-code views. The largest remaining step that runs one batch at a time was statistical_unit_flush_staging. On the biggest recalculation of a full BRREG import it matches about 1.8M staged rows against the 9 GB statistical_unit table with 40 indexes. In the live runs that cycle took 607 s and 659 s, with four refresh workers and autovacuum running alongside. Replayed alone it took 201 s, of which matching (DELETE 135 s, MERGE 63 s) was nearly all.
 
 ### Zoom in
 
-Measure before changing. On a retained full register (import_benchmark_64469), replay the 1,855-batch cycle in a rolled-back transaction and time the flush phases separately: DELETE, MERGE and ANALYZE. Find why matching is slow, and measure whether dropping and recreating indexes around large flushes pays off, and from what change size.
+The matching was slow because staging is truncated after every flush and was never analyzed before the next one. The planner estimated about 157,000 staged units instead of 1,812,369 and matched them one at a time through statistical_unit_temporal_pk. The flush now analyzes staging first, so it uses hash joins for large loads and index lookups for small ones. The current flush keeps its indexes; dropping and recreating them around large flushes was measured and not pursued (rebuilding all 39 costs 264-407 s, more than the maintenance it saves unless about half the table changes).
 
 Scope: no import concurrency, no release or host operation. Timing only on a quiet machine or dev (owner, 2026-11-09 12:09).
 
 ### Closing review
 
-Memory: none needed; the behavior is defined in the flush procedure's own comment. Documentation: regenerate the paired schema docs for any changed procedure; the measurements stay in this ticket. Cleanup: preserve import_benchmark_64469 and the measurement scripts and logs while related work is open; any database removal needs separate named approval.
+Memory: none needed; the behavior is defined in the flush procedure's own comment. Documentation: the paired schema doc for statistical_unit_flush_staging was regenerated; the measurements stay in this ticket. Cleanup: preserve import_benchmark_64469 and the measurement scripts and logs while related work is open; any database removal needs separate named approval.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
