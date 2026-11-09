@@ -268,18 +268,25 @@ class ExpectedJobsTests(unittest.TestCase):
 
     def test_preworker_job_selection_matches_dataset_and_optional_source(self):
         class JobsCursor:
+            """Before the worker runs, the loader has filled each job's upload table;
+            its data table is still empty (analysis fills it)."""
             def __init__(self, slugs):
                 self.slugs = slugs
+                self.counted = []
             def __enter__(self):
                 return self
             def __exit__(self, *args):
                 pass
             def execute(self, query):
                 self.query = query
+                self.counted.append(str(query))
             def fetchall(self):
-                return [(n, slug, slug + "_data") for n, slug in enumerate(self.slugs, 1)]
+                columns = {"upload_table_name": "_upload", "data_table_name": "_data"}
+                selected = [suffix for name, suffix in columns.items() if name in self.counted[-1]]
+                return [(n, slug, *(slug + suffix for suffix in selected)) for n, slug in enumerate(self.slugs, 1)]
             def fetchone(self):
-                return (10,)
+                # Only the upload table holds rows before the worker runs.
+                return (10,) if self.counted[-1].endswith("_upload") else (0,)
 
         mixed = ["import_mixed_seed_lu", "import_mixed_lu", "import_mixed_es", "import_mixed_informal"]
         selection = [f"import_{part}_2026_selection" for part in ("hovedenhet", "underenhet", "roller")]
@@ -290,12 +297,17 @@ class ExpectedJobsTests(unittest.TestCase):
                 ("downloads", downloads, False, True, downloads),
                 ("downloads", downloads, True, False, downloads)):
             conn = Connection(JobsCursor(slugs))
+            fake_sql = MagicMock()
+            # The counted table is whatever identifier the query names.
+            fake_sql.SQL.return_value.format.side_effect = lambda ident: ident
+            fake_sql.Identifier.side_effect = lambda name: name
             with self.subTest(dataset=dataset, skip=skip, source=source), \
                     patch.object(benchmark, "get_conn", return_value=conn), \
-                    patch.object(benchmark, "sql", MagicMock(), create=True), \
+                    patch.object(benchmark, "sql", fake_sql, create=True), \
                     patch.object(Path, "exists", return_value=source):
                 actual = benchmark.capture_expected_jobs(dataset, skip)
             self.assertEqual([row["slug"] for row in actual], expected)
+            # uploaded_rows is the loaded input: the upload table's row count.
             self.assertEqual([row["uploaded_rows"] for row in actual], [10] * len(expected))
             self.assertTrue(conn.closed)
         for dataset, slugs, source in (("mixed", mixed[:-1], False),
