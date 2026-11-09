@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T21:24:00Z'
+updated_date: '2026-11-09T21:26:00Z'
 labels:
   - import
   - norway
@@ -85,4 +85,6 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 2026-11-09 21:23 UTC owner decision Q3: option A. The BRREG loader derives each legal unit's status code from BRREG's flags before upload, as a test bridge until a general design (value mapping in import definitions, more status codes, activity-based status) exists. Consequence: brreg_hovedenhet_2025 gains a mapping from a loader-added status_code column; only Norway gets this. Data: the BRREG legal unit CSV has konkurs, underAvvikling, underTvangsavviklingEllerTvangsopplosning (true/false) plus dates; in the 4,924-row selection sample, 22 under winding-up, 18 bankrupt, 4 under forced winding-up. Next interview question (Q3b): which flags make a unit Passive, given StatBus has only Active and Passive.
 
 2026-11-09 21:24 UTC owner: the general status design must be flexible, close to an expression builder over source columns, likely after the import definition editor. Opened STATBUS-601 (depends on STATBUS-546) for it; STATBUS-600 keeps the loader bridge.
+
+2026-11-09 21:25 UTC owner decision Q3b: a legal unit is Passive when konkurs, underAvvikling or underTvangsavviklingEllerTvangsopplosning is true, otherwise Active; establishments stay Active until deleted. Consequence: in the 4,924-unit selection sample 44 legal units become Passive and stop counting (status passive has used_for_counting = false).
 <!-- SECTION:NOTES:END -->
