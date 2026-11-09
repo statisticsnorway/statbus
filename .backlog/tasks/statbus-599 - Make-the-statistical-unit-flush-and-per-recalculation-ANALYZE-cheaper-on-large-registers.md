@@ -3,11 +3,11 @@ id: STATBUS-599
 title: >-
   Make the statistical-unit flush and per-recalculation ANALYZE cheaper on large
   registers
-status: In Progress
+status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-09T12:19:00Z'
-updated_date: '2026-11-09T20:44:00Z'
+updated_date: '2026-11-09T21:16:00Z'
 labels:
   - performance
   - worker
@@ -44,7 +44,7 @@ Memory: none needed; the behavior is defined in the flush procedure's own commen
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 A statement-level profile of the largest flush cycle names where the time goes (DELETE, MERGE, index maintenance, ANALYZE), with source, data and machine context.
-- [ ] #2 [Owner] The adopt-or-reject decision for each measured change is recorded in Implementation Notes. Adopt requires a regression test that fails before and passes after, identical statistical_unit rows on the full register, a paired migration with schema docs, and hosted CI on master; reject requires the measured reason and no runtime change.
+- [x] #2 [Owner] The adopt-or-reject decision for each measured change is recorded in Implementation Notes. Adopt requires a regression test that fails before and passes after, identical statistical_unit rows on the full register, a paired migration with schema docs, and hosted CI on master; reject requires the measured reason and no runtime change.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -69,4 +69,6 @@ Change 1 (adopt): migration 20261109201951 analyzes public.statistical_unit_stag
 - Test 394_statbus_599_flush_analyzes_staging: RED on the original flush (staging never analyzed, no column statistics) -> GREEN (analyzed, statistics name the flushed unit types).
 - Full-register proof with the real old and new procedures, same 1,812,369 staged rows of which 181,356 really changed: old 484.8 s, new 276.0 s (-43%); resulting statistical_unit rows identical (1,812,369 rows, same fingerprint).
 - Remaining: fast suite, schema docs, commit on statbus-599-flush-staging-statistics (based on master cb5381f82), hand to Rabbit for the release after rc.04.
+
+2026-11-09 21:16UTC Hibiscus: change 1 landed on master. Rabbit cherry-picked c93b30c95 unchanged as da4402a41 (patch-id equal), pushed 20:55. Test renumbered to 396_statbus_599_flush_analyzes_staging (394 was taken by 394_recalculate_all). Local clean-tree fast at c93b30c95: 136/136 + 094 + 143, stamp c93b30c95. Hosted Fast 42698105933 at exact da4402a41: checkout and stamp da4402a41 (source 20261109201951), 136/136 + 094 + 143 passed, including 396; all seven da4402a41 workflows completed/success. Owner decision (AC2): adopt change 1 (owner 20:18); index drop/recreate rejected for now with the measured reason above (rebuild 264-407 s outweighs maintenance below ~half the table changing). Ships in the release after v2026.11.3-rc.04.
 <!-- SECTION:NOTES:END -->
