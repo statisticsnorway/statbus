@@ -29,11 +29,16 @@
 #     --files    use enheter.csv and underenheter.csv from DIR instead of downloading (tests)
 #     --process-inline  run the import and analytics queues in this session instead of
 #                waiting for the deployment's worker (tests on a scratch database)
-# Environment: USER_EMAIL (the StatBus user that owns the jobs), SLACK_TOKEN (optional).
+# Environment: USER_EMAIL (the StatBus user that owns the jobs), SLACK_TOKEN (optional),
+#   STATBUS_DIR (the StatBus checkout whose ./sb and database the run uses; default: the
+#   checkout this script is in). The script and its helpers may live in a separate clone,
+#   so a release checkout stays clean.
 set -euo pipefail
 
-WORKSPACE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../../.. && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE="$(cd "${STATBUS_DIR:-$SCRIPT_DIR/../../..}" && pwd)"
 cd "$WORKSPACE"
+[ -x ./sb ] || { echo "brreg-monthly: no ./sb in $WORKSPACE; set STATBUS_DIR" >&2; exit 2; }
 
 MONTH="" SINCE="" DRY_RUN=0 DATABASE="" FILES="" PROCESS_INLINE=0
 while [ "$#" -gt 0 ]; do
@@ -69,8 +74,7 @@ if [ -z "$SINCE" ]; then
     SINCE=$(cat "$STATE_DIR/last-since" 2>/dev/null || echo "$VALID_FROM")
 fi
 SERVER=$(hostname -f 2>/dev/null || hostname)
-PYTHON="$WORKSPACE/.venv/bin/python3"
-[ -x "$PYTHON" ] || PYTHON=python3
+PYTHON=python3  # the helpers use only the standard library
 
 notify() {
     # Post one line to Slack; never fail the run because Slack is down.
@@ -130,27 +134,27 @@ done
 downloaded=$(date +%s)
 
 echo "== fit files to the definitions"
-sb_psql < samples/norway/getting-started.sql > /dev/null
+sb_psql < "$SCRIPT_DIR/../getting-started.sql" > /dev/null
 for d in hovedenhet underenhet; do
     if [ "$(sql_value "SELECT count(*) FROM public.import_definition WHERE slug = 'brreg_${d}_2025';")" = 0 ]; then
-        sb_psql < "samples/norway/brreg/create-import-definition-${d}-2025.sql" > /dev/null
+        sb_psql < "$SCRIPT_DIR/create-import-definition-${d}-2025.sql" > /dev/null
     fi
     sql_value "SELECT sc.column_name FROM public.import_source_column sc JOIN public.import_definition d ON d.id = sc.definition_id WHERE d.slug = 'brreg_${d}_2025' ORDER BY sc.priority;" > "$WORK/$d-columns.txt"
 done
-lu_fit=$("$PYTHON" samples/norway/brreg/brreg-fit-csv.py --columns "$WORK/hovedenhet-columns.txt" \
+lu_fit=$("$PYTHON" "$SCRIPT_DIR/brreg-fit-csv.py" --columns "$WORK/hovedenhet-columns.txt" \
     --in "$WORK/enheter.csv" --out "$WORK/hovedenhet.csv" --derive-status)
-es_fit=$("$PYTHON" samples/norway/brreg/brreg-fit-csv.py --columns "$WORK/underenhet-columns.txt" \
+es_fit=$("$PYTHON" "$SCRIPT_DIR/brreg-fit-csv.py" --columns "$WORK/underenhet-columns.txt" \
     --in "$WORK/underenheter.csv" --out "$WORK/underenhet.csv" --only-parents "$WORK/enheter.csv")
 echo "$lu_fit"; echo "$es_fit"
-grep -qx 'status_code' "$WORK/hovedenhet-columns.txt" || fail "brreg_hovedenhet_2025 has no status_code column; recreate it from samples/norway/brreg/create-import-definition-hovedenhet-2025.sql"
+grep -qx 'status_code' "$WORK/hovedenhet-columns.txt" || fail "brreg_hovedenhet_2025 has no status_code column; recreate it from $SCRIPT_DIR/create-import-definition-hovedenhet-2025.sql"
 
 echo "== deletions since ${SINCE}"
 feed_read_on=$(date -u +%Y-%m-%d)
 sql_value "SELECT ident FROM public.external_ident ei JOIN public.external_ident_type t ON t.id = ei.type_id WHERE t.code = 'tax_ident' AND ei.legal_unit_id IS NOT NULL;" > "$WORK/known-legal-units.txt"
 sql_value "SELECT ident FROM public.external_ident ei JOIN public.external_ident_type t ON t.id = ei.type_id WHERE t.code = 'tax_ident' AND ei.establishment_id IS NOT NULL;" > "$WORK/known-establishments.txt"
-lu_del=$("$PYTHON" samples/norway/brreg/brreg-deletions-since.py --register enheter --since "$SINCE" \
+lu_del=$("$PYTHON" "$SCRIPT_DIR/brreg-deletions-since.py" --register enheter --since "$SINCE" \
     --known "$WORK/known-legal-units.txt" --out "$WORK/hovedenhet-slettet.csv")
-es_del=$("$PYTHON" samples/norway/brreg/brreg-deletions-since.py --register underenheter --since "$SINCE" \
+es_del=$("$PYTHON" "$SCRIPT_DIR/brreg-deletions-since.py" --register underenheter --since "$SINCE" \
     --known "$WORK/known-establishments.txt" --out "$WORK/underenhet-slettet.csv")
 echo "$lu_del"; echo "$es_del"
 fitted=$(date +%s)

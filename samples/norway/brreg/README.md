@@ -63,10 +63,10 @@ BRREG adds columns to its downloads over time, so the loader writes each file wi
 
 Each run waits up to two hours for a scheduled or running upgrade, then skips the month and reports it. It stops at the first failure, posts it to `#statbus-utvikling`, and does not retry. Run state lives in `tmp/brreg-monthly/`: `figures.tsv` (one row per month: database size, record counts, counted legal units, run times, closed units), `last-since` (where the next run starts reading the feed), the month's files, and one log per run. The Slack message compares the month with the previous one.
 
-The crontab entry, as the statbus user on rune (02:00 Oslo time on the 2nd):
+The crontab entry, as the statbus user on rune (02:00 Oslo time on the 2nd). The scripts run from their own clone (`~/brreg-monthly`, kept on master with `git pull`) so the release checkout `~/statbus`, which the upgrader manages, stays clean; `STATBUS_DIR` points them at it:
 
 ```
-0 2 2 * * cd ~/statbus && USER_EMAIL=<owner email> SLACK_TOKEN=$(./sb dotenv -f .env get SLACK_TOKEN) ./samples/norway/brreg/brreg-monthly.sh >> tmp/brreg-monthly/cron.log 2>&1
+0 2 2 * * cd ~/statbus && git -C ~/brreg-monthly pull -q --ff-only; STATBUS_DIR=~/statbus USER_EMAIL=<owner email> SLACK_TOKEN=$(./sb dotenv -f .env get SLACK_TOKEN) ~/brreg-monthly/samples/norway/brreg/brreg-monthly.sh >> ~/statbus/tmp/brreg-monthly/cron.log 2>&1
 ```
 
 Run one month by hand with `--month YYYY-MM`; `--dry-run` downloads, fits and counts without creating jobs.
