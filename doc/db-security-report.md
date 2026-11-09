@@ -321,6 +321,7 @@ Write to RLS-protected tables, DDL, worker orchestration.
 
 - `admin.disable_temporal_triggers`
 - `admin.enable_temporal_triggers`
+- `public.recalculate_all`
 - `worker.derive_reports`
 - `worker.derive_reports_phase`
 - `worker.derive_statistical_history_facet_delta`

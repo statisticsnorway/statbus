@@ -117,7 +117,11 @@ DECLARE
         'worker.notify_task_changed',
         'worker.statistical_unit_facet_reduce',
         'worker.statistical_unit_flush_staging',
-        'worker.statistical_unit_refresh_batch'
+        'worker.statistical_unit_refresh_batch',
+        -- Command palette "Recalculate all": admins enqueue the full derive
+        -- (worker.enqueue_derive_statistical_unit_all) on a queue application
+        -- roles cannot write. EXECUTE is granted to admin_user only (test 394).
+        'public.recalculate_all'
     ];
 
     -- Derived Table Refresh: Bulk DELETE+INSERT on RLS-protected tables
