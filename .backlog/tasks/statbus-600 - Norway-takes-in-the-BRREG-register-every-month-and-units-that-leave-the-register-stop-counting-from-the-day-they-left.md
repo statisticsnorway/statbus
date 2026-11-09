@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T21:17:00Z'
+updated_date: '2026-11-09T21:23:00Z'
 labels:
   - import
   - norway
@@ -79,4 +79,6 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 2026-11-09 21:16 UTC CI: every workflow for master da4402a41 completed/success (Fast Tests, Go Test, app build & lint, Images, Harness Selftest, Push on master). That commit contains test 395 (c93383eb2). Owner answers so far: Q1 four jobs a month, yes; Q2 run on the 2nd (02:00 Oslo), bringing in the previous month, yes. Q3 BRREG status: open, proposed for its own ticket.
 
 2026-11-09 21:17 UTC AC1 met: SQL test 395 (c93383eb2) passes locally and in CI (master da4402a41, Fast Tests completed/success). It closes legal units on 2026-11-07 (job's month) and 2026-10-25 (previous month) and an establishment on 2026-11-20, leaving the unchanged legal unit 917669791 and the establishment 895406732 open. Owner decision Q2 (20:53): the run is on the 2nd of each month; consequence: it reads the files BRREG built on the 1st, so each run brings in the whole previous month.
+
+2026-11-09 21:23 UTC owner decision Q3: option A. The BRREG loader derives each legal unit's status code from BRREG's flags before upload, as a test bridge until a general design (value mapping in import definitions, more status codes, activity-based status) exists. Consequence: brreg_hovedenhet_2025 gains a mapping from a loader-added status_code column; only Norway gets this. Data: the BRREG legal unit CSV has konkurs, underAvvikling, underTvangsavviklingEllerTvangsopplosning (true/false) plus dates; in the 4,924-row selection sample, 22 under winding-up, 18 bankrupt, 4 under forced winding-up. Next interview question (Q3b): which flags make a unit Passive, given StatBus has only Active and Passive.
 <!-- SECTION:NOTES:END -->
