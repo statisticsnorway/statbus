@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-09T10:49:00Z'
+updated_date: '2026-11-09T21:32:00Z'
 labels:
   - import
   - performance
@@ -164,4 +164,13 @@ Literal actual-worker mixed and BRREG-selection default4/no overrides already PA
 2026-11-09 10:35 UTC concurrency withdrawn from master (owner decision 10:16-10:34). Master is the release line: serial rc.03 fc1830fe4 plus non-concurrency fixes, then STATBUS-598. A forward commit restores every file of the eight concurrency commits 2dad8085e..8579a3ec3 to their pre-landing state at 6fa483823: runtime 4c0ae5253, migrations 20261108182300/01/02, SQL375/376/379/380/381, benchmark harness and observer changes, design and validation docs. No force-push or history rewrite. Concurrency, its tests and both documents remain intact on origin/statbus-591-concurrency-reviewed (a1ba6063d). Hibiscus owns it there and agreed never to push it to master. Re-landing is a separate owner-approved step: rebase onto master and rename the 2026110818230x migrations to sort after the released 598 migrations. Acceptance: git diff fc1830fe4 master over code, migrations and tests contains only the Fast CI diagnostics, SQL374 fixture ANALYZE and installer etckeeper fixes. The 23:52 landing notes above are history, not current master state.
 
 Closing review for the withdrawal step: documentation updated (combined-review master-scope header, doc links repointed to the concurrency branch), no cleanup outstanding, no memory needed. The ticket stays In Progress; the withdrawal closes no acceptance criterion.
+
+2026-11-09 21:32UTC Hibiscus: status of the concurrency work.
+
+- Owner-approved withdrawal from master: Rabbit's forward revert ebd890fa6 (11:14). Master and v2026.11.3-rc.04 run serial imports.
+- Concurrency is now on branch statbus-591-concurrency-on-master (096eb147c), based on current master c1708596f: a revert of ebd890fa6 (tickets kept at master), then its three migrations renamed 2026110818230{0,1,2} -> 2026110921000{0,1,2} so they sort after the released STATBUS-598/599 migrations. They touch none of the objects 598/599 changed.
+- Benchmark harness defect fixed on the branch (096eb147c): capture_expected_jobs counted each job's data table before the worker ran, which is empty on a serial schema, so the 2026-11-09 local rc03 run reported row accounting failures although its import was exact. It now counts the upload table; test_benchmark_hierarchy fails on the old harness ([0,0,0] vs [10,10,10]) and passes now.
+- The 2026-11-09 local rc03 serial full-register run (import_benchmark_65032) is not a timing baseline: profiling and two test suites overlapped it. Its business outputs were exact (history A/B/C 0).
+- Acceptance plan (owner 21:29): correct results through pg_regress (fast suite), test/import_norway_small_history.sh and test/import_benchmark.sh, and the speed improvement shown by test/import_benchmark.sh. The full-register speed comparison runs on dev or tonight on a quiet machine (owner 12:09), master serial vs this branch, same inputs.
+- First fast run on the branch: 140/141; 395 (new on master) differed only by four sql_saga notices that the concurrent batch path does not emit. Expected updated; full rerun in progress.
 <!-- SECTION:NOTES:END -->
