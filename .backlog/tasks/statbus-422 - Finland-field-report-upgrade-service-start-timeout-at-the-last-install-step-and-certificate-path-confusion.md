@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: 2026-09-27 10:07
-updated_date: '2026-11-07T16:40:00Z'
+updated_date: '2026-11-09T20:21:00Z'
 labels:
   - installer
 dependencies: []
@@ -47,7 +47,7 @@ This ticket is a field report, not a feature. A field report is done when each f
 - [x] #3 The footer shows the release when the configured version's commit matches the served artifact, otherwise `commit <sha8>`, never `unknown` (`running-identity.test.ts`, `footer.test.tsx`, `TestDerivedVersion_ReleaseCheckoutVsDevCheckout`)
 - [x] #4 A fresh install of a release containing `3df96b7bf` (v2026.10.1 or later) shows that release in the footer, observed on a real box
 - [x] #5 `doc/DEPLOYMENT.md` documents downloading `install.sh` and `uninstall.sh`, `chmod +x`, and the supported channels (`c5222eb16`)
-- [ ] #6 [Owner] Ville receives the stable-install instruction with his custom certificate after the owner has tried the certificate picker himself on the plain manual box with the next release (owner decision 2026-10-30); the sent message is recorded in Implementation Notes
+- [x] #6 [Owner] Ville receives the stable-install instruction with his custom certificate after the owner has tried the certificate picker himself on the plain manual box with the next release (owner decision 2026-10-30); the sent message is recorded in Implementation Notes
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -116,4 +116,6 @@ AC4 partial evidence (an upgraded box, not a fresh install): after rc.03 dev Dep
 rc.18 manual box 2026-11-07, logs tmp/manual-rc18-setup-evidence.log and tmp/manual-rc18-install-evidence.log (from tmp/statbus-manual-session.log): the owner tried the certificate picker on the plain manual box with rc.18 (the AC6 precondition). Findings fixed and committed for rc.19: three unusable paths now ask 'Do you have a certificate to install now?' again (996b265e1); no to the one found certificate asks for another file or folder (01bd181cf red, f49d10351 green); an expired, not-yet-valid or other-name certificate warns and asks 'Use it anyway?' (0159f7364, aec3bc008 red, b3a8bf399 green); the footer names ./sb cert install when no automatic certificate can come (93399b06d, 5520f129f red, 4d977ceb4 green); cert help names no customer country and says a Windows export is usually a PFX (8a1545301..d090998ba). A PFX copied in mid-run was found, opened with its password, covered the site, and the install completed with HTTPS answering. AC6 remains: send Ville the instruction once the stable release carries these.
 
 2026-11-07: v2026.11.1 stable published (3282c0af7, rc.22). Message for Ville drafted in statbus_test tmp/ville-v2026.11.1-message.md (setup.sh as root, install.sh as statbus, certificate picker, ./sb cert install fallback). AC6 is owner-only: owner sends it; record the sent message here.
+
+2026-11-09 20:21 UTC: owner messaged Ville to install and test the latest stable release, v2026.11.3 (promoted from rc.04, b9d6661e0), which includes the custom-certificate fixes and the installer cause/trust-store fixes from today's manual-box run. AC6 precondition met earlier (owner tried the certificate picker on the manual box, rc.18 and rc.03). Any finding Ville reports goes into a new ticket.
 <!-- SECTION:NOTES:END -->
