@@ -15126,6 +15126,10 @@ export type Database = {
         Args: Record<string, never>
         Returns: unknown
       },
+      recalculate_all: {
+        Args: Record<string, never>
+        Returns: number
+      },
       refresh: {
         Args: Record<string, never>
         Returns: unknown

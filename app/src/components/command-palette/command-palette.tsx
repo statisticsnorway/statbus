@@ -4,6 +4,10 @@ import React, { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
+import {
+  RecalculateAllConfirmationDialog,
+  SHOW_RECALCULATE_ALL_DIALOG_EVENT,
+} from "./recalculate-all-confirmation-dialog";
 import { useAuth, usePermission } from "@/atoms/auth";
 import { useSetAtom, useAtomValue } from "jotai";
 import { debugInspectorVisibleAtom } from "@/atoms/app";
@@ -27,6 +31,7 @@ import {
   Network,
   Pilcrow,
   Plus,
+  RefreshCw,
   Search,
   Trash,
   Upload,
@@ -135,6 +140,12 @@ export function CommandPalette() {
     resetPages();
     const event = new CustomEvent("show-reset-dialog");
     document.dispatchEvent(event);
+  };
+
+  const handleRecalculateAll = () => {
+    setOpen(false);
+    resetPages();
+    document.dispatchEvent(new CustomEvent(SHOW_RECALCULATE_ALL_DIALOG_EVENT));
   };
 
   const handleShowApiKey = () => {
@@ -538,6 +549,13 @@ export function CommandPalette() {
                       <span>Show ER Diagram</span>
                     </CommandItem>
                     <CommandItem
+                      onSelect={handleRecalculateAll}
+                      value="recalculate all statistical units reports refresh derive rebuild"
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      <span>Recalculate all statistical units and reports</span>
+                    </CommandItem>
+                    <CommandItem
                       onSelect={handleResetAll}
                       value="admin reset everything clean"
                     >
@@ -722,6 +740,7 @@ export function CommandPalette() {
         </CommandList>
       </CommandDialog>
       <ResetConfirmationDialog />
+      <RecalculateAllConfirmationDialog />
       <ApiKeyDialog />
     </>
   );
