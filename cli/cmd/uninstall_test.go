@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestUninstallNestedMountRefusesBeforeTeardown(t *testing.T) {
@@ -1484,7 +1485,7 @@ func TestUninstallLeavesNoLockFileBehind(t *testing.T) {
 // answer's echo is not a newline), so they are found by position.
 func uninstallPrompts(out string) []string {
 	text := strings.ReplaceAll(out, "\r", "")
-	backup := regexp.MustCompile(`Keep the [0-9]+ database backups?\? \[Y/n\]`)
+	backup := regexp.MustCompile(`Keep the [0-9]+ database backups? \([^)]*\)\? \[Y/n\]`)
 	type found struct {
 		at     int
 		prompt string
@@ -1534,11 +1535,15 @@ func TestUninstallKeepsBackupsOutsideTheCheckout(t *testing.T) {
 		}
 	}
 	writeUninstallDockerMock(t, ensureBinDir(t, home))
+	dumpTime := time.Date(2026, 11, 5, 12, 12, 19, 0, time.UTC)
+	if err := os.Chtimes(filepath.Join(dir, "dbdumps", "un_20261105_121219.pg_dump"), dumpTime, dumpTime); err != nil {
+		t.Fatal(err)
+	}
 	out, err := runUninstallOnPTY(t, home, binPath(home), "\n\n\nDELETE\n")
 	if err != nil {
 		t.Fatalf("interactive removal: %v\n%s", err, out)
 	}
-	wantPrompts := []string{"Keep the users? [Y/n]", "Keep the credentials? [Y/n]", "Keep the 1 database backup? [Y/n]", "Type DELETE to execute this exact plan:"}
+	wantPrompts := []string{"Keep the users? [Y/n]", "Keep the credentials? [Y/n]", "Keep the 1 database backup (4 bytes, newest from 2026-11-05 12:12 UTC)? [Y/n]", "Type DELETE to execute this exact plan:"}
 	if got := uninstallPrompts(out); strings.Join(got, "|") != strings.Join(wantPrompts, "|") {
 		t.Fatalf("prompts = %q, want %q\n%s", got, wantPrompts, out)
 	}

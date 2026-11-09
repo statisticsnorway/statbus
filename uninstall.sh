@@ -57,6 +57,54 @@ fi
 # the next install takes it back (STATBUS-419 AC9). The upgrade snapshots in
 # ~/statbus-upgrade-snapshots only fit the installation being removed and always go.
 KEPT_DUMPS="$HOME/statbus.dbdumps"
+# Nothing installed: no checkout, no upgrader unit file, none of the install's
+# home folders and no StatBus container. Say so, name what an earlier removal
+# kept, and ask nothing. A partial install (any one of these present) takes
+# the normal removal below.
+statbus_containers_present() {
+    command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 || return 1
+    [[ -n $(docker ps -aq --filter 'label=com.docker.compose.project' --filter 'name=^statbus' 2>/dev/null) ]]
+}
+# A service can still run with its unit file already gone; systemd decides.
+statbus_service_active() {
+    command -v systemctl >/dev/null 2>&1 || return 1
+    local user_unit s
+    for user_unit in "statbus-upgrader@${USER}.service" "statbus-upgrade@${USER}.service"; do
+        s=$(systemctl --user is-active "$user_unit" 2>/dev/null || true)
+        [[ -z $s || $s == inactive || $s == unknown ]] || return 0
+    done
+    return 1
+}
+nothing_installed=1
+for path in "$DIR" "$HOME/statbus-maintenance" "$HOME/statbus-upgrade-snapshots" "$HOME/statbus-backups" \
+    "$HOME/.config/systemd/user/statbus-upgrader@.service" "$HOME/.config/systemd/user/statbus-upgrade@.service" \
+    /etc/systemd/system/statbus-upgrader@.service /etc/systemd/system/statbus-upgrade@.service; do
+    if [[ -e $path || -L $path ]]; then nothing_installed=0; break; fi
+done
+if [[ $nothing_installed == 1 ]] && { statbus_service_active || statbus_containers_present; }; then nothing_installed=0; fi
+if [[ $nothing_installed == 1 ]]; then
+    echo "StatBus is not installed here: there is no $DIR, no upgrader service and no StatBus container."
+    kept=()
+    [[ ! -e $HOME/statbus.users.yml ]] || kept+=("  $HOME/statbus.users.yml")
+    [[ ! -e $HOME/statbus.env.credentials ]] || kept+=("  $HOME/statbus.env.credentials")
+    if [[ -d $KEPT_DUMPS ]]; then
+        shopt -s nullglob
+        kept_dump_files=("$KEPT_DUMPS"/*.pg_dump)
+        shopt -u nullglob
+        if ((${#kept_dump_files[@]} == 1)); then
+            kept+=("  $KEPT_DUMPS (1 database backup)")
+        elif ((${#kept_dump_files[@]} > 1)); then
+            kept+=("  $KEPT_DUMPS (${#kept_dump_files[@]} database backups)")
+        fi
+    fi
+    if ((${#kept[@]} > 0)); then
+        echo 'Kept from an earlier removal:'
+        printf '%s\n' "${kept[@]}"
+    fi
+    echo 'Nothing was removed.'
+    echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) StatBus removal: nothing installed, nothing removed" >>"$LOG"
+    exit 0
+fi
 DUMP_COUNT=0
 if [[ -d $DIR/dbdumps && ! -L $DIR/dbdumps ]]; then
     shopt -s nullglob
@@ -66,6 +114,20 @@ if [[ -d $DIR/dbdumps && ! -L $DIR/dbdumps ]]; then
 fi
 if ((DUMP_COUNT == 1)); then DUMP_WORDS="the 1 database backup"; else DUMP_WORDS="the $DUMP_COUNT database backups"; fi
 ((DUMP_COUNT > 0)) || KEEP_DUMPS=0
+# The backup question names what is at stake: total size and the newest
+# backup's time, from the files themselves.
+DUMP_DETAIL=""
+if ((DUMP_COUNT > 0)); then
+    DUMP_DETAIL=$(perl -MPOSIX=strftime -e '
+        my ($bytes, $newest) = (0, 0);
+        for my $f (@ARGV) { my @s = stat($f) or next; $bytes += $s[7]; $newest = $s[9] if $s[9] > $newest; }
+        my @units = ("bytes", "kB", "MB", "GB", "TB");
+        my $i = 0; my $v = $bytes;
+        while ($v >= 1024 && $i < $#units) { $v /= 1024; $i++; }
+        my $size = $i == 0 ? "$v bytes" : sprintf("%.1f %s", $v, $units[$i]);
+        print "$size, newest from ", strftime("%Y-%m-%d %H:%M UTC", gmtime($newest));
+    ' "${dump_files[@]}")
+fi
 if [[ $INTERACTIVE == 1 ]]; then
     echo 'Remove this StatBus installation? Users, credentials and database backups are kept by default.'
     read -r -u 3 -p 'Keep the users? [Y/n] ' answer
@@ -73,7 +135,7 @@ if [[ $INTERACTIVE == 1 ]]; then
     read -r -u 3 -p 'Keep the credentials? [Y/n] ' answer
     [[ $answer != [nN]* ]] || KEEP_CREDENTIALS=0
     if ((DUMP_COUNT > 0)); then
-        read -r -u 3 -p "Keep ${DUMP_WORDS}? [Y/n] " answer
+        read -r -u 3 -p "Keep ${DUMP_WORDS} (${DUMP_DETAIL})? [Y/n] " answer
         [[ $answer != [nN]* ]] || KEEP_DUMPS=0
     fi
 fi
@@ -592,6 +654,53 @@ fi
 # install that opened the file before this is refused (the flock is held); one
 # that starts after creates a fresh file, when nothing is left to remove.
 rm -f -- "$HOME/.statbus-uninstall.lock"
-echo "Removal complete. Details: $LOG"
+# The last word is what was verified, not what was attempted.
+unit_left=""
+for unit in "$HOME/.config/systemd/user/statbus-upgrader@.service" "$HOME/.config/systemd/user/statbus-upgrade@.service" \
+    /etc/systemd/system/statbus-upgrader@.service /etc/systemd/system/statbus-upgrade@.service; do
+    [[ ! -e $unit ]] || unit_left=$unit
+done
+service_state=inactive
+if command -v systemctl >/dev/null 2>&1; then
+    for user_unit in "statbus-upgrader@${USER}.service" "statbus-upgrade@${USER}.service"; do
+        s=$(systemctl --user is-active "$user_unit" 2>/dev/null || true)
+        [[ -z $s || $s == inactive || $s == unknown ]] || service_state=$s
+    done
+fi
+containers_left=""
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    containers_left=$(docker ps -aq --filter "label=com.docker.compose.project=$project" 2>/dev/null || true)
+fi
+kept_summary=()
+[[ ! -e $HOME/statbus.users.yml || $KEEP_USERS != 1 ]] || kept_summary+=("users in $HOME/statbus.users.yml")
+[[ ! -e $HOME/statbus.env.credentials || $KEEP_CREDENTIALS != 1 ]] || kept_summary+=("credentials in $HOME/statbus.env.credentials")
+[[ $KEEP_DUMPS != 1 ]] || kept_summary+=("${DUMP_WORDS#the } in $KEPT_DUMPS")
+{
+    echo 'Removal complete. Verified:'
+    if [[ -n $unit_left ]]; then
+        echo "  Upgrader service: its unit file is still at $unit_left"
+    elif [[ $service_state != inactive ]]; then
+        echo "  Upgrader service: unit file removed, but systemd reports it $service_state"
+    else
+        echo '  Upgrader service: removed (no unit file; systemd reports it inactive)'
+    fi
+    if [[ -n $containers_left ]]; then
+        echo "  StatBus containers: $(wc -w <<<"$containers_left" | tr -d ' ') still present"
+    else
+        echo '  StatBus containers: none remain'
+    fi
+    if [[ -e $DIR ]]; then
+        echo "  Installation folder $DIR: still present"
+    else
+        echo "  Installation folder $DIR: removed"
+    fi
+    if ((${#kept_summary[@]} > 0)); then
+        echo "  Kept: $(IFS=';'; echo "${kept_summary[*]}" | sed 's/;/; /g')"
+    else
+        echo '  Kept: nothing'
+    fi
+    echo '  The account keeps its user services (linger), which setup enabled.'
+    echo "Details: $LOG"
+} | tee -a "$LOG"
 exit
 }
