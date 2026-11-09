@@ -92,7 +92,7 @@ Clients worldwide
 - **No deploy-branch rollout**: the retired branch-push transport is unused; its remote branches are retained temporarily until every box's stale explicit fetch refspec has been normalized (STATBUS-248)
 - **Host Caddy imports configs**: `/etc/caddy/Caddyfile` imports from all `/home/statbus_*/statbus/caddy/config/`
 - **ACL permissions**: Host Caddy user has ACL read access to deployment configs
-- **Role-correct channels**: dev uses `prerelease`; ordinary cloud boxes use `stable`; Norway remains the human `prerelease` canary
+- **Channels per role**: each box follows the channel in its own configuration; `./cloud.sh status` shows which. Canaries follow `prerelease`, ordinary country slots `stable` (see [Deployment model](#deployment-model-statbus-244248))
 
 ### Key Benefits
 
@@ -408,13 +408,15 @@ cd ~/statbus
 
 ### Deployment model (STATBUS-244/248)
 
-**The manually runnable `master-to-X` workflows and deploy-branch transport are retired.** Only a named release candidate may ever reach an installation — master's tip has no tag, no gate, no artifact anyone reviewed, and it changes on every commit. Operators drive the cloud fleet with `./cloud.sh status`, `./cloud.sh notify`, `./cloud.sh install`, and `./cloud.sh upgrade`; each box's own upgrader discovers offers from its channel. Which mechanism and channel a box gets depends on its role, never on pushing master anywhere:
+**The manually runnable `master-to-X` workflows and deploy-branch transport are retired.** Only a named release candidate may ever reach an installation — master's tip has no tag, no gate, no artifact anyone reviewed, and it changes on every commit. Operators drive the cloud fleet with `./cloud.sh status`, `./cloud.sh notify`, `./cloud.sh install`, and `./cloud.sh upgrade`; each box's own upgrader discovers offers from its channel. Which mechanism and channel a box gets depends on its role, never on pushing master anywhere.
 
-- **Dev** — `prerelease`, automatic canary (STATBUS-247): every candidate reaches it without a human. `release-fleet-orchestrator.yaml` dispatches `deploy-to-dev.yaml` at the candidate tag and SHA (STATBUS-260). The deploy workflow runs the published operator path, `curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease --non-interactive`, so the candidate's new binary is downloaded before inline dispatch instead of asking the installed binary and daemon to pull their own fix. The orchestrator first proves the tag is still the newest RC; the deploy then compares the channel's resolved tag and the commit left on disk with the requested candidate, reporting a newer mid-run resolution as supersession and refusing to green-light a different candidate.
-- **Norway (`no`, on rune)** — `prerelease`, human canary: a person installs each candidate deliberately. It has no push path and is never included in cloud fleet commands.
-- **Demo and ordinary cloud slots** — `stable`: `demo`, `et`, `jo`, `ma`, `mw`, `ug`, `ua`, and `gh` receive stable-channel offers from their own upgraders. Promotion makes a release available; operators observe and roll the fleet with `./cloud.sh`, rather than moving a branch. The writer-less `deploy-to-{et,jo,ma,ug}.yaml` listeners were removed after Wave D1 proved the channel path on demo.
+A box's channel is `UPGRADE_CHANNEL` in its own configuration. `private` and `standalone` deployment modes derive `stable` on every `./sb config generate` (`cli/internal/config/upgrade_channel.go`); a box that is a canary keeps `UPGRADE_CHANNEL=prerelease`. This document does not list which box follows which channel, since that is the box's own setting: read it live with `./cloud.sh status`, which prints each box's version and channel from the box itself. The roles are:
 
-This channel table is role truth, not a request to normalize every box to `stable`. Dev and Norway must remain on `prerelease`; Norway's production role does not override its human-canary role.
+- **Automatic canary** — `prerelease`: every candidate reaches it without a human (STATBUS-247). For dev, `release-fleet-orchestrator.yaml` dispatches `deploy-to-dev.yaml` at the candidate tag and SHA (STATBUS-260). The deploy workflow runs the published operator path, `curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease --non-interactive`, so the candidate's new binary is downloaded before inline dispatch instead of asking the installed binary and daemon to pull their own fix. The orchestrator first proves the tag is still the newest RC; the deploy then compares the channel's resolved tag and the commit left on disk with the requested candidate, reporting a newer mid-run resolution as supersession and refusing to green-light a different candidate. Demo is updated daily to the newest candidate by `demo-auto-apply.yaml`.
+- **Human canary** — `prerelease`: a person installs each candidate deliberately. Norway (`no`, on rune) has this role. It has no push path and is never included in cloud fleet commands.
+- **Ordinary country slots** — `stable`: they receive stable-channel offers from their own upgraders. Promotion makes a release available; operators observe and roll the fleet with `./cloud.sh`, rather than moving a branch. The writer-less `deploy-to-{et,jo,ma,ug}.yaml` listeners were removed after Wave D1 proved the channel path on demo.
+
+These roles are not a request to normalize every box to `stable`: a canary keeps `prerelease`, and Norway's production role does not override its human-canary role.
 
 **Legacy refspec warning:** installs created before STATBUS-248 could carry an explicit deploy-branch fetch refspec. The writer is removed and the SSB-operated fleet was repaired before the remote branches were deleted. Never recreate that refspec: when its named remote branch does not exist, `git fetch origin` fails and release discovery stops. `upgrade.CanonicalRefspecs` is the sole authority for fetch configuration.
 
@@ -725,9 +727,9 @@ In addition to the multi-tenant cloud on niue, SSB operates **dedicated standalo
 
 ## Active standalone instances
 
-| Host | Domain served | OS / FS | Slot code | Channel / role | Hardware |
-|------|---------------|---------|-----------|----------------|----------|
-| `rune.statbus.org` | `no.statbus.org` (Norway) | Ubuntu 24.04 LTS, mdadm RAID1 + XFS | `no` | `prerelease` / human canary | Hetzner physical: Intel Xeon E3-1275v5 (4C/8T), 64 GB DDR4 ECC, 2× 512 GB NVMe RAID1, 1 Gbit |
+| Host | Domain served | OS / FS | Slot code | Role | Hardware |
+|------|---------------|---------|-----------|------|----------|
+| `rune.statbus.org` | `no.statbus.org` (Norway) | Ubuntu 24.04 LTS, mdadm RAID1 + XFS | `no` | human canary | Hetzner physical: Intel Xeon E3-1275v5 (4C/8T), 64 GB DDR4 ECC, 2× 512 GB NVMe RAID1, 1 Gbit |
 
 Each standalone box has HTTPS and PostgreSQL TLS+SNI on its own public IP, served by Caddy inside Docker (port 80, 443, 5432). No host-level Caddy, no SNI multiplexing — same shape as a client install per [DEPLOYMENT.md](DEPLOYMENT.md).
 
@@ -747,8 +749,8 @@ One fleet-level entry point is available from the repo root:
 ./cloud.sh status                  # version, channel, name, and group for all boxes
 ./cloud.sh notify standalone       # tell standalone hosts to check for updates
 ./cloud.sh upgrade cloud           # force cloud slots to apply latest
-./cloud.sh install no              # re-run install.sh on rune: --version if given, else rune's own channel (prerelease)
-./cloud.sh install stable          # each stable box installs the latest stable release; no candidate
+./cloud.sh install no              # re-run install.sh on rune: --version if given, else the channel rune follows
+./cloud.sh install stable          # each box that follows stable installs the latest stable release
 ./cloud.sh install all             # same for the complete fleet, each box on its own channel
 ./cloud.sh inspect cloud           # cloud-slot credentials and URLs
 ./cloud.sh wipe no                 # DELETE rune's database and reinstall it empty (asks: type 'wipe no.statbus.org')
