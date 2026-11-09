@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-09T21:32:00Z'
+updated_date: '2026-11-09T21:43:00Z'
 labels:
   - import
   - performance
@@ -173,4 +173,10 @@ Closing review for the withdrawal step: documentation updated (combined-review m
 - The 2026-11-09 local rc03 serial full-register run (import_benchmark_65032) is not a timing baseline: profiling and two test suites overlapped it. Its business outputs were exact (history A/B/C 0).
 - Acceptance plan (owner 21:29): correct results through pg_regress (fast suite), test/import_norway_small_history.sh and test/import_benchmark.sh, and the speed improvement shown by test/import_benchmark.sh. The full-register speed comparison runs on dev or tonight on a quiet machine (owner 12:09), master serial vs this branch, same inputs.
 - First fast run on the branch: 140/141; 395 (new on master) differed only by four sql_saga notices that the concurrent batch path does not emit. Expected updated; full rerun in progress.
+
+2026-11-09 21:44UTC Hibiscus: correctness on the branch (statbus-591-concurrency-on-master 096eb147c).
+- pg_regress fast suite: 141/141 shared plus 094 and 143 passed; stamp 096eb147c (source 20261109210002).
+- test/import_norway_small_history.sh create --isolated, master serial (445 migrations, import concurrency 1) vs this branch (448, concurrency 4): both finished all 8 jobs with 0 failed tasks and 36 history rows with 0 divergent; exact parity on 10 tables (statistical_unit 49, statistical_history 465, history facets 2,760, unit facets 49, all six *_used).
+- One serial attempt failed before importing, with PostgREST PGRST205 (the isolated PostgREST had not yet loaded a newly created upload table); two reruns passed. That is a race in the isolated test harness, not in import logic; to be fixed separately.
+- Remaining: test/import_benchmark.sh full-register speed and exact parity, master serial vs this branch, on dev or tonight on a quiet machine.
 <!-- SECTION:NOTES:END -->
