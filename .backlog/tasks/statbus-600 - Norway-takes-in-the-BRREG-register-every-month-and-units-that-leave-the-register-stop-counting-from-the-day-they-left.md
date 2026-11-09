@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T20:41:00Z'
+updated_date: '2026-11-09T20:42:00Z'
 labels:
   - import
   - norway
@@ -61,4 +61,6 @@ Evidence of the gap and the feed: `tmp/brreg-feed/` in the Rabbit checkout.
 2026-11-09 20:38 UTC owner confirmed the four monthly jobs (Q1). No new import modes are needed, all four use existing definitions: (1) brreg_hovedenhet_2025 and (2) brreg_underenhet_2025, insert_or_update, job-provided valid_from; (3) legal_unit_source_dates and (4) establishment_for_lu_source_dates, per-row valid_from. Prototype tmp/600-deletion-definitions-proto.log: an establishment deletion closes the establishment and keeps its legal unit link. A deletion for a unit StatBus never had is rejected ('Missing required name') and leaves the job waiting_for_review, which would stall an unattended run. So the feed reader only writes deletions for units StatBus already has and counts the others separately as born and deleted within the month.
 
 2026-11-09 20:41 UTC: c93383eb2 adds SQL test 395 (test/sql/395_statbus_600_monthly_intake_closes_deleted_units.sql), passing locally (tmp/test-395-pass.log). It asserts the monthly intake state on the existing definitions: full-file jobs keep one record for an unchanged unit and add one for a changed unit; deletion jobs close legal units and establishments on the exact death date, whether in the job's month (2026-11-07) or the previous month (2026-10-25); the enterprise follows its legal unit; an establishment death leaves its legal unit alive; a legal unit death leaves its establishments open (the feed reports those separately); Units over time counts deaths in their month. Interview with owner in progress, Q1 (four jobs) answered yes.
+
+2026-11-09 20:42 UTC owner domain input: in Norway activity decides status, but StatBus takes status from BRREG. When a unit shows no activity for a long time BRREG deletes its last establishment and keeps the legal unit; new registrations get both. Fit with the design: test 395 already asserts that an establishment deletion leaves the legal unit alive and linked; new registrations arrive as Ny in both feeds (November sample tmp/brreg-feed: enheter Ny 1094, Sletting 597, Endring 8298, Fjernet 11; underenheter Ny 1637, Sletting 793, Endring 3677, Fjernet 87). Gap: brreg_hovedenhet_2025 and brreg_underenhet_2025 map no status column (konkurs, underAvvikling, underTvangsavvikling..., aktivitet are ignored), so every BRREG unit gets the default status Active. A legal unit left without establishments stays Active and counted. Status mapping added to the owner interview.
 <!-- SECTION:NOTES:END -->
