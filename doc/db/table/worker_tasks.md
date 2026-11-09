@@ -41,6 +41,7 @@ Indexes:
     "idx_tasks_task_cleanup_dedup" UNIQUE, btree (command) WHERE command = 'task_cleanup'::text AND state = 'pending'::worker.task_state
     "idx_tasks_waiting" btree (state) WHERE state = 'waiting'::worker.task_state
     "idx_worker_tasks_pending_priority" btree (state, priority) WHERE state = 'pending'::worker.task_state
+    "tasks_import_job_batch_unique" UNIQUE, btree ((payload ->> 'job_id'::text), (payload ->> 'batch_seq'::text)) WHERE command = 'import_job_process_batch'::text
 Check constraints:
     "check_payload_type" CHECK (payload IS NULL OR jsonb_typeof(payload) = 'object'::text OR jsonb_typeof(payload) = 'null'::text)
     "consistent_command_in_payload" CHECK (command = (payload ->> 'command'::text))
