@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T20:23:00Z'
+updated_date: '2026-11-09T20:26:00Z'
 labels:
   - import
   - norway
@@ -51,4 +51,6 @@ Evidence of the gap and the feed: `tmp/brreg-feed/` in the Rabbit checkout.
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-09 20:23 UTC design finding (read of statbus_seed definitions and import.analyse_legal_unit, tmp/analyse_legal_unit.sql): the existing legal_unit and establishment definitions already accept death_date_raw, and an update row for a known unit (tax_ident only, no name) is accepted when status resolves. The data model's existence rule (doc/data-model.md, STATBUS-460) ends a unit at death_date without ending its record. So a BRREG deletion with slettedato may need no new import mode: a monthly job row of tax_ident + death_date = slettedato closes the unit from that day. A new close mode is only needed for units missing from the file with no feed entry (no death date; the timeline itself must end). To prove before building: a prototype on a fresh local DB that patches 879755662 with death_date 2026-11-07 and checks existence_until, the Units-over-time chart and the enterprise.
+
+2026-11-09 20:26 UTC prototype CONFIRMED (tmp/journal.md; tmp/600-close-proto-full.{sql,log} legal unit, tmp/600-close-proto-es.{sql,log} establishment; rolled back on scratch DB statbus_600_close_proto). A monthly job on legal_unit_job_provided / establishment_for_lu_job_provided (valid_from 2026-11-01) with rows of only tax_ident + death_date = slettedato finishes with action=use, operation=update, no errors. The unit gets death_date 2026-11-07, keeps name/activity/region/employees, exists on 11-06 and not on 11-08, and so does its enterprise; statistical_history shows deaths=1 in November 2026. An establishment closes alone, its legal unit stays alive. Side effect: the parent legal unit and enterprise get a content-identical record split at the job's valid_from. Consequence: no new 'close units' import mode is needed for feed deletions. The deletion file is just a third and fourth monthly job. The only open case is units missing from the full file with no feed deletion, which would also be closed by a death_date row (the 1st of the month), counted separately in the monthly figures.
 <!-- SECTION:NOTES:END -->
