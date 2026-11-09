@@ -513,6 +513,7 @@ INSERT INTO public.import_68_05_lu_periods_upload(valid_from,valid_to,tax_ident,
 ('2020-07-01','2020-09-30','680500001','LU Three Periods','2020-01-01',NULL,'Addr P3 Changed','1000','Oslo','0301','NO','10.100',NULL,'2100','AS');
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 --RESET client_min_messages;
 \echo "Import job status for 68_05_lu_periods:"
 "Import job status for 68_05_lu_periods:"
@@ -607,6 +608,7 @@ INSERT INTO public.import_68_06_lu_periods_upload(valid_from,valid_to,tax_ident,
 ('2021-07-01','2021-09-30','680600001','LU for ES Periods','2021-01-01',NULL,'LU Addr P3 Changed','2000','Oslo','0301','NO','11.100',NULL,'2100','AS');
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 --RESET client_min_messages;
 DO $$
 DECLARE
@@ -631,6 +633,7 @@ INSERT INTO public.import_68_06_es_periods_upload(valid_from,valid_to,tax_ident,
 ('2021-07-01','2021-09-30','E68060001','ES for LU Periods','2021-01-01',NULL,'ES Addr P3 Changed','2000','Oslo','0301','NO','11.100',NULL,'680600001');
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 --RESET client_min_messages;
 \echo "Import job statuses for 68_06:"
 "Import job statuses for 68_06:"
@@ -749,6 +752,7 @@ INSERT INTO public.import_68_07_informal_es_periods_upload(valid_from,valid_to,t
 ('2022-07-01','2022-09-30','E68070001','Informal ES Three Periods','2022-01-01',NULL,'Inf Addr P3 Changed','3000','Oslo','0301','NO','10.110',NULL);
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 --RESET client_min_messages;
 \echo "Import job status for 68_07_informal_es_periods:"
 "Import job status for 68_07_informal_es_periods:"

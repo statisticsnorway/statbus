@@ -911,6 +911,7 @@ INSERT INTO public.import_120_round2_upload(valid_from, valid_to, influencing_ta
     ('2023-01-01', 'infinity', '300000007', '300000008', 'parent_company', '51');
 -- Process the import
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo "4: Import Round 2 job status:"
 "4: Import Round 2 job status:"
 SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug = 'import_120_round2';

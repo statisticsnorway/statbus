@@ -2,16 +2,12 @@
 # Benchmark the BRREG import through the real worker, in an isolated database
 #
 # Usage:
-#   ./test/import_benchmark.sh [--dataset selection|downloads|mixed] [-t TIMEOUT]
-#   ./test/import_benchmark.sh --dataset selection [--valid-from YYYY-MM-DD | --year YYYY]
-#   ./test/import_benchmark.sh --result-json tmp/benchmark.json [--require-import-concurrency MIN]
+#   ./test/import_benchmark.sh [--dataset selection|downloads] [-t TIMEOUT]
 #   ./test/import_benchmark.sh --list           # List previous benchmark DBs
 #   ./test/import_benchmark.sh --cleanup        # Delete DB after run
 #
 # Databases are RETAINED by default for comparison across runs.
 # Each run creates import_benchmark_<PID> which you can inspect later.
-# MIN is an acceptance assertion on durable processing-leaf intervals, not a
-# queue configuration override. The serial default works without this option.
 
 set -euo pipefail
 

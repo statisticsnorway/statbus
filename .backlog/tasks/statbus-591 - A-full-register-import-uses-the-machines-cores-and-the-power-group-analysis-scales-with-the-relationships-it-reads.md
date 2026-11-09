@@ -6,14 +6,15 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-08T23:53:00Z'
+updated_date: '2026-11-09T10:49:00Z'
 labels:
   - import
   - performance
 dependencies: []
 documentation:
   - doc/performance/2026-11-combined-import-review.md
-  - doc/performance/2026-11-concurrent-import-validation.md
+  - >-
+    statbus-591-concurrency-reviewed:doc/performance/2026-11-concurrent-import-validation.md
 type: enhancement
 ordinal: 499204
 ---
@@ -159,4 +160,8 @@ Literal actual-worker mixed and BRREG-selection default4/no overrides already PA
 2026-11-08 23:30 UTC reviewed integration: new branch statbus-591-concurrency-reviewed d6ed885ca9d3ed8d34a5eb2fe25b793cca98c38a is a rebase onto master6fa48382306c160aa0ae09b3a56dc9ec93b29c08. Seven source patches retain identical diffs; runtimef95 maps4c0ae5253, harness ea16135ab maps02c07cb0a, sibling74d275d7b maps8579a3ec3. All26 master note paragraphs and12 missing original concurrency paragraphs merged through Backlog CLI, not discarded on conflict. All882 released migration blobs, SQL374 ANALYZE/strict bound, CI diagnostics and597 remain exact. Fresh exact-identity CLI build and final clean ./dev.sh test all PASS143 cases at23:29:45, actualexit0; source manifests exact. Plan/performance observations preserved then restored only those paths. Independent Rabbit34offline tests and six actual-footprint checks PASS. Evidence tmp/591/concurrency-v2/reviewed-final/ and REVIEWED-LANDING-HANDOFF.md. The first preflight stopped solely on standard generated psql-header padding before build/tests; authored-source check passed without altering expected outputs. Final exactdiff/downward review, coordinated master landing and exactCI remain pending. LAND ONLY, no release/tag/experimental Norway. All4AC remain unchecked.
 
 2026-11-08 23:52 UTC independent Rabbit landing and hosted acceptance: personally reviewed exact a1ba6063de60059728cb32be90e28e994705b613, runtime upward/downward contracts, real roundtrip snapshots, all882 released migration blobs and preserved374/596/597 source. Root performed the sole clean FF6fa->a1ba master push at23:37:04. All seven exact-master workflows are now completed/success: CodeQL42536032223, Go42536033074, Harness42536033076, Images42536033077, App42536033104, Notify42536033181 and Fast42536281107. Fast title explicitly exercised-sha=a1ba6063de60059728cb32be90e28e994705b613; actual log proves136shared+094/143 cases passed, including374/375/380/381. Regression artifact13639712865 ZIPdigest a65ff9d44b2ef2095698c94b8587ffae4fb452641b5a1b1e9f6210529486c12c. Evidence tmp/serial-rc/rabbit-concurrency-review/{landing-ci-final.json,landing-fast-final.json,landing-fast.log,REVIEW.md,footprint-review.json,roundtrip-review.log}. New separate profiling follow-up STATBUS-598 remains To Do, not new runtime work. No new RC/tag/release/stable or experimental Norway deployment. All four591AC remain unchecked pending owner/host criteria, including generic validity-policy decision. Norway serial rc03 actual full-file imports are finished; initial analytics still draining before separately requested full recalculation.
+
+2026-11-09 10:35 UTC concurrency withdrawn from master (owner decision 10:16-10:34). Master is the release line: serial rc.03 fc1830fe4 plus non-concurrency fixes, then STATBUS-598. A forward commit restores every file of the eight concurrency commits 2dad8085e..8579a3ec3 to their pre-landing state at 6fa483823: runtime 4c0ae5253, migrations 20261108182300/01/02, SQL375/376/379/380/381, benchmark harness and observer changes, design and validation docs. No force-push or history rewrite. Concurrency, its tests and both documents remain intact on origin/statbus-591-concurrency-reviewed (a1ba6063d). Hibiscus owns it there and agreed never to push it to master. Re-landing is a separate owner-approved step: rebase onto master and rename the 2026110818230x migrations to sort after the released 598 migrations. Acceptance: git diff fc1830fe4 master over code, migrations and tests contains only the Fast CI diagnostics, SQL374 fixture ANALYZE and installer etckeeper fixes. The 23:52 landing notes above are history, not current master state.
+
+Closing review for the withdrawal step: documentation updated (combined-review master-scope header, doc links repointed to the concurrency branch), no cleanup outstanding, no memory needed. The ticket stays In Progress; the withdrawal closes no acceptance criterion.
 <!-- SECTION:NOTES:END -->

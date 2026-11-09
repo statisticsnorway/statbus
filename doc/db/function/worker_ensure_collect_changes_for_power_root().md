@@ -10,7 +10,7 @@ BEGIN
         END IF;
     END IF;
 
-    PERFORM worker.request_base_change_wakeup();
+    PERFORM worker.publish_base_change_wakeup();
     RETURN NULL;
 END;
 $function$

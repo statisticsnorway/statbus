@@ -105,25 +105,11 @@ SELECT COUNT(*) AS upload_row_count FROM public.import_318_lu_upload;
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo "Checking worker task status after legal unit import"
-SELECT c.queue, t.state, bool_and(t.error IS NULL) AS successful
-FROM worker.tasks AS t
-JOIN worker.command_registry AS c USING (command)
-WHERE c.queue <> 'maintenance'
-GROUP BY c.queue, t.state ORDER BY c.queue, t.state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking legal unit import job status"
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error 
 FROM public.import_job WHERE slug = 'import_318_lu';
-
-\echo Legal unit accepted rows match processed/imported rows and retain a completed serial wrapper
-SELECT count(*) FILTER (WHERE d.action = 'use') AS accepted,
-       count(*) FILTER (WHERE d.action = 'use' AND d.state = 'processed') AS processed,
-       j.imported_rows AS imported, w.child_mode, w.state
-FROM public.import_318_lu_data AS d
-CROSS JOIN public.import_job AS j
-JOIN worker.tasks AS w ON (w.payload->>'job_id')::integer = j.id AND w.command = 'import_job'
-WHERE j.slug = 'import_318_lu'
-GROUP BY j.imported_rows, w.child_mode, w.state;
 
 \echo "Checking for any errors in legal unit import data"
 SELECT row_id, tax_ident_raw, name_raw, state, action, errors
@@ -160,45 +146,11 @@ SELECT COUNT(*) AS upload_row_count FROM public.import_318_es_upload;
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo "Checking worker task status after establishment import"
-SELECT c.queue, t.state, bool_and(t.error IS NULL) AS successful
-FROM worker.tasks AS t
-JOIN worker.command_registry AS c USING (command)
-WHERE c.queue <> 'maintenance'
-GROUP BY c.queue, t.state ORDER BY c.queue, t.state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking establishment import job status"
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error 
 FROM public.import_job WHERE slug = 'import_318_es';
-
-\echo Establishment accepted rows match processed/imported rows
-SELECT count(*) FILTER (WHERE d.action = 'use') AS accepted,
-       count(*) FILTER (WHERE d.action = 'use' AND d.state = 'processed') AS processed,
-       j.imported_rows AS imported
-FROM public.import_318_es_data AS d
-CROSS JOIN public.import_job AS j
-WHERE j.slug = 'import_318_es'
-GROUP BY j.imported_rows;
-\echo Each assigned establishment batch has exactly one successful leaf and completed concurrent dispatcher/serial wrapper
-WITH batches AS (
-    SELECT batch_seq, count(*) AS accepted
-    FROM public.import_318_es_data WHERE action = 'use'
-    GROUP BY batch_seq
-), leaves AS (
-    SELECT (t.payload->>'batch_seq')::integer AS batch_seq, count(*) AS leaves,
-           bool_and(t.state = 'completed' AND t.error IS NULL
-                    AND d.state = 'completed' AND d.child_mode = 'concurrent'
-                    AND w.state = 'completed' AND w.child_mode = 'serial') AS successful
-    FROM worker.tasks AS t
-    JOIN worker.tasks AS d ON d.id = t.parent_id
-    JOIN worker.tasks AS w ON w.id = d.parent_id
-    JOIN public.import_job AS j ON j.id = (t.payload->>'job_id')::integer
-    WHERE j.slug = 'import_318_es' AND t.command = 'import_job_process_batch'
-    GROUP BY (t.payload->>'batch_seq')::integer
-)
-SELECT count(*) AS batches, sum(b.accepted) AS accepted,
-       bool_and(COALESCE(l.leaves = 1 AND l.successful, false)) AS covered,
-       (SELECT count(*) FROM leaves) = count(*) AS all_batches
-FROM batches AS b LEFT JOIN leaves AS l USING (batch_seq);
 
 \echo "Checking for any errors in establishment import data"
 SELECT row_id, tax_ident_raw, name_raw, legal_unit_tax_ident_raw, state, action, errors
@@ -217,11 +169,7 @@ SELECT
 CALL worker.process_tasks(p_queue => 'analytics');
 
 \echo "Checking worker task status after analytics"
-SELECT c.queue, t.state, bool_and(t.error IS NULL) AS successful
-FROM worker.tasks AS t
-JOIN worker.command_registry AS c USING (command)
-WHERE c.queue <> 'maintenance'
-GROUP BY c.queue, t.state ORDER BY c.queue, t.state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking statistics summary"
 \x

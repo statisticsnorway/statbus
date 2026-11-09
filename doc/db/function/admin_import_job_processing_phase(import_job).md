@@ -12,25 +12,8 @@ DECLARE
     v_holistic_step RECORD;
     v_proc_to_call REGPROC;
     v_targets JSONB;
-    v_task_id bigint;
-    v_batch record;
-    v_can_dispatch boolean;
-    v_unit_condition text;
-    v_failed_task worker.tasks;
 BEGIN
-    -- A leaf failure outside the batch handler, including an exhausted transaction retry, must
-    -- become a failed import rather than silently redispatching or proceeding to holistic steps.
-    SELECT * INTO v_failed_task FROM worker.tasks
-    WHERE command = 'import_job_process_batch' AND payload->>'job_id' = job.id::text AND state = 'failed'
-    ORDER BY id LIMIT 1;
-    IF FOUND THEN
-        UPDATE public.import_job
-        SET state = 'failed', error = jsonb_build_object('processing_task_failed', v_failed_task.id,
-                                                       'error', v_failed_task.error)::text
-        WHERE id = job.id;
-        RETURN false;
-    END IF;
-
+    -- Get the current batch to process (smallest batch_seq that still has unprocessed rows)
     EXECUTE format($$
         SELECT MIN(batch_seq), MAX(batch_seq)
         FROM public.%1$I
@@ -38,58 +21,48 @@ BEGIN
     $$, job.data_table_name) INTO v_current_batch, v_max_batch;
 
     IF v_current_batch IS NOT NULL THEN
-        SELECT id INTO v_task_id FROM worker.tasks
-        WHERE state = 'processing' AND worker_pid = pg_backend_pid()
-          AND command = 'import_job_process' AND payload->>'job_id' = job.id::text
-        ORDER BY id DESC LIMIT 1;
+        RAISE DEBUG '[Job %] Processing batch % of % (max).', job.id, v_current_batch, v_max_batch;
 
-        -- The whole dependency batch is the worker leaf. Mixed operations retain integrity checks.
-        -- Supported handlers use routine identity, while custom handlers and holistic steps retain
-        -- their existing serial contract. Each founding unit must remain in one assigned batch.
-        IF v_task_id IS NOT NULL AND v_current_batch <> v_max_batch AND COALESCE(job.imported_rows, 0) = 0
-           AND job.definition_snapshot#>>'{import_definition,mode}' IN ('legal_unit', 'establishment_formal', 'establishment_informal')
-           AND NOT EXISTS (
-               SELECT 1 FROM jsonb_populate_recordset(NULL::public.import_step,
-                                                      job.definition_snapshot->'import_step_list') AS step
-               WHERE NOT COALESCE(step.is_holistic, false) AND step.process_procedure IS NOT NULL
-                 AND step.process_procedure NOT IN (
-                     'import.process_enterprise_link_for_legal_unit'::regproc, 'import.process_legal_unit'::regproc,
-                     'import.process_enterprise_link_for_establishment'::regproc,
-                     'import.process_establishment'::regproc, 'import.process_location'::regproc, 'import.process_activity'::regproc,
-                     'import.process_contact'::regproc, 'import.process_statistical_variables'::regproc, 'import.process_tags'::regproc)
-           ) THEN
-            v_unit_condition := CASE job.definition_snapshot#>>'{import_definition,mode}'
-                WHEN 'legal_unit' THEN 'legal_unit_id IS NOT NULL OR enterprise_id IS NULL'
-                WHEN 'establishment_formal' THEN 'legal_unit_id IS NOT NULL'
-                WHEN 'establishment_informal' THEN 'legal_unit_id IS NULL'
-            END;
-            EXECUTE format($SQL$
-                SELECT bool_and(founding_row_id IS NOT NULL AND (%2$s))
-                       AND NOT EXISTS (
-                           SELECT founding_row_id FROM public.%1$I
-                           WHERE state = 'processing'
-                           GROUP BY founding_row_id HAVING count(DISTINCT batch_seq) > 1
-                       )
-                FROM public.%1$I WHERE state = 'processing'
-            $SQL$, job.data_table_name, v_unit_condition) INTO v_can_dispatch;
-            IF v_can_dispatch THEN
-                FOR v_batch IN EXECUTE format($SQL$
-                    SELECT DISTINCT batch_seq FROM public.%1$I
-                    WHERE state = 'processing' AND batch_seq IS NOT NULL ORDER BY batch_seq
-                $SQL$, job.data_table_name)
-                LOOP
-                    PERFORM worker.spawn(
-                        p_command => 'import_job_process_batch',
-                        p_payload => jsonb_build_object('job_id', job.id, 'batch_seq', v_batch.batch_seq),
-                        p_parent_id => v_task_id,
-                        p_child_mode => 'concurrent');
-                END LOOP;
-                RETURN true;
-            END IF;
-        END IF;
+        BEGIN
+            CALL admin.import_job_process_batch(job, v_current_batch);
 
-        v_rows_processed := admin.import_job_process_one_batch(job, v_current_batch);
-        RETURN v_rows_processed IS NOT NULL;
+            -- Mark all rows in the batch that are not in an error state as 'processed'.
+            EXECUTE format($$
+                UPDATE public.%1$I
+                SET state = 'processed'
+                WHERE batch_seq = %2$L AND state != 'error'
+            $$, job.data_table_name, v_current_batch);
+            GET DIAGNOSTICS v_rows_processed = ROW_COUNT;
+
+            RAISE DEBUG '[Job %] Batch % successfully processed. Marked % non-error rows as processed.',
+                job.id, v_current_batch, v_rows_processed;
+
+            -- Increment imported_rows counter directly instead of doing a full table scan.
+            UPDATE public.import_job SET imported_rows = imported_rows + v_rows_processed WHERE id = job.id;
+
+        EXCEPTION WHEN OTHERS THEN
+            GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT,
+                                  error_context = PG_EXCEPTION_CONTEXT;
+            RAISE WARNING '[Job %] Error processing batch %: %. Context: %. Marking batch rows as error and failing job.',
+                job.id, v_current_batch, error_message, error_context;
+
+            EXECUTE format($$
+                UPDATE public.%1$I
+                SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || %2$L
+                WHERE batch_seq = %3$L
+            $$, job.data_table_name,
+                jsonb_build_object('process_batch_error', error_message, 'context', error_context),
+                v_current_batch);
+
+            UPDATE public.import_job
+            SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context)::TEXT,
+                state = 'failed'
+            WHERE id = job.id;
+
+            RETURN FALSE; -- On error, do not reschedule.
+        END;
+
+        RETURN TRUE; -- Batch work was done.
     END IF;
 
     -- All batches done. Now run holistic process steps (if any).

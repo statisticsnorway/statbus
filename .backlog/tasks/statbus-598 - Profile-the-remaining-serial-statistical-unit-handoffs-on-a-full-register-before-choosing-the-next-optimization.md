@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-08T23:38:00Z'
-updated_date: '2026-11-09T08:43:00Z'
+updated_date: '2026-11-09T10:36:00Z'
 labels:
   - performance
   - worker
@@ -15,6 +15,9 @@ dependencies: []
 references:
   - doc/performance/2026-11-concurrent-import-validation.md
   - tmp/591/concurrency-v2/full-register/benchmark.log
+documentation:
+  - >-
+    statbus-591-concurrency-reviewed:doc/performance/2026-11-concurrent-import-validation.md
 priority: medium
 type: spike
 ordinal: 514204
