@@ -360,6 +360,11 @@ func printInstallFailure(w io.Writer, err error) {
 		printInstallRefusal(w, refusal)
 	} else if errors.As(err, &preflight) {
 		_, _ = fmt.Fprintln(w, preflight.Error())
+	} else if site := (*advertisedSiteError)(nil); errors.As(err, &site) {
+		_, _ = fmt.Fprintln(w, "The installation stopped before it could finish. Check the installation log, correct the problem, then run: "+diskpolicy.RerunCommand())
+		guidance := advertisedSiteGuidance(site.reason)
+		_, _ = fmt.Fprintln(w, "INSTALL_CAUSE: "+guidance.cause)
+		_, _ = fmt.Fprintln(w, "INSTALL_FIX: "+guidance.fix)
 	} else {
 		_, _ = fmt.Fprintln(w, "The installation stopped before it could finish. Check the installation log, correct the problem, then run: "+diskpolicy.RerunCommand())
 	}

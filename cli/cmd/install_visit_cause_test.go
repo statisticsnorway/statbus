@@ -3,6 +3,8 @@ package cmd
 import (
 	"bytes"
 	"net/http"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -44,5 +46,31 @@ func TestInstallShShowsWhyTheAdvertisedSiteIsNotServing(t *testing.T) {
 	}
 	if strings.Contains(got, "the installer could not finish") {
 		t.Errorf("install.sh shows the generic cause:\n%s", got)
+	}
+}
+
+// Every reason the site check can give has one fixed cause and fix that
+// install.sh's allowlist admits; nothing from the probe is interpolated.
+func TestAdvertisedSiteGuidanceMatchesShellAllowlist(t *testing.T) {
+	script, err := os.ReadFile("../../install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(script), "\n")
+	causeERE := installShellERE(t, lines, "INSTALL_REFUSAL_ALLOWLIST:", "failure_detail=$(grep -E")
+	fixERE := installShellERE(t, lines, "INSTALL_REFUSAL_ALLOWLIST:", "failure_fix=$(grep -E")
+	match := func(pattern, value string) bool {
+		cmd := exec.Command("grep", "-E", "-q", pattern)
+		cmd.Stdin = strings.NewReader(value + "\n")
+		return cmd.Run() == nil
+	}
+	for _, reason := range advertisedSiteReasons {
+		guidance := advertisedSiteGuidance(reason)
+		if !match(causeERE, "INSTALL_CAUSE: "+guidance.cause) {
+			t.Errorf("%q cause not permitted by install.sh: %q", reason, guidance.cause)
+		}
+		if !match(fixERE, "INSTALL_FIX: "+guidance.fix) {
+			t.Errorf("%q fix not permitted by install.sh: %q", reason, guidance.fix)
+		}
 	}
 }

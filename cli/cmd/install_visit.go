@@ -140,9 +140,13 @@ func verifyAdvertisedSite(installDir string, budget, interval time.Duration) (wa
 		time.Sleep(interval)
 	}
 	var fatalReasons []string
+	firstFatalReason := ""
 	for _, f := range failures {
 		problem := f.check.origin + " " + f.reason
 		if f.check.fatal {
+			if firstFatalReason == "" {
+				firstFatalReason = f.reason
+			}
 			fatalReasons = append(fatalReasons, problem)
 		} else {
 			if noCertificateReason != "" {
@@ -159,9 +163,58 @@ func verifyAdvertisedSite(installDir string, budget, interval time.Duration) (wa
 		fmt.Println("Install your certificate with: cd ~/statbus && ./sb cert install <file>")
 	}
 	if len(fatalReasons) > 0 {
-		return warnings, fmt.Errorf("the advertised site is not serving: %s", strings.Join(fatalReasons, "; "))
+		return warnings, &advertisedSiteError{
+			detail: "the advertised site is not serving: " + strings.Join(fatalReasons, "; "),
+			reason: firstFatalReason,
+		}
 	}
 	return warnings, nil
+}
+
+// advertisedSiteError is a fatal site-check result. detail (origins and
+// reasons) goes to the install log; reason selects the fixed operator
+// guidance install.sh shows (advertisedSiteGuidance).
+type advertisedSiteError struct {
+	detail string
+	reason string
+}
+
+func (e *advertisedSiteError) Error() string { return e.detail }
+
+// The operator's guidance for each reason probeVisit and classifyVisitError
+// return. Like installRefusalCatalogue, these are the only sentences that
+// cross to the terminal: the origin and probe text stay in the log.
+// install.sh's INSTALL_REFUSAL_ALLOWLIST admits every pair
+// (TestAdvertisedSiteGuidanceMatchesShellAllowlist).
+const (
+	visitReasonUntrusted   = "its certificate is not trusted (signed by an unknown authority)"
+	visitReasonExpired     = "its certificate is expired or not yet valid"
+	visitReasonWrongName   = "its certificate does not cover this name"
+	visitReasonNoAnswer    = "did not answer"
+	visitReasonBadAddress  = "is not an address that can be fetched"
+	visitReasonHTTPStatus  = "answered with HTTP status"
+	visitCertificateFix    = "Install the full certificate chain with cd ~/statbus && ./sb cert install <file>, or add the issuing authority to this server's trusted authorities, then retry."
+	visitCertificateNewFix = "Install a current certificate for this name with cd ~/statbus && ./sb cert install <file>, then retry."
+)
+
+var advertisedSiteReasons = []string{
+	visitReasonUntrusted, visitReasonExpired, visitReasonWrongName,
+	visitReasonNoAnswer, visitReasonBadAddress, visitReasonHTTPStatus + " 502",
+}
+
+func advertisedSiteGuidance(reason string) installRefusalGuidance {
+	switch {
+	case reason == visitReasonUntrusted:
+		return installRefusalGuidance{"The site does not answer with a trusted certificate: the certificate's issuer is not in this server's trusted authorities.", visitCertificateFix}
+	case reason == visitReasonExpired:
+		return installRefusalGuidance{"The site's certificate is expired or not yet valid.", visitCertificateNewFix}
+	case reason == visitReasonWrongName:
+		return installRefusalGuidance{"The site's certificate does not cover the site name.", visitCertificateNewFix}
+	case strings.HasPrefix(reason, visitReasonHTTPStatus):
+		return installRefusalGuidance{"The site answered with an error page instead of StatBus.", "Check that no other web server answers for this name on this server, then retry."}
+	default:
+		return installRefusalGuidance{"The site did not answer on this server.", "Check that ports 80 and 443 on this server are free for StatBus, then retry."}
+	}
 }
 
 // acmeCannotIssueReason says why an automatic certificate cannot arrive for
@@ -410,7 +463,7 @@ func oneLine(s string) string {
 func probeVisit(c visitCheck) string {
 	u, err := url.Parse(c.origin)
 	if err != nil || u.Hostname() == "" {
-		return "is not an address that can be fetched"
+		return visitReasonBadAddress
 	}
 	resp, err := visitClient(u, c.verifyTLS).Get(c.origin)
 	if err != nil {
@@ -421,7 +474,7 @@ func probeVisit(c visitCheck) string {
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 		return ""
 	}
-	return fmt.Sprintf("answered with HTTP status %d", resp.StatusCode)
+	return fmt.Sprintf("%s %d", visitReasonHTTPStatus, resp.StatusCode)
 }
 
 // visitClient builds the client a user on this box effectively has: the
@@ -460,15 +513,15 @@ func visitClient(u *url.URL, verifyTLS bool) *http.Client {
 func classifyVisitError(err error) string {
 	var invalidErr x509.CertificateInvalidError
 	if errors.As(err, &invalidErr) {
-		return "its certificate is expired or not yet valid"
+		return visitReasonExpired
 	}
 	var unknownAuthority x509.UnknownAuthorityError
 	if errors.As(err, &unknownAuthority) {
-		return "its certificate is not trusted (signed by an unknown authority)"
+		return visitReasonUntrusted
 	}
 	var hostnameErr x509.HostnameError
 	if errors.As(err, &hostnameErr) {
-		return "its certificate does not cover this name"
+		return visitReasonWrongName
 	}
-	return "did not answer"
+	return visitReasonNoAnswer
 }
