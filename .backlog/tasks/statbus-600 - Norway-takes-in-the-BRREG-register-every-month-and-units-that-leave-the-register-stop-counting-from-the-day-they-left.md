@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T20:42:00Z'
+updated_date: '2026-11-09T21:16:00Z'
 labels:
   - import
   - norway
@@ -63,4 +63,6 @@ Evidence of the gap and the feed: `tmp/brreg-feed/` in the Rabbit checkout.
 2026-11-09 20:41 UTC: c93383eb2 adds SQL test 395 (test/sql/395_statbus_600_monthly_intake_closes_deleted_units.sql), passing locally (tmp/test-395-pass.log). It asserts the monthly intake state on the existing definitions: full-file jobs keep one record for an unchanged unit and add one for a changed unit; deletion jobs close legal units and establishments on the exact death date, whether in the job's month (2026-11-07) or the previous month (2026-10-25); the enterprise follows its legal unit; an establishment death leaves its legal unit alive; a legal unit death leaves its establishments open (the feed reports those separately); Units over time counts deaths in their month. Interview with owner in progress, Q1 (four jobs) answered yes.
 
 2026-11-09 20:42 UTC owner domain input: in Norway activity decides status, but StatBus takes status from BRREG. When a unit shows no activity for a long time BRREG deletes its last establishment and keeps the legal unit; new registrations get both. Fit with the design: test 395 already asserts that an establishment deletion leaves the legal unit alive and linked; new registrations arrive as Ny in both feeds (November sample tmp/brreg-feed: enheter Ny 1094, Sletting 597, Endring 8298, Fjernet 11; underenheter Ny 1637, Sletting 793, Endring 3677, Fjernet 87). Gap: brreg_hovedenhet_2025 and brreg_underenhet_2025 map no status column (konkurs, underAvvikling, underTvangsavvikling..., aktivitet are ignored), so every BRREG unit gets the default status Active. A legal unit left without establishments stays Active and counted. Status mapping added to the owner interview.
+
+2026-11-09 21:16 UTC CI: every workflow for master da4402a41 completed/success (Fast Tests, Go Test, app build & lint, Images, Harness Selftest, Push on master). That commit contains test 395 (c93383eb2). Owner answers so far: Q1 four jobs a month, yes; Q2 run on the 2nd (02:00 Oslo), bringing in the previous month, yes. Q3 BRREG status: open, proposed for its own ticket.
 <!-- SECTION:NOTES:END -->
