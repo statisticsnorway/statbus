@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T20:28:00Z'
+updated_date: '2026-11-09T20:30:00Z'
 labels:
   - import
   - norway
@@ -55,4 +55,6 @@ Evidence of the gap and the feed: `tmp/brreg-feed/` in the Rabbit checkout.
 2026-11-09 20:26 UTC prototype CONFIRMED (tmp/journal.md; tmp/600-close-proto-full.{sql,log} legal unit, tmp/600-close-proto-es.{sql,log} establishment; rolled back on scratch DB statbus_600_close_proto). A monthly job on legal_unit_job_provided / establishment_for_lu_job_provided (valid_from 2026-11-01) with rows of only tax_ident + death_date = slettedato finishes with action=use, operation=update, no errors. The unit gets death_date 2026-11-07, keeps name/activity/region/employees, exists on 11-06 and not on 11-08, and so does its enterprise; statistical_history shows deaths=1 in November 2026. An establishment closes alone, its legal unit stays alive. Side effect: the parent legal unit and enterprise get a content-identical record split at the job's valid_from. Consequence: no new 'close units' import mode is needed for feed deletions. The deletion file is just a third and fourth monthly job. The only open case is units missing from the full file with no feed deletion, which would also be closed by a death_date row (the 1st of the month), counted separately in the monthly figures.
 
 2026-11-09 20:28 UTC proposed monthly job layout (owner to confirm): four jobs per month, in this order. (1) import_hovedenhet_YYYY_MM, full file, brreg_hovedenhet_2025, insert_or_update: new and changed legal units. (2) import_underenhet_YYYY_MM, same for establishments (after 1, since establishments refer to their legal unit). (3) import_hovedenhet_slettet_YYYY_MM and (4) import_underenhet_slettet_YYYY_MM: deletions from the change feed, rows of organisation number + death_date = slettedato. Deletions run last, so a deletion wins over a stale row in the full file. Evidence that one full-file job covers insert and update: tmp/600-unchanged-reimport-proto.log (an unchanged unit keeps one record, a changed unit gets a new record from the job's valid_from). Detail to build and test: a deletion row needs a record that starts before its slettedato, so a unit deleted late in the previous month stops counting on that day, not on the 1st.
+
+2026-11-09 20:30 UTC deletions dated before the job's month (tmp/journal.md, tmp/600-late-deletion-proto-c.log): a deletion row with valid_from = the job's 1st of month or = slettedato is rejected (date_consistency: death must fall after the record start). Accepted and correct: the *_source_dates definition with per-row valid_from = 1st of the month containing (slettedato - 1 day). Both test units closed on the exact deletion day, kept their names, and the deaths counted in October and November. So deletion jobs 3 and 4 use legal_unit_source_dates / establishment_for_lu_source_dates (or BRREG equivalents), not the job-provided date.
 <!-- SECTION:NOTES:END -->
