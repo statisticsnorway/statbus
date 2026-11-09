@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T21:45:00Z'
+updated_date: '2026-11-09T22:11:00Z'
 labels:
   - import
   - norway
@@ -91,4 +91,6 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 2026-11-09 21:27 UTC Q4 evidence (tmp/600-validfrom-births-proto.log): a unit born 2026-11-10 in the file built 2026-12-01 is counted as a November birth from its birth day when the job's valid_from is 2026-11-01. With valid_from 2026-12-01 it exists only from 1 December, is counted as added in December rather than born, and the import warns about it. Owner Uganda note: setup rerun tomorrow (STATBUS-583, 497).
 
 2026-11-09 21:44 UTC finding (tmp/journal.md): rune's only import loaded the BRREG files downloaded 2026-04-21 with valid_from 2026-11-07. The feed since 2026-04-21 shows 28,842 legal units and 20,659 establishments deleted, ~49k of them before 2026-11-07, so they count on rune although BRREG deleted them months earlier. The import cannot give them their real death date (death before the record start is refused; a row starting before the record inserts an unnamed portion and fails the job, tmp/600-baseline-overlap-proto.log). Today's enheter.csv has 90 columns vs rune's 68 (22 added, order changed), so the loader must select the definition's columns by name. Owner decision asked (Q10): re-baseline rune from today's files, or keep rune's data and report the stale units.
+
+2026-11-09 22:11 UTC 70a177ff0: samples/norway/brreg/brreg-monthly.sh (four monthly jobs, upgrade wait 2 h then skip, lock, stop-and-report, figures.tsv, Slack), brreg-fit-csv.py (columns by name; status passive from konkurs/underAvvikling/underTvangsavviklingEllerTvangsopplosning), brreg-deletions-since.py (feed paged by oppdateringsid, deletions for known units only), brreg_hovedenhet_2025 maps status_code, README Monthly Intake section with the crontab entry. End-to-end on scratch DB statbus_600_monthly with 5,000 real legal units + 3,790 establishments over Oct and Nov (tmp/journal.md, tmp/600-e2e/): all jobs finished, unchanged units keep one record, renamed and bankrupt units get a November record (bankrupt passive), 50 deleted units closed on their slettedato, Units over time: 50 deaths in November. Found and fixed during the test: an empty deletion upload leaves its job waiting_for_upload forever, so a deletion job is created only when its list has rows. Not yet run on rune: waiting for the owner's Q10 (re-baseline) and Q9 (permission).
 <!-- SECTION:NOTES:END -->
