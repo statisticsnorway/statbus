@@ -7,6 +7,7 @@ status: To Do
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
+updated_date: '2026-11-09T20:23:00Z'
 labels:
   - import
   - norway
@@ -44,3 +45,9 @@ Evidence of the gap and the feed: `tmp/brreg-feed/` in the Rabbit checkout.
 - [ ] #4 On rune, the first monthly run closes 879755662 and 969313480 at 2026-11-07, and the monthly figures (sizes, rows, run times, closed units) are recorded and reported
 - [ ] #5 The statbus user's crontab on rune runs the monthly cycle unattended; a failure stops the cycle and is reported, without retrying
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-09 20:23 UTC design finding (read of statbus_seed definitions and import.analyse_legal_unit, tmp/analyse_legal_unit.sql): the existing legal_unit and establishment definitions already accept death_date_raw, and an update row for a known unit (tax_ident only, no name) is accepted when status resolves. The data model's existence rule (doc/data-model.md, STATBUS-460) ends a unit at death_date without ending its record. So a BRREG deletion with slettedato may need no new import mode: a monthly job row of tax_ident + death_date = slettedato closes the unit from that day. A new close mode is only needed for units missing from the file with no feed entry (no death date; the timeline itself must end). To prove before building: a prototype on a fresh local DB that patches 879755662 with death_date 2026-11-07 and checks existence_until, the Units-over-time chart and the enterprise.
+<!-- SECTION:NOTES:END -->
