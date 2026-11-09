@@ -651,8 +651,9 @@ def capture_expected_jobs(dataset, skip_setup=False):
     """Capture measured identity before the worker, validating the loader's job set."""
     conn = get_conn()
     with closing(conn), conn.cursor() as cur:
-        cur.execute("SELECT id, slug, data_table_name FROM public.import_job ORDER BY id")
-        available = [{"id": row[0], "slug": row[1], "data_table_name": row[2]} for row in cur.fetchall()]
+        cur.execute("SELECT id, slug, upload_table_name, data_table_name FROM public.import_job ORDER BY id")
+        available = [{"id": row[0], "slug": row[1], "upload_table_name": row[2], "data_table_name": row[3]}
+                     for row in cur.fetchall()]
     slugs = {job["slug"] for job in available}
     if dataset == "mixed":
         required = {"import_mixed_lu", "import_mixed_es", "import_mixed_informal"}
@@ -675,10 +676,12 @@ def capture_expected_jobs(dataset, skip_setup=False):
     if missing:
         raise ValueError(f"expected jobs absent before worker: {sorted(missing)}")
     selected = [job for job in available if job["slug"] in required]
+    # The loaded input is the upload table. The data table is filled later, by
+    # the job's analysis inside the worker run being measured.
     conn = get_conn()
     with closing(conn), conn.cursor() as cur:
         for job in selected:
-            cur.execute(sql.SQL("SELECT count(*) FROM public.{}").format(sql.Identifier(job["data_table_name"])))
+            cur.execute(sql.SQL("SELECT count(*) FROM public.{}").format(sql.Identifier(job["upload_table_name"])))
             job["uploaded_rows"] = cur.fetchone()[0]
     return selected
 
