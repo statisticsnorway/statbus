@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-09T12:19:00Z'
-updated_date: '2026-11-09T20:43:00Z'
+updated_date: '2026-11-09T20:44:00Z'
 labels:
   - performance
   - worker
@@ -28,20 +28,23 @@ After a large import, the full-register recalculation reaches idle sooner, with 
 
 ### Zoom out
 
-STATBUS-598 removed three derive overheads: oversized refresh payloads, the change-set temp table, and full scans in the used-code views. The largest remaining step that runs one batch at a time is statistical_unit_flush_staging: 607-659 s on the biggest recalculation of a full BRREG import, when about 1.2M rows merge into the 9 GB statistical_unit table with 40 indexes. Every recalculation also runs a fixed ~7 s ANALYZE of that table, and a full import triggers 28-40 recalculations.
+STATBUS-598 removed three derive overheads: oversized refresh payloads, the change-set temp table, and full scans in the used-code views. The largest remaining step that runs one batch at a time is statistical_unit_flush_staging: 607-659 s on the biggest recalculation of a full BRREG import, when about 1.8M staged rows are matched against the 9 GB statistical_unit table with 40 indexes.
 
 ### Zoom in
 
-Measure before changing. On a retained full register (import_benchmark_64469), replay the 1,855-batch cycle in a rolled-back transaction and time the flush phases separately: DELETE, MERGE, TRUNCATE and ANALYZE. Measure how much of the MERGE is index maintenance, using a private clone with groups of indexes removed. Check whether ANALYZE can be limited (sampled columns, skipped when few rows changed, or once per import) without worse plans in later cycles. Prepared script: tmp/598/flush-profile-plan.sql in the Hibiscus checkout.
+Measure before changing. On a retained full register (import_benchmark_64469), replay the 1,855-batch cycle in a rolled-back transaction and time the flush phases separately: DELETE, MERGE and ANALYZE. Find why matching is slow, and measure whether dropping and recreating indexes around large flushes pays off, and from what change size.
 
 Scope: no import concurrency, no release or host operation. Timing only on a quiet machine or dev (owner, 2026-11-09 12:09).
+
+### Closing review
+
+Memory: none needed; the behavior is defined in the flush procedure's own comment. Documentation: regenerate the paired schema docs for any changed procedure; the measurements stay in this ticket. Cleanup: preserve import_benchmark_64469 and the measurement scripts and logs while related work is open; any database removal needs separate named approval.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 A statement-level profile of the largest flush cycle names where the time goes (DELETE, MERGE, index maintenance, ANALYZE), with source, data and machine context.
-- [ ] #2 Any adopted change has a regression test that fails before and passes after, exact statistical_unit and history parity on a real-worker run, a paired migration with schema docs, and hosted CI.
-- [ ] #3 If no change is worthwhile, the ticket records a measured rejection and no runtime change.
+- [ ] #2 [Owner] The adopt-or-reject decision for each measured change is recorded in Implementation Notes. Adopt requires a regression test that fails before and passes after, identical statistical_unit rows on the full register, a paired migration with schema docs, and hosted CI on master; reject requires the measured reason and no runtime change.
 <!-- AC:END -->
 
 ## Implementation Notes
