@@ -29,6 +29,8 @@
 #     --files    use enheter.csv and underenheter.csv from DIR instead of downloading (tests)
 #     --process-inline  run the import and analytics queues in this session instead of
 #                waiting for the deployment's worker (tests on a scratch database)
+#     --label    job slug suffix instead of YYYY_MM, for an extra run inside a month
+#                (a catch-up run mid-month, so the run on the 2nd still finds its slugs free)
 # Environment: USER_EMAIL (the StatBus user that owns the jobs), SLACK_TOKEN (optional),
 #   STATBUS_DIR (the StatBus checkout whose ./sb and database the run uses; default: the
 #   checkout this script is in). The script and its helpers may live in a separate clone,
@@ -40,7 +42,7 @@ WORKSPACE="$(cd "${STATBUS_DIR:-$SCRIPT_DIR/../../..}" && pwd)"
 cd "$WORKSPACE"
 [ -x ./sb ] || { echo "brreg-monthly: no ./sb in $WORKSPACE; set STATBUS_DIR" >&2; exit 2; }
 
-MONTH="" SINCE="" DRY_RUN=0 DATABASE="" FILES="" PROCESS_INLINE=0
+MONTH="" SINCE="" DRY_RUN=0 DATABASE="" FILES="" PROCESS_INLINE=0 LABEL=""
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --month) MONTH=$2; shift 2 ;;
@@ -49,6 +51,7 @@ while [ "$#" -gt 0 ]; do
         --database) DATABASE=$2; shift 2 ;;
         --files) FILES=$2; shift 2 ;;
         --process-inline) PROCESS_INLINE=1; shift ;;
+        --label) LABEL=$2; shift 2 ;;
         -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
         *) echo "brreg-monthly: unknown argument $1" >&2; exit 2 ;;
     esac
@@ -69,7 +72,8 @@ if [ -z "$MONTH" ]; then
 fi
 [[ "$MONTH" =~ ^[0-9]{4}-[0-9]{2}$ ]] || { echo "brreg-monthly: --month must be YYYY-MM" >&2; exit 2; }
 VALID_FROM="$MONTH-01"
-SUFFIX=${MONTH/-/_}
+SUFFIX=${LABEL:-${MONTH/-/_}}
+[[ "$SUFFIX" =~ ^[a-z0-9_]+$ ]] || { echo "brreg-monthly: --label must be lower-case letters, digits and _" >&2; exit 2; }
 if [ -z "$SINCE" ]; then
     SINCE=$(cat "$STATE_DIR/last-since" 2>/dev/null || echo "$VALID_FROM")
 fi
