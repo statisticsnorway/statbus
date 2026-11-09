@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T22:11:00Z'
+updated_date: '2026-11-09T22:35:00Z'
 labels:
   - import
   - norway
@@ -93,4 +93,6 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 2026-11-09 21:44 UTC finding (tmp/journal.md): rune's only import loaded the BRREG files downloaded 2026-04-21 with valid_from 2026-11-07. The feed since 2026-04-21 shows 28,842 legal units and 20,659 establishments deleted, ~49k of them before 2026-11-07, so they count on rune although BRREG deleted them months earlier. The import cannot give them their real death date (death before the record start is refused; a row starting before the record inserts an unnamed portion and fails the job, tmp/600-baseline-overlap-proto.log). Today's enheter.csv has 90 columns vs rune's 68 (22 added, order changed), so the loader must select the definition's columns by name. Owner decision asked (Q10): re-baseline rune from today's files, or keep rune's data and report the stale units.
 
 2026-11-09 22:11 UTC 70a177ff0: samples/norway/brreg/brreg-monthly.sh (four monthly jobs, upgrade wait 2 h then skip, lock, stop-and-report, figures.tsv, Slack), brreg-fit-csv.py (columns by name; status passive from konkurs/underAvvikling/underTvangsavviklingEllerTvangsopplosning), brreg-deletions-since.py (feed paged by oppdateringsid, deletions for known units only), brreg_hovedenhet_2025 maps status_code, README Monthly Intake section with the crontab entry. End-to-end on scratch DB statbus_600_monthly with 5,000 real legal units + 3,790 establishments over Oct and Nov (tmp/journal.md, tmp/600-e2e/): all jobs finished, unchanged units keep one record, renamed and bankrupt units get a November record (bankrupt passive), 50 deleted units closed on their slettedato, Units over time: 50 deaths in November. Found and fixed during the test: an empty deletion upload leaves its job waiting_for_upload forever, so a deletion job is created only when its list has rows. Not yet run on rune: waiting for the owner's Q10 (re-baseline) and Q9 (permission).
+
+2026-11-09 22:35 UTC read-only dry run on rune (b1ed7f32e from ~/brreg-monthly, a separate clone; ~/statbus release checkout untouched): today's files 1,180,466 legal units (13,219 passive by flags), 868,391 establishments. Feed since 2026-11-01: 1,372 legal units deleted, of which 1,032 died on or before rune's record start 2026-11-07 (including 879755662 and 969313480), so only 196 can be closed on rune as it is; establishments 793 deleted, 535 before 2026-11-07, 108 closable. Commits: 70a177ff0 (monthly intake), 2f910e980 (separate clone), 785804ab7 (status_code added in place), b1ed7f32e (deletions start no earlier than the first record). Recommendation to owner: Q10 option A (re-baseline rune from today's files valid from 2026-11-01).
 <!-- SECTION:NOTES:END -->
