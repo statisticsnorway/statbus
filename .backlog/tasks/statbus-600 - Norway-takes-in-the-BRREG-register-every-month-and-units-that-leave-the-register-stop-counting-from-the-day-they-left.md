@@ -51,7 +51,7 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Deletion jobs on the existing definitions close each listed legal unit and establishment on its death date, in the job's month or the previous one, and leave every other unit unchanged (SQL test 395)
+- [x] #1 Deletion jobs on the existing definitions close each listed legal unit and establishment on its death date, in the job's month or the previous one, and leave every other unit unchanged (SQL test 395)
 - [ ] #2 A monthly BRREG run creates the four jobs for that month (two full files, two deletion lists) and leaves earlier months' jobs untouched
 - [ ] #3 [Owner] The rule for a unit missing from the full file with no feed deletion is decided and recorded in Implementation Notes with its consequence, and the run follows it
 - [ ] #4 [Owner] The run day and the full-file valid-from date are decided and recorded in Implementation Notes with their consequence (run day decided: the 2nd, Q2)
@@ -77,4 +77,6 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 2026-11-09 20:42 UTC owner domain input: in Norway activity decides status, but StatBus takes status from BRREG. When a unit shows no activity for a long time BRREG deletes its last establishment and keeps the legal unit; new registrations get both. Fit with the design: test 395 already asserts that an establishment deletion leaves the legal unit alive and linked; new registrations arrive as Ny in both feeds (November sample tmp/brreg-feed: enheter Ny 1094, Sletting 597, Endring 8298, Fjernet 11; underenheter Ny 1637, Sletting 793, Endring 3677, Fjernet 87). Gap: brreg_hovedenhet_2025 and brreg_underenhet_2025 map no status column (konkurs, underAvvikling, underTvangsavvikling..., aktivitet are ignored), so every BRREG unit gets the default status Active. A legal unit left without establishments stays Active and counted. Status mapping added to the owner interview.
 
 2026-11-09 21:16 UTC CI: every workflow for master da4402a41 completed/success (Fast Tests, Go Test, app build & lint, Images, Harness Selftest, Push on master). That commit contains test 395 (c93383eb2). Owner answers so far: Q1 four jobs a month, yes; Q2 run on the 2nd (02:00 Oslo), bringing in the previous month, yes. Q3 BRREG status: open, proposed for its own ticket.
+
+2026-11-09 21:17 UTC AC1 met: SQL test 395 (c93383eb2) passes locally and in CI (master da4402a41, Fast Tests completed/success). It closes legal units on 2026-11-07 (job's month) and 2026-10-25 (previous month) and an establishment on 2026-11-20, leaving the unchanged legal unit 917669791 and the establishment 895406732 open. Owner decision Q2 (20:53): the run is on the 2nd of each month; consequence: it reads the files BRREG built on the 1st, so each run brings in the whole previous month.
 <!-- SECTION:NOTES:END -->
