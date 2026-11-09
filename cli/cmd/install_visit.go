@@ -85,7 +85,13 @@ var visitChecksForDir = visitChecks
 
 // visitSystemRoots is a seam: the trust store the site check verifies
 // certificates against. Tests substitute a pool holding the test CA.
-var visitSystemRoots = x509.SystemCertPool
+//
+// It reads the trust store as it is now. x509.SystemCertPool reads it once
+// per process, and an install can make HTTPS requests (the release signer
+// fetch) before the operator's CA joins the store at the certificate prompt.
+// The check must judge the certificate the way a browser on this server
+// would at that moment.
+var visitSystemRoots = currentSystemRoots
 
 // verifyAdvertisedSite probes every advertised origin within budget. A fatal
 // check that still fails at the deadline stops the install with the origins
