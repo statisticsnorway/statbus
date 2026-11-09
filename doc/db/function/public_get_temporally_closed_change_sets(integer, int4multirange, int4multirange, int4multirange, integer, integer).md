@@ -12,19 +12,16 @@ DECLARE
     v_skipped INT := 0;
     v_has_more BOOLEAN := FALSE;
     v_has_bridges BOOLEAN;
+    -- The change set being assembled. Each group appends its ids, so assembly costs
+    -- one array append per group rather than one temp-table INSERT per id kind.
+    v_acc_group_ids INT[] := '{}';
+    v_acc_enterprise_ids INT[] := '{}';
+    v_acc_legal_unit_ids INT[] := '{}';
+    v_acc_establishment_ids INT[] := '{}';
 BEGIN
     v_filter_active := (p_establishment_id_ranges IS NOT NULL
                        OR p_legal_unit_id_ranges IS NOT NULL
                        OR p_enterprise_id_ranges IS NOT NULL);
-
-    -- Use temp table to accumulate IDs for change-set assembly (O(n) vs O(n²) array concat)
-    IF to_regclass('pg_temp._change_set_accumulator') IS NOT NULL THEN DROP TABLE _change_set_accumulator; END IF;
-    CREATE TEMP TABLE _change_set_accumulator (
-        group_id INT,
-        enterprise_id INT,
-        legal_unit_id INT,
-        establishment_id INT
-    ) ON COMMIT DROP;
 
     IF v_filter_active THEN
         ---------------------------------------------------------------
@@ -160,27 +157,26 @@ BEGIN
                         v_skipped := v_skipped + 1;
                         v_current_change_set_seq := v_current_change_set_seq + 1;
                         v_current_change_set_size := 0;
-                        TRUNCATE _change_set_accumulator;
+                        v_acc_group_ids := '{}'; v_acc_enterprise_ids := '{}'; v_acc_legal_unit_ids := '{}'; v_acc_establishment_ids := '{}';
                     ELSE
                         SELECT v_current_change_set_seq,
-                            array_agg(DISTINCT ba.group_id ORDER BY ba.group_id) FILTER (WHERE ba.group_id IS NOT NULL),
-                            array_agg(DISTINCT ba.enterprise_id ORDER BY ba.enterprise_id) FILTER (WHERE ba.enterprise_id IS NOT NULL),
-                            array_agg(DISTINCT ba.legal_unit_id ORDER BY ba.legal_unit_id) FILTER (WHERE ba.legal_unit_id IS NOT NULL),
-                            array_agg(DISTINCT ba.establishment_id ORDER BY ba.establishment_id) FILTER (WHERE ba.establishment_id IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_group_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_enterprise_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_legal_unit_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_establishment_ids) AS x WHERE x IS NOT NULL),
                             v_current_change_set_size, FALSE
-                        INTO change_set_seq, group_ids, enterprise_ids, legal_unit_ids, establishment_ids, total_unit_count, has_more
-                        FROM _change_set_accumulator ba;
+                        INTO change_set_seq, group_ids, enterprise_ids, legal_unit_ids, establishment_ids, total_unit_count, has_more;
                         RETURN NEXT;
                         v_change_sets_returned := v_change_sets_returned + 1;
                         v_current_change_set_seq := v_current_change_set_seq + 1;
                         v_current_change_set_size := 0;
-                        TRUNCATE _change_set_accumulator;
+                        v_acc_group_ids := '{}'; v_acc_enterprise_ids := '{}'; v_acc_legal_unit_ids := '{}'; v_acc_establishment_ids := '{}';
                     END IF;
                 END IF;
-                INSERT INTO _change_set_accumulator (group_id) VALUES (v_group.group_id);
-                INSERT INTO _change_set_accumulator (enterprise_id) SELECT UNNEST(v_group.enterprise_ids);
-                INSERT INTO _change_set_accumulator (legal_unit_id) SELECT UNNEST(COALESCE(v_group.legal_unit_ids, ARRAY[]::INT[]));
-                INSERT INTO _change_set_accumulator (establishment_id) SELECT UNNEST(COALESCE(v_group.establishment_ids, ARRAY[]::INT[]));
+                v_acc_group_ids := v_acc_group_ids || v_group.group_id;
+                v_acc_enterprise_ids := v_acc_enterprise_ids || v_group.enterprise_ids;
+                v_acc_legal_unit_ids := v_acc_legal_unit_ids || COALESCE(v_group.legal_unit_ids, ARRAY[]::INT[]);
+                v_acc_establishment_ids := v_acc_establishment_ids || COALESCE(v_group.establishment_ids, ARRAY[]::INT[]);
                 v_current_change_set_size := v_current_change_set_size + v_group.total_unit_count;
             END LOOP;
         ELSE
@@ -213,27 +209,26 @@ BEGIN
                         v_skipped := v_skipped + 1;
                         v_current_change_set_seq := v_current_change_set_seq + 1;
                         v_current_change_set_size := 0;
-                        TRUNCATE _change_set_accumulator;
+                        v_acc_group_ids := '{}'; v_acc_enterprise_ids := '{}'; v_acc_legal_unit_ids := '{}'; v_acc_establishment_ids := '{}';
                     ELSE
                         SELECT v_current_change_set_seq,
-                            array_agg(DISTINCT ba.group_id ORDER BY ba.group_id) FILTER (WHERE ba.group_id IS NOT NULL),
-                            array_agg(DISTINCT ba.enterprise_id ORDER BY ba.enterprise_id) FILTER (WHERE ba.enterprise_id IS NOT NULL),
-                            array_agg(DISTINCT ba.legal_unit_id ORDER BY ba.legal_unit_id) FILTER (WHERE ba.legal_unit_id IS NOT NULL),
-                            array_agg(DISTINCT ba.establishment_id ORDER BY ba.establishment_id) FILTER (WHERE ba.establishment_id IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_group_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_enterprise_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_legal_unit_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_establishment_ids) AS x WHERE x IS NOT NULL),
                             v_current_change_set_size, FALSE
-                        INTO change_set_seq, group_ids, enterprise_ids, legal_unit_ids, establishment_ids, total_unit_count, has_more
-                        FROM _change_set_accumulator ba;
+                        INTO change_set_seq, group_ids, enterprise_ids, legal_unit_ids, establishment_ids, total_unit_count, has_more;
                         RETURN NEXT;
                         v_change_sets_returned := v_change_sets_returned + 1;
                         v_current_change_set_seq := v_current_change_set_seq + 1;
                         v_current_change_set_size := 0;
-                        TRUNCATE _change_set_accumulator;
+                        v_acc_group_ids := '{}'; v_acc_enterprise_ids := '{}'; v_acc_legal_unit_ids := '{}'; v_acc_establishment_ids := '{}';
                     END IF;
                 END IF;
-                INSERT INTO _change_set_accumulator (group_id) VALUES (v_group.group_id);
-                INSERT INTO _change_set_accumulator (enterprise_id) SELECT UNNEST(v_group.enterprise_ids);
-                INSERT INTO _change_set_accumulator (legal_unit_id) SELECT UNNEST(COALESCE(v_group.legal_unit_ids, ARRAY[]::INT[]));
-                INSERT INTO _change_set_accumulator (establishment_id) SELECT UNNEST(COALESCE(v_group.establishment_ids, ARRAY[]::INT[]));
+                v_acc_group_ids := v_acc_group_ids || v_group.group_id;
+                v_acc_enterprise_ids := v_acc_enterprise_ids || v_group.enterprise_ids;
+                v_acc_legal_unit_ids := v_acc_legal_unit_ids || COALESCE(v_group.legal_unit_ids, ARRAY[]::INT[]);
+                v_acc_establishment_ids := v_acc_establishment_ids || COALESCE(v_group.establishment_ids, ARRAY[]::INT[]);
                 v_current_change_set_size := v_current_change_set_size + v_group.total_unit_count;
             END LOOP;
         END IF;
@@ -310,27 +305,26 @@ BEGIN
                         v_skipped := v_skipped + 1;
                         v_current_change_set_seq := v_current_change_set_seq + 1;
                         v_current_change_set_size := 0;
-                        TRUNCATE _change_set_accumulator;
+                        v_acc_group_ids := '{}'; v_acc_enterprise_ids := '{}'; v_acc_legal_unit_ids := '{}'; v_acc_establishment_ids := '{}';
                     ELSE
                         SELECT v_current_change_set_seq,
-                            array_agg(DISTINCT ba.group_id ORDER BY ba.group_id) FILTER (WHERE ba.group_id IS NOT NULL),
-                            array_agg(DISTINCT ba.enterprise_id ORDER BY ba.enterprise_id) FILTER (WHERE ba.enterprise_id IS NOT NULL),
-                            array_agg(DISTINCT ba.legal_unit_id ORDER BY ba.legal_unit_id) FILTER (WHERE ba.legal_unit_id IS NOT NULL),
-                            array_agg(DISTINCT ba.establishment_id ORDER BY ba.establishment_id) FILTER (WHERE ba.establishment_id IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_group_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_enterprise_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_legal_unit_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_establishment_ids) AS x WHERE x IS NOT NULL),
                             v_current_change_set_size, FALSE
-                        INTO change_set_seq, group_ids, enterprise_ids, legal_unit_ids, establishment_ids, total_unit_count, has_more
-                        FROM _change_set_accumulator ba;
+                        INTO change_set_seq, group_ids, enterprise_ids, legal_unit_ids, establishment_ids, total_unit_count, has_more;
                         RETURN NEXT;
                         v_change_sets_returned := v_change_sets_returned + 1;
                         v_current_change_set_seq := v_current_change_set_seq + 1;
                         v_current_change_set_size := 0;
-                        TRUNCATE _change_set_accumulator;
+                        v_acc_group_ids := '{}'; v_acc_enterprise_ids := '{}'; v_acc_legal_unit_ids := '{}'; v_acc_establishment_ids := '{}';
                     END IF;
                 END IF;
-                INSERT INTO _change_set_accumulator (group_id) VALUES (v_group.group_id);
-                INSERT INTO _change_set_accumulator (enterprise_id) SELECT UNNEST(v_group.enterprise_ids);
-                INSERT INTO _change_set_accumulator (legal_unit_id) SELECT UNNEST(COALESCE(v_group.legal_unit_ids, ARRAY[]::INT[]));
-                INSERT INTO _change_set_accumulator (establishment_id) SELECT UNNEST(COALESCE(v_group.establishment_ids, ARRAY[]::INT[]));
+                v_acc_group_ids := v_acc_group_ids || v_group.group_id;
+                v_acc_enterprise_ids := v_acc_enterprise_ids || v_group.enterprise_ids;
+                v_acc_legal_unit_ids := v_acc_legal_unit_ids || COALESCE(v_group.legal_unit_ids, ARRAY[]::INT[]);
+                v_acc_establishment_ids := v_acc_establishment_ids || COALESCE(v_group.establishment_ids, ARRAY[]::INT[]);
                 v_current_change_set_size := v_current_change_set_size + v_group.total_unit_count;
             END LOOP;
         ELSE
@@ -361,27 +355,26 @@ BEGIN
                         v_skipped := v_skipped + 1;
                         v_current_change_set_seq := v_current_change_set_seq + 1;
                         v_current_change_set_size := 0;
-                        TRUNCATE _change_set_accumulator;
+                        v_acc_group_ids := '{}'; v_acc_enterprise_ids := '{}'; v_acc_legal_unit_ids := '{}'; v_acc_establishment_ids := '{}';
                     ELSE
                         SELECT v_current_change_set_seq,
-                            array_agg(DISTINCT ba.group_id ORDER BY ba.group_id) FILTER (WHERE ba.group_id IS NOT NULL),
-                            array_agg(DISTINCT ba.enterprise_id ORDER BY ba.enterprise_id) FILTER (WHERE ba.enterprise_id IS NOT NULL),
-                            array_agg(DISTINCT ba.legal_unit_id ORDER BY ba.legal_unit_id) FILTER (WHERE ba.legal_unit_id IS NOT NULL),
-                            array_agg(DISTINCT ba.establishment_id ORDER BY ba.establishment_id) FILTER (WHERE ba.establishment_id IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_group_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_enterprise_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_legal_unit_ids) AS x WHERE x IS NOT NULL),
+                            (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_establishment_ids) AS x WHERE x IS NOT NULL),
                             v_current_change_set_size, FALSE
-                        INTO change_set_seq, group_ids, enterprise_ids, legal_unit_ids, establishment_ids, total_unit_count, has_more
-                        FROM _change_set_accumulator ba;
+                        INTO change_set_seq, group_ids, enterprise_ids, legal_unit_ids, establishment_ids, total_unit_count, has_more;
                         RETURN NEXT;
                         v_change_sets_returned := v_change_sets_returned + 1;
                         v_current_change_set_seq := v_current_change_set_seq + 1;
                         v_current_change_set_size := 0;
-                        TRUNCATE _change_set_accumulator;
+                        v_acc_group_ids := '{}'; v_acc_enterprise_ids := '{}'; v_acc_legal_unit_ids := '{}'; v_acc_establishment_ids := '{}';
                     END IF;
                 END IF;
-                INSERT INTO _change_set_accumulator (group_id) VALUES (v_group.group_id);
-                INSERT INTO _change_set_accumulator (enterprise_id) SELECT UNNEST(v_group.enterprise_ids);
-                INSERT INTO _change_set_accumulator (legal_unit_id) SELECT UNNEST(COALESCE(v_group.legal_unit_ids, ARRAY[]::INT[]));
-                INSERT INTO _change_set_accumulator (establishment_id) SELECT UNNEST(COALESCE(v_group.establishment_ids, ARRAY[]::INT[]));
+                v_acc_group_ids := v_acc_group_ids || v_group.group_id;
+                v_acc_enterprise_ids := v_acc_enterprise_ids || v_group.enterprise_ids;
+                v_acc_legal_unit_ids := v_acc_legal_unit_ids || COALESCE(v_group.legal_unit_ids, ARRAY[]::INT[]);
+                v_acc_establishment_ids := v_acc_establishment_ids || COALESCE(v_group.establishment_ids, ARRAY[]::INT[]);
                 v_current_change_set_size := v_current_change_set_size + v_group.total_unit_count;
             END LOOP;
         END IF;
@@ -395,13 +388,12 @@ BEGIN
             v_has_more := FALSE;
         ELSE
             SELECT v_current_change_set_seq,
-                array_agg(DISTINCT ba.group_id ORDER BY ba.group_id) FILTER (WHERE ba.group_id IS NOT NULL),
-                array_agg(DISTINCT ba.enterprise_id ORDER BY ba.enterprise_id) FILTER (WHERE ba.enterprise_id IS NOT NULL),
-                array_agg(DISTINCT ba.legal_unit_id ORDER BY ba.legal_unit_id) FILTER (WHERE ba.legal_unit_id IS NOT NULL),
-                array_agg(DISTINCT ba.establishment_id ORDER BY ba.establishment_id) FILTER (WHERE ba.establishment_id IS NOT NULL),
+                (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_group_ids) AS x WHERE x IS NOT NULL),
+                (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_enterprise_ids) AS x WHERE x IS NOT NULL),
+                (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_legal_unit_ids) AS x WHERE x IS NOT NULL),
+                (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(v_acc_establishment_ids) AS x WHERE x IS NOT NULL),
                 v_current_change_set_size, FALSE
-            INTO change_set_seq, group_ids, enterprise_ids, legal_unit_ids, establishment_ids, total_unit_count, has_more
-            FROM _change_set_accumulator ba;
+            INTO change_set_seq, group_ids, enterprise_ids, legal_unit_ids, establishment_ids, total_unit_count, has_more;
             RETURN NEXT;
         END IF;
     END IF;
