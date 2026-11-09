@@ -19,12 +19,20 @@ A deleted unit StatBus does not have (born and deleted inside the window) is
 counted, not written: a row for an unknown unit carries no name and stops the
 import job for review.
 
+When StatBus's first record of the unit starts later than that valid_from, the
+row starts there instead: a row starting before the unit's first record would
+add an unnamed portion and fail the job. A unit that died on or before its first
+StatBus record cannot be closed by a row and is counted
+(deleted_before_first_record); this happens only when a baseline was imported
+with a validity later than BRREG's deletions.
+
 Usage:
   brreg-deletions-since.py --register enheter|underenheter --since 2026-11-01 \
-      --known known-idents.txt --out deletions.csv [--state state.json]
+      --known known-idents.csv --out deletions.csv [--state state.json]
 
   --since    ISO date; the feed is read from 00:00 UTC that day.
-  --known    file with one organisasjonsnummer per line that StatBus already has.
+  --known    CSV without header, one line per unit StatBus already has:
+             organisasjonsnummer,first_valid_from (the start of its first record).
   --state    optional JSON file; receives counts and the last oppdateringsid read.
 """
 import argparse
@@ -93,14 +101,20 @@ def main():
     args = parser.parse_args()
 
     with open(args.known, encoding="utf-8") as known_file:
-        known = {line.strip() for line in known_file if line.strip()}
+        known = {}
+        for line in known_file:
+            if not line.strip():
+                continue
+            orgnr, first_valid_from = line.strip().split(",")
+            known[orgnr] = datetime.date.fromisoformat(first_valid_from)
 
     last, last_id = last_change_per_unit(args.register, args.since.isoformat())
     deleted = sorted(orgnr for orgnr, change in last.items() if change == "Sletting")
     removed = sorted(orgnr for orgnr, change in last.items() if change == "Fjernet")
 
     counts = {"changed_units": len(last), "deleted": len(deleted), "removed_fjernet": len(removed),
-              "deleted_unknown_to_statbus": 0, "deleted_without_slettedato": 0, "written": 0}
+              "deleted_unknown_to_statbus": 0, "deleted_without_slettedato": 0,
+              "deleted_before_first_record": 0, "written": 0}
     with open(args.out, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file)
         writer.writerow(["tax_ident", "death_date", "valid_from", "valid_to"])
@@ -112,7 +126,10 @@ def main():
             if death is None:
                 counts["deleted_without_slettedato"] += 1
                 continue
-            valid_from = (death - datetime.timedelta(days=1)).replace(day=1)
+            valid_from = max((death - datetime.timedelta(days=1)).replace(day=1), known[orgnr])
+            if death <= valid_from:
+                counts["deleted_before_first_record"] += 1
+                continue
             writer.writerow([orgnr, death.isoformat(), valid_from.isoformat(), "infinity"])
             counts["written"] += 1
 

@@ -169,8 +169,8 @@ echo "$lu_fit"; echo "$es_fit"
 
 echo "== deletions since ${SINCE}"
 feed_read_on=$(date -u +%Y-%m-%d)
-sql_value "SELECT ident FROM public.external_ident ei JOIN public.external_ident_type t ON t.id = ei.type_id WHERE t.code = 'tax_ident' AND ei.legal_unit_id IS NOT NULL;" > "$WORK/known-legal-units.txt"
-sql_value "SELECT ident FROM public.external_ident ei JOIN public.external_ident_type t ON t.id = ei.type_id WHERE t.code = 'tax_ident' AND ei.establishment_id IS NOT NULL;" > "$WORK/known-establishments.txt"
+sql_value "SELECT ei.ident || ',' || min(lu.valid_from) FROM public.external_ident ei JOIN public.external_ident_type t ON t.id = ei.type_id JOIN public.legal_unit lu ON lu.id = ei.legal_unit_id WHERE t.code = 'tax_ident' GROUP BY ei.ident;" > "$WORK/known-legal-units.txt"
+sql_value "SELECT ei.ident || ',' || min(es.valid_from) FROM public.external_ident ei JOIN public.external_ident_type t ON t.id = ei.type_id JOIN public.establishment es ON es.id = ei.establishment_id WHERE t.code = 'tax_ident' GROUP BY ei.ident;" > "$WORK/known-establishments.txt"
 lu_del=$("$PYTHON" "$SCRIPT_DIR/brreg-deletions-since.py" --register enheter --since "$SINCE" \
     --known "$WORK/known-legal-units.txt" --out "$WORK/hovedenhet-slettet.csv")
 es_del=$("$PYTHON" "$SCRIPT_DIR/brreg-deletions-since.py" --register underenheter --since "$SINCE" \
