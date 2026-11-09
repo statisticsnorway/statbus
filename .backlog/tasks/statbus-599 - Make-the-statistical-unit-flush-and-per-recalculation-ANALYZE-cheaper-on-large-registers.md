@@ -3,11 +3,11 @@ id: STATBUS-599
 title: >-
   Make the statistical-unit flush and per-recalculation ANALYZE cheaper on large
   registers
-status: To Do
+status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-09T12:19:00Z'
-updated_date: '2026-11-09T12:19:00Z'
+updated_date: '2026-11-09T15:09:00Z'
 labels:
   - performance
   - worker
@@ -43,3 +43,9 @@ Scope: no import concurrency, no release or host operation. Timing only on a qui
 - [ ] #2 Any adopted change has a regression test that fails before and passes after, exact statistical_unit and history parity on a real-worker run, a paired migration with schema docs, and hosted CI.
 - [ ] #3 If no change is worthwhile, the ticket records a measured rejection and no runtime change.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-09 15:10UTC Hibiscus: started on owner request. Step 1 is a rolled-back statement-level profile of the largest flush cycle on retained import_benchmark_64469 (local, machine idle, no import or test suite running).
+<!-- SECTION:NOTES:END -->
