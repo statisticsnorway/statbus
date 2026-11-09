@@ -14,6 +14,7 @@ labels:
   - brreg
 dependencies: []
 priority: high
+type: feature
 ordinal: 516204
 ---
 
