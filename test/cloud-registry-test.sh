@@ -250,6 +250,20 @@ output=$(SB_DRIFT=1 run_cloud install no --version vX 2>&1) || fail "install wit
 assert_contains "$(cat "$OPS_LOG")" "dev.sh build-sb" "a stale ./sb is rebuilt with dev.sh build-sb"
 assert_contains "$output" "Refreshing the local ./sb" "the refresh is announced"
 
+# November 9, 15:14 UTC: `./cloud.sh install stable` put v2026.11.3-rc.04 on et
+# and jo. The unpinned bootstrap install named the prerelease channel for every
+# box, whatever channel the box follows. Each box installs on its own channel:
+# stable boxes get the latest stable release, Norway and dev the latest
+# candidate.
+for case in "ug stable" "no prerelease" "dev prerelease"; do
+    read -r code channel <<<"$case"
+    output=$(run_cloud install "$code" 2>&1) || fail "unpinned install $code should succeed: $output"
+    assert_contains "$(cat "$SB_LOG")" "release verify-artifacts --channel $channel" "unpinned install of $code checks the $channel artifacts"
+    assert_contains "$(cat "$SSH_LOG")" "bash -s -- --channel $channel" "unpinned install of $code installs from the $channel channel"
+done
+output=$(run_cloud install stable 2>&1) || fail "install stable should succeed: $output"
+assert_not_contains "$(cat "$SSH_LOG")" "--channel prerelease" "install stable installs no candidate on any stable box"
+
 set +e
 output=$(SSH_EXIT=47 SSH_INSTALL_OUTPUT='database route unavailable' run_cloud install no --version vX 2>&1); rc=$?
 set -e
