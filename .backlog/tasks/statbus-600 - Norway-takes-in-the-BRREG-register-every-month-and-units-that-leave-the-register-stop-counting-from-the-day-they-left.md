@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T22:47:00Z'
+updated_date: '2026-11-09T22:48:00Z'
 labels:
   - import
   - norway
@@ -97,4 +97,6 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 2026-11-09 22:35 UTC read-only dry run on rune (b1ed7f32e from ~/brreg-monthly, a separate clone; ~/statbus release checkout untouched): today's files 1,180,466 legal units (13,219 passive by flags), 868,391 establishments. Feed since 2026-11-01: 1,372 legal units deleted, of which 1,032 died on or before rune's record start 2026-11-07 (including 879755662 and 969313480), so only 196 can be closed on rune as it is; establishments 793 deleted, 535 before 2026-11-07, 108 closable. Commits: 70a177ff0 (monthly intake), 2f910e980 (separate clone), 785804ab7 (status_code added in place), b1ed7f32e (deletions start no earlier than the first record). Recommendation to owner: Q10 option A (re-baseline rune from today's files valid from 2026-11-01).
 
 2026-11-09 22:47 UTC a456e15d7 lists units missing from the file without a feed deletion (counted in Slack, not closed). Read-only dry run on rune: 70,090 legal units and 83,994 establishments rune counts are absent from today's files with no deletion in the feed since 2026-11-01. A sample of 5 looked up in BRREG all have a slettedato between 2025-08-12 and 2026-04-28: rune's baseline files held units deleted long before, and rune stamped them valid from 2026-11-07, so none can be closed with their real date. Proposal for Q5, improved: look each missing unit up and close it at its slettedato (with option A this applies only to units missing after the re-baseline). Recommendation for Q10 stays A.
+
+2026-11-09 22:50 UTC caveat for option A: today's files no longer list units BRREG deleted between 1 and 9 November (1,372 legal units, 793 establishments, including 879755662 and 969313480), so a re-baseline valid from 2026-11-01 leaves them out instead of closing them on their date. AC5 ("closes 879755662 and 969313480 at 2026-11-07") then needs rewording to "absent from the November register", or those units must be added from the BRREG unit lookup with their death date. Owner to choose in the morning.
 <!-- SECTION:NOTES:END -->
