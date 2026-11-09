@@ -1,0 +1,86 @@
+BEGIN;
+
+\i test/setup.sql
+
+-- STATBUS-598: worker.derive_statistical_unit splits the changed units into
+-- refresh batches of about 1000 units. worker.statistical_unit_refresh_batch
+-- reads the changed ranges only intersected with the batch's own units, so each
+-- batch payload carries exactly that intersection: the batch's share of the
+-- change. On a full register the whole changed set is millions of bytes, and
+-- thousands of batches would otherwise each store and parse all of it.
+
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+\o /dev/null
+\set ECHO none
+\i samples/demo/getting-started.sql
+\o
+\set ECHO all
+
+\echo "1200 enterprises, each with one primary legal unit, so derive spawns several batches"
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
+SELECT format('E392-%s', n), (SELECT id FROM auth.user LIMIT 1), 'STATBUS-598 test enterprise'
+FROM generate_series(1, 1200) AS n;
+
+INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, format('LU392-%s', e.short_name), e.id, true,
+       (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
+       (SELECT id FROM auth.user LIMIT 1), 'STATBUS-598 test legal unit'
+FROM public.enterprise AS e
+WHERE e.short_name LIKE 'E392-%';
+
+SELECT (SELECT count(*) FROM public.legal_unit) AS legal_units,
+       (SELECT count(*) FROM public.enterprise) AS enterprises;
+
+-- The worker runs derive as the database owner, not as an application user.
+RESET ROLE;
+
+-- A deriving task to parent the spawned batches, so they are inspected without running.
+INSERT INTO worker.tasks (command, payload)
+VALUES ('derive_units_phase', '{"command":"derive_units_phase"}')
+RETURNING id AS parent_id \gset
+
+\echo "Changed: every other legal unit, plus ids beyond the existing units"
+\echo "(those extra ids are part of the changed set but belong to no batch)"
+CREATE TEMP TABLE changed AS
+SELECT range_agg(int4range(id, id, '[]')) AS lu
+FROM (SELECT id FROM public.legal_unit WHERE id % 2 = 0
+      UNION ALL
+      SELECT generate_series(m + 1, m + 50) FROM (SELECT max(id) AS m FROM public.legal_unit) AS x) AS t;
+
+SELECT (worker.derive_statistical_unit(
+          p_establishment_id_ranges => '{}'::int4multirange,
+          p_legal_unit_id_ranges => changed.lu,
+          p_enterprise_id_ranges => '{}'::int4multirange,
+          p_valid_from => '2020-01-01',
+          p_valid_until => 'infinity',
+          p_task_id => :parent_id)->>'batch_count')::int AS batch_count
+FROM changed;
+
+\echo "Each batch carries exactly the changed ranges of its own units"
+WITH batch AS (
+    SELECT t.payload,
+           public.array_to_int4multirange(ARRAY(SELECT jsonb_array_elements_text(t.payload->'legal_unit_ids')::int)) AS lu
+    FROM worker.tasks AS t
+    WHERE t.parent_id = :parent_id
+      AND t.command = 'statistical_unit_refresh_batch'
+)
+SELECT count(*) AS batches,
+       count(*) FILTER (WHERE (payload->>'changed_legal_unit_id_ranges')::int4multirange
+                              = (SELECT changed.lu FROM changed) * COALESCE(lu, '{}'::int4multirange))
+           AS batches_carrying_own_lu_share,
+       count(*) FILTER (WHERE (payload->>'changed_establishment_id_ranges')::int4multirange = '{}'::int4multirange)
+           AS batches_with_empty_es_share,
+       count(*) FILTER (WHERE (payload->>'changed_enterprise_id_ranges')::int4multirange = '{}'::int4multirange)
+           AS batches_with_empty_en_share
+FROM batch;
+
+\echo "Together the batch shares are exactly the changed existing legal units"
+SELECT (SELECT range_agg(r)
+          FROM worker.tasks AS t,
+               unnest((t.payload->>'changed_legal_unit_id_ranges')::int4multirange) AS r
+         WHERE t.parent_id = :parent_id)
+       = (SELECT range_agg(int4range(id, id, '[]')) FROM public.legal_unit WHERE id % 2 = 0)
+       AS shares_union_is_changed_existing_units;
+
+ROLLBACK;

@@ -218,9 +218,16 @@ BEGIN
                         'establishment_ids', v_batch.establishment_ids,
                         'valid_from', p_valid_from,
                         'valid_until', p_valid_until,
-                        'changed_establishment_id_ranges', p_establishment_id_ranges::text,
-                        'changed_legal_unit_id_ranges', p_legal_unit_id_ranges::text,
-                        'changed_enterprise_id_ranges', p_enterprise_id_ranges::text
+                        -- A child reads changed ranges only intersected with its own batch units
+                        -- (worker.statistical_unit_refresh_batch), so each child carries just that
+                        -- intersection. NULL stays NULL ("no filter"); a non-NULL range set stays
+                        -- non-NULL, possibly '{}' ("nothing of this type changed").
+                        'changed_establishment_id_ranges', (p_establishment_id_ranges
+                            * COALESCE(public.array_to_int4multirange(v_batch.establishment_ids), '{}'::int4multirange))::text,
+                        'changed_legal_unit_id_ranges', (p_legal_unit_id_ranges
+                            * COALESCE(public.array_to_int4multirange(v_batch.legal_unit_ids), '{}'::int4multirange))::text,
+                        'changed_enterprise_id_ranges', (p_enterprise_id_ranges
+                            * COALESCE(public.array_to_int4multirange(v_batch.enterprise_ids), '{}'::int4multirange))::text
                     ),
                     p_parent_id => p_task_id
                 );
