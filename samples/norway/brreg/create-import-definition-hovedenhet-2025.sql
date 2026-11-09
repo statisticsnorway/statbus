@@ -108,7 +108,10 @@ BEGIN
             ('vedtektsfestetFormaal', NULL), -- Ignored
             ('aktivitet', NULL), -- Ignored
             ('registreringsnummerIHjemlandet', NULL), -- Ignored
-            ('paategninger', NULL) -- Ignored
+            ('paategninger', NULL), -- Ignored
+            -- Not a BRREG column: the loader derives it from konkurs, underAvvikling and
+            -- underTvangsavviklingEllerTvangsopplosning (samples/norway/brreg/brreg-fit-csv.py).
+            ('status_code', 'status_code')
         ) AS v(source_name, target_name);
 
     -- Loop through the temporary mapping list table
