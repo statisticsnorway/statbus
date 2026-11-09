@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T21:23:00Z'
+updated_date: '2026-11-09T21:24:00Z'
 labels:
   - import
   - norway
@@ -27,9 +27,11 @@ Norway (rune) takes in the BRREG register every month with no manual steps. The 
 
 ### Zoom out
 
-Today a BRREG import is a hand-run snapshot (`./cloud.sh import no downloads`) into fixed job slugs (`import_*_2025`). Nothing ends a unit that BRREG deletes: on 2026-11-09 the legal units 879755662 and 969313480, deleted by BRREG on 2026-11-07 after rune's snapshot, were still open-ended on rune. The import strategies map to sql_saga `temporal_merge` modes. Its delete option is never passed, and per-batch processing would make it delete every unit outside the batch, so it cannot close absent units.
+A BRREG import today is a hand-run snapshot, so nothing ends a unit that BRREG deletes: deleted units stay open-ended and keep counting. The import strategies cannot close units missing from a file either; deletion has to come from BRREG's own record of what left the register.
 
 ### Zoom in
+
+Today's loader runs `./cloud.sh import no downloads` into fixed job slugs (`import_*_2025`). On 2026-11-09 the legal units 879755662 and 969313480, deleted by BRREG on 2026-11-07 after rune's snapshot, were still open-ended on rune. The `temporal_merge` delete option is never passed, and per-batch processing would make it delete every unit outside the batch.
 
 Option C (owner, 2026-11-09): each month, import the full BRREG files, then close the units BRREG deleted. Four jobs a month, in this order (owner, Q1):
 
@@ -40,7 +42,7 @@ Option C (owner, 2026-11-09): each month, import the full BRREG files, then clos
 
 No new import mode. A deletion row is the organisation number, `death_date` = BRREG `slettedato`, and its own `valid_from` = the 1st of the month containing the day before the death (the date_consistency step requires the death to fall after the record's start). BRREG's change feed (`/api/oppdateringer/{enheter,underenheter}`, `endringstype=Sletting`) lists the deletions; the unit lookup gives `slettedato`. The feed reader writes only units StatBus already has; a unit born and deleted within the month is counted, not imported, because an unknown unit without a name stops the job for review. Close, not delete: history keeps the unit until the day it left. A legal unit's establishments close only through their own feed deletions. Scheduling is the statbus user's crontab on rune, on the 2nd of each month (owner, Q2).
 
-Out of scope: unit status from BRREG (bankruptcy, winding-up flags). Every BRREG unit stays Active until deleted; mapping BRREG flags to statuses needs its own design (owner, Q3 pending).
+Status (owner, Q3, option A): the loader derives each legal unit's status code from BRREG's flags (konkurs, underAvvikling, underTvangsavviklingEllerTvangsopplosning) before upload, as a test bridge. The general design, an expression over source columns in the import definition, is STATBUS-601, after the definition editor STATBUS-546.
 
 Evidence: `tmp/brreg-feed/`, `tmp/journal.md` and `tmp/600-*-proto.log` in the Rabbit checkout; SQL test 395.
 
@@ -54,9 +56,9 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 - [x] #1 Deletion jobs on the existing definitions close each listed legal unit and establishment on its death date, in the job's month or the previous one, and leave every other unit unchanged (SQL test 395)
 - [ ] #2 A monthly BRREG run creates the four jobs for that month (two full files, two deletion lists) and leaves earlier months' jobs untouched
 - [ ] #3 [Owner] The rule for a unit missing from the full file with no feed deletion is decided and recorded in Implementation Notes with its consequence, and the run follows it
-- [ ] #4 [Owner] The run day and the full-file valid-from date are decided and recorded in Implementation Notes with their consequence (run day decided: the 2nd, Q2)
-- [ ] #5 On rune, the first monthly run closes 879755662 and 969313480 at 2026-11-07, and the monthly figures (sizes, rows, run times, closed units) are recorded and reported
-- [ ] #6 The statbus user's crontab on rune runs the monthly cycle unattended; a failure stops the cycle and is reported, without retrying
+- [ ] #4 On rune, the first monthly run closes 879755662 and 969313480 at 2026-11-07, and the monthly figures (sizes, rows, run times, closed units) are recorded and reported
+- [ ] #5 The statbus user's crontab on rune runs the monthly cycle unattended; a failure stops the cycle and is reported, without retrying
+- [ ] #6 [Owner] The full-file valid-from date and the flags that make a legal unit Passive are decided and recorded in Implementation Notes with their consequence
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -81,4 +83,6 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 2026-11-09 21:17 UTC AC1 met: SQL test 395 (c93383eb2) passes locally and in CI (master da4402a41, Fast Tests completed/success). It closes legal units on 2026-11-07 (job's month) and 2026-10-25 (previous month) and an establishment on 2026-11-20, leaving the unchanged legal unit 917669791 and the establishment 895406732 open. Owner decision Q2 (20:53): the run is on the 2nd of each month; consequence: it reads the files BRREG built on the 1st, so each run brings in the whole previous month.
 
 2026-11-09 21:23 UTC owner decision Q3: option A. The BRREG loader derives each legal unit's status code from BRREG's flags before upload, as a test bridge until a general design (value mapping in import definitions, more status codes, activity-based status) exists. Consequence: brreg_hovedenhet_2025 gains a mapping from a loader-added status_code column; only Norway gets this. Data: the BRREG legal unit CSV has konkurs, underAvvikling, underTvangsavviklingEllerTvangsopplosning (true/false) plus dates; in the 4,924-row selection sample, 22 under winding-up, 18 bankrupt, 4 under forced winding-up. Next interview question (Q3b): which flags make a unit Passive, given StatBus has only Active and Passive.
+
+2026-11-09 21:24 UTC owner: the general status design must be flexible, close to an expression builder over source columns, likely after the import definition editor. Opened STATBUS-601 (depends on STATBUS-546) for it; STATBUS-600 keeps the loader bridge.
 <!-- SECTION:NOTES:END -->
