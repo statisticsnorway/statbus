@@ -3,10 +3,11 @@ id: STATBUS-598
 title: >-
   Profile the remaining serial statistical-unit handoffs on a full register
   before choosing the next optimization
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - hibiscus
 created_date: '2026-11-08T23:38:00Z'
-updated_date: '2026-11-08T23:41:00Z'
+updated_date: '2026-11-09T08:43:00Z'
 labels:
   - performance
   - worker
@@ -72,3 +73,9 @@ Cleanup: preserve import_benchmark_64469 and all raw baseline/prototype evidence
 - [ ] #2 [Owner] An adopt-or-reject decision for the measured prototype is recorded in Implementation Notes, with exact row, state and temporal parity plus same-environment baseline/prototype timing evidence.
 - [ ] #3 [Owner] Implementation Notes record the chosen next step: adopt requires an implemented change with a positive original-failing regression, PostgreSQL and real-worker acceptance, paired schema documentation and reviewed commit/CI evidence; reject requires a linked measured rejection report and no runtime change.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-09 08:42UTC: owner explicitly delegated this future-improvement work to Hibiscus while Rabbit and owner focus on final personal review/release readiness of existing serialrc03fc183. Hibiscus received the execution brief: statement-level measurements and private-clone/rollback prototype on retained data, positive output/temporal invariants and measured adopt-or-reject proposal. No addition to existingRC, no Norway/dev/production operation, no deletion/release/promotion/Saga adoption or business-policy change. Rabbit coordinates tracker/master integration; exactdiff/test evidence required before landing. Current Norway comparison doc/performance/2026-11-norway-serial-rc03-comparison.md is context, not authorization to rerun its host.
+<!-- SECTION:NOTES:END -->
