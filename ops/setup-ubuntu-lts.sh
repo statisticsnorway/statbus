@@ -1217,6 +1217,27 @@ stage_https_sources() {
 # base-system: Base System Setup
 # =============================================================================
 
+configure_etckeeper() {
+    local directory="$1"
+    # Scope the /etc branch choice to this operation, including apt's etckeeper
+    # post-install hook, while preserving the caller's other Git overrides.
+    local -x GIT_CONFIG_PARAMETERS="${GIT_CONFIG_PARAMETERS:+$GIT_CONFIG_PARAMETERS }'init.defaultBranch=master'"
+    log "Installing etckeeper..."
+    apt_retry "update" update -qq || true
+    if apt_install "etckeeper" etckeeper; then
+        if [[ -d "$directory/.git" ]]; then
+            log "etckeeper already initialized"
+        else
+            pushd "$directory" > /dev/null
+            etckeeper init
+            etckeeper commit "Initial commit before hardening"
+            popd > /dev/null
+        fi
+    else
+        log_error "etckeeper is not installed; skipping its initialization (the stage continues so its later checks still run)"
+    fi
+}
+
 stage_base_system() {
     stage_header base-system
 
@@ -1232,20 +1253,7 @@ stage_base_system() {
         return 0
     fi
     
-    log "Installing etckeeper..."
-    apt_retry "update" update -qq || true
-    if apt_install "etckeeper" etckeeper; then
-        if [[ -d /etc/.git ]]; then
-            log "etckeeper already initialized"
-        else
-            pushd /etc > /dev/null
-            etckeeper init
-            etckeeper commit "Initial commit before hardening"
-            popd > /dev/null
-        fi
-    else
-        log_error "etckeeper is not installed; skipping its initialization (the stage continues so its later checks still run)"
-    fi
+    configure_etckeeper /etc
     
     log "Configuring eternal bash history..."
     if ! grep -q "HISTFILE=~/.bash_eternal_history" /etc/bash.bashrc; then

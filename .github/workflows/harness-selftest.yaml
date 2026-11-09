@@ -129,6 +129,8 @@ jobs:
         run: bash test/install-recovery/tests/lxd-checkpoint-identity-test.sh
       - name: Prove setup-ubuntu-lts.sh refuses plain sudo from an operator home (STATBUS-492)
         run: bash test/install-recovery/tests/setup-plain-sudo-guard-test.sh
+      - name: Prove etckeeper initializes its branch without Git advice or global config changes
+        run: bash test/install-recovery/tests/setup-git-branch-test.sh
       - name: Prove the setup script retries apt, refreshes the index, and stops at its bound (STATBUS-494)
         run: bash test/install-recovery/tests/setup-apt-retry-test.sh
       - name: Prove the SSH stage confirms remote access before disabling password auth (STATBUS-495)
