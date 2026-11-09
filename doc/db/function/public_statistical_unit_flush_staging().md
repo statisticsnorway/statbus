@@ -17,6 +17,15 @@ BEGIN
 
     RAISE DEBUG 'statistical_unit_flush_staging: Flushing % rows from staging', v_staging_count;
 
+    -- Staging is truncated after every flush and refilled by the refresh
+    -- batches, so its statistics describe an earlier, usually much smaller
+    -- load. Plans built from them treat a large staging as small and match
+    -- it unit by unit through the main table's index (STATBUS-599: 1.8M
+    -- staged rows took 221 s instead of 25 s). Fresh statistics let the
+    -- DELETE and MERGE below choose hash joins for large loads and index
+    -- lookups for small ones.
+    ANALYZE public.statistical_unit_staging;
+
     -- Step 1: Pre-cleanup DELETE.
     -- Remove main rows for affected (unit_type, unit_id) tuples that have
     -- no matching temporal slice in staging. Scoped to affected units so we
