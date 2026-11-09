@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T21:16:00Z'
+updated_date: '2026-11-09T21:17:00Z'
 labels:
   - import
   - norway
@@ -31,20 +31,32 @@ Today a BRREG import is a hand-run snapshot (`./cloud.sh import no downloads`) i
 
 ### Zoom in
 
-Option C (owner, 2026-11-09): each month, import the full BRREG files as new jobs, then close every unit missing from the file. BRREG's change feed (`/api/oppdateringer/{enheter,underenheter}`) marks a deletion with `endringstype=Sletting`, and the unit lookup gives the exact `slettedato`. A closed unit's timeline ends at that date and its `death_date` is set to it. Close, not delete: history keeps the unit until the day it left. The closing is a new generic import mode, "close units" (identifier, end date, death date), usable by any office. Scheduling is the statbus user's crontab on rune.
+Option C (owner, 2026-11-09): each month, import the full BRREG files, then close the units BRREG deleted. Four jobs a month, in this order (owner, Q1):
 
-Open owner questions: run day and time, valid-from date, units missing with no feed entry, scope (relationships), behaviour during an upgrade, where the monthly figures go.
+1. `import_hovedenhet_YYYY_MM`: legal units, full file, `brreg_hovedenhet_2025` (insert_or_update). New and changed units; an unchanged unit adds no record.
+2. `import_underenhet_YYYY_MM`: establishments, full file, `brreg_underenhet_2025`.
+3. `import_hovedenhet_slettet_YYYY_MM`: legal unit deletions, `legal_unit_source_dates`.
+4. `import_underenhet_slettet_YYYY_MM`: establishment deletions, `establishment_for_lu_source_dates`.
 
-Evidence of the gap and the feed: `tmp/brreg-feed/` in the Rabbit checkout.
+No new import mode. A deletion row is the organisation number, `death_date` = BRREG `slettedato`, and its own `valid_from` = the 1st of the month containing the day before the death (the date_consistency step requires the death to fall after the record's start). BRREG's change feed (`/api/oppdateringer/{enheter,underenheter}`, `endringstype=Sletting`) lists the deletions; the unit lookup gives `slettedato`. The feed reader writes only units StatBus already has; a unit born and deleted within the month is counted, not imported, because an unknown unit without a name stops the job for review. Close, not delete: history keeps the unit until the day it left. A legal unit's establishments close only through their own feed deletions. Scheduling is the statbus user's crontab on rune, on the 2nd of each month (owner, Q2).
+
+Out of scope: unit status from BRREG (bankruptcy, winding-up flags). Every BRREG unit stays Active until deleted; mapping BRREG flags to statuses needs its own design (owner, Q3 pending).
+
+Evidence: `tmp/brreg-feed/`, `tmp/journal.md` and `tmp/600-*-proto.log` in the Rabbit checkout; SQL test 395.
+
+### Closing review
+
+At closing, decide: memory (the monthly job layout and the per-row valid_from rule), documentation (`doc/import-system.md` monthly intake section, `samples/norway/brreg/README.md`), and cleanup (the scratch database `statbus_600_close_proto` and the fixed `import_*_2025` job slugs).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A close-units import mode ends each listed unit's timeline at the given date and sets its death date, and leaves every other unit unchanged
-- [ ] #2 A monthly BRREG import creates new jobs for that month on the existing BRREG definitions, valid from the agreed date, and leaves earlier months' jobs untouched
-- [ ] #3 Units BRREG deleted since the previous run are closed at their BRREG deletion date with that death date; units missing with no feed entry follow the agreed rule
-- [ ] #4 On rune, the first monthly run closes 879755662 and 969313480 at 2026-11-07, and the monthly figures (sizes, rows, run times, closed units) are recorded and reported
-- [ ] #5 The statbus user's crontab on rune runs the monthly cycle unattended; a failure stops the cycle and is reported, without retrying
+- [ ] #1 Deletion jobs on the existing definitions close each listed legal unit and establishment on its death date, in the job's month or the previous one, and leave every other unit unchanged (SQL test 395)
+- [ ] #2 A monthly BRREG run creates the four jobs for that month (two full files, two deletion lists) and leaves earlier months' jobs untouched
+- [ ] #3 [Owner] The rule for a unit missing from the full file with no feed deletion is decided and recorded in Implementation Notes with its consequence, and the run follows it
+- [ ] #4 [Owner] The run day and the full-file valid-from date are decided and recorded in Implementation Notes with their consequence (run day decided: the 2nd, Q2)
+- [ ] #5 On rune, the first monthly run closes 879755662 and 969313480 at 2026-11-07, and the monthly figures (sizes, rows, run times, closed units) are recorded and reported
+- [ ] #6 The statbus user's crontab on rune runs the monthly cycle unattended; a failure stops the cycle and is reported, without retrying
 <!-- AC:END -->
 
 ## Implementation Notes
