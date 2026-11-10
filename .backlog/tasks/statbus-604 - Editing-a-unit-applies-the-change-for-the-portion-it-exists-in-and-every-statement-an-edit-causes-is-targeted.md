@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T10:25:00Z'
-updated_date: '2026-11-10T11:23:00Z'
+updated_date: '2026-11-10T11:27:00Z'
 labels:
   - app
   - db
@@ -63,4 +63,6 @@ Decisions 2026-11-10 (owner):
 - Correctness before speed.
 
 Decision 2026-11-10 11:23 (owner): safeupdate is loaded for every session through postgresql.conf (session_preload_libraries), including debug mode. The one stated exemption is the migration runner: its sessions start with -c safeupdate.enabled=off, alongside the existing read-only-window exemption (migrateReadOnlyExemptOptions), so released migrations stay byte-identical and the seed build, which replays every migration through sb migrate, keeps working. All code that runs outside migrations names its target: the 15 live function statements (including the flag fix (i)) and our scripts; deliberate whole-table clears use WHERE true with a comment. Tests get the guard because the server loads it, the same as production.
+
+Decision 2026-11-10 11:27 (owner), replaces the 11:23 runner exemption: safeupdate applies to every session with no exemption, the migration runner included. Reason: consistency going forward. With one rule, SQL written in a migration and SQL written in a function follow the same convention, and an agent cannot learn two. Released migrations that touch every row get an explicit WHERE (WHERE true with a comment where the whole table is meant), shipped through the existing STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION mechanism, which re-stamps the content hash on boxes and is declared at the release cut. The full set of statements is found by replaying all migrations (seed build) and the test suite under the guard, not by text scan alone: DO blocks and functions called during migrations are only visible at run time.
 <!-- SECTION:NOTES:END -->
