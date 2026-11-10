@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-10T11:32:00Z'
-updated_date: '2026-11-10T14:15:00Z'
+updated_date: '2026-11-10T19:59:00Z'
 labels:
   - performance
   - worker
@@ -27,7 +27,7 @@ On the full register one establishment refresh batch of 333 units takes about 41
 - [x] #2 Establishment refresh reads only the batch's establishments: a regression test fails before and passes after
 - [x] #3 Per-batch definitions give identical rows to the full view on real batches
 - [x] #4 Enterprise and power group refreshes are fixed the same way, or measured and shown not to scan the whole register
-- [ ] #5 Fast suite passes, doc/db regenerated, change on master with hosted CI green
+- [x] #5 Fast suite passes, doc/db regenerated, change on master with hosted CI green
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -41,4 +41,6 @@ Measured on import_benchmark_64469 brought to exact master (445 migrations, func
 - Identity: six refresh outputs (4 timelines, timesegments, timepoints) fingerprint-identical to master; facet and history-delta rows identical per partition in rolled-back master-vs-fix runs.
 - Tried, not adopted (in migration comment): INCLUDE(unit_type, unit_id)-only; VACUUM after flush (not needed, table stays all-visible).
 Fast 137/137 + 094 + 143 PASS; up/down/up identical. Waiting: Rabbit cherry-pick to master after STATBUS-604, hosted CI.
+
+2026-11-10 (Rabbit): on master as 8257d7fa9 + 70d67b718 (cherry-picks of Hibiscus f8b2ef4f3 + 9445e321c, rebased on STATBUS-604). Hosted CI green at 4321421d8 and at 4a66d2591 (Fast Tests 138 + 094 + 143 under pg_safeupdate, test 398 ok; Go, app, Images, Harness). Released in v2026.11.4-rc.01 (4a66d2591). doc/db and types regenerated before the cut (release check: DB documentation and types cover 20261110141700). AC5 checked.
 <!-- SECTION:NOTES:END -->

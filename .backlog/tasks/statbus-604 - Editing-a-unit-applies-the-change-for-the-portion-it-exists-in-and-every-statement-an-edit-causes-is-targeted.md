@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T10:25:00Z'
-updated_date: '2026-11-10T19:57:00Z'
+updated_date: '2026-11-10T19:59:00Z'
 labels:
   - app
   - db
@@ -51,7 +51,7 @@ Reported on Norway (no.statbus.org, v2026.11.3 b9d6661e0) 2026-11-10 and reprodu
 - [x] #1 Test 397_statbus_604_edit_as_api_user_under_safeupdate, run with safeupdate loaded, edits through legal_unit__for_portion_of_valid, establishment__for_portion_of_valid and location__for_portion_of_valid for a portion equal to the row and for one starting before the unit exists; it asserts the resulting rows, no rows before the unit's first valid_from, and other units unchanged (RED against v2026.11.3, GREEN after)
 - [x] #2 The untargeted UPDATE on the edit path is named (statement and function) and bounded to the rows it is meant to change, not WHERE true
 - [x] #3 The app sends the edit with the form's portion and lets the database clip it: the legal unit rename with portion 2026-01-01..infinity on a unit from 2026-11-07 succeeds and changes the name from 2026-11-07
-- [ ] #4 Adding a physical location to an establishment that has only a postal one succeeds; the 409 cause is named and fixed
+- [x] #4 Adding a physical location to an establishment that has only a postal one succeeds; the 409 cause is named and fixed
 - [ ] #5 [Owner] Confirms on Norway, after the release candidate carrying the fix, that renaming 314286 and editing 479720 succeed. The answer is recorded in this ticket's notes: yes closes the ticket; no reopens the investigation with the new error from rune's logs.
 <!-- AC:END -->
 
@@ -94,4 +94,6 @@ Owner review 2026-11-10 16:41 in Firefox (https://local.statbus.org:3007, branch
 2026-11-10 19:12: release check green at 4321421d8 (16/16) with the 52 edited released migrations declared (tmp/604-declare.txt). CI rounds: 397 vs profiling preload (3b992d0cb), preload list syntax (1decba131), sql_saga notice (730cf9042), upgraded-database function drift found by Hibiscus (5a6790c3e, proven release-migrated then upgraded: 935/935 functions match fresh), released-SQL floor test fragments (4321421d8). Slow tests 400-403 pass under the guard; 404's analytics count 178->40 predates this work: introduced by 65cde4ca9 (STATBUS-558, v2026.11.2), intended per crab; expected output to be re-blessed separately. Ready for the owner's cut.
 
 2026-11-10 19:55: owner cut v2026.11.4-rc.01 at 4a66d2591 (all pre-flight gates green, 52 edited released migrations declared). Release, Fast Tests, Hardening, Smoke and the Release Fleet Orchestrator started on the tag; dev (prerelease) still on v2026.11.3 at 19:57. Next: dev picks up rc.01, then the owner confirms AC5 on Norway.
+
+AC4: fc47499fc reads empty optional location numbers as null and refuses an empty Country ('Select a country'); the 409 cause (empty Country coerced to 0, location_country_id_fkey) is named in the description. In v2026.11.4-rc.01. Remaining: AC5, the owner's check on Norway after rc.01 reaches it.
 <!-- SECTION:NOTES:END -->
