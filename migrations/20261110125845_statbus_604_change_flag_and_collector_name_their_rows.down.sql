@@ -1,0 +1,327 @@
+BEGIN;
+
+CREATE OR REPLACE FUNCTION worker.publish_base_change_wakeup()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    -- Serialize publication with a collector before it takes its drain snapshot.
+    UPDATE worker.base_change_log_has_pending
+    SET has_pending = TRUE;
+
+    INSERT INTO worker.tasks (command, payload)
+    VALUES ('collect_changes', '{"command":"collect_changes"}'::jsonb)
+    ON CONFLICT (command)
+    WHERE command = 'collect_changes' AND state = 'pending'::worker.task_state
+    DO NOTHING;
+
+    PERFORM pg_notify('worker_tasks', 'analytics');
+END;
+$function$
+;
+
+CREATE OR REPLACE PROCEDURE worker.command_collect_changes(IN p_payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'worker', 'pg_temp'
+AS $procedure$
+DECLARE
+    v_row RECORD;
+    v_est_ids int4multirange := '{}'::int4multirange;
+    v_lu_ids int4multirange := '{}'::int4multirange;
+    v_ent_ids int4multirange := '{}'::int4multirange;
+    v_pg_ids int4multirange := '{}'::int4multirange;
+    v_valid_range datemultirange := '{}'::datemultirange;
+    v_valid_from DATE;
+    v_valid_until DATE;
+    v_task_id BIGINT;
+    v_phase1_id BIGINT;
+    v_phase2_id BIGINT;
+    v_payload JSONB;
+    v_direct_mode BOOLEAN;
+    v_all_units BOOLEAN;
+BEGIN
+    -- Lock the pending-flag singleton before the drain snapshot. Publishers
+    -- (worker.publish_base_change_wakeup) update the same row, so a change
+    -- committed after this snapshot sets the flag only after the clear below,
+    -- and the flag stays TRUE for the next collector.
+    PERFORM 1 FROM worker.base_change_log_has_pending FOR UPDATE;
+
+    v_direct_mode :=
+        p_payload ? 'establishment_id_ranges'
+        OR p_payload ? 'legal_unit_id_ranges'
+        OR p_payload ? 'enterprise_id_ranges'
+        OR p_payload ? 'power_group_id_ranges';
+
+    -- STATBUS-538: "everything" is one convention, carried through unchanged
+    -- so every step decides from its own arguments: NULL for all four
+    -- *_id_ranges means all units (worker.derive_statistical_unit's full
+    -- branch), and valid_from = -infinity, valid_until = infinity means all
+    -- time (the report derives then rebuild their whole per-slot cache).
+    -- worker.enqueue_derive_statistical_unit_all() schedules exactly this.
+    v_all_units := v_direct_mode
+        AND NULLIF(p_payload->>'establishment_id_ranges', '') IS NULL
+        AND NULLIF(p_payload->>'legal_unit_id_ranges', '') IS NULL
+        AND NULLIF(p_payload->>'enterprise_id_ranges', '') IS NULL
+        AND NULLIF(p_payload->>'power_group_id_ranges', '') IS NULL;
+
+    IF v_all_units THEN
+        -- All units: ids stay NULL, time defaults to all time. The full
+        -- derive covers every logged change, so the log is drained too.
+        v_est_ids := NULL;
+        v_lu_ids := NULL;
+        v_ent_ids := NULL;
+        v_pg_ids := NULL;
+        v_valid_range := COALESCE(
+            NULLIF(p_payload->>'valid_ranges', '')::datemultirange,
+            '{[-infinity,infinity)}'::datemultirange
+        );
+        DELETE FROM worker.base_change_log;
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+    ELSIF v_direct_mode THEN
+        -- Caller supplied explicit ranges. A NULL / JSON-null value for a
+        -- given key means "all ids of that kind" — synthesise from base
+        -- tables, because worker.derive_statistical_unit reads a NULL kind
+        -- next to explicit kinds as none.
+        v_est_ids := COALESCE(
+            NULLIF(p_payload->>'establishment_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.establishment),
+                '{}'::int4multirange
+            )
+        );
+        v_lu_ids := COALESCE(
+            NULLIF(p_payload->>'legal_unit_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.legal_unit),
+                '{}'::int4multirange
+            )
+        );
+        v_ent_ids := COALESCE(
+            NULLIF(p_payload->>'enterprise_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.enterprise),
+                '{}'::int4multirange
+            )
+        );
+        v_pg_ids := COALESCE(
+            NULLIF(p_payload->>'power_group_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.power_group),
+                '{}'::int4multirange
+            )
+        );
+        v_valid_range := COALESCE(
+            NULLIF(p_payload->>'valid_ranges', '')::datemultirange,
+            '{}'::datemultirange
+        );
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+    ELSE
+        -- Drain-log mode: unchanged from 20260319124229.
+        FOR v_row IN DELETE FROM worker.base_change_log RETURNING * LOOP
+            v_est_ids := v_est_ids + v_row.establishment_ids;
+            v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
+            v_ent_ids := v_ent_ids + v_row.enterprise_ids;
+            v_pg_ids := v_pg_ids + v_row.power_group_ids;
+            v_valid_range := v_valid_range + v_row.valid_ranges;
+        END LOOP;
+
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+    END IF;
+
+    IF v_all_units
+       OR v_est_ids != '{}'::int4multirange
+       OR v_lu_ids != '{}'::int4multirange
+       OR v_ent_ids != '{}'::int4multirange
+       OR v_pg_ids != '{}'::int4multirange THEN
+
+        -- Get own task_id for spawning children
+        SELECT id INTO v_task_id
+        FROM worker.tasks
+        WHERE state = 'processing' AND worker_pid = pg_backend_pid()
+        ORDER BY id DESC LIMIT 1;
+
+        IF v_all_units THEN
+            p_info := jsonb_build_object(
+                'affected_establishment_count', (SELECT count(*) FROM public.establishment),
+                'affected_legal_unit_count', (SELECT count(*) FROM public.legal_unit),
+                'affected_enterprise_count', (SELECT count(*) FROM public.enterprise),
+                'affected_power_group_count', (SELECT count(*) FROM public.power_group)
+            );
+        ELSE
+            p_info := jsonb_build_object(
+                'affected_establishment_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_est_ids) AS r),
+                'affected_legal_unit_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_lu_ids) AS r),
+                'affected_enterprise_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_ent_ids) AS r),
+                'affected_power_group_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_pg_ids) AS r)
+            );
+        END IF;
+
+        IF v_valid_range = '{}'::datemultirange THEN
+            SELECT COALESCE(range_agg(vr)::datemultirange, '{}'::datemultirange)
+            INTO v_valid_range
+            FROM (
+                SELECT valid_range AS vr FROM public.establishment AS est WHERE v_est_ids @> est.id
+                UNION ALL
+                SELECT valid_range AS vr FROM public.legal_unit AS lu WHERE v_lu_ids @> lu.id
+            ) AS units;
+        END IF;
+
+        v_valid_from := lower(v_valid_range);
+        v_valid_until := upper(v_valid_range);
+
+        v_payload := jsonb_build_object(
+            'valid_from', v_valid_from,
+            'valid_until', v_valid_until
+        );
+
+        v_phase1_id := worker.spawn(
+            p_command => 'derive_units_phase',
+            p_payload => v_payload,
+            p_parent_id => v_task_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'derive_statistical_unit',
+            p_payload => jsonb_build_object(
+                'establishment_id_ranges', v_est_ids::text,
+                'legal_unit_id_ranges', v_lu_ids::text,
+                'enterprise_id_ranges', v_ent_ids::text,
+                'power_group_id_ranges', v_pg_ids::text,
+                'valid_from', v_valid_from,
+                'valid_until', v_valid_until
+            ),
+            p_parent_id => v_phase1_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'derive_statistical_history_facet_delta',
+            p_payload => v_payload,
+            p_parent_id => v_phase1_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'statistical_unit_flush_staging',
+            p_payload => v_payload,
+            p_parent_id => v_phase1_id,
+            p_child_mode => 'serial'
+        );
+
+        -- BLOCK D: derive_used_tables runs AFTER statistical_unit_flush_staging
+        -- has published activity/region/sector/… paths to public.statistical_unit.
+        -- Previously these were invoked inline from worker.derive_statistical_unit,
+        -- which ran before the flush — the views filtering on *_path IS NOT NULL
+        -- returned 0 rows and *_used stayed empty on first-import cycles.
+        PERFORM worker.spawn(
+            p_command => 'derive_used_tables',
+            p_payload => v_payload,
+            p_parent_id => v_phase1_id,
+            p_child_mode => 'serial'
+        );
+
+        v_phase2_id := worker.spawn(
+            p_command => 'derive_reports_phase',
+            p_payload => v_payload,
+            p_parent_id => v_task_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'derive_statistical_unit_facet',
+            p_payload => v_payload,
+            p_parent_id => v_phase2_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'statistical_unit_facet_reduce',
+            p_payload => v_payload,
+            p_parent_id => v_phase2_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'statistical_history_facet_delta_reduce',
+            p_payload => v_payload,
+            p_parent_id => v_phase2_id,
+            p_child_mode => 'serial'
+        );
+    ELSE
+        p_info := jsonb_build_object(
+            'affected_establishment_count', 0,
+            'affected_legal_unit_count', 0,
+            'affected_enterprise_count', 0,
+            'affected_power_group_count', 0
+        );
+        PERFORM pg_notify('worker_status',
+            json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text);
+    END IF;
+END;
+$procedure$
+;
+
+CREATE OR REPLACE FUNCTION worker.reset_abandoned_processing_tasks()
+ RETURNS integer
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_reset_count int := 0;
+    v_task RECORD;
+    v_stale_pid INT;
+    v_has_pending BOOLEAN;
+    v_change_log_count BIGINT;
+BEGIN
+    FOR v_stale_pid IN
+        SELECT pid FROM pg_stat_activity
+        WHERE application_name = 'worker'
+          AND pid <> pg_backend_pid()
+          AND datname = current_database()
+    LOOP
+        RAISE LOG 'Terminating stale worker PID %', v_stale_pid;
+        PERFORM pg_terminate_backend(v_stale_pid);
+    END LOOP;
+
+    FOR v_task IN
+        SELECT id FROM worker.tasks WHERE state = 'processing'::worker.task_state FOR UPDATE
+    LOOP
+        UPDATE worker.tasks
+        SET state = 'interrupted'::worker.task_state,
+            worker_pid = NULL,
+            process_start_at = NULL,
+            error = NULL,
+            process_duration_ms = NULL
+        WHERE id = v_task.id;
+
+        v_reset_count := v_reset_count + 1;
+    END LOOP;
+
+    SELECT has_pending INTO v_has_pending
+    FROM worker.base_change_log_has_pending;
+
+    IF v_has_pending THEN
+        SELECT count(*) INTO v_change_log_count
+        FROM worker.base_change_log;
+
+        IF v_change_log_count = 0 THEN
+            -- STATBUS-589: a crash truncated the UNLOGGED change log, so the
+            -- changes that were waiting are unknown: derive all units over all
+            -- time. A collector already pending or interrupted would read the
+            -- empty log and derive nothing; enqueue_derive_statistical_unit_all
+            -- turns a pending one into the full request (ON CONFLICT DO UPDATE)
+            -- and otherwise adds it beside an interrupted one.
+            RAISE LOG 'Crash recovery: base_change_log_has_pending=TRUE but base_change_log is empty. Spawning full refresh.';
+            PERFORM worker.enqueue_derive_statistical_unit_all();
+            UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+        END IF;
+    END IF;
+
+    RETURN v_reset_count;
+END;
+$function$
+;
+
+COMMENT ON TABLE worker.base_change_log_has_pending IS NULL;
+
+END;
