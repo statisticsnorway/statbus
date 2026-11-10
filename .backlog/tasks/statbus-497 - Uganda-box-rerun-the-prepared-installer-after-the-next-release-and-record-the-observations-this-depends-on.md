@@ -3,10 +3,10 @@ id: STATBUS-497
 title: >-
   Real-box proof for fixes only a real box can confirm: preparation on the plain
   manual box, SSH and firewall rerun on Uganda
-status: Done
+status: In Progress
 assignee: []
 created_date: 2026-10-13 13:16
-updated_date: '2026-11-10T09:17:00Z'
+updated_date: '2026-11-10T09:18:00Z'
 labels:
   - install
   - uganda
@@ -44,7 +44,7 @@ Some criteria can only be met by watching the product on a real, unprepared mach
 - [x] #3 [Owner] Confirm v2026.10.1, or name a later release, as the release the Uganda rerun waits for, and record it in Implementation Notes. The confirmed release lets the rerun be scheduled; AC1-3 are filled from that run.
 - [x] #4 Plain manual box, fresh preparation with the next release: the session log shows a root login shell with HOME=/root (STATBUS-492 criterion 1)
 - [x] #5 Plain manual box, right after setup and before install: find /home/statbus -xdev -user root prints nothing (STATBUS-492 criterion 3)
-- [x] #6 Uganda, next release: setup Stages 2 and 4 rerun; the results are recorded in STATBUS-539 AC7 and STATBUS-540 AC4
+- [ ] #6 Uganda, next release: setup Stages 2 and 4 rerun; the results are recorded in STATBUS-539 AC7 and STATBUS-540 AC4
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -108,4 +108,6 @@ AC4 met on the rc.18 manual box 2026-11-07: root login shell HOME=/root SUDO_USE
 2026-11-10 09:12 UTC owner reran the auto-updates stage (Stage 5) on Uganda with v2026.11.3; Docker included in the nightly updates (STATBUS-583 AC3). AC6 asks for Stages 2 and 4 (base-system, security-tools); not rerun yet.
 
 2026-11-10 09:17 UTC Uganda (statbus.ubos.org, Ubuntu 26.04, setup v2026.11.3), owner ran --only-stages "base-system security-tools": base-system verified (etckeeper installed and initialised, bash history, C.UTF-8 and en_US.UTF-8 locales); security-tools verified: CrowdSec running, firewall bouncer has an API key, is registered with the local API ('Bouncer statbus-firewall-bouncer is registered') and running, SSHD collection installed, UFW active, OpenSSH allowed, SSH port 713 allowed, HTTP, HTTPS and PostgreSQL allowed. Summary: 'No follow-up from this run.' Earlier the same morning: auto-updates stage, Docker in the nightly updates (STATBUS-583). AC6 met: Stages 2 and 4 (now numbered base-system and security-tools, stages 2 and 6 of 9) rerun on Uganda with the next release; results recorded in STATBUS-539 and STATBUS-540 notes.
+
+2026-11-10 09:18 UTC correction: AC6's 'Stages 2 and 4' are the old numbers for ssh-hardening and security-tools (the 2026-10-31 note plans --only-stages "service-account ssh-hardening security-tools"). The 09:17 run covered security-tools (all checks green) and base-system, not ssh-hardening, so AC6 is reopened. Remaining: owner reruns --only-stages "service-account ssh-hardening" on Uganda; expected the SSH access confirmation shown as [y/n] and re-asked on Enter (STATBUS-540 AC4).
 <!-- SECTION:NOTES:END -->
