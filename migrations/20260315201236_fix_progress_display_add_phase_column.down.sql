@@ -232,14 +232,18 @@ BEGIN
 END;
 $function$;
 
+-- The view exposes phase, so drop it before the column (CREATE OR REPLACE cannot remove view columns)
+DROP VIEW IF EXISTS public.pipeline_step_weight;
+
+-- Drop phase column
+ALTER TABLE worker.pipeline_step_weight DROP COLUMN phase;
+
 -- Restore view without phase column
-CREATE OR REPLACE VIEW public.pipeline_step_weight WITH (security_invoker = on) AS
+CREATE VIEW public.pipeline_step_weight WITH (security_invoker = on) AS
 SELECT step, weight, seq
 FROM worker.pipeline_step_weight
 UNION ALL
 SELECT NULL::text AS step, NULL::integer AS weight, NULL::integer AS seq WHERE false;
-
--- Drop phase column
-ALTER TABLE worker.pipeline_step_weight DROP COLUMN phase;
+GRANT SELECT ON public.pipeline_step_weight TO authenticated, regular_user, admin_user;
 
 COMMIT;
