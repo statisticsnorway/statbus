@@ -5,7 +5,7 @@ status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-10T22:31:00Z'
-updated_date: '2026-11-10T23:09:00Z'
+updated_date: '2026-11-10T23:11:00Z'
 labels:
   - bug
   - app
@@ -17,14 +17,26 @@ ordinal: 526204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The navbar's Statistical Units bar has no percentage during a full recalculation on rune rc.01. The worker sends a pipeline_progress notification after each refresh batch, a median 130 ms apart on the full register (3,162 batches, 102 gaps over 500 ms). The app's database listener relays worker_status notifications through a 500 ms trailing debounce that restarts on every arrival, so a steady stream reaches no browser until it pauses. The relay delivers the newest payload once per window instead, so progress moves while batches finish.
+## North Star
+While the worker recalculates, the navbar shows how far it has come, so a user can see the work moving and roughly when it ends.
+
+## Zoom out
+A relay that waits for quiet before speaking never speaks during a steady stream. Progress must reach the browser at a steady rate while the stream lasts, carrying the newest state, and the final state must arrive last.
+
+## Zoom in
+- The worker sends a pipeline_progress notification after each refresh batch, a median 130 ms apart on the full register (3,162 completions, 102 gaps over 500 ms).
+- app/src/lib/db-listener.ts relayed worker_status through a 500 ms trailing debounce that restarted on every arrival, so no progress reached any browser until the stream paused. Seen by the owner on rune rc.01 as a Statistical Units bar without a percentage.
+- The relay now delivers the newest payload per key once per window, in last-arrival order, for worker_status, import_job_progress and worker_task_changed.
+
+## Closing review
+No memory or documentation change needed; the relay's purpose is stated at relayLatest's definition.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 A steady stream of pipeline_progress notifications 100 ms apart for 5 s reaches subscribers 10 times, each with the newest completed count (app/src/lib/db-listener.test.ts)
-- [x] #2 A phase's idle status is delivered after its last progress in the same window
-- [x] #3 A local recalculation on the dev server shows a moving Statistical Units percentage
+- [x] #2 A local recalculation on the dev server shows a moving Statistical Units percentage
+- [x] #3 A phase's idle status sent right after its last progress reaches subscribers after that progress, in the same window (db-listener.test.ts, 'delivers a phase's idle status after its last progress' passes)
 <!-- AC:END -->
 
 ## Implementation Notes
