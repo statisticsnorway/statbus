@@ -34,8 +34,8 @@
 # MANUAL_BOX_SSH_PORT=713 ops/manual-box.sh up (or rebuild) moves sshd to that
 # port before anyone logs in, through ssh.socket as on Ubuntu 26.04 boxes in the
 # field (Uganda listens on 713), so setup's custom-port path is exercised: its
-# firewall stage must open OpenSSH (22) and that port and say so in the summary
-# (STATBUS-602). Every command here then reaches the box on that port; set the
+# firewall stage must open OpenSSH (22) and that port and say so in the summary.
+# Every command here then reaches the box on that port; set the
 # same variable for later commands. Default 22.
 #
 # Cost: cx33 (4 cores, 8 GB) is about EUR 0.017 per hour, billed hourly.

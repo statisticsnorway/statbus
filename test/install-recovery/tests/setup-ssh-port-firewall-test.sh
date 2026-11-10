@@ -281,7 +281,7 @@ else
     nope "stage 4 does not verify 'OpenSSH allowed in UFW'"
 fi
 
-# 12. STATBUS-602: the end-of-run summary names the ports the firewall lets in,
+# 12. The end-of-run summary names the ports the firewall lets in,
 #     from the ports sshd listens on, so an operator knows SSH is reachable on
 #     its real port without running ufw status.
 summary_for() { # sshd ports -> the security-tools summary line after a verified stage
