@@ -15,7 +15,7 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 -- Don't load activity categories or regions - they require settings to be configured first.
 -- We only need the import_definition (which exists by default) to test analyse_location.
 -- Explicitly clear settings to test fail-fast behavior
-DELETE FROM public.settings;
+DELETE FROM public.settings WHERE true; -- test setup: start from an empty table
 \echo "Verify settings table is empty (no country_id configured)"
 "Verify settings table is empty (no country_id configured)"
 SELECT COUNT(*) as settings_count FROM public.settings;

@@ -257,7 +257,7 @@ SELECT (SELECT t.info->>'rebuild' FROM worker.tasks AS t WHERE t.command = 'deri
  true
 (1 row)
 
-DELETE FROM snapshot;
+DELETE FROM snapshot WHERE true; -- test setup: start from an empty table
 INSERT INTO snapshot SELECT 'incremental', kind, row_text FROM stored_rows;
 SELECT worker.enqueue_derive_statistical_unit_all() IS NOT NULL AS rebuild_scheduled;
  rebuild_scheduled 

@@ -13,7 +13,7 @@ LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
 -- pending stubs; worker transitions them to completed and re-enqueues at
 -- later sequence values) is gone because we DELETE everything and
 -- re-enqueue from scratch.
-DELETE FROM worker.tasks;
+DELETE FROM worker.tasks WHERE true; -- test setup: start from an empty table
 ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 1;
 SELECT worker.enqueue_task_cleanup();         -- INSERTs at id=1 (no conflict, fresh table)
  enqueue_task_cleanup 
