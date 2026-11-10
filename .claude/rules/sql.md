@@ -86,6 +86,15 @@ When writing conditions involving time, always order the components chronologica
 ## Batch Operations
 Utilize PostgreSQL 18+ `MERGE` syntax for efficient batch handling where appropriate.
 
+## Every UPDATE and DELETE Names Its Rows
+Every session loads pg_safeupdate (`postgres/postgresql.conf`): the API, the worker, migrations, tests and `./sb psql` alike. An `UPDATE` or `DELETE` names the rows it changes with a `WHERE` clause, in static SQL, in function bodies and in dynamic SQL built for `EXECUTE`. A deliberate change to every row says so with `WHERE true` and a comment giving the reason:
+```sql
+UPDATE public.settings SET partition_count_target = 256 WHERE only_one_setting;
+DELETE FROM public.timesegments WHERE true; -- every row: rebuilt below from timesegments_def
+UPDATE worker.base_change_log_has_pending SET has_pending = TRUE WHERE NOT has_pending;
+```
+A single-row table is targeted by its own key or flag (`WHERE only_one_setting`, `WHERE NOT has_pending`), so the statement reads as the change it makes. Extension install and update scripts are the one stated exception: `cli/internal/migrate/extensions.go` lifts the guard for exactly that statement, for every extension, because that code is not StatBus's.
+
 ## Query Optimization Patterns
 - **LATERAL vs CTE for Batch Processing**: LATERAL joins execute once per row from the outer query—good for single-row lookups but O(n^2) for batch operations. For batch processing, pre-aggregate in a CTE then use a regular JOIN, which is O(n).
 - **`IS NOT DISTINCT FROM` Performance**: This operator treats NULL=NULL as true, which prevents PostgreSQL from using hash joins effectively. For multi-column joins with nullable columns, consider using COALESCE with sentinel values to enable hash joins, or restructure to avoid the pattern.
@@ -134,7 +143,7 @@ EXCEPTION WHEN foreign_key_violation THEN
 END $$;
 
 -- GOOD: Transparent - shows what happens
-DELETE FROM t; ALTER SEQUENCE t_id_seq RESTART WITH 1;  -- Deterministic ids
+DELETE FROM t WHERE true; ALTER SEQUENCE t_id_seq RESTART WITH 1;  -- Deterministic ids
 INSERT INTO t (val) VALUES ('test');  -- id=1
 SELECT id, val FROM t;  -- Verify target row exists
 SAVEPOINT before_test;
