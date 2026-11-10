@@ -682,24 +682,26 @@ export function CommandPalette() {
           })()}
 
           {/* ===== CREATE JOB: PICK TIME FRAME ===== */}
-          {page === 'create-job-time' && timeFrameGroups.map((group, index) => (
-            <CommandGroup key={group.kind} heading={index === 0
-              ? crumbHeading(
-                  { label: 'Create job', goToDepth: 0 },
-                  { label: selectedDefinition?.name ?? 'Definition', goToDepth: 1 },
-                  { label: `Time frame: ${group.heading}` },
-                )
-              : group.heading}>
-              {group.frames.map((tf) => (
-                <CommandItem key={tf.ident} onSelect={() => {
-                  setSelectedTimeFrameIdent(tf.ident);
-                  setPages([...pages, 'create-job-review']); setSearch('');
-                }} value={`${tf.name} ${tf.ident}`}>
-                  {tf.name}
-                </CommandItem>
+          {page === 'create-job-time' && (
+            <CommandGroup heading={crumbHeading(
+              { label: 'Create job', goToDepth: 0 },
+              { label: selectedDefinition?.name ?? 'Definition', goToDepth: 1 },
+              { label: 'Time frame' },
+            )}>
+              {timeFrameGroups.map((group) => (
+                <CommandGroup key={group.kind} heading={group.heading}>
+                  {group.frames.map((tf) => (
+                    <CommandItem key={tf.ident} onSelect={() => {
+                      setSelectedTimeFrameIdent(tf.ident);
+                      setPages([...pages, 'create-job-review']); setSearch('');
+                    }} value={`${tf.name} ${tf.ident}`}>
+                      {tf.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
               ))}
             </CommandGroup>
-          ))}
+          )}
 
           {/* ===== CREATE JOB: PICK REVIEW MODE ===== */}
           {page === 'create-job-review' && (
