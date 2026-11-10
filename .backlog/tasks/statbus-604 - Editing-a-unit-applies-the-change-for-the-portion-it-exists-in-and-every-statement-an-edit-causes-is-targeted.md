@@ -3,10 +3,10 @@ id: STATBUS-604
 title: >-
   Editing a unit applies the change for the portion it exists in, and every
   statement an edit causes is targeted
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-10T10:25:00Z'
-updated_date: '2026-11-10T19:59:00Z'
+updated_date: '2026-11-10T21:18:00Z'
 labels:
   - app
   - db
@@ -52,7 +52,7 @@ Reported on Norway (no.statbus.org, v2026.11.3 b9d6661e0) 2026-11-10 and reprodu
 - [x] #2 The untargeted UPDATE on the edit path is named (statement and function) and bounded to the rows it is meant to change, not WHERE true
 - [x] #3 The app sends the edit with the form's portion and lets the database clip it: the legal unit rename with portion 2026-01-01..infinity on a unit from 2026-11-07 succeeds and changes the name from 2026-11-07
 - [x] #4 Adding a physical location to an establishment that has only a postal one succeeds; the 409 cause is named and fixed
-- [ ] #5 [Owner] Confirms on Norway, after the release candidate carrying the fix, that renaming 314286 and editing 479720 succeed. The answer is recorded in this ticket's notes: yes closes the ticket; no reopens the investigation with the new error from rune's logs.
+- [x] #5 [Owner] Confirms on Norway, after the release candidate carrying the fix, that renaming 314286 and editing 479720 succeed. The answer is recorded in this ticket's notes: yes closes the ticket; no reopens the investigation with the new error from rune's logs.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -96,4 +96,6 @@ Owner review 2026-11-10 16:41 in Firefox (https://local.statbus.org:3007, branch
 2026-11-10 19:55: owner cut v2026.11.4-rc.01 at 4a66d2591 (all pre-flight gates green, 52 edited released migrations declared). Release, Fast Tests, Hardening, Smoke and the Release Fleet Orchestrator started on the tag; dev (prerelease) still on v2026.11.3 at 19:57. Next: dev picks up rc.01, then the owner confirms AC5 on Norway.
 
 AC4: fc47499fc reads empty optional location numbers as null and refuses an empty Country ('Select a country'); the 409 cause (empty Country coerced to 0, location_country_id_fkey) is named in the description. In v2026.11.4-rc.01. Remaining: AC5, the owner's check on Norway after rc.01 reaches it.
+
+Owner 2026-11-10 21:18 on Norway (v2026.11.4-rc.01): editing works. Tested with the period from the start of the year and with the suggested start; the suggested start is where the entry begins (the unit's first valid_from). AC5 confirmed: yes closes the ticket.
 <!-- SECTION:NOTES:END -->
