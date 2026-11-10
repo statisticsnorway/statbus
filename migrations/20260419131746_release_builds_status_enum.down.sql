@@ -6,7 +6,8 @@ BEGIN;
 ALTER TABLE public.upgrade ADD COLUMN release_builds_ready boolean NOT NULL DEFAULT false;
 
 -- Data migration: enum → boolean
-UPDATE public.upgrade SET release_builds_ready = (release_builds_status = 'ready');
+UPDATE public.upgrade SET release_builds_ready = (release_builds_status = 'ready')
+ WHERE true; -- every row: backfill the column for all existing rows
 
 -- Drop the enum column and type
 ALTER TABLE public.upgrade DROP COLUMN release_builds_status;

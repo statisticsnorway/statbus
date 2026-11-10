@@ -69,7 +69,8 @@ UPDATE public.upgrade SET state = CASE
   WHEN started_at            IS NOT NULL THEN 'in_progress'
   WHEN scheduled_at          IS NOT NULL THEN 'scheduled'
   ELSE                                        'available'
-END::public.upgrade_state;
+END::public.upgrade_state
+ WHERE true; -- every row: backfill the column for all existing rows
 
 COMMENT ON COLUMN public.upgrade.state IS
     'Authoritative upgrade lifecycle state. Code writes this explicitly on every transition. The chk_upgrade_state_attributes CHECK constraint validates that the timestamp columns match the declared state — illegal combinations are rejected at the DB layer.';

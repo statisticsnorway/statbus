@@ -6,7 +6,8 @@ ALTER TABLE public.import_definition
 
 -- Set existing definitions: source_columns → FALSE, job_provided → TRUE
 UPDATE public.import_definition
-  SET unique_units = (valid_time_from = 'job_provided');
+  SET unique_units = (valid_time_from = 'job_provided')
+ WHERE true; -- every row: backfill the column for all existing rows
 
 -- Prevent nonsensical combination: job_provided + unique_units=FALSE
 -- (multiple rows for same unit in same period would just overwrite each other)

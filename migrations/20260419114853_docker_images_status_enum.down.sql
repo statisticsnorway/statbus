@@ -6,7 +6,8 @@ BEGIN;
 ALTER TABLE public.upgrade ADD COLUMN docker_images_ready boolean NOT NULL DEFAULT false;
 
 -- Data migration: enum → boolean
-UPDATE public.upgrade SET docker_images_ready = (docker_images_status = 'ready');
+UPDATE public.upgrade SET docker_images_ready = (docker_images_status = 'ready')
+ WHERE true; -- every row: backfill the column for all existing rows
 
 -- Drop the enum column and type
 ALTER TABLE public.upgrade DROP COLUMN docker_images_status;

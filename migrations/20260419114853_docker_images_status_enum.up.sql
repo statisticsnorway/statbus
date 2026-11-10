@@ -17,7 +17,8 @@ ALTER TABLE public.upgrade ADD COLUMN docker_images_status public.docker_images_
 UPDATE public.upgrade SET docker_images_status = CASE
     WHEN docker_images_ready THEN 'ready'::public.docker_images_status_type
     ELSE 'building'::public.docker_images_status_type
-END;
+END
+ WHERE true; -- every row: backfill the column for all existing rows
 
 -- Drop the old boolean column and its NOT NULL constraint
 ALTER TABLE public.upgrade DROP COLUMN docker_images_ready;

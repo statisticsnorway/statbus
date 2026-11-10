@@ -21,7 +21,8 @@ ALTER TABLE public.upgrade ADD COLUMN release_builds_status public.release_build
 UPDATE public.upgrade SET release_builds_status = CASE
     WHEN release_builds_ready THEN 'ready'::public.release_builds_status_type
     ELSE 'building'::public.release_builds_status_type
-END;
+END
+ WHERE true; -- every row: backfill the column for all existing rows
 
 -- Drop the old boolean column
 ALTER TABLE public.upgrade DROP COLUMN release_builds_ready;

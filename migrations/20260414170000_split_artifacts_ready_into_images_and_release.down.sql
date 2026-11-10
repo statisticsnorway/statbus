@@ -11,7 +11,8 @@ ALTER TABLE public.upgrade DROP COLUMN artifacts_ready;
 ALTER TABLE public.upgrade ADD COLUMN artifacts_ready BOOLEAN NOT NULL DEFAULT false;
 
 UPDATE public.upgrade
-   SET artifacts_ready = (docker_images_ready AND release_builds_ready);
+   SET artifacts_ready = (docker_images_ready AND release_builds_ready)
+ WHERE true; -- every row: backfill the column for all existing rows
 
 ALTER TABLE public.upgrade
     DROP COLUMN release_builds_ready,
