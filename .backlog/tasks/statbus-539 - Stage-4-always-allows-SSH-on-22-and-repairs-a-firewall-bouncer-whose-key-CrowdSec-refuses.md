@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-30T09:22:00Z'
-updated_date: '2026-11-06T17:21:00Z'
+updated_date: '2026-11-10T09:17:00Z'
 labels:
   - setup
   - security
@@ -63,4 +63,6 @@ Uganda firewall after the owner's manual clean-up (2026-10-30 09:26 UTC): OpenSS
 Implemented and pushed in 82e189f6c and 253621935 (revised owner ruling): ufw_allow_ssh_ports always runs 'ufw allow OpenSSH', allows every other sshd port as 'Custom SSH', and deletes 'Custom SSH' rules for ports sshd no longer listens on (rules without that comment are untouched). The stale-key repair lives in ensure_bouncer_registered: prove registration via 'cscli bouncers list', else delete + 'cscli bouncers add -o raw' + write api_key (never printed) + restart; Stage 4 verifies 'Firewall bouncer running'. Tests: setup-ssh-port-firewall-test.sh rewritten (OpenSSH/custom comments, stale 4713 deleted, uncommented 4713 kept) and new setup-crowdsec-bouncer-key-test.sh, both wired into harness-selftest.yaml. Red against v2026.10.5 in tmp/test-539-red.log, green in tmp/test-539-green.log (run in ubuntu:24.04 because macOS bash 3.2/BSD sed differ); all 18 setup-*.sh pass; bash -n clean. CI on 253621935: Harness Selftest and Go Test red only from the STATBUS-537 installer banner ('StatBus installer: development copy (not a release)') breaking install-pull-failure-test.sh and cli/cmd install_rerun_test.go; notified rabbit, nothing in this commit.
 
 AC7 observed 2026-11-06 17:20 UTC on statbus.ubos.org, released setup (v2026.11.1-rc.15) piped from statbus.org/rc/setup.sh, --only-stages 'service-account ssh-hardening security-tools': SSH stage passed all checks on port 713; security-tools upgraded crowdsec-firewall-bouncer 0.0.36->0.0.38, 'Bouncer statbus-firewall-bouncer is registered with the local API', all 13 checks passed. ufw status afterwards: OpenSSH, 80, 443, 5432, 713/tcp # Custom SSH, 10050 from 10.10.10.253 (and v6); no 22/tcp, no 4713/tcp. cscli bouncers list: statbus-firewall-bouncer 127.0.0.1 Valid, pulled 20:19:42+03:00, v0.0.38. Log: tmp/uganda-setup-rerun.log.
+
+2026-11-10 09:17 UTC Uganda (statbus.ubos.org, Ubuntu 26.04, setup v2026.11.3), owner ran --only-stages "base-system security-tools": base-system verified (etckeeper installed and initialised, bash history, C.UTF-8 and en_US.UTF-8 locales); security-tools verified: CrowdSec running, firewall bouncer has an API key, is registered with the local API ('Bouncer statbus-firewall-bouncer is registered') and running, SSHD collection installed, UFW active, OpenSSH allowed, SSH port 713 allowed, HTTP, HTTPS and PostgreSQL allowed. Summary: 'No follow-up from this run.' Earlier the same morning: auto-updates stage, Docker in the nightly updates (STATBUS-583). Confirms AC7 again on the released v2026.11.3 setup.
 <!-- SECTION:NOTES:END -->
