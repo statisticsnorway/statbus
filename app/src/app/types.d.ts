@@ -1,10 +1,10 @@
 import { Tables } from "@/lib/database.types";
 
-type TimeContextRow = Tables<"time_context">;
+type TimeFrameRow = Tables<"time_frame">;
 type StatDefinitionRow = Tables<"stat_definition">;
 type ExternalIdentRow = Tables<"external_ident_type">;
 
-type TimeContextRows = TimeContextRow[];
+type TimeFrameRows = TimeFrameRow[];
 type StatDefinitionRows = StatDefinitionRow[];
 type ExternalIdentRows = ExternalIdentRow[];
 

@@ -18,7 +18,7 @@ export function useEditableFieldState(
     () => {
       if (isSuccessfullySaved) {
         // If the initialValue prop has changed since we entered the
-        // optimistic state, it means new data has loaded (e.g. time context
+        // optimistic state, it means new data has loaded (e.g. time frame
         // changed). We must accept the new value and exit the optimistic state.
         if (initialValue !== valueAtSave.current) {
           setCurrentValue(initialValue ?? "");

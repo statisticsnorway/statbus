@@ -10,7 +10,7 @@ import React, { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { InfoBox } from "@/components/info-box";
 import { useImportManager, usePendingJobsByMode } from "@/atoms/import"; // Updated import
-import { TimeContextSelector } from "../components/time-context-selector";
+import { ImportTimeFrameSelector } from "../components/time-frame-selector";
 import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";
 import { getBrowserRestClient } from "@/context/RestClientStore";
@@ -126,7 +126,7 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
         />
       )}
 
-      <TimeContextSelector unitType="establishments-without-legal-unit" />
+      <ImportTimeFrameSelector unitType="establishments-without-legal-unit" />
       
       <ImportJobCreator 
         importMode="establishment_informal"

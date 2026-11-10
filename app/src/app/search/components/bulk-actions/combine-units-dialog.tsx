@@ -18,7 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { useTimeContext } from "@/atoms/app-derived";
+import { useTimeFrame } from "@/atoms/app-derived";
 import { type StatisticalUnit } from "@/atoms/search";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
@@ -39,16 +39,16 @@ export function CombineUnitsDialog({
   enterprise,
   onConfirm,
 }: CombineUnitsDialogProps) {
-  const { selectedTimeContext } = useTimeContext();
+  const { selectedTimeFrame } = useTimeFrame();
   const [validFrom, setValidFrom] = useState<string>("");
   const [validTo, setValidTo] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleOpenChange = (open: boolean) => {
-    if (open && selectedTimeContext) {
-      setValidFrom(selectedTimeContext.valid_from ?? "");
+    if (open && selectedTimeFrame) {
+      setValidFrom(selectedTimeFrame.valid_from ?? "");
       // valid_to from context might be "infinity" or a date - both are valid
-      setValidTo(selectedTimeContext.valid_to ?? "");
+      setValidTo(selectedTimeFrame.valid_to ?? "");
     }
     onOpenChange(open);
   };

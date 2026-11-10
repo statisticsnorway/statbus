@@ -78,8 +78,8 @@ export interface BaseData {
   statDefinitions: Tables<"stat_definition_enabled">[];
   externalIdentTypes: Tables<"external_ident_type_enabled">[];
   statbusUsers: Tables<"user">[];
-  timeContexts: Tables<"time_context">[];
-  defaultTimeContext: Tables<"time_context"> | null;
+  timeFrames: Tables<"time_frame">[];
+  defaultTimeFrame: Tables<"time_frame"> | null;
   hasStatisticalUnits: boolean;
 }
 
@@ -89,8 +89,8 @@ const getInitialBaseData = (): BaseData => ({
   statDefinitions: [],
   externalIdentTypes: [],
   statbusUsers: [],
-  timeContexts: [],
-  defaultTimeContext: null,
+  timeFrames: [],
+  defaultTimeFrame: null,
   hasStatisticalUnits: getCachedHasStatisticalUnits() ?? false,
 });
 
@@ -98,8 +98,8 @@ const initialBaseData: BaseData = {
   statDefinitions: [],
   externalIdentTypes: [],
   statbusUsers: [],
-  timeContexts: [],
-  defaultTimeContext: null,
+  timeFrames: [],
+  defaultTimeFrame: null,
   hasStatisticalUnits: false,
 };
 
@@ -139,7 +139,7 @@ export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(
         externalIdentTypesResult,
         statbusUsersResult,
         statisticalUnitResult,
-        timeContextsResult,
+        timeFramesResult,
       ] = await Promise.all([
         client.from("stat_definition_enabled").select(),
         client.from("external_ident_type_enabled").select(),
@@ -149,7 +149,7 @@ export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(
           .order("last_sign_in_at", { ascending: false, nullsFirst: false })
           .order("id"), // Consider if all users are needed or just current user's info
         client.from("statistical_unit").select("unit_id").limit(1), // Check existence with minimal data fetch
-        client.from("time_context").select("*"), // Fetches all, view is ordered by default
+        client.from("time_frame").select("*"), // Ordered by the view: live, relative, fixed
       ]);
 
       if (statDefinitionsResult.error)
@@ -172,19 +172,15 @@ export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(
           "Error checking for statistical units:",
           statisticalUnitResult.error
         ); // This error might still occur if other issues arise, but the query itself is fixed.
-      if (timeContextsResult.error)
+      if (timeFramesResult.error)
         console.error(
-          "Error fetching time contexts:",
-          timeContextsResult.error
+          "Error fetching time frames:",
+          timeFramesResult.error
         );
 
-      let defaultTimeContext: Tables<"time_context"> | null = null;
-      if (timeContextsResult.data && timeContextsResult.data.length > 0) {
-        // The time_context view is pre-ordered by priority, then valid_on descending.
-        // The first one is the default.
-        defaultTimeContext = timeContextsResult
-          .data[0] as Tables<"time_context">;
-      }
+      // public.time_frame lists the live frame first; it is the default.
+      const defaultTimeFrame: Tables<"time_frame"> | null =
+        timeFramesResult.data?.[0] ?? null;
 
       const hasStatisticalUnits = !!(
         statisticalUnitResult.data && statisticalUnitResult.data.length > 0
@@ -197,8 +193,8 @@ export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(
         statDefinitions: statDefinitionsResult.data || [],
         externalIdentTypes: externalIdentTypesResult.data || [],
         statbusUsers: statbusUsersResult.data || [],
-        timeContexts: timeContextsResult.data || [],
-        defaultTimeContext: defaultTimeContext,
+        timeFrames: timeFramesResult.data || [],
+        defaultTimeFrame,
         hasStatisticalUnits,
       };
     } catch (error) {
@@ -218,7 +214,7 @@ function isBaseDataEqual(a: BaseData, b: BaseData): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
   if (a.hasStatisticalUnits !== b.hasStatisticalUnits) return false;
-  if (a.defaultTimeContext?.ident !== b.defaultTimeContext?.ident) return false;
+  if (a.defaultTimeFrame?.ident !== b.defaultTimeFrame?.ident) return false;
 
   // Create a key from an array of objects using their primary identifiers.
   // This is more efficient than a full deep equal and robust enough for this data.
@@ -234,7 +230,11 @@ function isBaseDataEqual(a: BaseData, b: BaseData): boolean {
   if (idKey(a.statDefinitions) !== idKey(b.statDefinitions)) return false;
   if (idKey(a.externalIdentTypes) !== idKey(b.externalIdentTypes)) return false;
   if (idKey(a.statbusUsers) !== idKey(b.statbusUsers)) return false;
-  if (idKey(a.timeContexts) !== idKey(b.timeContexts)) return false;
+  // A frame keeps its ident while its name and period move with the calendar
+  // (live and prev on 1 January), so frames compare on what they show.
+  const frameKey = (frames: ReadonlyArray<Tables<"time_frame">>) =>
+    frames.map((f) => `${f.ident}:${f.name}:${f.valid_from}:${f.valid_to}:${f.valid_on}`).join(",");
+  if (frameKey(a.timeFrames) !== frameKey(b.timeFrames)) return false;
 
   return true;
 }
@@ -318,9 +318,9 @@ export const statbusUsersAtom = selectAtom(
   (data) => data.statbusUsers,
   isEqual
 );
-export const timeContextsAtom = atom((get) => get(baseDataAtom).timeContexts);
-export const defaultTimeContextAtom = atom(
-  (get) => get(baseDataAtom).defaultTimeContext
+export const timeFramesAtom = atom((get) => get(baseDataAtom).timeFrames);
+export const defaultTimeFrameAtom = atom(
+  (get) => get(baseDataAtom).defaultTimeFrame
 );
 export const hasStatisticalUnitsAtom = atom(
   (get) => get(baseDataAtom).hasStatisticalUnits

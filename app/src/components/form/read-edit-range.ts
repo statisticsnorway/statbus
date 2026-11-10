@@ -2,7 +2,7 @@ import type { PostgrestClient } from "@supabase/postgrest-js";
 import {
   defaultEditRange,
   type EditRange,
-  type TimeContextRange,
+  type TimeFrameRange,
 } from "@/components/form/edit-range";
 
 /**
@@ -20,7 +20,7 @@ export interface EditFieldSource {
 
 export interface ReadEditRangeArgs extends EditFieldSource {
   shownValue: unknown;
-  context: TimeContextRange;
+  context: TimeFrameRange;
 }
 
 /** The columns a location field group shows and edits together. */
@@ -39,7 +39,7 @@ export const LOCATION_COLUMNS = [
 
 /**
  * Reads the field's rows for the unit and returns the default edit range: the
- * stretch where the shown value is valid, bounded by the selected time context
+ * stretch where the shown value is valid, bounded by the selected time frame
  * (see defaultEditRange). One standard read, made when the user starts an edit.
  * When the read fails the range is the selected context, so the edit still
  * opens and the database's for-portion-of views clip it to where the unit exists.

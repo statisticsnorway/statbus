@@ -23,7 +23,7 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
     createImportJob,
     importState,
     loadDefinitions,
-    timeContext,
+    timeFrame,
     setReview,
   } = useImportManager();
   const router = useRouter();
@@ -34,7 +34,7 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
   }, [loadDefinitions, importMode], 'ImportJobCreator:loadDefinitions');
 
   const { useExplicitDates, explicitStartDate, explicitEndDate, selectedDefinition } = importState;
-  const { selectedContext } = timeContext;
+  const { selectedTimeFrame } = timeFrame;
 
   const handleContinue = async () => {
     if (selectedDefinition?.valid_time_from === 'job_provided') {
@@ -43,8 +43,8 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
           setError("Please provide both a start and end date.");
           return;
         }
-      } else if (!selectedContext) {
-        setError("Please select a time context.");
+      } else if (!selectedTimeFrame) {
+        setError("Please select a time frame.");
         return;
       }
     }

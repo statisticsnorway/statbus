@@ -23,7 +23,7 @@ import {
 } from './auth';
 import {
   baseDataAtom,
-  timeContextsAtom,
+  timeFramesAtom,
   useBaseData,
 } from './base-data';
 import { numberOfRegionsAtomAsync, settingsAtomAsync } from "./getting-started";
@@ -33,65 +33,55 @@ import { selectedUnitsAtom, queryAtom, filtersAtom } from './search';
 
 // Imports from the main app atom file
 import {
-  selectedTimeContextAtom,
+  selectedTimeFrameAtom,
   initialAuthCheckCompletedAtom,
 } from './app';
 
 // ============================================================================
-// TIME CONTEXT ATOMS & HOOKS - DEPENDENT ON BASE DATA
+// TIME FRAME ATOMS & HOOKS - DEPENDENT ON BASE DATA
 // ============================================================================
 
-export const defaultTimeContextAtom = selectAtom(baseDataAtom, (data) => data.defaultTimeContext, isEqual);
+export const defaultTimeFrameAtom = selectAtom(baseDataAtom, (data) => data.defaultTimeFrame, isEqual);
 
 /**
- * An effect atom that ensures a valid time context is selected.
- * 
- * This effect handles two scenarios:
- * 1. No time context is selected - selects the default
- * 2. Selected time context is stale (e.g., from a previous year) - resets to default
- * 
- * The second case is crucial because time contexts with relative periods like
- * "year_curr" change their valid_on dates when a new year arrives, making the
- * stored cookie value stale.
+ * Keeps a valid time frame selected (public.time_frame, lib/time-frame.ts).
+ *
+ * The selection is remembered by ident. live and prev keep their ident as the
+ * calendar moves while their period and valid_on change (valid_on of the live
+ * frame is today), so the stored row is replaced by the current row with the
+ * same ident. A selection whose ident no longer exists (a retired frame from an
+ * older version) falls back to the default frame, the live frame.
  */
-export const timeContextAutoSelectEffectAtom = atomEffect((get, set) => {
-  const selected = get(selectedTimeContextAtom);
-  const timeContexts = get(timeContextsAtom);
-  const defaultTC = get(defaultTimeContextAtom);
-  
-  // If no time context is selected, use the default
-  if (!selected && defaultTC) {
-    set(selectedTimeContextAtom, defaultTC);
+export const timeFrameAutoSelectEffectAtom = atomEffect((get, set) => {
+  const selected = get(selectedTimeFrameAtom);
+  const timeFrames = get(timeFramesAtom);
+  const defaultFrame = get(defaultTimeFrameAtom);
+
+  if (!selected) {
+    if (defaultFrame) set(selectedTimeFrameAtom, defaultFrame);
     return;
   }
-  
-  // Validate that the selected time context still exists and matches current data
-  if (selected && timeContexts.length > 0) {
-    const matchingContext = timeContexts.find(tc => tc.ident === selected.ident);
-    
-    // If the stored context doesn't exist or the valid_on date has changed (e.g., new year),
-    // reset to the default time context
-    if (!matchingContext || matchingContext.valid_on !== selected.valid_on) {
-      if (defaultTC) {
-        set(selectedTimeContextAtom, defaultTC);
-      }
-    } else if (matchingContext !== selected) {
-      // Update to the fresh version from the database to ensure all fields are current
-      set(selectedTimeContextAtom, matchingContext);
+
+  if (timeFrames.length > 0) {
+    const current = timeFrames.find((tf) => tf.ident === selected.ident);
+    if (!current) {
+      if (defaultFrame) set(selectedTimeFrameAtom, defaultFrame);
+    } else if (!isEqual(current, selected)) {
+      set(selectedTimeFrameAtom, current);
     }
   }
 });
 
-export const useTimeContext = () => {
-  const [selectedTimeContext, setSelectedTimeContext] = useAtom(selectedTimeContextAtom);
-  const timeContexts = useAtomValue(timeContextsAtom);
-  const defaultTimeContext = useAtomValue(defaultTimeContextAtom);
-  
+export const useTimeFrame = () => {
+  const [selectedTimeFrame, setSelectedTimeFrame] = useAtom(selectedTimeFrameAtom);
+  const timeFrames = useAtomValue(timeFramesAtom);
+  const defaultTimeFrame = useAtomValue(defaultTimeFrameAtom);
+
   return {
-    selectedTimeContext,
-    setSelectedTimeContext,
-    timeContexts,
-    defaultTimeContext,
+    selectedTimeFrame,
+    setSelectedTimeFrame,
+    timeFrames,
+    defaultTimeFrame,
   };
 };
 
@@ -262,8 +252,8 @@ export const useDebugInfo = () => {
       statDefinitionsCount: baseData.statDefinitions.length,
       externalIdentTypesCount: baseData.externalIdentTypes.length,
       statbusUsersCount: baseData.statbusUsers.length,
-      timeContextsCount: baseData.timeContexts.length,
-      hasDefaultTimeContext: !!baseData.defaultTimeContext,
+      timeFramesCount: baseData.timeFrames.length,
+      hasDefaultTimeFrame: !!baseData.defaultTimeFrame,
       hasStatisticalUnits: baseData.hasStatisticalUnits,
     },
     workerStatus,

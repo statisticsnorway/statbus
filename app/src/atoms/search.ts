@@ -47,7 +47,7 @@ import {
   DOMESTIC,
 } from "../app/search/filters/url-search-params";
 
-import { selectedTimeContextAtom, searchStateInitializedAtom } from './app'
+import { selectedTimeFrameAtom, searchStateInitializedAtom } from './app'
 import { restClientAtom } from './rest-client'
 import { externalIdentTypesAtom, statDefinitionsAtom, useBaseData } from './base-data'
 
@@ -937,7 +937,7 @@ export const setTableColumnProfileAtom = atom(
 const derivedApiSearchParamsAtomUnstable = atom((get) => {
   const query = get(queryAtom);
   const filters = get(filtersAtom);
-  const selectedTimeContext = get(selectedTimeContextAtom);
+  const selectedTimeFrame = get(selectedTimeFrameAtom);
   const externalIdentTypes = get(externalIdentTypesAtom); // from baseDataAtom
   const statDefinitions = get(statDefinitionsAtom); // from baseDataAtom
   const { allDataSources } = get(searchPageDataAtom); // for dataSourceDeriveStateUpdateFromValues
@@ -1164,10 +1164,10 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
     // If api_param_value is null, the parameter is intentionally not added.
   });
 
-  // 3. Time context: list the units that EXIST at valid_on by the canonical
+  // 3. Time frame: list the units that EXIST at valid_on by the canonical
   // rule (STATBUS-460, lib/unit-existence.ts), not every record that covers it.
-  if (selectedTimeContext && selectedTimeContext.valid_on) {
-    setExistenceSearchParams(params, selectedTimeContext.valid_on);
+  if (selectedTimeFrame && selectedTimeFrame.valid_on) {
+    setExistenceSearchParams(params, selectedTimeFrame.valid_on);
   }
 
   // 4. Sorting

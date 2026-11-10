@@ -5,7 +5,7 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 import { useStatisticalHistoryHighcharts } from "./history-changes/use-statistical-history-highcharts";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTimeContext } from "@/atoms/app-derived";
+import { useTimeFrame } from "@/atoms/app-derived";
 import { type Enums } from "@/lib/database.types";
 import {
   Select,
@@ -36,7 +36,7 @@ export function HistoryReports({
   seriesCodes,
   children,
 }: HistoryReportsProps) {
-  const { timeContexts } = useTimeContext();
+  const { timeFrames } = useTimeFrame();
   const [selectedUnitType, setSelectedUnitType] =
     useState<UnitType>("enterprise");
   const [selectedYear, setSelectedYear] = useState<string>("all");
@@ -44,14 +44,14 @@ export function HistoryReports({
     selectedYear === "all" ? "year" : "year-month";
 
   const availableYears = useMemo(() => {
-    const years = timeContexts
+    const years = timeFrames
       .map((tc) =>
         tc.valid_from ? new Date(tc.valid_from).getFullYear() : null
       )
       .filter((year): year is number => year !== null);
 
     return Array.from(new Set(years)).sort((a, b) => b - a);
-  }, [timeContexts]);
+  }, [timeFrames]);
 
   const [highchartsModulesLoaded, setHighchartsModulesLoaded] = useState(false);
 

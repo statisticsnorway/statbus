@@ -20,6 +20,7 @@ import { toast } from "@/hooks/use-toast";
 import { useProgressDownload } from "@/hooks/use-progress-download";
 import { getUploadPath } from "@/lib/import-mode-paths";
 import type { Tables } from "@/lib/database.types";
+import { groupTimeFrames } from "@/lib/time-frame";
 import {
   ArrowDownToLine,
   BarChartHorizontal,
@@ -75,7 +76,7 @@ export function CommandPalette() {
   // Create-job flow state
   const [allDefinitions, setAllDefinitions] = useState<Tables<'import_definition'>[]>([]);
   const [selectedDefinition, setSelectedDefinition] = useState<Tables<'import_definition'> | null>(null);
-  const [selectedTimeContextIdent, setSelectedTimeContextIdent] = useState<string | null>(null);
+  const [selectedTimeFrameIdent, setSelectedTimeFrameIdent] = useState<string | null>(null);
 
   // Clone-job flow state
   const [cloneSourceJob, setCloneSourceJob] = useState<ImportJobWithDefinition | null>(null);
@@ -88,11 +89,9 @@ export function CommandPalette() {
   const importDownloadContext = useAtomValue(importDownloadContextAtom);
   const doLoadAllDefinitions = useSetAtom(loadAllImportDefinitionsAtom);
   const doCreateJob = useSetAtom(createImportJobFromDefinitionAtom);
-  const { timeContexts: allTimeContexts } = useBaseData();
-
-  const availableTimeContexts = allTimeContexts.filter(
-    (tc) => (tc.scope === "input" || tc.scope === "input_and_query") && tc.name_when_input,
-  );
+  const { timeFrames } = useBaseData();
+  // An import job may name any frame, so the palette lists them all (lib/time-frame.ts).
+  const timeFrameGroups = groupTimeFrames(timeFrames, { forMenu: false });
 
   useGuardedEffect(
     () => {
@@ -125,7 +124,7 @@ export function CommandPalette() {
     setSearch('');
     setDownloadFilter('');
     setSelectedDefinition(null);
-    setSelectedTimeContextIdent(null);
+    setSelectedTimeFrameIdent(null);
     setCloneSourceJob(null);
     setAllDefinitions([]);
   };
@@ -218,7 +217,7 @@ export function CommandPalette() {
       const job = await doCreateJob({
         definitionId: selectedDefinition.id,
         description: selectedDefinition.name,
-        timeContextIdent: selectedTimeContextIdent,
+        timeFrameIdent: selectedTimeFrameIdent,
         defaultValidFrom: null,
         defaultValidTo: null,
         review,
@@ -258,7 +257,7 @@ export function CommandPalette() {
       const job = await doCreateJob({
         definitionId: cloneSourceJob.definition_id,
         description: cloneSourceJob.description ?? def.name,
-        timeContextIdent: cloneSourceJob.time_context_ident,
+        timeFrameIdent: cloneSourceJob.time_frame_ident,
         defaultValidFrom: cloneSourceJob.default_valid_from,
         defaultValidTo: cloneSourceJob.default_valid_to,
         review,
@@ -274,7 +273,7 @@ export function CommandPalette() {
     'download-filter': 'Which rows to download?',
     'download-format': 'Choose format...',
     'create-job-definition': 'Search definitions...',
-    'create-job-time': 'Select time context...',
+    'create-job-time': 'Select time frame...',
     'create-job-review': 'Select review mode...',
     'clone-job-review': 'Select review mode...',
   };
@@ -682,23 +681,25 @@ export function CommandPalette() {
             ));
           })()}
 
-          {/* ===== CREATE JOB: PICK TIME CONTEXT ===== */}
-          {page === 'create-job-time' && (
-            <CommandGroup heading={crumbHeading(
-              { label: 'Create job', goToDepth: 0 },
-              { label: selectedDefinition?.name ?? 'Definition', goToDepth: 1 },
-              { label: 'Time context' },
-            )}>
-              {availableTimeContexts.map((tc) => (
-                <CommandItem key={tc.ident} onSelect={() => {
-                  setSelectedTimeContextIdent(tc.ident);
+          {/* ===== CREATE JOB: PICK TIME FRAME ===== */}
+          {page === 'create-job-time' && timeFrameGroups.map((group, index) => (
+            <CommandGroup key={group.kind} heading={index === 0
+              ? crumbHeading(
+                  { label: 'Create job', goToDepth: 0 },
+                  { label: selectedDefinition?.name ?? 'Definition', goToDepth: 1 },
+                  { label: `Time frame: ${group.heading}` },
+                )
+              : group.heading}>
+              {group.frames.map((tf) => (
+                <CommandItem key={tf.ident} onSelect={() => {
+                  setSelectedTimeFrameIdent(tf.ident);
                   setPages([...pages, 'create-job-review']); setSearch('');
-                }} value={`${tc.name_when_input} ${tc.ident}`}>
-                  {tc.name_when_input}
+                }} value={`${tf.name} ${tf.ident}`}>
+                  {tf.name}
                 </CommandItem>
               ))}
             </CommandGroup>
-          )}
+          ))}
 
           {/* ===== CREATE JOB: PICK REVIEW MODE ===== */}
           {page === 'create-job-review' && (

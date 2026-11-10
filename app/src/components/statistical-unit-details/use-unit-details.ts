@@ -8,12 +8,12 @@ import {
   getStatisticalUnitHierarchy,
   getStatisticalUnitStats,
 } from "@/components/statistical-unit-details/requests";
-import { useTimeContext } from "@/atoms/app-derived";
+import { useTimeFrame } from "@/atoms/app-derived";
 import { useSWRWithAuthRefresh, isJwtExpiredError, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
 
 export function useStatisticalUnitDetails(id: string, unitType: UnitType) {
-  const { selectedTimeContext } = useTimeContext();
-  const validOn = selectedTimeContext?.valid_on;
+  const { selectedTimeFrame } = useTimeFrame();
+  const validOn = selectedTimeFrame?.valid_on;
 
   const { data, isLoading, error, mutate } = useSWRWithAuthRefresh(
     validOn ? ["details", id, unitType, validOn] : null,
@@ -44,8 +44,8 @@ export function useStatisticalUnitDetails(id: string, unitType: UnitType) {
 }
 
 export function useStatisticalUnitStats(id: string, unitType: UnitType) {
-  const { selectedTimeContext } = useTimeContext();
-  const validOn = selectedTimeContext?.valid_on;
+  const { selectedTimeFrame } = useTimeFrame();
+  const validOn = selectedTimeFrame?.valid_on;
 
   const { data, isLoading, error, mutate } = useSWRWithAuthRefresh(
     validOn ? ["stats", id, unitType, validOn] : null,
@@ -84,8 +84,8 @@ export function useStatisticalUnitHierarchyStats(
   unitType: UnitType,
   compact: boolean
 ) {
-  const { selectedTimeContext } = useTimeContext();
-  const validOn = selectedTimeContext?.valid_on;
+  const { selectedTimeFrame } = useTimeFrame();
+  const validOn = selectedTimeFrame?.valid_on;
 
   const { data, isLoading, error } = useSWRWithAuthRefresh(
     validOn && !compact ? ["stats", id, unitType, validOn] : null,
@@ -115,8 +115,8 @@ export function useStatisticalUnitHierarchyStats(
 }
 
 export function useStatisticalUnitHierarchy(id: string, unitType: UnitType) {
-  const { selectedTimeContext } = useTimeContext();
-  const validOn = selectedTimeContext?.valid_on;
+  const { selectedTimeFrame } = useTimeFrame();
+  const validOn = selectedTimeFrame?.valid_on;
 
   const { data, isLoading, error, mutate } = useSWRWithAuthRefresh(
     validOn ? ["hierarchy", id, unitType, validOn] : null,
@@ -147,8 +147,8 @@ export function useStatisticalUnitHierarchy(id: string, unitType: UnitType) {
 }
 
 export function useLegalUnit(id: string) {
-  const { selectedTimeContext } = useTimeContext();
-  const validOn = selectedTimeContext?.valid_on;
+  const { selectedTimeFrame } = useTimeFrame();
+  const validOn = selectedTimeFrame?.valid_on;
 
   const { data, isLoading, error } = useSWRWithAuthRefresh(
     validOn ? ["legal_unit", id, validOn] : null,
@@ -174,8 +174,8 @@ export function useLegalUnit(id: string) {
 }
 
 export function useEstablishment(id: string) {
-  const { selectedTimeContext } = useTimeContext();
-  const validOn = selectedTimeContext?.valid_on;
+  const { selectedTimeFrame } = useTimeFrame();
+  const validOn = selectedTimeFrame?.valid_on;
 
   const { data, isLoading, error } = useSWRWithAuthRefresh(
     validOn ? ["establishment", id, validOn] : null,

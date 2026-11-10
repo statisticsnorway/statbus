@@ -24,16 +24,18 @@ import { selectAtom } from 'jotai/utils'
 import { isEqual } from 'moderndash'
 
 // ============================================================================
-// TIME CONTEXT ATOMS & HOOKS - Replace TimeContext
+// TIME FRAME ATOMS & HOOKS
 // ============================================================================
 
-// Persistent selected time context
-export const selectedTimeContextAtom = atomWithStorage<Tables<"time_context"> | null>(
-  'selectedTimeContext',
+// The selected time frame (public.time_frame), kept across visits. The storage
+// key is new with time frames, so a value saved under the retired key
+// 'selectedTimeContext' is not read and the default frame is selected instead.
+export const selectedTimeFrameAtom = atomWithStorage<Tables<"time_frame"> | null>(
+  'selectedTimeFrame',
   null
 )
 
-// NOTE: defaultTimeContextAtom, timeContextAutoSelectEffectAtom, and useTimeContext
+// NOTE: defaultTimeFrameAtom, timeFrameAutoSelectEffectAtom, and useTimeFrame
 // have been moved to app-derived.ts to break a circular dependency.
 
 // ============================================================================

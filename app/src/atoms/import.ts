@@ -19,8 +19,8 @@
  *     declaratively tells the UI how the validity period for imported records
  *     will be determined:
  *
- *     -   `'job_provided'`: The user must either select a predefined time period
- *         (a `time_context`) or enter explicit start and end dates when creating
+ *     -   `'job_provided'`: The user must either select a time frame
+ *         (public.time_frame) or enter explicit start and end dates when creating
  *         the import job.
  *
  *     -   `'source_columns'`: The import file itself must contain `valid_from`
@@ -53,6 +53,7 @@ import { useGuardedEffect } from '@/hooks/use-guarded-effect'
 import type { Database, Enums, Tables, TablesInsert } from '@/lib/database.types'
 import { restClientAtom } from './rest-client'
 import { useBaseData } from './base-data'
+import { selectedTimeFrameAtom } from './app'
 import { isAuthenticatedStrictAtom, authStateForDataFetchingAtom } from './auth'
 
 // ============================================================================
@@ -94,7 +95,7 @@ export interface ImportState {
   errors: string[]
   completed: boolean
   useExplicitDates: boolean;
-  selectedImportTimeContextIdent: string | null;
+  selectedImportTimeFrameIdent: string | null;
   selectedDefinition: Tables<'import_definition'> | null;
   availableDefinitions: Tables<'import_definition'>[];
   explicitStartDate: string | null; // YYYY-MM-DD
@@ -109,7 +110,7 @@ export const initialImportState: ImportState = {
   errors: [],
   completed: false,
   useExplicitDates: false,
-  selectedImportTimeContextIdent: null,
+  selectedImportTimeFrameIdent: null,
   selectedDefinition: null,
   availableDefinitions: [],
   explicitStartDate: null,
@@ -267,10 +268,10 @@ export const refreshPendingJobsByModeAtom = atom(
   }
 );
 
-export const setImportSelectedTimeContextAtom = atom(
+export const setImportSelectedTimeFrameAtom = atom(
   null,
-  (get, set, timeContextIdent: string | null) => {
-    set(importStateAtom, (prev) => ({ ...prev, selectedImportTimeContextIdent: timeContextIdent }));
+  (get, set, timeFrameIdent: string | null) => {
+    set(importStateAtom, (prev) => ({ ...prev, selectedImportTimeFrameIdent: timeFrameIdent }));
   }
 );
 
@@ -324,7 +325,7 @@ export const loadImportDefinitionsAtom = atom(
       selectedDefinition: initialImportState.selectedDefinition,
       availableDefinitions: initialImportState.availableDefinitions,
       useExplicitDates: initialImportState.useExplicitDates,
-      selectedImportTimeContextIdent: initialImportState.selectedImportTimeContextIdent,
+      selectedImportTimeFrameIdent: initialImportState.selectedImportTimeFrameIdent,
       explicitStartDate: initialImportState.explicitStartDate,
       explicitEndDate: initialImportState.explicitEndDate,
     }));
@@ -375,7 +376,7 @@ export const createImportJobAtom = atom<null, [], Promise<Tables<'import_job'> |
     const insertJobData: TablesInsert<'import_job'> = {
       definition_id: definition.id,
       description: definition.name,
-      time_context_ident: null,
+      time_frame_ident: null,
       default_valid_from: null,
       default_valid_to: null,
       data_table_name: null!,
@@ -393,13 +394,13 @@ export const createImportJobAtom = atom<null, [], Promise<Tables<'import_job'> |
         insertJobData.default_valid_from = importState.explicitStartDate;
         insertJobData.default_valid_to = importState.explicitEndDate;
       } else {
-        if (!importState.selectedImportTimeContextIdent) {
-          throw new Error("A time context must be selected.");
+        if (!importState.selectedImportTimeFrameIdent) {
+          throw new Error("A time frame must be selected.");
         }
-        insertJobData.time_context_ident = importState.selectedImportTimeContextIdent;
+        insertJobData.time_frame_ident = importState.selectedImportTimeFrameIdent;
       }
     }
-    // If valid_time_from is 'source_columns', we send no time context info, which is the default.
+    // If valid_time_from is 'source_columns', the job carries no time frame and no dates.
 
     const { data, error: insertError } = await client
       .from("import_job")
@@ -429,14 +430,14 @@ export const useImportManager = () => {
   const currentImportState = useAtomValue(importStateAtom);
   const currentUnitCounts = useAtomValue(unitCountsAtom);
   const {
-    timeContexts: allTimeContextsFromBase,
-    defaultTimeContext: defaultTimeContextFromBase,
+    timeFrames,
     refreshBaseData,
   } = useBaseData();
+  const selectedViewTimeFrame = useAtomValue(selectedTimeFrameAtom);
 
   const doRefreshUnitCount = useSetAtom(refreshUnitCountAtom);
   const doRefreshAllUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
-  const doSetSelectedTimeContextIdent = useSetAtom(setImportSelectedTimeContextAtom);
+  const doSetSelectedTimeFrameIdent = useSetAtom(setImportSelectedTimeFrameAtom);
   const doSetUseExplicitDates = useSetAtom(setImportUseExplicitDatesAtom);
   const doSetExplicitStartDate = useSetAtom(setImportExplicitStartDateAtom);
   const doSetExplicitEndDate = useSetAtom(setImportExplicitEndDateAtom);
@@ -445,59 +446,35 @@ export const useImportManager = () => {
   const doSetReview = useSetAtom(setImportReviewAtom);
   const doCreateJob = useSetAtom(createImportJobAtom);
 
-  const availableImportTimeContexts = useMemo<Tables<'time_context'>[]>(() => {
-    if (!allTimeContextsFromBase) return [];
-
-    // Filter time contexts to only those suitable for any import.
-    // These have a scope of 'input' or 'input_and_query'.
-    return allTimeContextsFromBase.filter(
-      (tc) =>
-        (tc.scope === "input" || tc.scope === "input_and_query") &&
-        tc.name_when_input,
-    );
-  }, [allTimeContextsFromBase]);
-
+  // An import job may name any time frame (lib/time-frame.ts lists them all,
+  // grouped). Until the user picks one, the job takes the frame selected in the
+  // menu, which is the live frame unless the user is looking at another one.
   useGuardedEffect(() => {
-    if (currentImportState.selectedImportTimeContextIdent === null && availableImportTimeContexts.length > 0) {
-      let newDefaultIdent: string | null = null;
-
-      if (defaultTimeContextFromBase) {
-        const globalDefaultIsAvailableForImport = availableImportTimeContexts.find(
-          (tc) => tc.ident === defaultTimeContextFromBase.ident
-        );
-        if (globalDefaultIsAvailableForImport) {
-          newDefaultIdent = globalDefaultIsAvailableForImport.ident;
-        }
-      }
-
-      if (!newDefaultIdent && availableImportTimeContexts.length > 0) {
-        newDefaultIdent = availableImportTimeContexts[0].ident;
-      }
-      
-      if (newDefaultIdent) {
-        doSetSelectedTimeContextIdent(newDefaultIdent);
-      }
+    if (currentImportState.selectedImportTimeFrameIdent === null && timeFrames.length > 0) {
+      const viewIdent = selectedViewTimeFrame?.ident;
+      const initial = timeFrames.find((tf) => tf.ident === viewIdent) ?? timeFrames[0];
+      if (initial.ident) doSetSelectedTimeFrameIdent(initial.ident);
     }
   }, [
-    availableImportTimeContexts, 
-    currentImportState.selectedImportTimeContextIdent, 
-    doSetSelectedTimeContextIdent,
-    defaultTimeContextFromBase
-  ], 'import.ts:useImportManager:autoSelectDefaultTimeContext');
+    timeFrames,
+    currentImportState.selectedImportTimeFrameIdent,
+    doSetSelectedTimeFrameIdent,
+    selectedViewTimeFrame?.ident,
+  ], 'import.ts:useImportManager:selectInitialTimeFrame');
 
-  const selectedImportTimeContextObject = useMemo<Tables<'time_context'> | null>(() => {
-    if (!currentImportState.selectedImportTimeContextIdent || !availableImportTimeContexts) return null;
-    return availableImportTimeContexts.find(tc => tc.ident === currentImportState.selectedImportTimeContextIdent) || null;
-  }, [currentImportState.selectedImportTimeContextIdent, availableImportTimeContexts]);
+  const selectedImportTimeFrame = useMemo<Tables<'time_frame'> | null>(() => {
+    if (!currentImportState.selectedImportTimeFrameIdent) return null;
+    return timeFrames.find(tf => tf.ident === currentImportState.selectedImportTimeFrameIdent) || null;
+  }, [currentImportState.selectedImportTimeFrameIdent, timeFrames]);
 
-  const importTimeContextData = useMemo(() => ({
-    availableContexts: availableImportTimeContexts,
-    selectedContext: selectedImportTimeContextObject,
-  }), [availableImportTimeContexts, selectedImportTimeContextObject]);
+  const importTimeFrameData = useMemo(() => ({
+    availableTimeFrames: timeFrames,
+    selectedTimeFrame: selectedImportTimeFrame,
+  }), [timeFrames, selectedImportTimeFrame]);
 
-  const setSelectedImportTimeContext = useCallback((timeContextIdent: string | null) => {
-    doSetSelectedTimeContextIdent(timeContextIdent);
-  }, [doSetSelectedTimeContextIdent]);
+  const setSelectedImportTimeFrame = useCallback((timeFrameIdent: string | null) => {
+    doSetSelectedTimeFrameIdent(timeFrameIdent);
+  }, [doSetSelectedTimeFrameIdent]);
 
   const setImportUseExplicitDates = useCallback((useExplicitDates: boolean) => {
     doSetUseExplicitDates(useExplicitDates);
@@ -539,8 +516,8 @@ export const useImportManager = () => {
     counts: currentUnitCounts,
     refreshUnitCount,
     refreshCounts: refreshAllCounts,
-    timeContext: importTimeContextData,
-    setSelectedTimeContext: setSelectedImportTimeContext,
+    timeFrame: importTimeFrameData,
+    setSelectedTimeFrame: setSelectedImportTimeFrame,
     setUseExplicitDates: setImportUseExplicitDates,
     setExplicitStartDate,
     setExplicitEndDate,
@@ -572,7 +549,7 @@ export const createImportJobFromDefinitionAtom = atom(
   async (get, _set, params: {
     definitionId: number;
     description: string;
-    timeContextIdent: string | null;
+    timeFrameIdent: string | null;
     defaultValidFrom: string | null;
     defaultValidTo: string | null;
     review: boolean | null;
@@ -583,7 +560,7 @@ export const createImportJobFromDefinitionAtom = atom(
       .insert({
         definition_id: params.definitionId,
         description: params.description,
-        time_context_ident: params.timeContextIdent,
+        time_frame_ident: params.timeFrameIdent,
         default_valid_from: params.defaultValidFrom,
         default_valid_to: params.defaultValidTo,
         review: params.review,

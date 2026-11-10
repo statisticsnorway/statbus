@@ -3,7 +3,7 @@ import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { EstimatedCount } from "@/components/estimated-count";
 import { AlertTriangle } from "lucide-react";
-import { useTimeContext } from "@/atoms/app-derived";
+import { useTimeFrame } from "@/atoms/app-derived";
 import { useState, useCallback } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { PostgrestError } from "@supabase/postgrest-js";
@@ -13,7 +13,7 @@ import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
 // instant (canonical rule, lib/unit-existence.ts) and lack a primary activity
 // category, so the number matches what the Statistical Units list shows when clicked.
 export const MissingActivityCategoryCard = () => {
-  const { selectedTimeContext } = useTimeContext();
+  const { selectedTimeFrame } = useTimeFrame();
 
   const [data, setData] = useState<{ count: number | null; error: PostgrestError | null }>({ count: null, error: null });
 
@@ -34,31 +34,31 @@ export const MissingActivityCategoryCard = () => {
     };
 
     const fetchDataAsync = async () => {
-      if (selectedTimeContext?.valid_on) {
-        const result = await fetchData(selectedTimeContext.valid_on);
+      if (selectedTimeFrame?.valid_on) {
+        const result = await fetchData(selectedTimeFrame.valid_on);
         setData(result);
       }
     };
 
     fetchDataAsync();
-  }, [selectedTimeContext], 'MissingActivityCategoryCard:fetchData');
+  }, [selectedTimeFrame], 'MissingActivityCategoryCard:fetchData');
 
   const { count, error } = data;
 
   // Callback to fetch exact count when user requests it
   const handleGetExact = useCallback(async (): Promise<number | null> => {
-    if (!selectedTimeContext?.valid_on) return null;
+    if (!selectedTimeFrame?.valid_on) return null;
     const client = await getBrowserRestClient();
     const { count: exactCount } = await client
       .from("statistical_unit")
       .select("", { count: "exact" })
       .is("primary_activity_category_path", null)
       .neq("unit_type", "enterprise")
-      .lte(EXISTENCE_FROM, selectedTimeContext.valid_on)
-      .gt(EXISTENCE_UNTIL, selectedTimeContext.valid_on)
+      .lte(EXISTENCE_FROM, selectedTimeFrame.valid_on)
+      .gt(EXISTENCE_UNTIL, selectedTimeFrame.valid_on)
       .limit(0);
     return exactCount;
-  }, [selectedTimeContext]);
+  }, [selectedTimeFrame]);
 
   return (
     <DashboardCard
@@ -69,7 +69,7 @@ export const MissingActivityCategoryCard = () => {
       <EstimatedCount
         estimatedCount={count}
         onGetExact={handleGetExact}
-        cacheKey={`missing-activity-${selectedTimeContext?.valid_on ?? 'default'}`}
+        cacheKey={`missing-activity-${selectedTimeFrame?.valid_on ?? 'default'}`}
       />
     </DashboardCard>
   );

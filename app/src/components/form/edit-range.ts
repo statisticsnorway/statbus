@@ -1,6 +1,6 @@
 /**
  * The default period an edit applies to: the stretch where the value the user
- * sees is valid, bounded by the selected time context.
+ * sees is valid, bounded by the selected time frame.
  *
  * A unit's timeline is a series of rows; a value can span several consecutive
  * rows (another column changing splits it) and differ in rows before or after.
@@ -19,7 +19,7 @@ export interface TimelineRow<V> {
   value: V;
 }
 
-export interface TimeContextRange {
+export interface TimeFrameRange {
   valid_from: string;
   valid_to: string;
 }
@@ -50,7 +50,7 @@ function dayAfter(date: string): string {
 export function defaultEditRange<V>(
   rows: TimelineRow<V>[],
   shownValue: V,
-  context: TimeContextRange,
+  context: TimeFrameRange,
   sameValue: (a: V, b: V) => boolean = (a, b) => a === b
 ): EditRange {
   const fallback = { validFrom: context.valid_from, validTo: context.valid_to };

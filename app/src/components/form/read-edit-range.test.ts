@@ -2,7 +2,7 @@ import { readEditRange } from "@/components/form/read-edit-range";
 
 // STATBUS-604: when an edit starts, the form reads the field's rows for the unit
 // and opens the edit on the stretch where the shown value is valid, bounded by
-// the selected time context.
+// the selected time frame.
 type Row = Record<string, unknown>;
 
 function fakeClient(rows: Row[], record: { calls: unknown[] }) {

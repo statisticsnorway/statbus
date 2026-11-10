@@ -1,7 +1,7 @@
 import { defaultEditRange } from "@/components/form/edit-range";
 
 // STATBUS-604: an edit defaults to the stretch where the value shown is valid,
-// bounded by the selected time context, so it changes exactly what the user saw.
+// bounded by the selected time frame, so it changes exactly what the user saw.
 describe("defaultEditRange", () => {
   const year2026 = { valid_from: "2026-01-01", valid_to: "2026-12-31" };
 

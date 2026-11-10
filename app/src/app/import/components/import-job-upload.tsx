@@ -326,7 +326,7 @@ export function ImportJobUpload({
         )}
       </div>
 
-      {allowUpload && phase === "idle" && !job.time_context_ident && (
+      {allowUpload && phase === "idle" && !job.time_frame_ident && (
         <div className="border rounded-md p-4">
           <div className="text-sm text-gray-700 space-y-2">
             <p className="font-medium">

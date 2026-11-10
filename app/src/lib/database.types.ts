@@ -1300,7 +1300,7 @@ export type Database = {
           review: boolean | null
           slug: string
           state: Database["public"]["Enums"]["import_job_state"]
-          time_context_ident: string | null
+          time_frame_ident: string | null
           total_analysis_steps_weighted: number | null
           total_rows: number | null
           truncate_overlong: boolean
@@ -1349,7 +1349,7 @@ export type Database = {
           review?: boolean | null
           slug: string
           state?: Database["public"]["Enums"]["import_job_state"]
-          time_context_ident?: string | null
+          time_frame_ident?: string | null
           total_analysis_steps_weighted?: number | null
           total_rows?: number | null
           truncate_overlong?: boolean
@@ -1398,7 +1398,7 @@ export type Database = {
           review?: boolean | null
           slug?: string
           state?: Database["public"]["Enums"]["import_job_state"]
-          time_context_ident?: string | null
+          time_frame_ident?: string | null
           total_analysis_steps_weighted?: number | null
           total_rows?: number | null
           truncate_overlong?: boolean
@@ -3094,33 +3094,6 @@ export type Database = {
           lasts_to?: string | null
           name?: string
           updated_at?: string
-        },
-        Relationships: []
-      },
-      relative_period: {
-        Row: {
-          code: Database["public"]["Enums"]["relative_period_code"]
-          enabled: boolean
-          id: number
-          name_when_input: string | null
-          name_when_query: string | null
-          scope: Database["public"]["Enums"]["relative_period_scope"]
-        },
-        Insert: {
-          code: Database["public"]["Enums"]["relative_period_code"]
-          enabled?: boolean
-          id?: never
-          name_when_input?: string | null
-          name_when_query?: string | null
-          scope: Database["public"]["Enums"]["relative_period_scope"]
-        },
-        Update: {
-          code?: Database["public"]["Enums"]["relative_period_code"]
-          enabled?: boolean
-          id?: never
-          name_when_input?: string | null
-          name_when_query?: string | null
-          scope?: Database["public"]["Enums"]["relative_period_scope"]
         },
         Relationships: []
       },
@@ -9057,42 +9030,6 @@ export type Database = {
         },
         Relationships: []
       },
-      relative_period_with_time: {
-        Row: {
-          code: Database["public"]["Enums"]["relative_period_code"] | null
-          enabled: boolean | null
-          id: number | null
-          name_when_input: string | null
-          name_when_query: string | null
-          scope: Database["public"]["Enums"]["relative_period_scope"] | null
-          valid_from: string | null
-          valid_on: string | null
-          valid_to: string | null
-        },
-        Insert: {
-          code?: Database["public"]["Enums"]["relative_period_code"] | null
-          enabled?: boolean | null
-          id?: number | null
-          name_when_input?: string | null
-          name_when_query?: string | null
-          scope?: Database["public"]["Enums"]["relative_period_scope"] | null
-          valid_from?: string | null
-          valid_on?: string | null
-          valid_to?: string | null
-        },
-        Update: {
-          code?: Database["public"]["Enums"]["relative_period_code"] | null
-          enabled?: boolean | null
-          id?: number | null
-          name_when_input?: string | null
-          name_when_query?: string | null
-          scope?: Database["public"]["Enums"]["relative_period_scope"] | null
-          valid_from?: string | null
-          valid_on?: string | null
-          valid_to?: string | null
-        },
-        Relationships: []
-      },
       sector_custom: {
         Row: {
           description: string | null
@@ -10280,42 +10217,36 @@ export type Database = {
         },
         Relationships: []
       },
-      time_context: {
+      time_frame: {
         Row: {
-          code: Database["public"]["Enums"]["relative_period_code"] | null
+          equals_frame_ident: string | null
           ident: string | null
-          name_when_input: string | null
-          name_when_query: string | null
-          path: string | null
-          scope: Database["public"]["Enums"]["relative_period_scope"] | null
-          type: Database["public"]["Enums"]["time_context_type"] | null
+          kind: Database["public"]["Enums"]["time_frame_kind"] | null
+          name: string | null
           valid_from: string | null
           valid_on: string | null
           valid_to: string | null
+          year: number | null
         },
         Insert: {
-          code?: Database["public"]["Enums"]["relative_period_code"] | null
+          equals_frame_ident?: string | null
           ident?: string | null
-          name_when_input?: string | null
-          name_when_query?: string | null
-          path?: string | null
-          scope?: Database["public"]["Enums"]["relative_period_scope"] | null
-          type?: Database["public"]["Enums"]["time_context_type"] | null
+          kind?: Database["public"]["Enums"]["time_frame_kind"] | null
+          name?: string | null
           valid_from?: string | null
           valid_on?: string | null
           valid_to?: string | null
+          year?: number | null
         },
         Update: {
-          code?: Database["public"]["Enums"]["relative_period_code"] | null
+          equals_frame_ident?: string | null
           ident?: string | null
-          name_when_input?: string | null
-          name_when_query?: string | null
-          path?: string | null
-          scope?: Database["public"]["Enums"]["relative_period_scope"] | null
-          type?: Database["public"]["Enums"]["time_context_type"] | null
+          kind?: Database["public"]["Enums"]["time_frame_kind"] | null
+          name?: string | null
           valid_from?: string | null
           valid_on?: string | null
           valid_to?: string | null
+          year?: number | null
         },
         Relationships: []
       },
@@ -15664,34 +15595,6 @@ export type Database = {
       location_type: "physical" | "postal",
       person_sex: "Male" | "Female",
       power_group_root_status: "single" | "cycle" | "multi",
-      relative_period_code: 
-          | "today"
-          | "year_curr"
-          | "year_prev"
-          | "year_curr_only"
-          | "year_prev_only"
-          | "start_of_week_curr"
-          | "stop_of_week_prev"
-          | "start_of_week_prev"
-          | "start_of_month_curr"
-          | "stop_of_month_prev"
-          | "start_of_month_prev"
-          | "start_of_quarter_curr"
-          | "stop_of_quarter_prev"
-          | "start_of_quarter_prev"
-          | "start_of_semester_curr"
-          | "stop_of_semester_prev"
-          | "start_of_semester_prev"
-          | "start_of_year_curr"
-          | "stop_of_year_prev"
-          | "start_of_year_prev"
-          | "start_of_quinquennial_curr"
-          | "stop_of_quinquennial_prev"
-          | "start_of_quinquennial_prev"
-          | "start_of_decade_curr"
-          | "stop_of_decade_prev"
-          | "start_of_decade_prev",
-      relative_period_scope: "input_and_query" | "query" | "input",
       release_builds_status_type: "building" | "ready" | "failed",
       release_status_type: "commit" | "prerelease" | "release",
       reset_scope: "units" | "data" | "getting-started" | "all",
@@ -15722,7 +15625,7 @@ export type Database = {
           | "waiting"
           | "completed"
           | "failed",
-      time_context_type: "relative_period" | "tag" | "year",
+      time_frame_kind: "live" | "relative" | "fixed",
       upgrade_actor_source: "verified" | "self-reported" | "absent",
       upgrade_failure_code: 
           | "MIGRATION_FAILED"
@@ -15947,35 +15850,6 @@ export const Constants = {
       location_type: ["physical", "postal"],
       person_sex: ["Male", "Female"],
       power_group_root_status: ["single", "cycle", "multi"],
-      relative_period_code: [
-        "today",
-        "year_curr",
-        "year_prev",
-        "year_curr_only",
-        "year_prev_only",
-        "start_of_week_curr",
-        "stop_of_week_prev",
-        "start_of_week_prev",
-        "start_of_month_curr",
-        "stop_of_month_prev",
-        "start_of_month_prev",
-        "start_of_quarter_curr",
-        "stop_of_quarter_prev",
-        "start_of_quarter_prev",
-        "start_of_semester_curr",
-        "stop_of_semester_prev",
-        "start_of_semester_prev",
-        "start_of_year_curr",
-        "stop_of_year_prev",
-        "start_of_year_prev",
-        "start_of_quinquennial_curr",
-        "stop_of_quinquennial_prev",
-        "start_of_quinquennial_prev",
-        "start_of_decade_curr",
-        "stop_of_decade_prev",
-        "start_of_decade_prev"
-      ],
-      relative_period_scope: ["input_and_query", "query", "input"],
       release_builds_status_type: ["building", "ready", "failed"],
       release_status_type: ["commit", "prerelease", "release"],
       reset_scope: ["units", "data", "getting-started", "all"],
@@ -16010,7 +15884,7 @@ export const Constants = {
         "completed",
         "failed"
       ],
-      time_context_type: ["relative_period", "tag", "year"],
+      time_frame_kind: ["live", "relative", "fixed"],
       upgrade_actor_source: ["verified", "self-reported", "absent"],
       upgrade_failure_code: [
         "MIGRATION_FAILED",

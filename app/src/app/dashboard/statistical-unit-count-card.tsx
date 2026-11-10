@@ -3,7 +3,7 @@ import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { EstimatedCount } from "@/components/estimated-count";
-import { useTimeContext } from '@/atoms/app-derived';
+import { useTimeFrame } from '@/atoms/app-derived';
 import { hasStatisticalUnitsAtom } from '@/atoms/base-data';
 import { useState, useCallback } from "react";
 import { useAtomValue } from "jotai";
@@ -18,7 +18,7 @@ export const StatisticalUnitCountCard = ({
   readonly unitType: "enterprise" | "legal_unit" | "establishment";
   readonly title: string;
 }) => {
-  const { selectedTimeContext } = useTimeContext();
+  const { selectedTimeFrame } = useTimeFrame();
   const hasStatisticalUnits = useAtomValue(hasStatisticalUnitsAtom);
 
   const [data, setData] = useState<{ count: number | null; error: PostgrestError | null }>({ count: null, error: null });
@@ -49,32 +49,32 @@ export const StatisticalUnitCountCard = ({
     };
 
     const fetchDataAsync = async () => {
-      if (selectedTimeContext?.valid_on){
-      const result = await fetchData(selectedTimeContext.valid_on);
+      if (selectedTimeFrame?.valid_on){
+      const result = await fetchData(selectedTimeFrame.valid_on);
       setData(result);
       }
     };
 
     fetchDataAsync();
-  }, [selectedTimeContext, unitType, hasStatisticalUnits], `StatisticalUnitCountCard:${unitType}:fetchData`);
+  }, [selectedTimeFrame, unitType, hasStatisticalUnits], `StatisticalUnitCountCard:${unitType}:fetchData`);
 
   const { count, error } = data;
 
   // Callback to fetch exact count when user requests it
   const handleGetExact = useCallback(async (): Promise<number | null> => {
     if (!hasStatisticalUnits) return 0;
-    if (!selectedTimeContext?.valid_on) return null;
+    if (!selectedTimeFrame?.valid_on) return null;
     const client = await getBrowserRestClient();
     const { count: exactCount } = await client
       .from("statistical_unit")
       .select("", { count: "exact" })
       .eq("unit_type", unitType)
-      .lte(EXISTENCE_FROM, selectedTimeContext.valid_on)
-      .gt(EXISTENCE_UNTIL, selectedTimeContext.valid_on)
+      .lte(EXISTENCE_FROM, selectedTimeFrame.valid_on)
+      .gt(EXISTENCE_UNTIL, selectedTimeFrame.valid_on)
       .eq("used_for_counting", true)
       .limit(0);
     return exactCount;
-  }, [selectedTimeContext, unitType, hasStatisticalUnits]);
+  }, [selectedTimeFrame, unitType, hasStatisticalUnits]);
 
   return (
     <DashboardCard
@@ -85,7 +85,7 @@ export const StatisticalUnitCountCard = ({
       <EstimatedCount
         estimatedCount={count}
         onGetExact={handleGetExact}
-        cacheKey={`${unitType}-${selectedTimeContext?.valid_on ?? 'default'}`}
+        cacheKey={`${unitType}-${selectedTimeFrame?.valid_on ?? 'default'}`}
       />
     </DashboardCard>
   );

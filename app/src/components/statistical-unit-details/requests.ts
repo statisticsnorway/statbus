@@ -21,7 +21,7 @@ export async function getEnterpriseById(id: string) {
 // The unit detail pages show a unit only while it EXISTS at the selected
 // instant (canonical rule, STATBUS-460, lib/unit-existence.ts): a unit whose
 // record covers the instant but which is not yet born, or already dead, is
-// "not found" for that time context, exactly as statistical_unit_details says.
+// "not found" for that time frame, exactly as statistical_unit_details says.
 export async function getEstablishmentById(id: string, validOn: string) {
   const client = await getBrowserRestClient();
   const { data: establishments, error } = await whereExistsOn(

@@ -17,7 +17,7 @@ import {
   clearAndMarkJournalAtom,
   addEventJournalEntryAtom,
   requiredSetupRedirectAtom,
-  selectedTimeContextAtom,
+  selectedTimeFrameAtom,
   initialAuthCheckCompletedAtom,
   MachineID,
 } from '@/atoms/app';
@@ -216,7 +216,7 @@ export const DebugInspector = () => {
   const requiredSetupRedirectValue = useAtomValue(requiredSetupRedirectAtom);
   const lastKnownPathValue = useAtomValue(lastKnownPathBeforeAuthChangeAtom);
   const redirectRelevantStateValue = useAtomValue(redirectRelevantStateAtom);
-  const selectedTimeContextValue = useAtomValue(selectedTimeContextAtom);
+  const selectedTimeFrameValue = useAtomValue(selectedTimeFrameAtom);
 
   const handleExpireToken = async () => {
     addJournalEntry({
@@ -295,13 +295,13 @@ export const DebugInspector = () => {
       context: (({ sideEffect, ...rest}) => rest)(navState.context) // Omit sideEffect for cleaner display
     },
     appContext: {
-      selectedTimeContext: selectedTimeContextValue ? {
-        ident: selectedTimeContextValue.ident,
-        name_when_input: selectedTimeContextValue.name_when_input,
-        name_when_query: selectedTimeContextValue.name_when_query,
+      selectedTimeFrame: selectedTimeFrameValue ? {
+        ident: selectedTimeFrameValue.ident,
+        name: selectedTimeFrameValue.name,
+        valid_on: selectedTimeFrameValue.valid_on,
       } : null,
     },
-    baseData: { state: baseDataState, statDefinitionsCount: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : undefined, externalIdentTypesCount: baseDataState === 'hasData' ? baseDataFromAtom.externalIdentTypes.length : undefined, statbusUsersCount: baseDataState === 'hasData' ? baseDataFromAtom.statbusUsers.length : undefined, timeContextsCount: baseDataState === 'hasData' ? baseDataFromAtom.timeContexts.length : undefined, defaultTimeContextIdent: baseDataState === 'hasData' ? baseDataFromAtom.defaultTimeContext?.ident : undefined, hasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : undefined, error: baseDataState === 'hasError' ? String(baseDataFromAtom.error) : undefined },
+    baseData: { state: baseDataState, statDefinitionsCount: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : undefined, externalIdentTypesCount: baseDataState === 'hasData' ? baseDataFromAtom.externalIdentTypes.length : undefined, statbusUsersCount: baseDataState === 'hasData' ? baseDataFromAtom.statbusUsers.length : undefined, timeFramesCount: baseDataState === 'hasData' ? baseDataFromAtom.timeFrames.length : undefined, defaultTimeFrameIdent: baseDataState === 'hasData' ? baseDataFromAtom.defaultTimeFrame?.ident : undefined, hasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : undefined, error: baseDataState === 'hasError' ? String(baseDataFromAtom.error) : undefined },
     workerStatus: { state: workerStatusValue.loading ? 'loading' : workerStatusValue.error ? 'hasError' : 'hasData', isImporting: workerStatusValue.isImporting, isDerivingUnits: workerStatusValue.isDerivingUnits, isDerivingReports: workerStatusValue.isDerivingReports, loading: workerStatusValue.loading, error: workerStatusValue.error },
     searchAndSelection: {
       searchText: queryValue,
@@ -844,12 +844,11 @@ export const DebugInspector = () => {
               <div>
                 <strong>App Context:</strong>
                 <div className="pl-4 mt-1 space-y-1">
-                  <div><strong>Time Context:</strong> {(
+                  <div><strong>Time Frame:</strong> {(
                       () => {
-                        const tc = stateToDisplay.appContext?.selectedTimeContext;
-                        if (!tc) return 'None';
-                        const displayName = tc.name_when_input || tc.name_when_query;
-                        return `${displayName} (${tc.ident})`;
+                        const tf = stateToDisplay.appContext?.selectedTimeFrame;
+                        if (!tf) return 'None';
+                        return `${tf.name} (${tf.ident}, valid on ${tf.valid_on})`;
                       }
                     )()}</div>
                 </div>
@@ -863,8 +862,8 @@ export const DebugInspector = () => {
                       <div><strong>Stat Definitions:</strong> {stateToDisplay.baseData.statDefinitionsCount}</div>
                       <div><strong>External Ident Types:</strong> {stateToDisplay.baseData.externalIdentTypesCount}</div>
                       <div><strong>Statbus Users:</strong> {stateToDisplay.baseData.statbusUsersCount}</div>
-                      <div><strong>Time Contexts:</strong> {stateToDisplay.baseData.timeContextsCount}</div>
-                      <div><strong>Default Time Context:</strong> {stateToDisplay.baseData.defaultTimeContextIdent || 'None'}</div>
+                      <div><strong>Time Frames:</strong> {stateToDisplay.baseData.timeFramesCount}</div>
+                      <div><strong>Default Time Frame:</strong> {stateToDisplay.baseData.defaultTimeFrameIdent || 'None'}</div>
                       <div><strong>Has Statistical Units:</strong> {stateToDisplay.baseData.hasStatisticalUnits ? 'Yes' : 'No'}</div>
                     </>
                   )}

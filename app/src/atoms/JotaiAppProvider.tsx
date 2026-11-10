@@ -16,7 +16,7 @@ import {
   clientMountedAtom,
   initialAuthCheckCompletedAtom,
   requiredSetupRedirectAtom,
-  selectedTimeContextAtom,
+  selectedTimeFrameAtom,
   debugInspectorVisibleAtom,
   eventJournalAtom,
   pageUnloadDetectorEffectAtom,
@@ -783,7 +783,7 @@ export const useManualInit = () => {
 // Before:
 <AuthProvider>
   <ClientBaseDataProvider>
-    <TimeContextProvider>
+    <TimeFrameProvider>
       <SearchProvider>
         <SelectionProvider>
           <TableColumnsProvider>
@@ -795,7 +795,7 @@ export const useManualInit = () => {
           </TableColumnsProvider>
         </SelectionProvider>
       </SearchProvider>
-    </TimeContextProvider>
+    </TimeFrameProvider>
   </ClientBaseDataProvider>
 </AuthProvider>
 

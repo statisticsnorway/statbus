@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useImportManager, usePendingJobsByMode } from "@/atoms/import";
 import { ImportJobCreator } from "../components/import-job-creator";
-import { TimeContextSelector } from "../components/time-context-selector";
+import { ImportTimeFrameSelector } from "../components/time-frame-selector";
 import { Spinner } from "@/components/ui/spinner";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import {
@@ -126,7 +126,7 @@ export default function LegalUnitsPage() {
         />
       )}
 
-      <TimeContextSelector unitType="legal-units" />
+      <ImportTimeFrameSelector unitType="legal-units" />
       
       <ImportJobCreator 
         importMode="legal_unit"

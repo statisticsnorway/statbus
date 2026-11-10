@@ -5,7 +5,7 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useImportManager } from "@/atoms/import";
 import { Label } from "@/components/ui/label";
 import { Tables } from "@/lib/database.types";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CalendarIcon, InfoIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -15,16 +15,31 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Spinner } from "@/components/ui/spinner";
+import { groupTimeFrames, type TimeFrame } from "@/lib/time-frame";
 
-interface TimeContextSelectorProps {
+/** A frame's period as shown on the import page, e.g. "1/1/2025 - 12/31/2025" or "1/1/2026 - Present". */
+function framePeriod(tf: TimeFrame): string {
+  const from = tf.valid_from ? new Date(tf.valid_from).toLocaleDateString() : "N/A";
+  const to = tf.valid_to === "infinity"
+    ? "Present"
+    : tf.valid_to ? new Date(tf.valid_to).toLocaleDateString() : "N/A";
+  return `${from} - ${to}`;
+}
+
+interface ImportTimeFrameSelectorProps {
   unitType: "legal-units" | "establishments" | "establishments-without-legal-unit" | "legal-relationships";
 }
 
-export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
+/**
+ * Chooses how an import job sets validity: a time frame applied to every row,
+ * or valid_from/valid_to columns in the file. An import may name any frame, so
+ * all frames are listed, grouped by kind (lib/time-frame.ts).
+ */
+export function ImportTimeFrameSelector({ unitType }: ImportTimeFrameSelectorProps) {
   const { 
     importState: { selectedDefinition, availableDefinitions, useExplicitDates, explicitStartDate, explicitEndDate },
-    timeContext: { availableContexts, selectedContext },
-    setSelectedTimeContext, 
+    timeFrame: { availableTimeFrames, selectedTimeFrame },
+    setSelectedTimeFrame, 
     setSelectedDefinition,
     setUseExplicitDates,
     setExplicitStartDate,
@@ -34,11 +49,9 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
   const [isClient, setIsClient] = useState(false);
   useGuardedEffect(() => {
     setIsClient(true);
-  }, [], 'TimeContextSelector:setIsClient');
+  }, [], 'ImportTimeFrameSelector:setIsClient');
 
-  const handleTimeContextChange = (value: string) => {
-    setSelectedTimeContext(value);
-  };
+  const timeFrameGroups = groupTimeFrames(availableTimeFrames, { forMenu: false });
 
   const validityOptions = React.useMemo(() => {
     type ValidityOption = {
@@ -52,9 +65,9 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
     const jobProvidedDef = availableDefinitions.find(d => d.valid_time_from === 'job_provided');
     if (jobProvidedDef) {
       options.push({
-        id: 'job_provided_time_context',
-        label: 'Apply a validity period to all records',
-        description: 'Select a predefined validity period to apply to all imported records.',
+        id: 'job_provided_time_frame',
+        label: 'Apply a time frame to all records',
+        description: 'Every imported record is valid for the period of the chosen time frame.',
         definition: jobProvidedDef,
         useExplicitDates: false,
       });
@@ -82,7 +95,7 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
   const selectedOptionId = React.useMemo(() => {
     if (!selectedDefinition) return null;
     if (selectedDefinition.valid_time_from === 'job_provided') {
-      return useExplicitDates ? 'job_provided_explicit_dates' : 'job_provided_time_context';
+      return useExplicitDates ? 'job_provided_explicit_dates' : 'job_provided_time_frame';
     }
     if (selectedDefinition.valid_time_from === 'source_columns') {
       return `source_columns_${selectedDefinition.slug}`;
@@ -154,36 +167,26 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
             {/* Conditionally render inputs right below the selected option */}
             {selectedOptionId === option.id && (
               <div className="pl-7 mt-2">
-                {option.id === 'job_provided_time_context' && (
+                {option.id === 'job_provided_time_frame' && (
                   <Select
-                    value={selectedContext?.ident ?? ""}
-                    onValueChange={handleTimeContextChange}
+                    value={selectedTimeFrame?.ident ?? ""}
+                    onValueChange={setSelectedTimeFrame}
                   >
-                    <SelectTrigger id="time-context" className="w-full">
+                    <SelectTrigger id="time-frame" className="w-full">
                       <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
-                      <SelectValue placeholder="Select a validity period" />
+                      <SelectValue placeholder="Select a time frame" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableContexts
-                        .filter(
-                          (tc) =>
-                            tc.scope === "input" || tc.scope === "input_and_query",
-                        )
-                        .map((tc: Tables<'time_context'>) => (
-                          <SelectItem key={tc.ident!} value={tc.ident!}>
-                            {tc.name_when_input} (
-                            {tc.valid_from
-                              ? new Date(tc.valid_from).toLocaleDateString()
-                              : "N/A"}{" "}
-                            -{" "}
-                            {tc.valid_to === "infinity"
-                              ? "Present"
-                              : tc.valid_to
-                                ? new Date(tc.valid_to).toLocaleDateString()
-                                : "N/A"}
-                            )
-                          </SelectItem>
-                        ))}
+                      {timeFrameGroups.map((group) => (
+                        <SelectGroup key={group.kind}>
+                          <SelectLabel>{group.heading}</SelectLabel>
+                          {group.frames.map((tf) => (
+                            <SelectItem key={tf.ident!} value={tf.ident!}>
+                              {tf.name} ({framePeriod(tf)})
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}

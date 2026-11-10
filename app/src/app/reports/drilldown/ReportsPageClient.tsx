@@ -10,7 +10,7 @@ import { DrillDownChart } from "@/app/reports/drilldown/drill-down-chart";
 import { SearchLink } from "@/app/reports/drilldown/search-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBaseData } from "@/atoms/base-data";
-import { useTimeContext } from "@/atoms/app-derived";
+import { useTimeFrame } from "@/atoms/app-derived";
 import { Tables } from "@/lib/database.types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUnitTypeLabel, UnitTypeTabs } from "@/app/reports/unit-type-tabs";
@@ -44,7 +44,7 @@ export default function ReportsPageClient({}) {
   } = useDrillDownData();
 
   const { statDefinitions } = useBaseData();
-  const { selectedTimeContext } = useTimeContext();
+  const { selectedTimeFrame } = useTimeFrame();
 
   useGuardedEffect(
     () => {
@@ -76,8 +76,8 @@ export default function ReportsPageClient({}) {
     [selectedUnitType]
   );
 
-  const selectedYear = selectedTimeContext?.valid_on
-    ? new Date(selectedTimeContext.valid_on).getFullYear()
+  const selectedYear = selectedTimeFrame?.valid_on
+    ? new Date(selectedTimeFrame.valid_on).getFullYear()
     : null;
 
   const formatBreadcrumbTrail = (

@@ -1,13 +1,13 @@
 "use client";
 import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
 import { useState } from "react";
-import { useTimeContext } from '@/atoms/app-derived';
+import { useTimeFrame } from '@/atoms/app-derived';
 import { fetchWithAuthRefresh } from "@/context/RestClientStore";
 import { useSWRWithAuthRefresh, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export const useDrillDownData = () => {
-  const { selectedTimeContext } = useTimeContext();
+  const { selectedTimeFrame } = useTimeFrame();
   const [selectedUnitType, setSelectedUnitType] =
     useState<UnitType>("enterprise");
   const [region, setRegion] = useState<DrillDownPoint | null>(null);
@@ -24,8 +24,8 @@ export const useDrillDownData = () => {
     urlSearchParams.set("activity_category_path", activityCategory?.path);
   }
 
-  if (selectedTimeContext?.valid_on) {
-    urlSearchParams.set("valid_on", selectedTimeContext.valid_on);
+  if (selectedTimeFrame?.valid_on) {
+    urlSearchParams.set("valid_on", selectedTimeFrame.valid_on);
   }
 
   urlSearchParams.set("unit_type", selectedUnitType);
@@ -39,9 +39,9 @@ export const useDrillDownData = () => {
     "useDrillDownData:resetSelectionsOnUnitType"
   );
 
-  // Don't fetch until time context is ready — avoids a wasted ~5s request
-  // with no valid_on that gets thrown away when selectedTimeContext arrives.
-  const swrKey = selectedTimeContext?.valid_on
+  // Don't fetch until time frame is ready — avoids a wasted ~5s request
+  // with no valid_on that gets thrown away when selectedTimeFrame arrives.
+  const swrKey = selectedTimeFrame?.valid_on
     ? `/api/reports?${urlSearchParams.toString()}`
     : null;
 

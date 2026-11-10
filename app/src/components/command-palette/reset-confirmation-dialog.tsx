@@ -26,12 +26,12 @@ import { getBrowserRestClient } from "@/context/RestClientStore";
 import { useSetAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import { gettingStartedUIStateAtom } from "@/atoms/getting-started";
-import { selectedTimeContextAtom } from "@/atoms/app";
+import { selectedTimeFrameAtom } from "@/atoms/app";
 
 export function ResetConfirmationDialog() {
   const router = useRouter();
   const setGettingStartedUIState = useSetAtom(gettingStartedUIStateAtom);
-  const setSelectedTimeContext = useSetAtom(selectedTimeContextAtom);
+  const setSelectedTimeFrame = useSetAtom(selectedTimeFrameAtom);
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<Enums<"reset_scope">>("data");
   const [isLoading, setIsLoading] = useState(false);
@@ -75,7 +75,7 @@ export function ResetConfirmationDialog() {
         // Clear persisted client-side state to avoid inconsistencies after a
         // server data reset. The page reload will handle re-fetching data.
         setGettingStartedUIState(RESET);
-        setSelectedTimeContext(RESET);
+        setSelectedTimeFrame(RESET);
         router.push("/");
       }
     } catch (error) {

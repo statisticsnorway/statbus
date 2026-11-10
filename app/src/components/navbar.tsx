@@ -7,7 +7,7 @@ import { ArrowUpCircle, BarChartHorizontal, Info, Search, Upload } from "lucide-
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
-import TimeContextSelector from "@/components/time-context-selector";
+import TimeFrameSelector from "@/components/time-frame-selector";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAuth, isAuthenticatedStrictAtom, currentUserAtom } from "@/atoms/auth";
 import { useBaseData } from "@/atoms/base-data";
@@ -420,7 +420,7 @@ export default function Navbar() {
         <div className="flex items-center justify-end space-x-3">
           {isAuthenticated &&
             hasStatisticalUnits && (
-              <TimeContextSelector />
+              <TimeFrameSelector />
             )}
           {isAuthenticated &&
             currentUser && (

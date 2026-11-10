@@ -15,8 +15,8 @@ export interface BaseData {
   statDefinitions: Tables<"stat_definition_enabled">[];
   externalIdentTypes: Tables<"external_ident_type_enabled">[];
   statbusUsers: Tables<"user">[];
-  timeContexts: Tables<"time_context">[];
-  defaultTimeContext: Tables<"time_context"> | null;
+  timeFrames: Tables<"time_frame">[];
+  defaultTimeFrame: Tables<"time_frame"> | null;
   hasStatisticalUnits: boolean;
 }
 
@@ -28,8 +28,8 @@ class BaseDataStore {
     statDefinitions: [],
     externalIdentTypes: [],
     statbusUsers: [],
-    timeContexts: [],
-    defaultTimeContext: null,
+    timeFrames: [],
+    defaultTimeFrame: null,
     hasStatisticalUnits: false,
   };
   private status: FetchStatus = 'idle';
@@ -187,8 +187,8 @@ class BaseDataStore {
       statDefinitions: [],
       externalIdentTypes: [],
       statbusUsers: [],
-      timeContexts: [],
-      defaultTimeContext: null,
+      timeFrames: [],
+      defaultTimeFrame: null,
       hasStatisticalUnits: false,
     };
     this.status = 'idle';
@@ -216,8 +216,8 @@ class BaseDataStore {
       statDefinitionsCount: this.data.statDefinitions.length,
       externalIdentTypesCount: this.data.externalIdentTypes.length,
       statbusUsersCount: this.data.statbusUsers.length,
-      timeContextsCount: this.data.timeContexts.length,
-      hasDefaultTimeContext: !!this.data.defaultTimeContext,
+      timeFramesCount: this.data.timeFrames.length,
+      hasDefaultTimeFrame: !!this.data.defaultTimeFrame,
       hasStatisticalUnits: this.data.hasStatisticalUnits,
       cacheTTL: this.CACHE_TTL / 1000 + 's',
       environment: typeof window !== 'undefined' ? 'browser' : 'server'
@@ -286,12 +286,12 @@ class BaseDataStore {
         }
       };
       
-      const fetchTimeContexts = async () => {
+      const fetchTimeFrames = async () => {
         try {
-          const result = await client.from("time_context").select("*");
+          const result = await client.from("time_frame").select("*");
           return { data: result.data, error: result.error };
         } catch (error) {
-          console.error('Exception fetching time_context:', error);
+          console.error('Exception fetching time_frame:', error);
           return { data: null, error };
         }
       };
@@ -301,13 +301,13 @@ class BaseDataStore {
         externalIdentTypesResult,
         statbusUsersResult,
         statisticalUnitResult,
-        timeContextsResult
+        timeFramesResult
       ] = await Promise.all([
         fetchStatDefinitions(),
         fetchExternalIdentTypes(),
         fetchStatbusUsers(),
         fetchStatisticalUnit(),
-        fetchTimeContexts()
+        fetchTimeFrames()
       ]);
       
       const maybeStatDefinitions = statDefinitionsResult.data;
@@ -322,8 +322,8 @@ class BaseDataStore {
       const maybeStatisticalUnit = statisticalUnitResult.data;
       const statisticalUnitError = statisticalUnitResult.error;
       
-      const maybeTimeContexts = timeContextsResult.data;
-      const timeContextsError = timeContextsResult.error;
+      const maybeTimeFrames = timeFramesResult.data;
+      const timeFramesError = timeFramesResult.error;
       
       if (statDefinitionsError) {
         console.error('Error fetching stat definitions:', statDefinitionsError);
@@ -337,29 +337,29 @@ class BaseDataStore {
       if (statisticalUnitError) {
         console.error('Error checking for statistical units:', statisticalUnitError);
       }
-      if (timeContextsError) {
-        console.error('Error fetching time contexts:', timeContextsError);
+      if (timeFramesError) {
+        console.error('Error fetching time frames:', timeFramesError);
       }
       
-      let timeContextData: {
-        timeContexts: Tables<"time_context">[];
-        defaultTimeContext: Tables<"time_context"> | null;
+      let timeFrameData: {
+        timeFrames: Tables<"time_frame">[];
+        defaultTimeFrame: Tables<"time_frame"> | null;
       } = {
-        timeContexts: [],
-        defaultTimeContext: null
+        timeFrames: [],
+        defaultTimeFrame: null
       };
       
-      if (maybeTimeContexts && maybeTimeContexts.length > 0) {
-        let chosenDefault: Tables<"time_context"> | null = null;
+      if (maybeTimeFrames && maybeTimeFrames.length > 0) {
+        let chosenDefault: Tables<"time_frame"> | null = null;
 
-        // The time_context view is pre-ordered, so the first entry is the default.
-        if (maybeTimeContexts.length > 0) {
-          chosenDefault = maybeTimeContexts[0] as Tables<"time_context">;
+        // The time_frame view is pre-ordered, so the first entry is the default.
+        if (maybeTimeFrames.length > 0) {
+          chosenDefault = maybeTimeFrames[0] as Tables<"time_frame">;
         }
         
-        timeContextData = {
-          timeContexts: maybeTimeContexts as Tables<"time_context">[], // Keep original order for the main list
-          defaultTimeContext: chosenDefault // This can be null if maybeTimeContexts is empty
+        timeFrameData = {
+          timeFrames: maybeTimeFrames as Tables<"time_frame">[], // Keep original order for the main list
+          defaultTimeFrame: chosenDefault // This can be null if maybeTimeFrames is empty
         };
       }
       
@@ -367,7 +367,7 @@ class BaseDataStore {
       //   statDefinitions: maybeStatDefinitions?.length || 0,
       //   externalIdentTypes: maybeExternalIdentTypes?.length || 0,
       //   statbusUsers: maybeStatbusUsers?.length || 0,
-      //   timeContexts: timeContextData.timeContexts?.length || 0,
+      //   timeFrames: timeFrameData.timeFrames?.length || 0,
       //   hasStatisticalUnits: maybeStatisticalUnit !== null && Array.isArray(maybeStatisticalUnit) && maybeStatisticalUnit.length > 0
       // });
       
@@ -375,8 +375,8 @@ class BaseDataStore {
         statDefinitions: maybeStatDefinitions || [],
         externalIdentTypes: maybeExternalIdentTypes || [],
         statbusUsers: maybeStatbusUsers || [],
-        timeContexts: timeContextData.timeContexts || [],
-        defaultTimeContext: timeContextData.defaultTimeContext,
+        timeFrames: timeFrameData.timeFrames || [],
+        defaultTimeFrame: timeFrameData.defaultTimeFrame,
         hasStatisticalUnits: maybeStatisticalUnit !== null && Array.isArray(maybeStatisticalUnit) && maybeStatisticalUnit.length > 0
       };
     } catch (error) {
