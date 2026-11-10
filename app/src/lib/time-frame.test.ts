@@ -1,4 +1,4 @@
-import { groupTimeFrames, type TimeFrame } from "./time-frame";
+import { groupTimeFrames, TIME_FRAME_GROUPS, type TimeFrame } from "./time-frame";
 
 const frame = (overrides: Partial<TimeFrame>): TimeFrame => ({
   ident: null,
@@ -39,5 +39,12 @@ describe("groupTimeFrames", () => {
       ["Relative frames", ["Previous frame (2025)"]],
       ["Fixed frames", ["Frame 2025", "Frame 2024", "Frame 2022"]],
     ]);
+  });
+
+  it("gives each group the explanation of its kind for the info icon", () => {
+    const groups = groupTimeFrames(frames, { forMenu: false });
+    expect(groups.map((g) => [g.kind, g.explanation])).toEqual(
+      TIME_FRAME_GROUPS.map((g) => [g.kind, g.explanation])
+    );
   });
 });

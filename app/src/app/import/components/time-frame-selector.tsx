@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Spinner } from "@/components/ui/spinner";
 import { groupTimeFrames, type TimeFrame } from "@/lib/time-frame";
+import { TimeFrameGroupHeading } from "@/components/time-frame-group-heading";
 
 /** A frame's period as shown on the import page, e.g. "1/1/2025 - 12/31/2025" or "1/1/2026 - Present". */
 function framePeriod(tf: TimeFrame): string {
@@ -179,7 +180,7 @@ export function ImportTimeFrameSelector({ unitType }: ImportTimeFrameSelectorPro
                     <SelectContent>
                       {timeFrameGroups.map((group) => (
                         <SelectGroup key={group.kind}>
-                          <SelectLabel>{group.heading}</SelectLabel>
+                          <SelectLabel><TimeFrameGroupHeading group={group} /></SelectLabel>
                           {group.frames.map((tf) => (
                             <SelectItem key={tf.ident!} value={tf.ident!}>
                               {tf.name} ({framePeriod(tf)})

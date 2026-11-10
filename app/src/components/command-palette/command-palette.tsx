@@ -21,6 +21,7 @@ import { useProgressDownload } from "@/hooks/use-progress-download";
 import { getUploadPath } from "@/lib/import-mode-paths";
 import type { Tables } from "@/lib/database.types";
 import { groupTimeFrames } from "@/lib/time-frame";
+import { TimeFrameGroupHeading } from "@/components/time-frame-group-heading";
 import {
   ArrowDownToLine,
   BarChartHorizontal,
@@ -689,7 +690,7 @@ export function CommandPalette() {
               { label: 'Time frame' },
             )}>
               {timeFrameGroups.map((group) => (
-                <CommandGroup key={group.kind} heading={group.heading}>
+                <CommandGroup key={group.kind} heading={<TimeFrameGroupHeading group={group} />}>
                   {group.frames.map((tf) => (
                     <CommandItem key={tf.ident} onSelect={() => {
                       setSelectedTimeFrameIdent(tf.ident);

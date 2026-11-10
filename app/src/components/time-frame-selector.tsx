@@ -18,6 +18,7 @@ import {
 import { useTimeFrame } from "@/atoms/app-derived";
 import { useState } from "react";
 import { groupTimeFrames } from "@/lib/time-frame";
+import { TimeFrameGroupHeading } from "@/components/time-frame-group-heading";
 
 /** The frame menu: the live frame, the relative frames and the fixed frames (lib/time-frame.ts). */
 export default function TimeFrameSelector({
@@ -56,7 +57,7 @@ export default function TimeFrameSelector({
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             {groups.map((group) => (
-              <CommandGroup key={group.kind} heading={group.heading}>
+              <CommandGroup key={group.kind} heading={<TimeFrameGroupHeading group={group} />}>
                 {group.frames.map((timeFrame) => (
                   <CommandItem
                     key={timeFrame.ident!}
