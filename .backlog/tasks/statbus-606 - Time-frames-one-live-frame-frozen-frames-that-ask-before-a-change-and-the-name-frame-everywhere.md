@@ -40,12 +40,13 @@ Decided by the owner 2026-11-10 (details in the notes):
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [Owner] Tries the frame selector, edit form and import page on a local branch in Firefox and approves the wording and layout. The answer is recorded in this ticket's notes: approval starts the rename migration; requested changes are made on the branch and shown again.
-- [ ] #2 One migration renames time_context to time_frame everywhere (view, type, import_job column, functions, comments); after it, rg -i 'time_context|timecontext' over migrations' current definitions, doc/db, app/src, cli and doc finds only the migration's own history; fast tests pass and doc/db and types are regenerated
-- [ ] #3 The frame selector reads 'Select time frame' and lists 'Live frame (<year>)' and the frozen frames 'Frame <year>', with no year listed twice
-- [ ] #4 The edit form opens on the Frame dropdown with the selected frame; the edit icon shows Data Source, Valid From and Valid To and returns to the frame; a test saves an edit in the live frame and one in a frozen frame and asserts the stored rows
-- [ ] #5 The three import pages show 'Frame' with the selected frame as default and the edit icon reveals the other options including Source dates; an import job created from each page carries the chosen frame
-- [ ] #6 An edit or import that starts before the live frame shows the confirmation naming the frozen frames it touches; cancelling stores nothing; confirming stores the change; an import job created with 'allow changes to frozen frames' runs unattended
+- [ ] #1 [Owner] Tries the frame selector, the edit form and an import page on a local branch in Firefox and approves the wording and layout. The answer is recorded in this ticket's notes: approval lets the step land; requested changes are made on the branch and shown again.
+- [ ] #2 Test 399 asserts public.time_frame for a fixed app.current_date: the live frame (live, 1 Jan current year .. infinity, read as of that date), the relative frame (prev, previous year 1 Jan .. 31 Dec), fixed frames y_YYYY for the previous year and every year with data, each with its kind and the relative frame it equals; and again for a date in the next year, where live and prev have moved and the fixed frames have not (RED before the migration, GREEN after)
+- [ ] #3 One migration renames time_context to time_frame everywhere and drops relative_period, relative_period_with_time, the scope and second name and tag frames; after it, rg -i 'time_context|relative_period|timecontext' over app/src, cli, test/sql, samples, doc (outside doc/db history) and the live schema finds nothing; existing jobs on r_year_curr and r_year_prev carry live and prev with their stored dates unchanged; the fast suite passes and doc/db and types are regenerated
+- [ ] #4 The frame menu lists Live frame, Previous frame and the fixed frames that do not equal a relative frame, in that order; an import page lists all three groups; a test of the app's frame list asserts both
+- [ ] #5 The edit form opens on a Frame dropdown with the selected frame; the edit icon shows Data Source, Valid From and Valid To and returns to the frame; a test saves an edit in the live frame and one in a fixed frame and asserts the stored rows
+- [ ] #6 The three import pages show Frame with the selected frame as default and the edit icon reveals the other options including Source dates; an import job created from each page carries the chosen frame ident
+- [ ] #7 An edit or import that reaches into a relative or fixed frame asks first, naming the frames it touches; cancelling stores nothing; confirming stores the change; an import job created with 'allow changes to fixed frames' runs unattended
 <!-- AC:END -->
 
 ## Implementation Notes
