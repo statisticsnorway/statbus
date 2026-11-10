@@ -309,11 +309,18 @@ if grep -qF 'OpenSSH (22)' <<<"$line" && ! grep -qF 'Custom SSH' <<<"$line" && !
 else
     nope "sshd on 22: the summary must name OpenSSH (22) and nothing else for SSH, got: $line"
 fi
+fakes_reset
+export FAKE_SSHD_PORTS=713
+described=$(PATH="$work/bin:$PATH" bash -c '
+    set -u
+    source "$1"
+    describe_ssh_ports
+' _ "$SCRIPT" 2>&1)
 intro="$(awk '/^stage_security_tools\(\)/,/ask_yes_no "Run this stage\?"/' "$SCRIPT")"
-if grep -q 'ssh_listen_ports' <<<"$intro"; then
-    pass "stage 4's description names the SSH port(s) from the ports sshd listens on"
+if [ "$described" = "OpenSSH (22) and 713/tcp" ] && grep -q 'describe_ssh_ports' <<<"$intro"; then
+    pass "stage 4's description names OpenSSH (22) and 713/tcp when sshd listens on 713"
 else
-    nope "stage 4's description does not name the SSH port(s) it will open"
+    nope "stage 4's description must name the SSH ports sshd listens on, got: '$described'"
 fi
 
 exit $fail

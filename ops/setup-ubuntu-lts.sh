@@ -238,7 +238,8 @@ ask_yes_no() {
 # orientation, so a stage can move without changing what any command means.
 #
 # Columns are separated by spaces; a list inside a column by commas; "-" is an
-# empty column. The summary line may name @SERVICE_USER@.
+# empty column. The summary line may name @SERVICE_USER@, and @FIREWALL_PORTS@
+# for the ports the firewall stage opened (FIREWALL_PORTS_OPENED).
 # requires: stages that create something this stage acts on. A full run
 # satisfies them by order; --only-stages/--skip-stages must keep them selected
 # (every stage is idempotent, so rerunning a required stage is safe).
@@ -255,7 +256,7 @@ STAGES=(
   "service-account stage_service_account  -                GITHUB_USERS,SERVICE_USER  StatBus service account|@SERVICE_USER@ service account created (for StatBus install)"
   "ssh-hardening   stage_ssh_hardening    service-account  -                          SSH hardening|SSH hardened (key-only authentication)"
   "auto-updates    stage_auto_updates     -                ADMIN_EMAIL                Automatic security updates|Automatic security updates enabled"
-  "security-tools  stage_security_tools   -                -                          Firewall and intrusion detection|CrowdSec intrusion detection and UFW firewall active"
+  "security-tools  stage_security_tools   -                -                          Firewall and intrusion detection|CrowdSec intrusion detection and UFW firewall active, allowing @FIREWALL_PORTS@"
   "core-tools      stage_core_tools       service-account  -                          Docker and core tools|Docker and core tools installed"
   "user-setup      stage_user_setup       core-tools       GITHUB_USERS               devops user|devops user created (ops/admin)"
   "ci-allowlist    stage_ci_allowlist     -                -                          CI command allowlist|CI command allowlist installed from the repo, with a published hash"
@@ -368,6 +369,7 @@ stage_outcome() {
 
 stage_done_line() {
     local line="${STAGE_DONE_LINE[$1]}"
+    line="${line//@FIREWALL_PORTS@/${FIREWALL_PORTS_OPENED:-OpenSSH (22), 80/tcp, 443/tcp, 5432/tcp}}"
     printf '%s' "${line//@SERVICE_USER@/${SERVICE_USER:-statbus}}"
 }
 
@@ -764,12 +766,28 @@ ufw_allow_ssh_ports() {
     done
     log "Allowing SSH through UFW with the Ubuntu OpenSSH profile (port 22)."
     ufw allow OpenSSH
+    FIREWALL_PORTS_OPENED="OpenSSH (22)"
     for port in $ports; do
         # OpenSSH already covers 22; adding a port rule here would duplicate it.
         [[ "$port" = "22" ]] && continue
         log "Allowing SSH on port $port/tcp (the port sshd listens on)."
         ufw allow "$port/tcp" comment 'Custom SSH'
+        FIREWALL_PORTS_OPENED+=", $port/tcp (SSH)"
     done
+    # The service ports the stage opens next; the summary names them all.
+    FIREWALL_PORTS_OPENED+=", 80/tcp, 443/tcp, 5432/tcp"
+}
+
+# The SSH ports the firewall will allow, for the stage description: OpenSSH (22)
+# plus each other port sshd listens on.
+describe_ssh_ports() {
+    local ports port text="OpenSSH (22)"
+    ports="$(ssh_listen_ports)"
+    for port in $ports; do
+        [[ "$port" = "22" ]] || text+=" and $port/tcp"
+    done
+    [[ -n "$ports" ]] || text+=" (the port sshd listens on could not be read; the stage will refuse)"
+    printf '%s' "$text"
 }
 
 ensure_remote_access() {
@@ -1538,7 +1556,7 @@ stage_security_tools() {
     echo "  - Install CrowdSec firewall bouncer (nftables)"
     echo "  - Install SSH log parsers"
     echo "  - Configure UFW firewall"
-    echo "  - Allow SSH, HTTP, HTTPS, PostgreSQL through firewall"
+    echo "  - Allow SSH on $(describe_ssh_ports), plus HTTP, HTTPS and PostgreSQL"
     echo ""
     echo -e "${YELLOW}NOTE: Skip this stage if your server is on a private network${NC}"
     echo -e "${YELLOW}      with its own firewall/security infrastructure.${NC}"
