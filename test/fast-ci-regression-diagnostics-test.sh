@@ -287,7 +287,7 @@ count = int(count_file.read_text()) + 1 if count_file.exists() else 1
 count_file.write_text(str(count))
 (root / f'connection-{count}.sql').write_text(sql)
 expected = {
-    'session_preload_libraries': 'auto_explain',
+    'session_preload_libraries': 'safeupdate,auto_explain',
     'auto_explain.log_min_duration': '1000ms',
     'auto_explain.log_nested_statements': 'on',
     'auto_explain.log_analyze': 'on',
