@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Tables } from "@/lib/database.types";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CalendarIcon, InfoIcon } from "lucide-react";
+import { CalendarIcon, InfoIcon, Pencil } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -112,6 +112,13 @@ export function ImportTimeFrameSelector({ unitType }: ImportTimeFrameSelectorPro
     }
   };
   
+  const [showDetails, setShowDetails] = useState(false);
+  const jobProvidedOption = validityOptions.find((o) => o.id === 'job_provided_time_frame');
+  const chosenOption = validityOptions.find((o) => o.id === selectedOptionId);
+  // The frame view applies when the chosen definition takes a frame; any other
+  // choice (Source dates, explicit dates) is made and shown in the details.
+  const onFrame = selectedOptionId === 'job_provided_time_frame';
+
   if (!isClient) {
     return (
       <div className="p-4 border rounded-md bg-gray-50 flex items-center justify-center h-48">
@@ -128,9 +135,65 @@ export function ImportTimeFrameSelector({ unitType }: ImportTimeFrameSelectorPro
     );
   }
 
+  if (!showDetails && (onFrame || chosenOption)) {
+    return (
+      <div className="space-y-2 p-4 border rounded-md bg-gray-50" data-import-validity="frame">
+        <Label htmlFor="time-frame" className="text-xs uppercase text-gray-600">
+          Frame
+        </Label>
+        <div className="flex items-center gap-2">
+          {onFrame ? (
+            <Select
+              value={selectedTimeFrame?.ident ?? ""}
+              onValueChange={setSelectedTimeFrame}
+            >
+              <SelectTrigger id="time-frame" className="w-full bg-white" data-import-frame-ident={selectedTimeFrame?.ident ?? undefined}>
+                <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
+                <SelectValue placeholder="Select a time frame" />
+              </SelectTrigger>
+              <SelectContent>
+                {timeFrameGroups.map((group) => (
+                  <SelectGroup key={group.kind}>
+                    <SelectLabel><TimeFrameGroupHeading group={group} /></SelectLabel>
+                    {group.frames.map((tf) => (
+                      <SelectItem key={tf.ident!} value={tf.ident!}>
+                        {tf.name} ({framePeriod(tf)})
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="flex w-full items-center justify-between rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm" data-import-validity-option={chosenOption?.id}>
+              <span>{chosenOption?.label}: dates from the file</span>
+              {jobProvidedOption && (
+                <Button type="button" variant="link" size="sm" className="h-6 px-0" onClick={() => handleOptionChange(jobProvidedOption.id)}>
+                  Use a frame
+                </Button>
+              )}
+            </div>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9"
+            aria-label="Other validity options, including source dates"
+            data-import-validity-details
+            onClick={() => setShowDetails(true)}
+          >
+            <Pencil className="h-4 w-4 text-zinc-700" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-4 p-4 border rounded-md bg-gray-50">
-      <h3 className="font-medium flex items-center">
+    <div className="space-y-4 p-4 border rounded-md bg-gray-50" data-import-validity="details">
+      <h3 className="font-medium flex items-center justify-between">
+        <span className="flex items-center">
         Data Validity Period
         <TooltipProvider>
           <Tooltip>
@@ -144,6 +207,12 @@ export function ImportTimeFrameSelector({ unitType }: ImportTimeFrameSelectorPro
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        </span>
+        {(onFrame || chosenOption) && (
+          <Button type="button" variant="link" size="sm" className="h-6 px-0 text-xs" data-import-validity-back onClick={() => setShowDetails(false)}>
+            Done
+          </Button>
+        )}
       </h3>
 
       <RadioGroup onValueChange={handleOptionChange} value={selectedOptionId ?? ''} className="space-y-2">
