@@ -9,6 +9,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,6 +25,18 @@ func TestReleasedOldBinarySQLPreparesAgainstRollbackSchemaFloor(t *testing.T) {
 		t.Fatalf("list released Go files containing daemon relations: %v", err)
 	}
 	statements := map[string]struct{}{}
+	// A released statement is often built from literals and package string
+	// constants joined with +, e.g. "UPDATE ... $2"+terminalBackupPathSQL+" WHERE
+	// id = $3"+upgradeRowReturning. The statement the released binary sends is the
+	// whole concatenation, so a constant-only + expression is evaluated and
+	// prepared as one; a single fragment of it is not a statement (pg_safeupdate
+	// refuses an UPDATE fragment that stops before its WHERE).
+	type releasedFile struct {
+		path string
+		file *ast.File
+	}
+	var files []releasedFile
+	constsByPackage := map[string]map[string]string{}
 	for _, taggedPath := range strings.Fields(string(pathsOut)) {
 		path := strings.TrimPrefix(taggedPath, releasedTag+":")
 		if strings.HasSuffix(path, "_test.go") {
@@ -37,14 +50,78 @@ func TestReleasedOldBinarySQLPreparesAgainstRollbackSchemaFloor(t *testing.T) {
 		if parseErr != nil {
 			t.Fatalf("parse released source %s: %v", path, parseErr)
 		}
-		ast.Inspect(file, func(node ast.Node) bool {
-			literal, ok := node.(*ast.BasicLit)
-			if !ok || literal.Kind != token.STRING {
-				return true
+		files = append(files, releasedFile{path: path, file: file})
+	}
+	for _, rf := range files {
+		pkg := filepath.Dir(rf.path)
+		if constsByPackage[pkg] == nil {
+			constsByPackage[pkg] = map[string]string{}
+		}
+		for _, decl := range rf.file.Decls {
+			gen, ok := decl.(*ast.GenDecl)
+			if !ok || gen.Tok != token.CONST {
+				continue
 			}
-			value, unquoteErr := strconv.Unquote(literal.Value)
-			if unquoteErr != nil {
-				t.Fatalf("unquote released SQL literal in %s: %v", path, unquoteErr)
+			for _, spec := range gen.Specs {
+				vs := spec.(*ast.ValueSpec)
+				for i, name := range vs.Names {
+					if i < len(vs.Values) {
+						if lit, ok := vs.Values[i].(*ast.BasicLit); ok && lit.Kind == token.STRING {
+							if value, err := strconv.Unquote(lit.Value); err == nil {
+								constsByPackage[pkg][name.Name] = value
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for _, rf := range files {
+		path, file, consts := rf.path, rf.file, constsByPackage[filepath.Dir(rf.path)]
+		var constString func(ast.Expr) (string, bool)
+		constString = func(expr ast.Expr) (string, bool) {
+			switch e := expr.(type) {
+			case *ast.BasicLit:
+				if e.Kind != token.STRING {
+					return "", false
+				}
+				value, err := strconv.Unquote(e.Value)
+				return value, err == nil
+			case *ast.Ident:
+				value, ok := consts[e.Name]
+				return value, ok
+			case *ast.ParenExpr:
+				return constString(e.X)
+			case *ast.BinaryExpr:
+				if e.Op != token.ADD {
+					return "", false
+				}
+				left, okLeft := constString(e.X)
+				right, okRight := constString(e.Y)
+				return left + right, okLeft && okRight
+			}
+			return "", false
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			var value string
+			switch n := node.(type) {
+			case *ast.BinaryExpr:
+				whole, ok := constString(n)
+				if !ok {
+					return true
+				}
+				value = whole
+			case *ast.BasicLit:
+				if n.Kind != token.STRING {
+					return true
+				}
+				unquoted, unquoteErr := strconv.Unquote(n.Value)
+				if unquoteErr != nil {
+					t.Fatalf("unquote released SQL literal in %s: %v", path, unquoteErr)
+				}
+				value = unquoted
+			default:
+				return true
 			}
 			trimmed := strings.TrimSpace(value)
 			upper := strings.ToUpper(trimmed)
@@ -57,7 +134,9 @@ func TestReleasedOldBinarySQLPreparesAgainstRollbackSchemaFloor(t *testing.T) {
 			if strings.HasPrefix(upper, "SELECT ") || strings.HasPrefix(upper, "INSERT ") || strings.HasPrefix(upper, "UPDATE ") || strings.HasPrefix(upper, "DELETE ") || strings.HasPrefix(upper, "CALL ") || strings.HasPrefix(upper, "WITH ") {
 				statements[trimmed] = struct{}{}
 			}
-			return true
+			// A whole constant concatenation is the statement; its pieces are not.
+			_, isConcat := node.(*ast.BinaryExpr)
+			return !isConcat
 		})
 	}
 	if len(statements) == 0 {
