@@ -54,6 +54,8 @@ func TestEnsureTrackedExtensionsCreatesAbsentAtImageDefault(t *testing.T) {
 	}
 	log := readFakePsqlLog(t, logPath)
 	for _, want := range []string{
+		`SET LOCAL safeupdate.enabled = off;
+CREATE EXTENSION "sql_saga";`,
 		`CREATE EXTENSION "sql_saga";`,
 		`CREATE EXTENSION "jsonb_stats";`,
 		`CREATE EXTENSION "ltree";`,
@@ -82,6 +84,8 @@ func TestEnsureTrackedExtensionsUpdatesOlderDirectlyToImageDefault(t *testing.T)
 	// Direct update to the image default with the integrity check and the
 	// audit receipt in the same batch...
 	for _, want := range []string{
+		`SET LOCAL safeupdate.enabled = off;
+ALTER EXTENSION "sql_saga" UPDATE TO '1.4';`,
 		`ALTER EXTENSION "sql_saga" UPDATE TO '1.4';`,
 		"SELECT sql_saga.check_integrity();",
 		`VALUES ('sql_saga', '1.0', '1.4')`,

@@ -88,6 +88,20 @@ END $$;`
 // database with the image default version. runUp calls it before computing
 // pending migrations, so fresh installs, old-template replays, partial
 // old-dump restores and production upgrades all take the same path.
+// extensionScriptGuardOff and extensionScriptGuardOn bracket the one
+// statement that runs an extension's own install or update script
+// (CREATE EXTENSION / ALTER EXTENSION ... UPDATE). Every session loads
+// pg_safeupdate (postgres/postgresql.conf), so StatBus SQL names the rows each
+// UPDATE or DELETE changes. Extension scripts are code StatBus does not own,
+// written by their authors without that rule; the guard is lifted for exactly
+// that statement and restored before the integrity check and the audit receipt,
+// which are StatBus SQL and run under the rule. SET LOCAL keeps the change
+// inside the transaction. (STATBUS-604)
+const (
+	extensionScriptGuardOff = "SET LOCAL safeupdate.enabled = off;\n"
+	extensionScriptGuardOn  = "SET LOCAL safeupdate.enabled = on;\n"
+)
+
 func EnsureTrackedExtensions(projDir string) error {
 	if _, err := runPsql(projDir, ensureExtensionUpgradeTableSQL); err != nil {
 		return fmt.Errorf("ensure db.extension_upgrade: %w", err)
@@ -110,7 +124,7 @@ func EnsureTrackedExtensions(projDir string) error {
 		switch {
 		case !present:
 			if _, err := runPsql(projDir, fmt.Sprintf(
-				"BEGIN;\nCREATE EXTENSION %s;\nINSERT INTO db.extension_upgrade (extension, from_version, to_version) VALUES (%s, NULL, %s);\nCOMMIT;",
+				"BEGIN;\n"+extensionScriptGuardOff+"CREATE EXTENSION %s;\n"+extensionScriptGuardOn+"INSERT INTO db.extension_upgrade (extension, from_version, to_version) VALUES (%s, NULL, %s);\nCOMMIT;",
 				quoteIdent(ext.name), sqlLiteralStr(ext.name), sqlLiteralStr(imageDefault))); err != nil {
 				return fmt.Errorf("create extension %s at image default %s: %w", ext.name, imageDefault, err)
 			}
@@ -144,7 +158,9 @@ func EnsureTrackedExtensions(projDir string) error {
 func updateExtensionDirect(projDir string, ext trackedExtension, fromVersion, toVersion string) error {
 	var b strings.Builder
 	b.WriteString("BEGIN;\nSET LOCAL lock_timeout = '30s';\n")
+	b.WriteString(extensionScriptGuardOff)
 	fmt.Fprintf(&b, "ALTER EXTENSION %s UPDATE TO %s;\n", quoteIdent(ext.name), sqlLiteralStr(toVersion))
+	b.WriteString(extensionScriptGuardOn)
 	if ext.integrityCheck != "" {
 		b.WriteString(ext.integrityCheck + ";\n")
 	}
