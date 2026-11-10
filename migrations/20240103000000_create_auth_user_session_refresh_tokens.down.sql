@@ -2,7 +2,7 @@
 BEGIN;
 
 -- Remove all inserted users to run cleanup triggers for their roles.
-DELETE FROM auth.user;
+DELETE FROM auth.user WHERE true; -- every user: the down migration removes all inserted users
 
 -- Drop scheduled job if pg_cron is available
 DO $$

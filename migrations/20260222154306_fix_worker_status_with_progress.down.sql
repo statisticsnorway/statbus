@@ -485,6 +485,6 @@ WHERE command IN (
 REVOKE INSERT, UPDATE, DELETE ON worker.pipeline_progress FROM authenticated;
 
 -- Clean up pipeline_progress data (table itself predates this migration)
-DELETE FROM worker.pipeline_progress;
+DELETE FROM worker.pipeline_progress WHERE true; -- every row: the down migration clears its data
 
 END;

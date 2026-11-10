@@ -469,7 +469,7 @@ DECLARE
 BEGIN
     LOCK TABLE public.statistical_history_facet_delta_staging IN EXCLUSIVE MODE;
     IF p_replace THEN
-        DELETE FROM public.statistical_history_facet_delta;
+        DELETE FROM public.statistical_history_facet_delta WHERE true; -- every row: p_replace rebuilds the delta table
     END IF;
 
     IF to_regclass('pg_temp.hd_sum') IS NOT NULL THEN DROP TABLE pg_temp.hd_sum; END IF;
@@ -759,7 +759,7 @@ COMMENT ON TABLE public.statistical_history_period IS 'The periods statistical_h
 CREATE PROCEDURE public.statistical_history_period_refresh()
 LANGUAGE plpgsql AS $statistical_history_period_refresh$
 BEGIN
-    DELETE FROM public.statistical_history_period;
+    DELETE FROM public.statistical_history_period WHERE true; -- every row: rebuilt below from get_statistical_history_periods()
     INSERT INTO public.statistical_history_period (resolution, year, month, prev_stop, curr_start, curr_stop)
     SELECT resolution, year, month, prev_stop, curr_start, curr_stop FROM public.get_statistical_history_periods();
 END;

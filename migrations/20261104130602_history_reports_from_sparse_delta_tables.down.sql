@@ -910,7 +910,7 @@ BEGIN
     -- so slots and periods without units do not survive into the reduce.
     IF (payload->>'valid_from')::date = '-infinity'::date
        AND (payload->>'valid_until')::date = 'infinity'::date THEN
-        DELETE FROM public.statistical_history_facet_partitions;
+        DELETE FROM public.statistical_history_facet_partitions WHERE true; -- every row: a full-range derive rebuilds all partitions
         v_dirty_hash_slots := NULL;
     ELSIF NOT EXISTS (SELECT 1 FROM public.statistical_history_facet_partitions LIMIT 1) THEN
         v_dirty_hash_slots := NULL;

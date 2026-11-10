@@ -15,7 +15,7 @@ BEGIN;
 COMMENT ON TABLE worker.pipeline_step_weight IS
     'Relative wall-clock weights of the pipeline steps, for the frontend progress bars. Per phase, the rows in seq order are exactly the steps worker.command_collect_changes spawns, in spawn order: collect_changes and the children of derive_units_phase for is_deriving_statistical_units, the children of derive_reports_phase for is_deriving_reports. A step without a row shows as 0% while it runs.';
 
-DELETE FROM worker.pipeline_step_weight;
+DELETE FROM worker.pipeline_step_weight WHERE true; -- every row: the full weight table is inserted below
 INSERT INTO worker.pipeline_step_weight (phase, step, weight, seq) VALUES
     ('is_deriving_statistical_units', 'collect_changes', 1, 0),
     ('is_deriving_statistical_units', 'derive_statistical_unit', 170, 1),

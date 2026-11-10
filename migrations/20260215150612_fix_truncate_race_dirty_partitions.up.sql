@@ -183,7 +183,7 @@ BEGIN
     END IF;
 
     -- Full re-derive from partition table
-    DELETE FROM public.statistical_unit_facet;
+    DELETE FROM public.statistical_unit_facet WHERE true; -- every row: re-derived below from the partition table
 
     INSERT INTO public.statistical_unit_facet
     SELECT sufp.valid_from, sufp.valid_to, sufp.valid_until, sufp.unit_type,
