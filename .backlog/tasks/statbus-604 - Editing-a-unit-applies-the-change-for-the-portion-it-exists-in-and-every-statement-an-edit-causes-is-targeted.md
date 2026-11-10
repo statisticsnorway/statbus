@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T10:25:00Z'
-updated_date: '2026-11-10T13:59:00Z'
+updated_date: '2026-11-10T16:41:00Z'
 labels:
   - app
   - db
@@ -50,7 +50,7 @@ Reported on Norway (no.statbus.org, v2026.11.3 b9d6661e0) 2026-11-10 and reprodu
 <!-- AC:BEGIN -->
 - [x] #1 With safeupdate loaded, an edit through legal_unit__for_portion_of_valid, establishment__for_portion_of_valid and location__for_portion_of_valid succeeds for a portion equal to the row and for one starting before the unit exists; the test asserts the resulting rows, no rows before the unit's first valid_from, and other units unchanged (RED before, GREEN after)
 - [x] #2 The untargeted UPDATE on the edit path is named (statement and function) and bounded to the rows it is meant to change, not WHERE true
-- [ ] #3 The app sends the edit with the form's portion and lets the database clip it: the legal unit rename with portion 2026-01-01..infinity on a unit from 2026-11-07 succeeds and changes the name from 2026-11-07
+- [x] #3 The app sends the edit with the form's portion and lets the database clip it: the legal unit rename with portion 2026-01-01..infinity on a unit from 2026-11-07 succeeds and changes the name from 2026-11-07
 - [ ] #4 Adding a physical location to an establishment that has only a postal one succeeds; the 409 cause is named and fixed
 - [ ] #5 [Owner] Confirms on Norway, after the release candidate carrying the fix, that renaming 314286 and editing 479720 succeed. The answer is recorded in this ticket's notes: yes closes the ticket; no reopens the investigation with the new error from rune's logs.
 <!-- AC:END -->
@@ -88,4 +88,6 @@ Progress 2026-11-10 13:59 (branch statbus-604-safeupdate, local):
 - App: defaultEditRange (6b4dc91c3), app date check removed (34893f347), empty location fields are null and country is required (fc47499fc), each with jest tests RED then GREEN.
 - Owner decisions 13:57-13:58: the down file 20260317114643 (drops columns before the view that reads them) is fixed here in its own commit (delegated); the edit range is wired with option 1, a small hook doing one standard read per edit start, bounded by the selected time context.
 - Open with owner: how the default range relates to the selected period (end at period end or value end; telling the user why the start is not the period start).
+
+Owner review 2026-11-10 16:41 in Firefox (https://local.statbus.org:3007, branch statbus-604-safeupdate at 0f04da4d8, test slot rebuilt from the branch with pg_safeupdate on, unit 24 NORDLYS born 2026-11-07): the name edit opens on 2026-11-07..(open end). The owner saved a rename with portion 2026-01-01..infinity and one with portion from the opened date; both succeeded and the unit has one row 2026-11-07..infinity with the new name (no row before the unit exists). No console errors, no HTTP >= 400, no errors in the dev server log. AC3 checked.
 <!-- SECTION:NOTES:END -->
