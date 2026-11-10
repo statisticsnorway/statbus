@@ -253,12 +253,12 @@ ask_yes_no() {
 STAGES=(
   "https-sources   stage_https_sources    -                -                          HTTPS APT sources|APT sources use HTTPS"
   "base-system     stage_base_system      -                EXTRA_LOCALES              Base system|Base system configured (etckeeper, bash history, locales)"
-  "service-account stage_service_account  -                GITHUB_USERS,SERVICE_USER  StatBus service account|@SERVICE_USER@ service account created (for StatBus install)"
+  "service-account stage_service_account  -                GITHUB_USERS,SERVICE_USER  StatBus service account|@SERVICE_USER@ service account ready for the StatBus install"
   "ssh-hardening   stage_ssh_hardening    service-account  -                          SSH hardening|SSH hardened (key-only authentication)"
   "auto-updates    stage_auto_updates     -                ADMIN_EMAIL                Automatic security updates|Automatic security updates enabled"
   "security-tools  stage_security_tools   -                -                          Firewall and intrusion detection|CrowdSec intrusion detection and UFW firewall active, allowing @FIREWALL_PORTS@"
   "core-tools      stage_core_tools       service-account  -                          Docker and core tools|Docker and core tools installed"
-  "user-setup      stage_user_setup       core-tools       GITHUB_USERS               devops user|devops user created (ops/admin)"
+  "user-setup      stage_user_setup       core-tools       GITHUB_USERS               devops user|devops user ready (ops/admin)"
   "ci-allowlist    stage_ci_allowlist     -                -                          CI command allowlist|CI command allowlist installed from the repo, with a published hash"
 )
 
@@ -359,6 +359,12 @@ pause() {
 # own slug; run_stage records ok or failed.
 declare -A STAGE_OUTCOME=()
 
+# What a stage that verified actually changed on this box, measured by
+# comparing a state snapshot taken before and after it (see state_snapshot).
+# Empty means the stage found its work already in place, which is what a rerun
+# on a configured box must show. Keyed by stage slug and set by run_stage.
+declare -A STAGE_CHANGE=()
+
 record_stage() {
     STAGE_OUTCOME[$1]="$2"
 }
@@ -373,19 +379,83 @@ stage_done_line() {
     printf '%s' "${line//@SERVICE_USER@/${SERVICE_USER:-statbus}}"
 }
 
+# Installed packages, one "name version" per line, for state_snapshot.
+installed_packages() {
+    dpkg-query -W -f='${db:Status-Status} ${binary:Package} ${Version}\n' 2>/dev/null \
+        | awk '$1 == "installed" { print $2, $3 }'
+}
+
+# The configuration a stage can change: every file under /etc (outside
+# etckeeper's own repository) and the SSH directories of the accounts setup
+# manages. Paths that do not exist yet are skipped.
+state_snapshot_paths() {
+    printf '%s\n' "${STATE_SNAPSHOT_PATHS:-/etc /root/.ssh $(remote_access_home "${SERVICE_USER:-statbus}")/.ssh $(remote_access_home devops)/.ssh}"
+}
+
+# A snapshot of the box's managed state: "pkg <name> <version>" for each
+# installed package and "file <sha256> <path>" for each managed file. Two
+# snapshots compared by describe_state_change say what a stage changed, so the
+# summary reports measured change rather than what the stage meant to do.
+state_snapshot() {
+    local path
+    installed_packages | awk '{ print "pkg", $1, $2 }'
+    for path in $(state_snapshot_paths); do
+        [[ -e "$path" ]] || continue
+        find "$path" -path '*/.git' -prune -o -type f -print0 2>/dev/null \
+            | xargs -0 -r sha256sum 2>/dev/null \
+            | awk '{ hash = $1; sub(/^[^ ]+ +\*?/, ""); print "file", hash, $0 }'
+    done
+}
+
+# describe_state_change <before> <after>: one line naming what differs, empty
+# when nothing does. Packages are named with versions; files are listed up to
+# five, then counted.
+describe_state_change() {
+    STATE_BEFORE="$1" STATE_AFTER="$2" awk '
+        function load(text, kind, pkgs, files,   n, i, line, f) {
+            n = split(text, line, "\n")
+            for (i = 1; i <= n; i++) {
+                split(line[i], f, " ")
+                if (f[1] == "pkg") pkgs[f[2]] = f[3]
+                else if (f[1] == "file") { sub(/^file [^ ]+ /, "", line[i]); files[line[i]] = f[2] }
+            }
+        }
+        function add(text) { out = out (out == "" ? "" : "; ") text }
+        BEGIN {
+            load(ENVIRON["STATE_BEFORE"], "b", bp, bf); load(ENVIRON["STATE_AFTER"], "a", ap, af)
+            for (p in ap) {
+                if (!(p in bp)) add("installed " p " " ap[p])
+                else if (ap[p] != bp[p]) add("upgraded " p " " bp[p] " -> " ap[p])
+            }
+            for (p in bp) if (!(p in ap)) add("removed " p)
+            nf = 0
+            for (f in af) if (!(f in bf) || af[f] != bf[f]) changed[++nf] = f
+            for (f in bf) if (!(f in af)) changed[++nf] = f " (removed)"
+            if (nf > 0) {
+                list = ""
+                for (i = 1; i <= nf && i <= 5; i++) list = list (i > 1 ? ", " : "") changed[i]
+                if (nf > 5) list = list " and " (nf - 5) " more"
+                add("changed " list)
+            }
+            print out
+        }'
+}
+
 # Run one selected stage and record whether it verified. A stage that already
 # recorded skipped or na keeps that outcome; otherwise a failing return code or
 # any verification failure during the stage marks it failed. A stage left out of
 # the selection is recorded skipped without being called.
 run_stage() {
-    local slug="$1" before after rc=0
+    local slug="$1" before after rc=0 state_before
     if ! stage_selected "$slug"; then
         record_stage "$slug" skipped
         return 0
     fi
     before="${#FAILED_VERIFICATIONS[@]}"
+    state_before="$(state_snapshot)"
     "${STAGE_FN[$slug]}" || rc=$?
     after="${#FAILED_VERIFICATIONS[@]}"
+    STAGE_CHANGE[$slug]="$(describe_state_change "$state_before" "$(state_snapshot)")"
     if [[ -n "${STAGE_OUTCOME[$slug]:-}" ]]; then
         return 0
     fi
@@ -393,6 +463,7 @@ run_stage() {
         record_stage "$slug" failed
     else
         record_stage "$slug" ok
+        log "${STAGE_LABEL[$slug]}: ${STAGE_CHANGE[$slug]:-already in place, nothing changed}"
     fi
 }
 
@@ -428,7 +499,7 @@ print_run_summary() {
         outcome="$(stage_outcome "$slug")"
         case "$outcome" in
             na) continue ;;
-            ok) echo "  - $(stage_done_line "$slug")" ;;
+            ok) echo "  - $(stage_done_line "$slug"): ${STAGE_CHANGE[$slug]:-already in place}" ;;
             skipped) echo "  - ${STAGE_LABEL[$slug]} ($slug): skipped" ;;
             failed) echo "  - ${STAGE_LABEL[$slug]} ($slug): failed" ;;
             *) echo "  - ${STAGE_LABEL[$slug]} ($slug): not run" ;;
@@ -436,7 +507,12 @@ print_run_summary() {
     done
     echo ""
 
-    if [[ "$(stage_outcome service-account)" == "ok" ]]; then
+    # The install step is for a box without StatBus. On a box that already runs
+    # it, the operator upgrades through StatBus itself, not this installer.
+    local install_dir="${STATBUS_INSTALL_DIR:-$(remote_access_home "${SERVICE_USER:-statbus}")/statbus}"
+    if [[ "$(stage_outcome service-account)" == "ok" && -f "$install_dir/.env" ]]; then
+        echo "StatBus is already installed in $install_dir. No follow-up from this run."
+    elif [[ "$(stage_outcome service-account)" == "ok" ]]; then
         echo "Next step: install StatBus as '${SERVICE_USER:-statbus}'."
         echo "  From this root shell:"
         echo "    sudo -iu ${SERVICE_USER:-statbus}"
