@@ -40,6 +40,7 @@ BEGIN
         EXECUTE format($$
             UPDATE public.%1$I
             SET batch_seq = ((row_id - 1) / %2$L + 1)::INTEGER %3$s
+            WHERE true -- every row: the analysis phase numbers all rows
         $$, p_data_table_name, p_batch_size, v_extra_sets);
     END IF;
     

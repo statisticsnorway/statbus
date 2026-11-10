@@ -17,7 +17,8 @@ BEGIN
         v_applied := 'added';
     ELSIF v_state.rebuild_generation <= v_state.flushed_generation THEN
         CALL worker.statistical_history_facet_delta_apply(p_replace => true);
-        UPDATE worker.statistical_history_facet_delta_state SET rebuild_generation = NULL;
+        UPDATE worker.statistical_history_facet_delta_state SET rebuild_generation = NULL
+         WHERE rebuild_generation IS NOT NULL;
         v_applied := 'replaced';
     ELSE
         -- The rebuild cycle's flush has not committed: the tables keep their rows, and the next cycle

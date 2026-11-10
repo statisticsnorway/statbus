@@ -8,7 +8,7 @@ DECLARE
 BEGIN
     LOCK TABLE public.statistical_history_facet_delta_staging IN EXCLUSIVE MODE;
     IF p_replace THEN
-        DELETE FROM public.statistical_history_facet_delta;
+        DELETE FROM public.statistical_history_facet_delta WHERE true; -- every row: p_replace rebuilds the delta table
     END IF;
 
     IF to_regclass('pg_temp.hd_sum') IS NOT NULL THEN DROP TABLE pg_temp.hd_sum; END IF;

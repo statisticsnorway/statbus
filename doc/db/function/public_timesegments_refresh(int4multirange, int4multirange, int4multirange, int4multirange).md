@@ -12,7 +12,7 @@ BEGIN
                             OR p_power_group_id_ranges IS NOT NULL);
     IF NOT v_is_partial_refresh THEN
         ANALYZE public.timepoints;
-        DELETE FROM public.timesegments;
+        DELETE FROM public.timesegments WHERE true; -- every row: rebuilt below from timesegments_def
         INSERT INTO public.timesegments SELECT * FROM public.timesegments_def;
         ANALYZE public.timesegments;
         -- Full refresh: record all years from the new timesegments

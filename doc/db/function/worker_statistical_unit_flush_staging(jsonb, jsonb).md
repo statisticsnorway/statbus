@@ -26,9 +26,11 @@ BEGIN
      WHERE me.state = 'processing' AND me.worker_pid = pg_backend_pid() AND me.command = 'statistical_unit_flush_staging'
      ORDER BY h.id DESC LIMIT 1;
     IF v_history_task.state = 'completed' THEN
-        UPDATE worker.statistical_history_facet_delta_state SET flushed_generation = v_history_task.id;
+        UPDATE worker.statistical_history_facet_delta_state SET flushed_generation = v_history_task.id
+         WHERE true; -- the single state row (unique index on (true))
     ELSIF EXISTS (SELECT 1 FROM public.statistical_unit_staging) THEN
-        UPDATE worker.statistical_history_facet_delta_state SET rebuild_needed = true;
+        UPDATE worker.statistical_history_facet_delta_state SET rebuild_needed = true
+         WHERE NOT rebuild_needed;
     END IF;
 
     SELECT count(*) INTO v_staging_count FROM public.statistical_unit_staging;

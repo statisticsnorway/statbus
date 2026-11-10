@@ -33,7 +33,8 @@ BEGIN
         SELECT count(*) INTO v_discarded FROM public.statistical_history_facet_delta_staging;
         TRUNCATE public.statistical_history_facet_delta_staging;
         UPDATE worker.statistical_history_facet_delta_state
-           SET rebuild_generation = v_task_id, rebuild_needed = false;
+           SET rebuild_generation = v_task_id, rebuild_needed = false
+         WHERE true; -- the single state row (unique index on (true))
     ELSE
         -- Rows of a cycle whose flush never committed: its units are still in statistical_unit_staging
         -- and are staged again below, against the same statistical_unit.
