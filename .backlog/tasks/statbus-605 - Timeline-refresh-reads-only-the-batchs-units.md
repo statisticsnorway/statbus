@@ -5,6 +5,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-10T11:32:00Z'
+updated_date: '2026-11-10T14:15:00Z'
 labels:
   - performance
   - worker
@@ -22,9 +23,22 @@ On the full register one establishment refresh batch of 333 units takes about 41
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Each of the four timeline refreshes is measured on a real full-register batch (import_benchmark_64469), with time and plan recorded
-- [ ] #2 Establishment refresh reads only the batch's establishments: a regression test fails before and passes after
-- [ ] #3 Per-batch definitions give identical rows to the full view on real batches
-- [ ] #4 Enterprise and power group refreshes are fixed the same way, or measured and shown not to scan the whole register
+- [x] #1 Each of the four timeline refreshes is measured on a real full-register batch (import_benchmark_64469), with time and plan recorded
+- [x] #2 Establishment refresh reads only the batch's establishments: a regression test fails before and passes after
+- [x] #3 Per-batch definitions give identical rows to the full view on real batches
+- [x] #4 Enterprise and power group refreshes are fixed the same way, or measured and shown not to scan the whole register
 - [ ] #5 Fast suite passes, doc/db regenerated, change on master with hosted CI green
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Branch statbus-timeline-per-batch commit 6bf606b10 (on master 1f1e3091a), migration 20261110114354, test 397.
+Measured on import_benchmark_64469 brought to exact master (445 migrations, function/view md5 == seed), full recalculation through the real worker with auto_explain >2 s:
+- Establishment refresh: stats aggregate read every establishment's timesegments up to the batch's max id. Baseline slow log: 230 of 260 statements >2 s were this insert (621 s); with timeline_establishment_def_for(ids): 0. Test 397 RED on master (2021 rows read for 11-row batch), GREEN with fix (22).
+- Legal unit, enterprise, power group refreshes already read only their batch (measured per table on a real batch); no change.
+- Report phase: covering idx_statistical_unit_hash_slot + staging (hash_slot, unit_type, unit_id) index. History-delta partition 9.0 -> 2.6 s avg (256 partitions), unit facet partition 2.1 -> 0.34 s avg (256).
+- Identity: six refresh outputs (4 timelines, timesegments, timepoints) fingerprint-identical to master; facet and history-delta rows identical per partition in rolled-back master-vs-fix runs.
+- Tried, not adopted (in migration comment): INCLUDE(unit_type, unit_id)-only; VACUUM after flush (not needed, table stays all-visible).
+Fast 137/137 + 094 + 143 PASS; up/down/up identical. Waiting: Rabbit cherry-pick to master after STATBUS-604, hosted CI.
+<!-- SECTION:NOTES:END -->
