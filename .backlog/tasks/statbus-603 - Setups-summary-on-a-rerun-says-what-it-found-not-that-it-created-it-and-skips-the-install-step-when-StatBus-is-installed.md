@@ -1,15 +1,16 @@
 ---
 id: STATBUS-603
 title: >-
-  Setup's summary on a rerun says what it found, not that it created it, and
-  skips the install step when StatBus is installed
+  Setup's summary shows a rerun as a rerun: each stage says whether it changed
+  something or found it already in place
 status: To Do
 assignee: []
 created_date: '2026-11-10T10:05:00Z'
+updated_date: '2026-11-10T10:05:00Z'
 labels:
   - setup
 dependencies: []
-priority: low
+priority: medium
 type: bug
 ordinal: 519204
 ---
@@ -34,4 +35,11 @@ The owner reran the full released setup (v2026.11.3) on Uganda on 2026-11-10 as 
 <!-- AC:BEGIN -->
 - [ ] #1 setup-summary-truth-test.sh fails against the current setup and passes after: a rerun that reused the service account says it was found, not created
 - [ ] #2 The same test: with a StatBus installation present for the service user, the summary gives no 'install StatBus' next step; without one it does
+- [ ] #3 Every stage's summary line on a rerun of a configured box says it found its work already in place, and names what it changed when it did change something (e.g. a Docker upgrade), proven in setup-summary-truth-test.sh
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-10 10:05 UTC owner: idempotency should be visible. The summary line of every stage says whether this run changed something or found it already in place (e.g. 'statbus service account already present, 1 key, none added'; 'Docker updated 29.9.2 -> 29.9.3'; 'firewall rules already in place: OpenSSH (22), 713/tcp, 80, 443, 5432'), so a rerun on a configured box reads as a rerun. The install next step appears only when no StatBus installation exists for the service user.
+<!-- SECTION:NOTES:END -->
