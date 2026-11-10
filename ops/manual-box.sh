@@ -31,6 +31,13 @@
 #   ops/manual-box.sh status   (or info) the box: address, live logins, ssh
 #                              commands and session log
 #
+# MANUAL_BOX_SSH_PORT=713 ops/manual-box.sh up (or rebuild) moves sshd to that
+# port before anyone logs in, through ssh.socket as on Ubuntu 26.04 boxes in the
+# field (Uganda listens on 713), so setup's custom-port path is exercised: its
+# firewall stage must open OpenSSH (22) and that port and say so in the summary
+# (STATBUS-602). Every command here then reaches the box on that port; set the
+# same variable for later commands. Default 22.
+#
 # Cost: cx33 (4 cores, 8 GB) is about EUR 0.017 per hour, billed hourly.
 # Delete it when the session is over.
 
@@ -52,6 +59,11 @@ location=hel1
 ssh_key='jorgen@veridit.no'
 label=statbus-purpose=manual-box
 log="$ROOT/tmp/$name-session.log"
+ssh_port=${MANUAL_BOX_SSH_PORT:-22}
+[[ "$ssh_port" =~ ^[0-9]+$ ]] && [ "$ssh_port" -ge 1 ] && [ "$ssh_port" -le 65535 ] \
+    || { echo "MANUAL_BOX_SSH_PORT must be a port number, got: $ssh_port" >&2; exit 1; }
+# Every ssh to the box goes through this, so a moved port applies everywhere.
+ssh() { command ssh -p "$ssh_port" "$@"; }
 # The login user of a stock Ubuntu cloud image. Setup later adds devops and
 # statbus; the guide reaches statbus with sudo -iu, as an operator would.
 login_user=ubuntu
@@ -82,6 +94,22 @@ users:
       - $key
 disable_root: true
 EOF
+    # A moved SSH port: ssh.socket listens on it instead of 22, before the first
+    # login, as an operator who moved SSH would have it.
+    if [ "$ssh_port" != 22 ]; then
+        cat <<EOF
+write_files:
+  - path: /etc/systemd/system/ssh.socket.d/port.conf
+    content: |
+      [Socket]
+      ListenStream=
+      ListenStream=0.0.0.0:$ssh_port
+      ListenStream=[::]:$ssh_port
+runcmd:
+  - [systemctl, daemon-reload]
+  - [systemctl, restart, ssh.socket]
+EOF
+    fi
 }
 
 # A same-name server that is not labelled as ours is someone else's: refuse.
@@ -94,6 +122,7 @@ require_ours() {
 wait_for_ssh() {
     local ip=$1 i
     ssh-keygen -R "$ip" >/dev/null 2>&1 || true
+    ssh-keygen -R "[$ip]:$ssh_port" >/dev/null 2>&1 || true
     for ((i = 0; i < 90; i++)); do
         if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 "$login_user@$ip" 'sudo -n true' 2>/dev/null; then
             return 0
@@ -122,7 +151,7 @@ Site name:    $cert_domain (not in DNS; the test certificate covers it)
 Logins now:   ${logins:-none answer yet}
 
 Log in:       ops/manual-box.sh ssh [user]      (logged tmux session, default $login_user)
-Plain ssh:    ssh <user>@$ip
+Plain ssh:    ssh -p $ssh_port <user>@$ip
 Session log:  $log
 Walkthrough:  ops/manual-box.sh guide
 EOF
@@ -142,12 +171,14 @@ guide_text() {
         || { echo "Cannot list releases with gh; run gh auth login." >&2; exit 1; }
     cat <<GUIDE
   Release:           $release (the newest candidate; statbus.org/rc/ runs it)
-  1. Log in:         ops/manual-box.sh ssh      (you are $login_user, a sudo user)
+  1. Log in:         ops/manual-box.sh ssh      (you are $login_user, a sudo user; SSH on port $ssh_port)
   2. Root shell:     sudo -i
   3. Setup:          curl -fsSL https://statbus.org/rc/setup.sh | bash
                      Full name of this server: $cert_domain
                      At "Did that connect?": on your laptop run
                      ops/manual-box.sh try-ssh statbus, then answer y
+                     With MANUAL_BOX_SSH_PORT set: the firewall stage says it
+                     allows OpenSSH (22) and $ssh_port/tcp, and so does the summary
   4. Certificate:    on your laptop: ops/manual-box.sh cert      (a Windows-style PFX)
                      or: ops/manual-box.sh cert pem          (fullchain.pem + privkey.pem)
   5. Install:        from the root shell: sudo -iu statbus
@@ -178,7 +209,7 @@ connect() {
     if ! tmux has-session -t "=$session" 2>/dev/null; then
         printf '\n===== %s session start as %s %s =====\n' "$name" "$user" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$log"
         tmux new-session -d -s "$session" \
-            "sleep 0.5; exec env LANG=C.UTF-8 LC_ALL=C.UTF-8 ssh -o StrictHostKeyChecking=accept-new $user@$ip"
+            "sleep 0.5; exec env LANG=C.UTF-8 LC_ALL=C.UTF-8 ssh -p $ssh_port -o StrictHostKeyChecking=accept-new $user@$ip"
         # pipe-pane takes a pane target: '=name:' is the exact session's
         # current window and pane ('=name' alone is rejected).
         tmux pipe-pane -o -t "=$session:" "cat >> '$log'"
@@ -289,7 +320,7 @@ try-ssh)
     [ -n "$server" ] || { echo "No server '$name'; run: ops/manual-box.sh up" >&2; exit 1; }
     require_ours "$server"
     ip=$(jq -er '.public_net.ipv4.ip' <<<"$server")
-    echo "ssh $user@$ip"
+    echo "ssh -p $ssh_port $user@$ip"
     if ssh -o BatchMode=yes -o ConnectTimeout=10 "$user@$ip" 'echo "Logged in as $(id -un) on $(hostname)"'; then
         echo "That connected: answer y."
     else
@@ -361,6 +392,7 @@ down)
     ip=$(jq -er '.public_net.ipv4.ip' <<<"$server")
     hcloud server delete "$name" >/dev/null
     ssh-keygen -R "$ip" >/dev/null 2>&1 || true
+    ssh-keygen -R "[$ip]:$ssh_port" >/dev/null 2>&1 || true
     echo "Deleted $name ($ip). Billing has stopped."
     ;;
 status|info)
