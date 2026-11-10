@@ -1,12 +1,12 @@
 ---
 id: STATBUS-602
 title: >-
-  Setup's summary names the SSH ports the firewall opens, and the manual box can
-  test a non-standard SSH port
+  Setup's summary shows what each stage changed or found already in place,
+  including the SSH ports the firewall opens
 status: In Progress
 assignee: []
 created_date: '2026-11-10T09:56:00Z'
-updated_date: '2026-11-10T10:00:00Z'
+updated_date: '2026-11-10T10:05:00Z'
 labels:
   - setup
   - installer
@@ -38,10 +38,14 @@ The security-tools stage allows SSH on the standard port through the OpenSSH pro
 - [x] #2 The security-tools stage description names the SSH port(s) it will open, from the ports sshd listens on
 - [x] #3 ops/manual-box.sh can put sshd on a non-standard port before setup, documented in its guide
 - [ ] #4 [Owner] On the next manual-box run with SSH on a non-standard port, the setup summary names both ports and ufw status matches
+- [ ] #5 Every stage's summary line on a rerun of a configured box says it found its work already in place, and names what it changed when it did change something (e.g. a Docker upgrade), proven in setup-summary-truth-test.sh
+- [ ] #6 With a StatBus installation present for the service user, the summary gives no 'install StatBus' next step; without one it does
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-10 10:00 UTC RED e924a85fc (setup-ssh-port-firewall-test.sh section 12: 3 new checks fail on the parent, tmp/602-red.log), GREEN a0df9c5bc (19 PASS, tmp/602-green.log; setup-summary-truth-test passes): the stage description reads 'Allow SSH on OpenSSH (22) and 713/tcp, plus HTTP, HTTPS and PostgreSQL' and the summary 'CrowdSec intrusion detection and UFW firewall active, allowing OpenSSH (22), 713/tcp (SSH), 80/tcp, 443/tcp, 5432/tcp'. Manual box: 63444ac96 adds MANUAL_BOX_SSH_PORT (ssh.socket drop-in via cloud-init; cloud-config validated as YAML). Two other setup tests fail on macOS only (BSD script/sed), identically without this change; CI's Linux harness runs them. Remaining: AC4, the next manual-box run with MANUAL_BOX_SSH_PORT=713 (owner).
+
+2026-11-10 10:06 UTC owner: no separate ticket; idempotency visibility belongs here. Folded in from the Uganda rerun: the summary read as a first install ('statbus service account created' though the account and key were reused; 'Next step: install StatBus' on a box running StatBus). Each stage's summary line now says changed or already in place.
 <!-- SECTION:NOTES:END -->
