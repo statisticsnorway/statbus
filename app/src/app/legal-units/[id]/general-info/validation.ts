@@ -18,17 +18,31 @@ export const generalInfoSchema = zfd.formData({
   ...editMetadataSchemaFields,
 });
 
+// A form field the user leaves empty arrives as "". An optional number reads it
+// as no value (null); z.coerce.number() alone would turn it into 0, which the
+// database reads as a reference to row 0 (STATBUS-604).
+const optionalNumber = z.preprocess(
+  (val) => (val === "" || val === undefined ? null : val),
+  z.coerce.number().nullable()
+);
+
 export const locationSchema = zfd.formData({
   address_part1: z.string().optional(),
   address_part2: z.string().optional(),
   address_part3: z.string().optional(),
   postcode: z.string().optional(),
   postplace: z.string().optional(),
-  region_id: z.coerce.number().optional(),
-  country_id: z.coerce.number(),
-  latitude: z.coerce.number().optional(),
-  longitude: z.coerce.number().optional(),
-  altitude: z.coerce.number().optional(),
+  region_id: optionalNumber,
+  country_id: z.preprocess(
+    (val) => (val === "" || val === undefined ? undefined : Number(val)),
+    z.number({
+      required_error: "Select a country",
+      invalid_type_error: "Select a country",
+    })
+  ),
+  latitude: optionalNumber,
+  longitude: optionalNumber,
+  altitude: optionalNumber,
   type: z.enum(["physical", "postal"]),
   ...editMetadataSchemaFields,
 });
