@@ -1,11 +1,11 @@
 ---
 id: STATBUS-612
 title: Recalculation progress moves in the navbar while refresh batches finish
-status: In Progress
+status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-10T22:31:00Z'
-updated_date: '2026-11-10T22:38:00Z'
+updated_date: '2026-11-10T23:09:00Z'
 labels:
   - bug
   - app
@@ -33,4 +33,6 @@ The navbar's Statistical Units bar has no percentage during a full recalculation
 Diagnosis 2026-11-10: DB side publishes total/completed/step correctly. Measured on import_benchmark_64469's last recalculation: refresh-batch completions median 130 ms apart (3,162 completions, 102 gaps >= 500 ms over 566 s); history partitions 24 ms; facet partitions 27 ms. The 500 ms trailing debounce in db-listener.ts restarted on each arrival. RED: new test delivered 0 of 10 expected updates (tmp/605/progress-red.log). GREEN with relayLatest throttle: 3/3 (tmp/605/progress-green.log).
 
 Live check on this checkout's dev server (port 3000, statbus_local), 46 pipeline_progress notifications 130 ms apart via pg_notify, SSE /api/sse/worker_status read with curl, server restarted per variant (tmp/605/progress-live.sh, dev-restart.sh): master listener delivered 1 event (completed 46, after the stream stopped); fixed listener delivered 12 (4, 8, ... 44, 46). Logs tmp/605/progress-live-{master,fixed}.log. tsc and eslint clean.
+
+On master 8c4f3c704 (Rabbit fast-forward). CI at 8c4f3c704 all completed/success: Fast Tests 42917418020, Go Test 42916708675, app build & lint 42916708666, Images 42916708804, Harness Selftest 42916708812, Push on master 42916708349.
 <!-- SECTION:NOTES:END -->
