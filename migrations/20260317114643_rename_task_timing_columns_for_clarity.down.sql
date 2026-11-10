@@ -1,5 +1,8 @@
 BEGIN;
 
+-- The view reads the columns changed below, so drop it first
+DROP VIEW IF EXISTS public.worker_task;
+
 -- Reverse: drop new columns, rename back to old names
 ALTER TABLE worker.tasks DROP COLUMN IF EXISTS process_stop_at;
 ALTER TABLE worker.tasks DROP COLUMN IF EXISTS completion_duration_ms;
@@ -7,7 +10,6 @@ ALTER TABLE worker.tasks RENAME COLUMN process_start_at TO processed_at;
 ALTER TABLE worker.tasks RENAME COLUMN process_duration_ms TO duration_ms;
 
 -- Restore old view
-DROP VIEW IF EXISTS public.worker_task;
 CREATE VIEW public.worker_task
 WITH (security_invoker = on)
 AS
