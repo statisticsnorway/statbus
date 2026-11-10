@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-11-06T17:22:00Z'
-updated_date: '2026-11-07T19:52:00Z'
+updated_date: '2026-11-10T09:12:00Z'
 labels:
   - bug
 dependencies: []
@@ -25,7 +25,7 @@ Found on Uganda 2026-11-06: docker-ce, docker-ce-cli, docker-ce-rootless-extras 
 <!-- AC:BEGIN -->
 - [x] #1 The auto-updates stage allows Docker's own repository (Docker:${distro_codename}) in Unattended-Upgrade::Allowed-Origins, and its description says Docker is updated at night too
 - [x] #2 setup-auto-reboot-test.sh (or a sibling) fails against the current stage and passes after
-- [ ] #3 On Uganda, rerunning the auto-updates stage writes the new configuration and unattended-upgrade --dry-run lists the Docker packages
+- [x] #3 On Uganda, rerunning the auto-updates stage writes the new configuration and unattended-upgrade --dry-run lists the Docker packages
 - [x] #4 The release notes and doc/DEPLOYMENT.md tell every operator, in one paragraph, to rerun the auto-updates stage as root after upgrading, with the exact command and the check that Docker is now included
 <!-- AC:END -->
 
@@ -45,4 +45,6 @@ rc.18 gate GREEN: Release Fleet Orchestrator 42290374739 for v2026.11.1-rc.18 (3
 rc.19 gate GREEN: Release Fleet Orchestrator 42369550038 (v2026.11.1-rc.19, 915220ba1).
 
 AC4: the paragraph is in doc/DEPLOYMENT.md (auto-updates rerun with curl -fsSL https://statbus.org/setup.sh | bash -s -- --only-stages auto-updates and the unattended-upgrade --dry-run check) and was prepended to the v2026.11.1 release notes on 2026-11-07 16:38 UTC (gh release edit). AC3 is the owner's Uganda rerun (owner-only). Albania message ready in tmp/v2026.11.1-promotion-kit.md section 3.
+
+2026-11-10 09:12 UTC owner ran on Uganda (Ubuntu 26.04 resolute, StatBus v2026.11.3): curl -fsSL https://statbus.org/setup.sh | bash -s -- --only-stages auto-updates. Stage 5 ran and verified (unattended-upgrades installed, auto-upgrades and unattended-upgrades configs, apt-daily and apt-daily-upgrade timer overrides). unattended-upgrade --dry-run -d: 'Allowed origins are: ... o=Docker,a=resolute'; 'Packages that will be upgraded: docker-ce docker-ce-cli docker-ce-rootless-extras docker-compose-plugin' (docker-ce 5:29.9.3-1~ubuntu.26.04~resolute, compose 5.7.0); 'upgrade result: True All upgrades installed'; no conffile prompts. Docker is now in the nightly updates. All criteria met.
 <!-- SECTION:NOTES:END -->

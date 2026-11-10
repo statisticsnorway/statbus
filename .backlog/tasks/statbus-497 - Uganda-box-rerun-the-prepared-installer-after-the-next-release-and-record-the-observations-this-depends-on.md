@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: 2026-10-13 13:16
-updated_date: '2026-11-07T16:40:00Z'
+updated_date: '2026-11-10T09:12:00Z'
 labels:
   - install
   - uganda
@@ -104,4 +104,6 @@ AC5 verified 2026-11-02 on statbus-manual after the released v2026.11.0 setup, b
 AC4 met on the rc.18 manual box 2026-11-07: root login shell HOME=/root SUDO_USER=ubuntu (STATBUS-492 AC1 evidence).
 
 2026-11-07: v2026.11.1 stable published. AC6 now unblocked for the owner: on Uganda rerun setup Stages 2 and 4 (curl -fsSL https://statbus.org/setup.sh | bash, as root); record in 539 AC7 and 540 AC4.
+
+2026-11-10 09:12 UTC owner reran the auto-updates stage (Stage 5) on Uganda with v2026.11.3; Docker included in the nightly updates (STATBUS-583 AC3). AC6 asks for Stages 2 and 4 (base-system, security-tools); not rerun yet.
 <!-- SECTION:NOTES:END -->
