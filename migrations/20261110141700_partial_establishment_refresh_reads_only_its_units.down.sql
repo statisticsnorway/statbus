@@ -1,11 +1,8 @@
--- Migration 20261110114354: partial establishment refresh reads only its units (STATBUS-605)
+-- Down Migration 20261110141700: partial establishment refresh reads only its units (STATBUS-605)
 BEGIN;
 
-CREATE FUNCTION public.timeline_establishment_def_for(p_unit_ids integer[])
- RETURNS SETOF public.timeline_establishment
- LANGUAGE sql
- STABLE
-AS $timeline_establishment_def_for$
+CREATE OR REPLACE VIEW public.timeline_establishment_def
+ WITH (security_invoker='on') AS
  WITH establishment_stats AS (
          SELECT t_1.unit_id,
             t_1.valid_from,
@@ -13,7 +10,7 @@ AS $timeline_establishment_def_for$
            FROM public.timesegments t_1
              JOIN public.stat_for_unit sfu ON sfu.establishment_id = t_1.unit_id AND public.from_until_overlaps(t_1.valid_from, t_1.valid_until, sfu.valid_from, sfu.valid_until)
              JOIN public.stat_definition sd ON sfu.stat_definition_id = sd.id
-          WHERE t_1.unit_type = 'establishment'::public.statistical_unit_type AND (p_unit_ids IS NULL OR t_1.unit_id = ANY (p_unit_ids))
+          WHERE t_1.unit_type = 'establishment'::public.statistical_unit_type
           GROUP BY t_1.unit_id, t_1.valid_from
         )
  SELECT t.unit_type,
@@ -274,65 +271,27 @@ AS $timeline_establishment_def_for$
           ORDER BY all_edits.edit_at DESC
          LIMIT 1) last_edit ON true,
     public.settings current_settings
-  WHERE t.unit_type = 'establishment'::public.statistical_unit_type AND (p_unit_ids IS NULL OR t.unit_id = ANY (p_unit_ids))
-  ORDER BY t.unit_type, t.unit_id, t.valid_from
-$timeline_establishment_def_for$;
+  ORDER BY t.unit_type, t.unit_id, t.valid_from;
 
-CREATE OR REPLACE VIEW public.timeline_establishment_def
- WITH (security_invoker='on') AS
- SELECT * FROM public.timeline_establishment_def_for(NULL);
+COMMENT ON VIEW public.timeline_establishment_def IS NULL;
 
-COMMENT ON FUNCTION public.timeline_establishment_def_for(integer[]) IS 'The timeline_establishment rows of the establishments p_unit_ids, or of every establishment when NULL: one row per establishment timesegment with its attributes and stats. A SQL function so the planner inlines it and uses the ids as a constant: a batch reads only its own timesegments and stats through the indexes. timeline_establishment_refresh calls it for a partial refresh; the view timeline_establishment_def is its NULL case.';
-COMMENT ON VIEW public.timeline_establishment_def IS 'Every timeline_establishment row, as computed now: timeline_establishment_def_for(NULL). The full refresh reads it in ranges of unit ids.';
+DROP FUNCTION public.timeline_establishment_def_for(integer[]);
 
 CREATE OR REPLACE PROCEDURE public.timeline_establishment_refresh(IN p_unit_id_ranges int4multirange DEFAULT NULL::int4multirange)
  LANGUAGE plpgsql
 AS $procedure$
-DECLARE
-    v_unit_ids INT[];
 BEGIN
+    -- Only ANALYZE for full refresh (sync points handle partial refresh ANALYZE)
     IF p_unit_id_ranges IS NULL THEN
-        -- Full refresh: the view (timeline_establishment_def_for(NULL)) in ranges of unit ids.
         ANALYZE public.timesegments, public.establishment, public.activity, public.location, public.contact, public.stat_for_unit;
-        CALL public.timeline_refresh('timeline_establishment', 'establishment', p_unit_id_ranges);
-    ELSE
-        -- Partial refresh: the batch's ids go to timeline_establishment_def_for, which reads only their rows.
-        -- EXECUTE plans each call with the batch's ids; a cached generic plan of a static
-        -- statement would not know them and read every establishment's timesegments.
-        v_unit_ids := public.int4multirange_to_array(p_unit_id_ranges);
-        EXECUTE $refresh$
-            DELETE FROM public.timeline_establishment
-             WHERE unit_type = 'establishment' AND unit_id = ANY($1)
-        $refresh$ USING v_unit_ids;
-        EXECUTE $refresh$
-            INSERT INTO public.timeline_establishment
-            SELECT * FROM public.timeline_establishment_def_for($1)
-        $refresh$ USING v_unit_ids;
     END IF;
+    CALL public.timeline_refresh('timeline_establishment', 'establishment', p_unit_id_ranges);
 END;
-$procedure$;
+$procedure$
+;
 
--- The report phase reads statistical_unit and statistical_unit_staging one hash-slot partition at a time
--- (derive_statistical_unit_facet_partition, statistical_history_facet_delta_stage_partition). Hash slots are
--- spread over the whole table, so reading a partition's rows from the heap visits about one page per row.
--- These indexes hold every column those partition reads use, so each partition reads only its index range.
--- Measured on the full BRREG register (3.1M units, 16 real partitions, identical rows in every variant):
---   unit facets:         plain btree (hash_slot) 21.9 s -> this covering index 3.3 s.
---   history-delta lists: 99.2 s -> 31.2 s together with the staging index below.
--- Tried and not adopted:
---   - INCLUDE (unit_type, unit_id) only: serves the history-delta lists but not the facet aggregate, which then
---     still reads the heap; one index with all aggregate columns serves both (662 MB beside a 3.1 GB table).
---   - A VACUUM after the flush so index-only reads skip the heap: not needed for a recalculation, since the
---     flush's MERGE leaves unchanged rows alone and the table stayed 100% all-visible; a VACUUM of
---     statistical_unit costs ~100 s. Pages written by the flush are read from the heap until autovacuum.
+DROP INDEX public.statistical_unit_staging_hash_slot_unit_idx;
 DROP INDEX public.idx_statistical_unit_hash_slot;
-CREATE INDEX idx_statistical_unit_hash_slot ON public.statistical_unit (hash_slot)
-  INCLUDE (unit_type, unit_id, used_for_counting, valid_from, valid_until, birth_date, death_date,
-           physical_region_path, primary_activity_category_path, sector_path, legal_form_id,
-           physical_country_id, status_id, stats_summary);
-COMMENT ON INDEX public.idx_statistical_unit_hash_slot IS 'One hash-slot partition of statistical_unit with every column the report phase aggregates per partition (unit facets, history-delta unit lists), so a partition is read from the index range rather than from heap pages scattered over the table. Index-only reads skip the heap for pages the visibility map marks all-visible.';
-
-CREATE INDEX statistical_unit_staging_hash_slot_unit_idx ON public.statistical_unit_staging (hash_slot, unit_type, unit_id);
-COMMENT ON INDEX public.statistical_unit_staging_hash_slot_unit_idx IS 'The units staged in one hash-slot partition: statistical_history_facet_delta_stage_partition lists them per partition, which without this index scans all of staging once per partition.';
+CREATE INDEX idx_statistical_unit_hash_slot ON public.statistical_unit USING btree (hash_slot);
 
 END;
