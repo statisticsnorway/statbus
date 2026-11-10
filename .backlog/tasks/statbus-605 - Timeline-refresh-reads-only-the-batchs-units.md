@@ -5,7 +5,7 @@ status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-10T11:32:00Z'
-updated_date: '2026-11-10T21:48:00Z'
+updated_date: '2026-11-10T21:55:00Z'
 labels:
   - performance
   - worker
@@ -46,4 +46,6 @@ Fast 137/137 + 094 + 143 PASS; up/down/up identical. Waiting: Rabbit cherry-pick
 2026-11-10 (Rabbit): on master as 8257d7fa9 + 70d67b718 (cherry-picks of Hibiscus f8b2ef4f3 + 9445e321c, rebased on STATBUS-604). Hosted CI green at 4321421d8 and at 4a66d2591 (Fast Tests 138 + 094 + 143 under pg_safeupdate, test 398 ok; Go, app, Images, Harness). Released in v2026.11.4-rc.01 (4a66d2591). doc/db and types regenerated before the cut (release check: DB documentation and types cover 20261110141700). AC5 checked.
 
 Quiet-machine proof after release (2026-11-10 21:47, import_benchmark_64469 = v2026.11.4-rc.01 fresh-seed schema, load 8-18, full recalculation through the real worker, reversed order to cancel order effects): without 605 1,258 s wall, with 605 779 s wall (-38%). Refresh batches 3,357 -> 1,860 s task time (1.06 -> 0.59 s each), history-delta partitions 848 -> 360 s, facet partitions 94 -> 75 s. All 16 derived tables identical (row counts and content hashes). Under load (earlier run, 16-200) the same pair was 2,812 vs 1,292 s.
+
+Norway (rune, idle server) read-only tree comparison 2026-11-10 21:55: previous full recalculation 52952 (598+599, no 605) 1,120 s wall vs rc.01 56706 812 s (-27.5%). Refresh batches 3,071 -> 2,141 s task time (-30%), history-delta partitions 554 -> 241 s (-56%), facet partitions 63 -> 53 s (-15%). Flush 25.1 -> 29.1 s (+4 s), consistent with the local pair (+10 s): small real cost, follow-up to measure staging index maintenance.
 <!-- SECTION:NOTES:END -->
