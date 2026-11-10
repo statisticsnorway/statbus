@@ -26,7 +26,7 @@ CREATE FUNCTION public.region_used_derive()
     SECURITY DEFINER AS $region_used_derive$
 BEGIN
     RAISE DEBUG 'Running region_used_derive()';
-    DELETE FROM public.region_used;
+    DELETE FROM public.region_used WHERE true; -- every row: rebuilt below from region_used_def
     INSERT INTO public.region_used
     SELECT * FROM public.region_used_def;
 END;

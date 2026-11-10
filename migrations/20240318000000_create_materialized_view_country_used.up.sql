@@ -20,7 +20,7 @@ LANGUAGE plpgsql
 AS $country_used_derive$
 BEGIN
     RAISE DEBUG 'Running country_used_derive()';
-    DELETE FROM public.country_used;
+    DELETE FROM public.country_used WHERE true; -- every row: rebuilt below from country_used_def
     INSERT INTO public.country_used
     SELECT * FROM public.country_used_def;
 END;

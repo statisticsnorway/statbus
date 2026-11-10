@@ -46,7 +46,7 @@ CREATE FUNCTION public.activity_category_used_derive()
     SECURITY DEFINER AS $activity_category_used_derive$
 BEGIN
     RAISE DEBUG 'Running activity_category_used_derive()';
-    DELETE FROM public.activity_category_used;
+    DELETE FROM public.activity_category_used WHERE true; -- every row: rebuilt below from activity_category_used_def
     INSERT INTO public.activity_category_used
     SELECT * FROM public.activity_category_used_def;
 END;

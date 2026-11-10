@@ -28,7 +28,7 @@ CREATE FUNCTION public.data_source_used_derive()
     SECURITY DEFINER AS $data_source_used_derive$
 BEGIN
     RAISE DEBUG 'Running data_source_used_derive()';
-    DELETE FROM public.data_source_used;
+    DELETE FROM public.data_source_used WHERE true; -- every row: rebuilt below from data_source_used_def
     INSERT INTO public.data_source_used
     SELECT * FROM public.data_source_used_def;
 END;

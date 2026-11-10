@@ -20,7 +20,7 @@ LANGUAGE plpgsql
 AS $legal_form_used_derive$
 BEGIN
     RAISE DEBUG 'Running legal_form_used_derive()';
-    DELETE FROM public.legal_form_used;
+    DELETE FROM public.legal_form_used WHERE true; -- every row: rebuilt below from legal_form_used_def
     INSERT INTO public.legal_form_used
     SELECT * FROM public.legal_form_used_def;
 END;

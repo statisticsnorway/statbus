@@ -15,7 +15,7 @@ CREATE OR REPLACE FUNCTION public.activity_category_used_derive()
 AS $function$
 BEGIN
     RAISE DEBUG 'Running activity_category_used_derive()';
-    DELETE FROM public.activity_category_used;
+    DELETE FROM public.activity_category_used WHERE true; -- every row: rebuilt below from activity_category_used_def
     INSERT INTO public.activity_category_used
     SELECT * FROM public.activity_category_used_def;
 END;
@@ -32,7 +32,7 @@ CREATE OR REPLACE FUNCTION public.region_used_derive()
 AS $function$
 BEGIN
     RAISE DEBUG 'Running region_used_derive()';
-    DELETE FROM public.region_used;
+    DELETE FROM public.region_used WHERE true; -- every row: rebuilt below from region_used_def
     INSERT INTO public.region_used
     SELECT * FROM public.region_used_def;
 END;
@@ -49,7 +49,7 @@ CREATE OR REPLACE FUNCTION public.sector_used_derive()
 AS $function$
 BEGIN
     RAISE DEBUG 'Running sector_used_derive()';
-    DELETE FROM public.sector_used;
+    DELETE FROM public.sector_used WHERE true; -- every row: rebuilt below from sector_used_def
     INSERT INTO public.sector_used
     SELECT * FROM public.sector_used_def;
 END;
@@ -66,7 +66,7 @@ CREATE OR REPLACE FUNCTION public.data_source_used_derive()
 AS $function$
 BEGIN
     RAISE DEBUG 'Running data_source_used_derive()';
-    DELETE FROM public.data_source_used;
+    DELETE FROM public.data_source_used WHERE true; -- every row: rebuilt below from data_source_used_def
     INSERT INTO public.data_source_used
     SELECT * FROM public.data_source_used_def;
 END;
@@ -81,7 +81,7 @@ CREATE OR REPLACE FUNCTION public.legal_form_used_derive()
 AS $function$
 BEGIN
     RAISE DEBUG 'Running legal_form_used_derive()';
-    DELETE FROM public.legal_form_used;
+    DELETE FROM public.legal_form_used WHERE true; -- every row: rebuilt below from legal_form_used_def
     INSERT INTO public.legal_form_used
     SELECT * FROM public.legal_form_used_def;
 END;
@@ -96,7 +96,7 @@ CREATE OR REPLACE FUNCTION public.country_used_derive()
 AS $function$
 BEGIN
     RAISE DEBUG 'Running country_used_derive()';
-    DELETE FROM public.country_used;
+    DELETE FROM public.country_used WHERE true; -- every row: rebuilt below from country_used_def
     INSERT INTO public.country_used
     SELECT * FROM public.country_used_def;
 END;
