@@ -416,7 +416,7 @@ TRUNCATE public.statistical_unit_facet_staging;
 TRUNCATE public.statistical_unit_facet;
 TRUNCATE public.statistical_history_facet_partitions;
 TRUNCATE public.statistical_history_facet;
-DELETE FROM public.statistical_history;
+DELETE FROM public.statistical_history WHERE true; -- every row: derived data, rebuilt by the worker
 TRUNCATE public.statistical_unit_facet_dirty_partitions;
 
 END;
