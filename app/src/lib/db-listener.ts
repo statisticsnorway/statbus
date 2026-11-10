@@ -18,6 +18,7 @@ declare global {
   var __dbListenerConnecting: boolean | undefined;
   var __dbListenerReconnectTimeout: NodeJS.Timeout | null | undefined;
   var __dbListenerDebounceTimers: { [key: string]: NodeJS.Timeout } | undefined;
+  var __dbListenerLatestPending: Map<string, Map<string, NotificationData>> | undefined;
   var __dbListenerReconnectDelay: number | undefined;
 }
 
@@ -171,34 +172,62 @@ const RECONNECT_BACKOFF_FACTOR = 2;
 let reconnectDelay: number =
   globalThis.__dbListenerReconnectDelay || INITIAL_RECONNECT_DELAY_MS;
 
-// State for debouncing notifications
+// Relay throttle state: one timer per relay window, see relayLatest.
 const debounceTimers: { [key: string]: NodeJS.Timeout } =
   globalThis.__dbListenerDebounceTimers || {};
 if (typeof globalThis !== "undefined") {
   globalThis.__dbListenerDebounceTimers = debounceTimers;
 }
+const latestPending: Map<string, Map<string, NotificationData>> =
+  globalThis.__dbListenerLatestPending || new Map();
+if (typeof globalThis !== "undefined") {
+  globalThis.__dbListenerLatestPending = latestPending;
+}
 const DEBOUNCE_DELAY_MS = 500;
 const WORKER_TASK_DEBOUNCE_MS = 1000;
 
-function handleWorkerStatusNotification(payload: WorkerStatusPayload) {
-  // Clear any pending timer for this status type
-  if (debounceTimers[payload.type]) {
-    clearTimeout(debounceTimers[payload.type]);
+/**
+ * Relays the newest notification per key, once per window of its relay group.
+ *
+ * The first arrival in a group opens a window. When it closes, subscribers receive the
+ * newest payload of each key, in the order the keys last arrived. Arrivals never
+ * postpone delivery, so a steady stream still reaches clients once per window: a
+ * recalculation sends a progress notification per finished refresh batch, a median
+ * 130 ms apart on a full register, and the bar must move while that stream lasts.
+ * Last-arrival order keeps a phase's final idle status after its earlier progress.
+ */
+function relayLatest(
+  group: string,
+  key: string,
+  data: NotificationData,
+  windowMs: number
+) {
+  let pending = latestPending.get(group);
+  if (!pending) {
+    pending = new Map();
+    latestPending.set(group, pending);
   }
+  pending.delete(key); // re-insert so iteration follows last arrival
+  pending.set(key, data);
+  if (debounceTimers[group]) return;
+  debounceTimers[group] = setTimeout(() => {
+    const window = latestPending.get(group);
+    latestPending.delete(group);
+    delete debounceTimers[group];
+    window?.forEach((latest) =>
+      channelCallbacks.get(latest.channel)?.forEach((callback) => callback(latest))
+    );
+  }, windowMs);
+}
 
-  // Set a new timer. If another notification for the same type arrives
-  // before the timer fires, it will be cleared and replaced.
-  debounceTimers[payload.type] = setTimeout(() => {
-    const data: NotificationData = {
-      channel: "worker_status",
-      payload: payload,
-    };
-    // Dispatch only to subscribers of the 'worker_status' channel
-    channelCallbacks
-      .get("worker_status")
-      ?.forEach((callback) => callback(data));
-    delete debounceTimers[payload.type]; // Clean up timer
-  }, DEBOUNCE_DELAY_MS);
+export function handleWorkerStatusNotification(payload: WorkerStatusPayload) {
+  // Keyed by type: progress and each boolean status keep their own newest value.
+  relayLatest(
+    "worker_status",
+    payload.type,
+    { channel: "worker_status", payload },
+    DEBOUNCE_DELAY_MS
+  );
 }
 
 function handleImportJobProgressNotification(
@@ -216,45 +245,26 @@ function handleImportJobProgressNotification(
     warning_count: (rawPayload.warning_count as number) ?? 0,
   };
 
-  // Debounce per job_id to avoid flooding during rapid progress updates
-  const debounceKey = `import_job_progress_${payload.job_id}`;
-  if (debounceTimers[debounceKey]) {
-    clearTimeout(debounceTimers[debounceKey]);
-  }
-
-  debounceTimers[debounceKey] = setTimeout(() => {
-    const data: NotificationData = {
-      channel: "worker_status",
-      payload,
-    };
-    channelCallbacks
-      .get("worker_status")
-      ?.forEach((callback) => callback(data));
-    delete debounceTimers[debounceKey];
-  }, DEBOUNCE_DELAY_MS);
+  // Keyed per job, so concurrent jobs each report their own newest progress.
+  relayLatest(
+    "worker_status",
+    `import_job_progress_${payload.job_id}`,
+    { channel: "worker_status", payload },
+    DEBOUNCE_DELAY_MS
+  );
 }
 
 function handleWorkerTaskChangedNotification(rawPayload: string) {
   try {
     const parsed = JSON.parse(rawPayload) as WorkerTaskChangedPayload;
-    // Debounce per parent_id — during bulk operations, many children of the same
-    // parent change rapidly. Each distinct parent gets its own 1s debounce window.
-    // Top-level tasks (parent_id=null) debounce under key 'null'.
-    const debounceKey = `worker_task_changed_${parsed.parent_id ?? "null"}`;
-    if (debounceTimers[debounceKey]) {
-      clearTimeout(debounceTimers[debounceKey]);
-    }
-
-    debounceTimers[debounceKey] = setTimeout(() => {
-      const data: NotificationData = {
-        channel: "worker_task_changed",
-        payload: parsed,
-      };
-      channelCallbacks
-        .get("worker_task_changed")
-        ?.forEach((callback) => callback(data));
-      delete debounceTimers[debounceKey];
-    }, WORKER_TASK_DEBOUNCE_MS);
+    // Keyed per parent: children of one parent change rapidly during bulk work,
+    // and each parent (top-level tasks under 'null') gets its own 1 s window.
+    relayLatest(
+      "worker_task_changed",
+      `worker_task_changed_${parsed.parent_id ?? "null"}`,
+      { channel: "worker_task_changed", payload: parsed },
+      WORKER_TASK_DEBOUNCE_MS
+    );
   } catch (e) {
     console.error(
       "DB Listener: Error parsing worker_task_changed notification:",
