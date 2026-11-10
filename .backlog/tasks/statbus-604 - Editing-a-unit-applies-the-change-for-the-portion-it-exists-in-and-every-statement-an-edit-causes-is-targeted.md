@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T10:25:00Z'
-updated_date: '2026-11-10T11:08:00Z'
+updated_date: '2026-11-10T11:23:00Z'
 labels:
   - app
   - db
@@ -61,4 +61,6 @@ Decisions 2026-11-10 (owner):
 - Flag fix (i): a producer locks the single flag row (SELECT ... FOR UPDATE), then sets it with UPDATE ... WHERE NOT has_pending; the collector clears it with WHERE has_pending. The table's comment states it holds exactly one row. Keeps the STATBUS-591 race fix.
 - Edit range default: the stretch where the value shown is valid, bounded by the selected time context (intersection). A later ticket covers a timeline editor for fragmented periods, plus the owner's other editing fixes.
 - Correctness before speed.
+
+Decision 2026-11-10 11:23 (owner): safeupdate is loaded for every session through postgresql.conf (session_preload_libraries), including debug mode. The one stated exemption is the migration runner: its sessions start with -c safeupdate.enabled=off, alongside the existing read-only-window exemption (migrateReadOnlyExemptOptions), so released migrations stay byte-identical and the seed build, which replays every migration through sb migrate, keeps working. All code that runs outside migrations names its target: the 15 live function statements (including the flag fix (i)) and our scripts; deliberate whole-table clears use WHERE true with a comment. Tests get the guard because the server loads it, the same as production.
 <!-- SECTION:NOTES:END -->
