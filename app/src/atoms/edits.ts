@@ -7,12 +7,22 @@ import { useCallback } from "react";
 import { authStateForDataFetchingAtom } from "./auth";
 import { restClientAtom } from "./rest-client";
 
+/**
+ * The field being edited and the period its change applies to. The period comes
+ * from a time frame (public.time_frame, frameIdent): starting an edit takes the
+ * selected frame, choosing another frame in the form re-derives the dates from
+ * it (useStartEdit). The details (Data Source, Valid From, Valid To) refine it.
+ * source and shownValue are kept so a frame change can re-read the field's rows.
+ */
 export interface EditTarget {
   fieldId: string | null;
+  frameIdent?: string | null;
   validFrom?: string | null;
   validTo?: string | null;
   dataSourceId?: string | null;
   editComment?: string | null;
+  source?: import("@/components/form/read-edit-range").EditFieldSource;
+  shownValue?: unknown;
 }
 
 export const initialEditAtom: EditTarget = {
@@ -21,19 +31,27 @@ export const initialEditAtom: EditTarget = {
 
 export const currentEditAtom = atom<EditTarget>(initialEditAtom);
 
+export type EditTargetOptions = Omit<EditTarget, "fieldId" | "dataSourceId" | "editComment">;
+
 export const setEditTargetAtom = atom(
   null,
-  (
-    get,
-    set,
-    fieldId: string | null,
-    options?: { validFrom?: string | null; validTo?: string | null }
-  ) => {
+  (get, set, fieldId: string | null, options?: EditTargetOptions) => {
     set(currentEditAtom, () => ({
       fieldId: fieldId,
+      frameIdent: options?.frameIdent ?? null,
       validFrom: options?.validFrom ?? null,
       validTo: options?.validTo ?? null,
+      source: options?.source,
+      shownValue: options?.shownValue,
     }));
+  }
+);
+
+/** Moves the open edit to another frame and the dates derived from it, keeping data source and comment. */
+export const setEditFrameAtom = atom(
+  null,
+  (get, set, frame: { frameIdent: string; validFrom: string | null; validTo: string | null }) => {
+    set(currentEditAtom, (prev) => ({ ...prev, ...frame }));
   }
 );
 
@@ -76,16 +94,14 @@ export const useEditManager = () => {
   const currentEdit = useAtomValue(currentEditAtom);
   const exitEditMode = useSetAtom(exitEditModeAtom);
   const doSetEditTarget = useSetAtom(setEditTargetAtom);
+  const setEditFrame = useSetAtom(setEditFrameAtom);
   const doSetValidFrom = useSetAtom(setEditValidFromDateAtom);
   const doSetValidTo = useSetAtom(setEditValidToDateAtom);
   const doSetDataSourceId = useSetAtom(setEditDataSourceIdAtom);
   const doSetEditComment = useSetAtom(setEditCommentAtom);
   const setEditTarget = useCallback(
-    (
-      fieldId: string | null,
-      options?: { validFrom?: string | null; validTo?: string | null }
-    ) => {
-      doSetEditTarget(fieldId, options);                          
+    (fieldId: string | null, options?: EditTargetOptions) => {
+      doSetEditTarget(fieldId, options);
     },
     [doSetEditTarget]
   );
@@ -120,6 +136,7 @@ export const useEditManager = () => {
   return {
     currentEdit,
     setEditTarget,
+    setEditFrame,
     exitEditMode,
     setEditValidFrom,
     setEditValidTo,
