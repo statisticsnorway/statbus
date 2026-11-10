@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T10:25:00Z'
-updated_date: '2026-11-10T10:26:00Z'
+updated_date: '2026-11-10T10:32:00Z'
 labels:
   - app
   - db
@@ -48,3 +48,11 @@ Reported on Norway (no.statbus.org, v2026.11.3 b9d6661e0) 2026-11-10 and reprodu
 - [ ] #4 Adding a physical location to an establishment that has only a postal one succeeds; the 409 cause is named and fixed
 - [ ] #5 [Owner] On Norway, after the release carrying the fix, the reported edits on 314286 and 479720 succeed
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Investigation 2026-11-10 (local repro, tmp/604-repro*.sql/.log on a copy of a rune-shaped DB with safeupdate loaded):
+- Problem 2 root cause: worker.publish_base_change_wakeup() runs `UPDATE worker.base_change_log_has_pending SET has_pending = TRUE` with no WHERE. Path: for_portion_of_trigger -> temporal_merge_execute -> UPDATE establishment -> trigger worker.log_base_change -> publish_base_change_wakeup. Introduced by f09301614 (STATBUS-591, released in v2026.11.3); before it the statement had WHERE has_pending = FALSE. Every API write that logs a change on the 14 logged tables (activity, contact, enterprise, establishment, external_ident, legal_relationship, legal_unit, location, person_for_unit, power_group, power_root, region, stat_for_unit, tag_for_unit) passes through it, so all edits from the UI fail on stable. Imports run in the worker, without safeupdate, so they are unaffected.
+- 409 on adding a location: an empty Country field is coerced from "" to 0 by z.coerce.number() and violates location_country_id_fkey (23503, PostgREST 409). An empty Region gives 0 and violates location_region_version_consistency (23514, 400). Rune's DB log does not record errors, so this matches the request shape but is not read from the request body.
+<!-- SECTION:NOTES:END -->
