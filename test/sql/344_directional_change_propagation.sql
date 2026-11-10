@@ -26,50 +26,50 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \set ECHO all
 
 -- Create Import Job for Legal Units (Demo CSV)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
     'import_44_lu',
     'Import LU Demo CSV (344_directional_change_propagation.sql)',
     'Import job for legal_units_demo.csv',
     'Test data load (344)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample legal units"
 \copy public.import_44_lu_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Formal Establishments (Demo CSV)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_job_provided'),
     'import_44_esflu',
     'Import Formal ES Demo CSV (344_directional_change_propagation.sql)',
     'Import job for formal_establishments_units_demo.csv',
     'Test data load (344)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample formal establishments"
 \copy public.import_44_esflu_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'app/public/demo/formal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Informal Establishments (Demo CSV)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_job_provided'),
     'import_44_eswlu',
     'Import Informal ES Demo CSV (344_directional_change_propagation.sql)',
     'Import job for informal_establishments_units_demo.csv',
     'Test data load (344)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample informal establishments"
 \copy public.import_44_eswlu_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Legal Relationships (Demo CSV)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_relationship_job_provided'),
     'import_44_lr',
     'Import LR Demo CSV (344_directional_change_propagation.sql)',
     'Import job for legal_relationships_demo.csv',
     'Test data load (344)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample legal relationships"
 \copy public.import_44_lr_upload(influencing_tax_ident,influenced_tax_ident,rel_type_code,percentage) FROM 'app/public/demo/legal_relationships_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
@@ -377,14 +377,14 @@ DELETE FROM worker.tasks WHERE state = 'completed';
 -- Create two fresh LUs with a mutual ownership cycle (A->B, B->A).
 
 \echo "Step 1: Import two new LUs for cycle test"
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
     'import_44_lu_cycle',
     'Import cycle LUs (344)',
     'Cycle LUs',
     'Test 344 cycle',
-    'r_year_curr';
+    'live';
 \copy public.import_44_lu_cycle_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM stdin WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true)
 tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code
 CYCLE_A,CA,Cycle Company A,01.01.2020,225613,UN,4752,1,6100,5,1000000,nlr
@@ -392,14 +392,14 @@ CYCLE_B,CB,Cycle Company B,01.01.2020,225613,UN,4752,1,6100,5,1000000,nlr
 \.
 
 \echo "Step 2: Import mutual LRs to create cycle (A->B and B->A)"
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_relationship_job_provided'),
     'import_44_lr_cycle',
     'Import cycle LRs (344)',
     'Cycle LRs',
     'Test 344 cycle',
-    'r_year_curr';
+    'live';
 \copy public.import_44_lr_cycle_upload(influencing_tax_ident,influenced_tax_ident,rel_type_code,percentage) FROM stdin WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true)
 influencing_tax_ident,influenced_tax_ident,rel_type_code,percentage
 CYCLE_A,CYCLE_B,ownership,50

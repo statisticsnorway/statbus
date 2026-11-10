@@ -35,7 +35,7 @@ SELECT
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo "Checking import job statuses for Initial Load"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_311_lu_wsd' ORDER BY slug;
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_311_lu_wsd' ORDER BY slug;
 
 \echo "Run worker processing for analytics tasks - Initial Load"
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -90,7 +90,7 @@ SELECT
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo "Checking import job status for Partial Update"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_311_lu_partial_update' ORDER BY slug;
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_311_lu_partial_update' ORDER BY slug;
 
 \echo "Run worker processing for analytics tasks - Partial Update"
 CALL worker.process_tasks(p_queue => 'analytics');

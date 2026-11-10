@@ -28,38 +28,38 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 "User uploads the demo sectors"
 "User uploads the demo legal forms"
 -- Create Import Job for Legal Units (Demo CSV)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
     'import_13_lu',
     'Import LU Demo CSV (313_update_triggers_refresh.sql)',
     'Import job for app/public/demo/legal_units_demo.csv using legal_unit_job_provided definition.',
     'Test data load (313_update_triggers_refresh.sql)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample legal units (via import job: import_13_lu)"
 "User uploads the sample legal units (via import job: import_13_lu)"
 \copy public.import_13_lu_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- Create Import Job for Formal Establishments (Demo CSV)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_job_provided'),
     'import_13_esflu',
     'Import Formal ES Demo CSV (313_update_triggers_refresh.sql)',
     'Import job for app/public/demo/formal_establishments_units_demo.csv using establishment_for_lu_job_provided definition.',
     'Test data load (313_update_triggers_refresh.sql)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample formal establishments (via import job: import_13_esflu)"
 "User uploads the sample formal establishments (via import job: import_13_esflu)"
 \copy public.import_13_esflu_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'app/public/demo/formal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- Create Import Job for Informal Establishments (Demo CSV)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_job_provided'),
     'import_13_eswlu',
     'Import Informal ES Demo CSV (313_update_triggers_refresh.sql)',
     'Import job for app/public/demo/informal_establishments_units_demo.csv using establishment_without_lu_job_provided definition.',
     'Test data load (313_update_triggers_refresh.sql)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample informal establishments (via import job: import_13_eswlu)"
 "User uploads the sample informal establishments (via import job: import_13_eswlu)"
 \copy public.import_13_eswlu_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);

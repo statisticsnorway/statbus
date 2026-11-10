@@ -26,14 +26,14 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 -- Create Import Job for Legal Units
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
     'import_341_lu_idents',
     'Import Legal Units duplicate Idents (341_duplicate_tax_ident_big_file.sql)',
     'Import job for legal units from test/data/341_duplicate_tax_ident_big_file.csv using legal_unit_job_provided definition.',
     'Test data load (341_duplicate_tax_ident_big_file.sql)',
-    'r_year_curr',
+    'live',
     false;
 
 \echo "User uploads the legal units over time (via import job: import_341_lu_idents)"

@@ -85,7 +85,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses for Initial Load"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_309_%' AND slug NOT LIKE '%turnover%' ORDER BY slug;
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_309_%' AND slug NOT LIKE '%turnover%' ORDER BY slug;
 
 \echo "Checking for any errors in import_309_lu_wsd_data (including ErrorLine entries)"
 SELECT row_id, tax_ident_raw, stat_ident_raw, name_raw, state, action, 
@@ -116,14 +116,14 @@ SELECT unit_type
 \x
 
 -- Create Import Job for Legal Units Turnover Update
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'generic_unit_stats_update_job_provided'),
     'import_309_lu_turnover_update',
     'Import LU Turnover Update (309_load_demo_data_with_source_dates.sql)',
     'Import job for app/public/demo/legal_units_turnover_update.csv using generic_unit_stats_update_job_provided definition.',
     'Test data load (309_load_demo_data_with_source_dates.sql)',
-    'r_year_curr',
+    'live',
     false;
 \echo "User uploads the legal units turnover update (via import job: import_309_lu_turnover_update)"
 \copy public.import_309_lu_turnover_update_upload(tax_ident,stat_ident,turnover) FROM 'app/public/demo/legal_units_turnover_update.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -133,7 +133,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses for Turnover Update"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_309_lu_turnover_update' ORDER BY slug;
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_309_lu_turnover_update' ORDER BY slug;
 
 \echo "Checking error rows in turnover update"
 SELECT row_id, state, tax_ident_raw, stat_ident_raw, errors
@@ -159,9 +159,9 @@ WITH deduped_updates AS (
     FROM public.import_309_lu_turnover_update_upload
     ORDER BY tax_ident, stat_ident DESC -- Deduplicate update file, preferring latest stat_ident
 ),
-update_time_context AS (
-    -- The update job uses 'r_year_curr', so we resolve its date range to correctly apply the update
-    SELECT valid_from, valid_to AS valid_until FROM public.time_context WHERE ident = 'r_year_curr'
+update_time_frame AS (
+    -- The update job uses 'live', so we resolve its date range to correctly apply the update
+    SELECT valid_from, valid_to AS valid_until FROM public.time_frame WHERE ident = 'live'
 ),
 active_legal_units AS (
     SELECT
@@ -180,7 +180,7 @@ active_legal_units AS (
         )).p_value as turnover
     FROM public.import_309_lu_wsd_upload AS lu
     LEFT JOIN deduped_updates AS upd ON lu.tax_ident = upd.tax_ident
-    CROSS JOIN update_time_context utc
+    CROSS JOIN update_time_frame utc
     WHERE (import.safe_cast_to_date(lu.valid_from)).p_value <= CURRENT_DATE AND CURRENT_DATE < ((import.safe_cast_to_date(lu.valid_to)).p_value + '1 day'::interval)
 ),
 active_establishments AS (

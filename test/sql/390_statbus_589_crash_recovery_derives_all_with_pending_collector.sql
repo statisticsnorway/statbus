@@ -18,9 +18,9 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \o
 \set ECHO all
 
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
-       'import_390_lu', 'STATBUS-589 legal units', 'Demo legal units', 'STATBUS-589', 'r_year_curr';
+       'import_390_lu', 'STATBUS-589 legal units', 'Demo legal units', 'STATBUS-589', 'live';
 \copy public.import_390_lu_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 CALL worker.process_tasks(p_queue => 'import');

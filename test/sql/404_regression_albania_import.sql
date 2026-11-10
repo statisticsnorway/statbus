@@ -108,7 +108,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking legal unit import job status"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error 
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error 
 FROM public.import_job WHERE slug = 'import_318_lu';
 
 \echo "Checking for any errors in legal unit import data"
@@ -126,14 +126,14 @@ SELECT
 
 \echo "=== Creating import job for Establishments (job provided time) ==="
 -- Albania establishment data lacks valid_from/valid_to, so we use job_provided time
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_job_provided'),
     'import_318_es',
     'Import Albania Establishments (318_regression_albania_import.sql)',
     'Import job for test/data/318_albania_establishments.csv using establishment_for_lu_job_provided definition.',
     'Test data load (318_regression_albania_import.sql)',
-    'r_year_curr',
+    'live',
     false;
 
 \echo "Uploading Albania establishments (8439 rows)"
@@ -149,7 +149,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking establishment import job status"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error 
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error 
 FROM public.import_job WHERE slug = 'import_318_es';
 
 \echo "Checking for any errors in establishment import data"

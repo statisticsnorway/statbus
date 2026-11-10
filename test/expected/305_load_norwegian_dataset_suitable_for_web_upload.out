@@ -2794,27 +2794,27 @@ FROM public.data_source_enabled;
 \echo "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
 "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
 -- Create Import Job for Legal Units (Web Example)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
     'import_lu_web_example_current',
     'Import Legal Units - Web Example (Current Year)',
     'Import job for legal units from samples/norway/legal_unit/enheter-selection-web-import.csv using legal_unit_job_provided definition.',
     'Test data load (01_load_web_examples.sql)',
-    'r_year_curr',
+    'live',
     false;
 \echo "User uploads the sample legal units (via import job: import_lu_web_example_current)"
 "User uploads the sample legal units (via import job: import_lu_web_example_current)"
 \copy public.import_lu_web_example_current_upload(tax_ident,name,birth_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'samples/norway/legal_unit/enheter-selection-web-import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- Create Import Job for Establishments (Web Example)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_job_provided'),
     'import_es_web_example_current',
     'Import Establishments - Web Example (Current Year)',
     'Import job for establishments from samples/norway/establishment/underenheter-selection-web-import.csv using establishment_for_lu_job_provided definition.',
     'Test data load (01_load_web_examples.sql)',
-    'r_year_curr',
+    'live',
     false;
 \echo "User uploads the sample establishments (via import job: import_es_web_example_current)"
 "User uploads the sample establishments (via import job: import_es_web_example_current)"
@@ -2850,7 +2850,7 @@ LIMIT 5;
 "Checking import job statuses"
 SELECT ij.slug,
        ij.state,
-       ij.time_context_ident,
+       ij.time_frame_ident,
        ij.total_rows,
        ij.imported_rows,
        ij.error IS NOT NULL AS has_error,
@@ -2863,10 +2863,10 @@ SELECT ij.slug,
        END AS error_rows
 FROM public.import_job AS ij
 WHERE ij.slug IN ('import_lu_web_example_current', 'import_es_web_example_current') ORDER BY ij.slug;
-             slug              |  state   | time_context_ident | total_rows | imported_rows | has_error | error_rows 
--------------------------------+----------+--------------------+------------+---------------+-----------+------------
- import_es_web_example_current | finished | r_year_curr        |       1305 |          1305 | f         |          0
- import_lu_web_example_current | finished | r_year_curr        |        100 |           100 | f         |          0
+             slug              |  state   | time_frame_ident | total_rows | imported_rows | has_error | error_rows 
+-------------------------------+----------+------------------+------------+---------------+-----------+------------
+ import_es_web_example_current | finished | live             |       1305 |          1305 | f         |          0
+ import_lu_web_example_current | finished | live             |        100 |           100 | f         |          0
 (2 rows)
 
 \echo "Error rows in import_lu_web_example_current_data (if any):"
@@ -3023,10 +3023,10 @@ stats_summary | {                                             +
 "Testing import job clone"
 -- Clone legal unit job
 SELECT id AS lu_job_id FROM public.import_job WHERE slug = 'import_lu_web_example_current' \gset
-SELECT slug, description, note, time_context_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:lu_job_id, 'import_lu_clone');
-      slug       |                           description                            |                                                                 note                                                                 | time_context_ident | default_valid_from | default_valid_to | default_data_source_code |   upload_table_name    |   data_table_name    | priority | analysis_batch_size | processing_batch_size | analysis_completed_pct | analysis_rows_per_sec | current_step_code | current_step_priority | max_analysis_priority | total_analysis_steps_weighted | completed_analysis_steps_weighted | total_rows | imported_rows | import_completed_pct | import_rows_per_sec | last_progress_update |       state        | error | review |               edit_comment                
------------------+------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+--------------------+--------------------+------------------+--------------------------+------------------------+----------------------+----------+---------------------+-----------------------+------------------------+-----------------------+-------------------+-----------------------+-----------------------+-------------------------------+-----------------------------------+------------+---------------+----------------------+---------------------+----------------------+--------------------+-------+--------+-------------------------------------------
- import_lu_clone | Clone of job #1: Import Legal Units - Web Example (Current Year) | Import job for legal units from samples/norway/legal_unit/enheter-selection-web-import.csv using legal_unit_job_provided definition. | r_year_curr        | 2026-01-01         | infinity         | nlr                      | import_lu_clone_upload | import_lu_clone_data |          |               32768 |                  8000 |                   0.00 |                       |                   |                       |                   100 |                               |                                 0 |            |             0 |                 0.00 |                     |                      | waiting_for_upload |       | f      | Test data load (01_load_web_examples.sql)
+SELECT slug, description, note, time_frame_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:lu_job_id, 'import_lu_clone');
+      slug       |                           description                            |                                                                 note                                                                 | time_frame_ident | default_valid_from | default_valid_to | default_data_source_code |   upload_table_name    |   data_table_name    | priority | analysis_batch_size | processing_batch_size | analysis_completed_pct | analysis_rows_per_sec | current_step_code | current_step_priority | max_analysis_priority | total_analysis_steps_weighted | completed_analysis_steps_weighted | total_rows | imported_rows | import_completed_pct | import_rows_per_sec | last_progress_update |       state        | error | review |               edit_comment                
+-----------------+------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+------------------+--------------------+------------------+--------------------------+------------------------+----------------------+----------+---------------------+-----------------------+------------------------+-----------------------+-------------------+-----------------------+-----------------------+-------------------------------+-----------------------------------+------------+---------------+----------------------+---------------------+----------------------+--------------------+-------+--------+-------------------------------------------
+ import_lu_clone | Clone of job #1: Import Legal Units - Web Example (Current Year) | Import job for legal units from samples/norway/legal_unit/enheter-selection-web-import.csv using legal_unit_job_provided definition. | live             | 2026-01-01         | infinity         | nlr                      | import_lu_clone_upload | import_lu_clone_data |          |               32768 |                  8000 |                   0.00 |                       |                   |                       |                   100 |                               |                                 0 |            |             0 |                 0.00 |                     |                      | waiting_for_upload |       | f      | Test data load (01_load_web_examples.sql)
 (1 row)
 
 -- Clone establishment job. STATBUS-545: the statistical variable employees is
@@ -3049,10 +3049,10 @@ NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 SELECT id AS es_job_id FROM public.import_job WHERE slug = 'import_es_web_example_current' \gset
-SELECT slug, description, note, time_context_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:es_job_id, 'import_es_clone');
-      slug       |                             description                             |                                                                           note                                                                            | time_context_ident | default_valid_from | default_valid_to | default_data_source_code |   upload_table_name    |   data_table_name    | priority | analysis_batch_size | processing_batch_size | analysis_completed_pct | analysis_rows_per_sec | current_step_code | current_step_priority | max_analysis_priority | total_analysis_steps_weighted | completed_analysis_steps_weighted | total_rows | imported_rows | import_completed_pct | import_rows_per_sec | last_progress_update |       state        | error | review |               edit_comment                
------------------+---------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+--------------------+------------------+--------------------------+------------------------+----------------------+----------+---------------------+-----------------------+------------------------+-----------------------+-------------------+-----------------------+-----------------------+-------------------------------+-----------------------------------+------------+---------------+----------------------+---------------------+----------------------+--------------------+-------+--------+-------------------------------------------
- import_es_clone | Clone of job #2: Import Establishments - Web Example (Current Year) | Import job for establishments from samples/norway/establishment/underenheter-selection-web-import.csv using establishment_for_lu_job_provided definition. | r_year_curr        | 2026-01-01         | infinity         | nlr                      | import_es_clone_upload | import_es_clone_data |          |               32768 |                  8000 |                   0.00 |                       |                   |                       |                   100 |                               |                                 0 |            |             0 |                 0.00 |                     |                      | waiting_for_upload |       | f      | Test data load (01_load_web_examples.sql)
+SELECT slug, description, note, time_frame_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:es_job_id, 'import_es_clone');
+      slug       |                             description                             |                                                                           note                                                                            | time_frame_ident | default_valid_from | default_valid_to | default_data_source_code |   upload_table_name    |   data_table_name    | priority | analysis_batch_size | processing_batch_size | analysis_completed_pct | analysis_rows_per_sec | current_step_code | current_step_priority | max_analysis_priority | total_analysis_steps_weighted | completed_analysis_steps_weighted | total_rows | imported_rows | import_completed_pct | import_rows_per_sec | last_progress_update |       state        | error | review |               edit_comment                
+-----------------+---------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+------------------+--------------------+------------------+--------------------------+------------------------+----------------------+----------+---------------------+-----------------------+------------------------+-----------------------+-------------------+-----------------------+-----------------------+-------------------------------+-----------------------------------+------------+---------------+----------------------+---------------------+----------------------+--------------------+-------+--------+-------------------------------------------
+ import_es_clone | Clone of job #2: Import Establishments - Web Example (Current Year) | Import job for establishments from samples/norway/establishment/underenheter-selection-web-import.csv using establishment_for_lu_job_provided definition. | live             | 2026-01-01         | infinity         | nlr                      | import_es_clone_upload | import_es_clone_data |          |               32768 |                  8000 |                   0.00 |                       |                   |                       |                   100 |                               |                                 0 |            |             0 |                 0.00 |                     |                      | waiting_for_upload |       | f      | Test data load (01_load_web_examples.sql)
 (1 row)
 
 -- SET client_min_messages TO DEBUG1;
@@ -3156,7 +3156,7 @@ FROM public.import_job WHERE slug = 'import_es_clone';
 "Checking import job statuses for cloned jobs"
 SELECT ij.slug,
        ij.state,
-       ij.time_context_ident,
+       ij.time_frame_ident,
        ij.total_rows,
        ij.imported_rows,
        ij.error IS NOT NULL AS has_error,
@@ -3169,10 +3169,10 @@ SELECT ij.slug,
        END AS error_rows
 FROM public.import_job AS ij
 WHERE ij.slug IN ('import_lu_clone', 'import_es_clone') ORDER BY ij.slug;
-      slug       |  state   | time_context_ident | total_rows | imported_rows | has_error | error_rows 
------------------+----------+--------------------+------------+---------------+-----------+------------
- import_es_clone | finished | r_year_curr        |       1305 |          1305 | f         |          0
- import_lu_clone | finished | r_year_curr        |        100 |           100 | f         |          0
+      slug       |  state   | time_frame_ident | total_rows | imported_rows | has_error | error_rows 
+-----------------+----------+------------------+------------+---------------+-----------+------------
+ import_es_clone | finished | live             |       1305 |          1305 | f         |          0
+ import_lu_clone | finished | live             |        100 |           100 | f         |          0
 (2 rows)
 
 -- Insert a legal_relationship row to test that reset() handles FK to legal_unit correctly.

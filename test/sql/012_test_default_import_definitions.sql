@@ -14,7 +14,7 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \echo "in the 'external_idents' step, which is necessary for identifying units."
 
 \echo ""
-\echo "1. Definition: legal_unit_time_context, Source Column: tax_ident"
+\echo "1. Definition: legal_unit_job_provided, Source Column: tax_ident"
 \echo "   ----------------------------------------------------------------"
 \echo "   Expected: The 'tax_ident' source column should be mapped to the 'external_ident_value' data column"
 \echo "             (purpose: 'external_ident_value') within the 'external_idents' import step."
@@ -37,7 +37,7 @@ WHERE id.slug = 'legal_unit_job_provided'
   AND isc.column_name = 'tax_ident';
 
 \echo ""
-\echo "2. Definition: establishment_for_lu_time_context, Source Column: tax_ident (for the establishment itself)"
+\echo "2. Definition: establishment_for_lu_job_provided, Source Column: tax_ident (for the establishment itself)"
 \echo "   -------------------------------------------------------------------------------------------------------"
 \echo "   Expected: Similar to legal units, the 'tax_ident' source column for an establishment should be mapped"
 \echo "             to 'external_ident_value' (purpose: 'external_ident_value') in the 'external_idents' step."
@@ -58,7 +58,7 @@ WHERE id.slug = 'establishment_for_lu_job_provided'
   AND isc.column_name = 'tax_ident';
 
 \echo ""
-\echo "3. Definition: establishment_for_lu_time_context, Source Column: legal_unit_tax_ident (for linking)"
+\echo "3. Definition: establishment_for_lu_job_provided, Source Column: legal_unit_tax_ident (for linking)"
 \echo "   ---------------------------------------------------------------------------------------------------"
 \echo "   Expected: This 'legal_unit_tax_ident' source column (used to link an establishment to its legal unit)"
 \echo "             should be mapped to the 'legal_unit_tax_ident' data column (purpose: 'source_input')"

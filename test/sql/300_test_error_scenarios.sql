@@ -505,34 +505,34 @@ BEGIN
     SELECT id INTO v_def_source_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
     IF v_def_source_id IS NULL THEN RAISE EXCEPTION 'Setup for Test 70.9 FAILED: Definition "legal_unit_source_dates" not found.'; END IF;
 
-    -- Test 70.9.1: Create job for 'time_context' definition WITHOUT providing time_context_ident (should fail)
+    -- Test 70.9.1: Create job for 'job_provided' definition WITHOUT providing time_frame_ident (should fail)
     BEGIN
         INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
-        VALUES (v_def_context_id, 'import_70_09_01_ctx_missing_ident', 'Test 70.9.1: Missing time_context_ident', 'Test 70.9.1', false);
-        RAISE EXCEPTION 'Test 70.9.1 FAILED: Expected INSERT to fail due to missing time_context_ident.';
+        VALUES (v_def_context_id, 'import_70_09_01_ctx_missing_ident', 'Test 70.9.1: Missing time_frame_ident', 'Test 70.9.1', false);
+        RAISE EXCEPTION 'Test 70.9.1 FAILED: Expected INSERT to fail due to missing time_frame_ident.';
     EXCEPTION
         WHEN raise_exception THEN
-            RAISE NOTICE 'Test 70.9.1 PASSED: Correctly failed to create job for time_context definition without time_context_ident. SQLERRM: %', SQLERRM;
+            RAISE NOTICE 'Test 70.9.1 PASSED: Correctly failed to create job for job_provided definition without time_frame_ident. SQLERRM: %', SQLERRM;
     END;
 
-    -- Test 70.9.2: Create job for 'time_context' definition WITH both time_context_ident AND default_valid_from (should fail)
+    -- Test 70.9.2: Create job for 'job_provided' definition WITH both time_frame_ident AND default_valid_from (should fail)
     BEGIN
-        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_context_ident, default_valid_from, review)
-        VALUES (v_def_context_id, 'import_70_09_02_ctx_conflict_from', 'Test 70.9.2: time_context_ident conflicts with default_valid_from', 'Test 70.9.2', 'r_year_curr', '2023-01-01', false);
-        RAISE EXCEPTION 'Test 70.9.2 FAILED: Expected INSERT to fail due to conflict between time_context_ident and default_valid_from.';
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_frame_ident, default_valid_from, review)
+        VALUES (v_def_context_id, 'import_70_09_02_ctx_conflict_from', 'Test 70.9.2: time_frame_ident conflicts with default_valid_from', 'Test 70.9.2', 'live', '2023-01-01', false);
+        RAISE EXCEPTION 'Test 70.9.2 FAILED: Expected INSERT to fail due to conflict between time_frame_ident and default_valid_from.';
     EXCEPTION
         WHEN raise_exception THEN
-            RAISE NOTICE 'Test 70.9.2 PASSED: Correctly failed to create job with conflicting time_context_ident and default_valid_from. SQLERRM: %', SQLERRM;
+            RAISE NOTICE 'Test 70.9.2 PASSED: Correctly failed to create job with conflicting time_frame_ident and default_valid_from. SQLERRM: %', SQLERRM;
     END;
 
-    -- Test 70.9.3: Create job for 'source_columns' definition WITH time_context_ident (should fail)
+    -- Test 70.9.3: Create job for 'source_columns' definition WITH time_frame_ident (should fail)
     BEGIN
-        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_context_ident, review)
-        VALUES (v_def_source_id, 'import_70_09_03_source_conflict_ctx', 'Test 70.9.3: time_context_ident with source_columns definition', 'Test 70.9.3', 'r_year_curr', false);
-        RAISE EXCEPTION 'Test 70.9.3 FAILED: Expected INSERT to fail due to providing time_context_ident for a source_columns definition.';
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_frame_ident, review)
+        VALUES (v_def_source_id, 'import_70_09_03_source_conflict_ctx', 'Test 70.9.3: time_frame_ident with source_columns definition', 'Test 70.9.3', 'live', false);
+        RAISE EXCEPTION 'Test 70.9.3 FAILED: Expected INSERT to fail due to providing time_frame_ident for a source_columns definition.';
     EXCEPTION
         WHEN raise_exception THEN
-            RAISE NOTICE 'Test 70.9.3 PASSED: Correctly failed to create job with conflicting time_context_ident for source_columns definition. SQLERRM: %', SQLERRM;
+            RAISE NOTICE 'Test 70.9.3 PASSED: Correctly failed to create job with conflicting time_frame_ident for source_columns definition. SQLERRM: %', SQLERRM;
     END;
 
     -- Test 70.9.4: Job for 'source_columns' definition with default_valid_from/to (should fail)

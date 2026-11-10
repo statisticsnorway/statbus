@@ -61,28 +61,28 @@ FROM public.data_source_enabled;
 \echo "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
 
 -- Create Import Job for Legal Units (Web Example)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
     'import_lu_web_example_current',
     'Import Legal Units - Web Example (Current Year)',
     'Import job for legal units from samples/norway/legal_unit/enheter-selection-web-import.csv using legal_unit_job_provided definition.',
     'Test data load (01_load_web_examples.sql)',
-    'r_year_curr',
+    'live',
     false;
 
 \echo "User uploads the sample legal units (via import job: import_lu_web_example_current)"
 \copy public.import_lu_web_example_current_upload(tax_ident,name,birth_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'samples/norway/legal_unit/enheter-selection-web-import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Establishments (Web Example)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_job_provided'),
     'import_es_web_example_current',
     'Import Establishments - Web Example (Current Year)',
     'Import job for establishments from samples/norway/establishment/underenheter-selection-web-import.csv using establishment_for_lu_job_provided definition.',
     'Test data load (01_load_web_examples.sql)',
-    'r_year_curr',
+    'live',
     false;
 
 \echo "User uploads the sample establishments (via import job: import_es_web_example_current)"
@@ -103,7 +103,7 @@ LIMIT 5;
 \echo "Checking import job statuses"
 SELECT ij.slug,
        ij.state,
-       ij.time_context_ident,
+       ij.time_frame_ident,
        ij.total_rows,
        ij.imported_rows,
        ij.error IS NOT NULL AS has_error,
@@ -166,7 +166,7 @@ SELECT unit_type
 \echo "Testing import job clone"
 -- Clone legal unit job
 SELECT id AS lu_job_id FROM public.import_job WHERE slug = 'import_lu_web_example_current' \gset
-SELECT slug, description, note, time_context_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:lu_job_id, 'import_lu_clone');
+SELECT slug, description, note, time_frame_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:lu_job_id, 'import_lu_clone');
 
 -- Clone establishment job. STATBUS-545: the statistical variable employees is
 -- disabled after the original job ran, so the current definition no longer maps
@@ -175,7 +175,7 @@ SELECT slug, description, note, time_context_ident, default_valid_from, default_
 -- ignored, with a warning on every row that has a value and one on the column.
 UPDATE public.stat_definition SET enabled = false WHERE code = 'employees';
 SELECT id AS es_job_id FROM public.import_job WHERE slug = 'import_es_web_example_current' \gset
-SELECT slug, description, note, time_context_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:es_job_id, 'import_es_clone');
+SELECT slug, description, note, time_frame_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:es_job_id, 'import_es_clone');
 
 -- SET client_min_messages TO DEBUG1;
 \echo Run worker processing for import job clone
@@ -238,7 +238,7 @@ FROM public.import_job WHERE slug = 'import_es_clone';
 \echo "Checking import job statuses for cloned jobs"
 SELECT ij.slug,
        ij.state,
-       ij.time_context_ident,
+       ij.time_frame_ident,
        ij.total_rows,
        ij.imported_rows,
        ij.error IS NOT NULL AS has_error,

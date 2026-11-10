@@ -73,7 +73,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses for Initial Load"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_310_%' AND slug NOT LIKE '%turnover%' ORDER BY slug;
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_310_%' AND slug NOT LIKE '%turnover%' ORDER BY slug;
 
 \echo "Unit counts after initial load"
 SELECT
@@ -153,14 +153,14 @@ DROP TABLE diff1;
 \x
 
 -- Create Import Job for Legal Units Turnover Update
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'generic_unit_stats_update_job_provided'),
     'import_310_lu_turnover_update',
     'Import LU Turnover Update (310_idempotent_import_source_dates.sql)',
     'Import job for app/public/demo/legal_units_turnover_update.csv using generic_unit_stats_update_job_provided definition.',
     'Test data load (310_idempotent_import_source_dates.sql)',
-    'r_year_curr',
+    'live',
     false;
 \echo "User uploads the legal units turnover update (via import job: import_310_lu_turnover_update)"
 \copy public.import_310_lu_turnover_update_upload(tax_ident,stat_ident,turnover) FROM 'app/public/demo/legal_units_turnover_update.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -170,7 +170,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses for Turnover Update"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_310_lu_turnover_update' ORDER BY slug;
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_310_lu_turnover_update' ORDER BY slug;
 
 \echo "Run worker processing for analytics tasks - Turnover Update"
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -181,14 +181,14 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 CREATE TEMP TABLE statistical_unit_snapshot_2 AS TABLE statistical_unit;
 
 -- Create a new import job for the turnover idempotency check
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'generic_unit_stats_update_job_provided'),
     'import_310_lu_turnover_update_idem',
     'Idempotency Check: Import LU Turnover Update (310_idempotent_import_source_dates.sql)',
     'Import job for app/public/demo/legal_units_turnover_update.csv using generic_unit_stats_update_job_provided definition.',
     'Test data load (310_idempotent_import_source_dates.sql)',
-    'r_year_curr',
+    'live',
     false;
 \echo "Re-uploading the legal units turnover update (via import job: import_310_lu_turnover_update_idem)"
 \copy public.import_310_lu_turnover_update_idem_upload(tax_ident,stat_ident,turnover) FROM 'app/public/demo/legal_units_turnover_update.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);

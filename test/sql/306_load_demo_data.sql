@@ -59,50 +59,50 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 -- Create Import Job for Legal Units (Demo CSV, Block 1)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
     'import_07_lu_curr_b1',
     'Import LU Demo CSV B1 (07_load_demo_data.sql)',
     'Import job for app/public/demo/legal_units_demo.csv using legal_unit_job_provided definition.',
     'Test data load (07_load_demo_data.sql)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample legal units (via import job: import_07_lu_curr_b1)"
 \copy public.import_07_lu_curr_b1_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Formal Establishments (Demo CSV, Block 1)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_job_provided'),
     'import_07_esflu_curr_b1',
     'Import Formal ES Demo CSV B1 (07_load_demo_data.sql)',
     'Import job for app/public/demo/formal_establishments_units_demo.csv using establishment_for_lu_job_provided definition.',
     'Test data load (07_load_demo_data.sql)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample formal establishments (via import job: import_07_esflu_curr_b1)"
 \copy public.import_07_esflu_curr_b1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'app/public/demo/formal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Informal Establishments (Demo CSV, Block 1)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_job_provided'),
     'import_07_eswlu_curr_b1',
     'Import Informal ES Demo CSV B1 (07_load_demo_data.sql)',
     'Import job for app/public/demo/informal_establishments_units_demo.csv using establishment_without_lu_job_provided definition.',
     'Test data load (07_load_demo_data.sql)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample informal establishments (via import job: import_07_eswlu_curr_b1)"
 \copy public.import_07_eswlu_curr_b1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Legal Relationships (Demo CSV, Block 1)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_relationship_job_provided'),
     'import_07_lr_curr_b1',
     'Import LR Demo CSV B1 (07_load_demo_data.sql)',
     'Import job for app/public/demo/legal_relationships_demo.csv using legal_relationship_job_provided definition.',
     'Test data load (07_load_demo_data.sql)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample legal relationships (via import job: import_07_lr_curr_b1)"
 \copy public.import_07_lr_curr_b1_upload(influencing_tax_ident,influenced_tax_ident,rel_type_code,percentage) FROM 'app/public/demo/legal_relationships_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
@@ -111,7 +111,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses for Block 1"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b1' ORDER BY slug;
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b1' ORDER BY slug;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
@@ -141,26 +141,26 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 -- Create Import Job for Legal Units (Demo CSV, Block 2)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
     'import_07_lu_curr_b2',
     'Import LU Demo CSV B2 (07_load_demo_data.sql)',
     'Import job for app/public/demo/legal_units_demo.csv using legal_unit_job_provided definition.',
     'Test data load (07_load_demo_data.sql)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample legal units (via import job: import_07_lu_curr_b2)"
 \copy public.import_07_lu_curr_b2_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Formal Establishments (Demo CSV, Block 2)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_job_provided'),
     'import_07_esflu_curr_b2',
     'Import Formal ES Demo CSV B2 (07_load_demo_data.sql)',
     'Import job for app/public/demo/formal_establishments_units_demo.csv using establishment_for_lu_job_provided definition.',
     'Test data load (07_load_demo_data.sql)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample formal establishments (via import job: import_07_esflu_curr_b2)"
 \copy public.import_07_esflu_curr_b2_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'app/public/demo/formal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
@@ -169,7 +169,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses for Block 2"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b2' ORDER BY slug;
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b2' ORDER BY slug;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
@@ -199,14 +199,14 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 -- Create Import Job for Legal Units (Demo CSV, Block 3)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
     'import_07_lu_curr_b3',
     'Import LU Demo CSV B3 (07_load_demo_data.sql)',
     'Import job for app/public/demo/legal_units_demo.csv using legal_unit_job_provided definition.',
     'Test data load (07_load_demo_data.sql)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample legal units (via import job: import_07_lu_curr_b3)"
 \copy public.import_07_lu_curr_b3_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
@@ -215,7 +215,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses for Block 3"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b3' ORDER BY slug;
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b3' ORDER BY slug;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
@@ -246,14 +246,14 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 -- Create Import Job for Informal Establishments (Demo CSV, Block 4)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_job_provided'),
     'import_07_eswlu_curr_b4',
     'Import Informal ES Demo CSV B4 (07_load_demo_data.sql)',
     'Import job for app/public/demo/informal_establishments_units_demo.csv using establishment_without_lu_job_provided definition.',
     'Test data load (07_load_demo_data.sql)',
-    'r_year_curr';
+    'live';
 \echo "User uploads the sample informal establishments (via import job: import_07_eswlu_curr_b4)"
 \copy public.import_07_eswlu_curr_b4_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
@@ -262,7 +262,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses for Block 4"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b4' ORDER BY slug;
+SELECT slug, state, time_frame_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b4' ORDER BY slug;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,

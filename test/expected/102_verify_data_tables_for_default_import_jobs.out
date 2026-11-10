@@ -34,8 +34,8 @@ BEGIN
     IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
     ELSE
         DELETE FROM public.import_job WHERE slug = v_job_slug_val;
-        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
-        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'r_year_curr');
+        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
+        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'live');
     END IF;
 
     -- legal_unit_source_dates
@@ -56,8 +56,8 @@ BEGIN
     IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
     ELSE
         DELETE FROM public.import_job WHERE slug = v_job_slug_val;
-        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
-        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'r_year_curr');
+        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
+        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'live');
     END IF;
 
     -- establishment_for_lu_source_dates
@@ -78,8 +78,8 @@ BEGIN
     IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
     ELSE
         DELETE FROM public.import_job WHERE slug = v_job_slug_val;
-        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
-        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'r_year_curr');
+        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
+        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'live');
     END IF;
 
     -- establishment_without_lu_source_dates
@@ -100,8 +100,8 @@ BEGIN
     IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
     ELSE
         DELETE FROM public.import_job WHERE slug = v_job_slug_val;
-        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
-        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'r_year_curr');
+        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_frame_ident)
+        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'live');
     END IF;
 
     -- generic_unit_stats_update_source_dates

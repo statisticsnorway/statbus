@@ -1043,17 +1043,17 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
 (400 rows)
 
-select slug, state, error is not null as failed, time_context_ident, default_valid_from, default_valid_to, total_rows, imported_rows, import_completed_pct, error as error_details from public.import_job WHERE slug LIKE 'import_%_h' ORDER BY slug;
-       slug       |  state   | failed | time_context_ident | default_valid_from | default_valid_to | total_rows | imported_rows | import_completed_pct | error_details 
-------------------+----------+--------+--------------------+--------------------+------------------+------------+---------------+----------------------+---------------
- import_es_2015_h | finished | f      |                    | 2015-01-01         | infinity         |       1030 |          1030 |               100.00 | 
- import_es_2016_h | finished | f      |                    | 2016-01-01         | infinity         |       1031 |          1031 |               100.00 | 
- import_es_2017_h | finished | f      |                    | 2017-01-01         | infinity         |       1218 |          1218 |               100.00 | 
- import_es_2018_h | finished | f      |                    | 2018-01-01         | infinity         |       1324 |          1324 |               100.00 | 
- import_lu_2015_h | finished | f      |                    | 2015-01-01         | infinity         |       1000 |          1000 |               100.00 | 
- import_lu_2016_h | finished | f      |                    | 2016-01-01         | infinity         |       1148 |          1148 |               100.00 | 
- import_lu_2017_h | finished | f      |                    | 2017-01-01         | infinity         |       1362 |          1362 |               100.00 | 
- import_lu_2018_h | finished | f      |                    | 2018-01-01         | infinity         |       1501 |          1501 |               100.00 | 
+select slug, state, error is not null as failed, time_frame_ident, default_valid_from, default_valid_to, total_rows, imported_rows, import_completed_pct, error as error_details from public.import_job WHERE slug LIKE 'import_%_h' ORDER BY slug;
+       slug       |  state   | failed | time_frame_ident | default_valid_from | default_valid_to | total_rows | imported_rows | import_completed_pct | error_details 
+------------------+----------+--------+------------------+--------------------+------------------+------------+---------------+----------------------+---------------
+ import_es_2015_h | finished | f      |                  | 2015-01-01         | infinity         |       1030 |          1030 |               100.00 | 
+ import_es_2016_h | finished | f      |                  | 2016-01-01         | infinity         |       1031 |          1031 |               100.00 | 
+ import_es_2017_h | finished | f      |                  | 2017-01-01         | infinity         |       1218 |          1218 |               100.00 | 
+ import_es_2018_h | finished | f      |                  | 2018-01-01         | infinity         |       1324 |          1324 |               100.00 | 
+ import_lu_2015_h | finished | f      |                  | 2015-01-01         | infinity         |       1000 |          1000 |               100.00 | 
+ import_lu_2016_h | finished | f      |                  | 2016-01-01         | infinity         |       1148 |          1148 |               100.00 | 
+ import_lu_2017_h | finished | f      |                  | 2017-01-01         | infinity         |       1362 |          1362 |               100.00 | 
+ import_lu_2018_h | finished | f      |                  | 2018-01-01         | infinity         |       1501 |          1501 |               100.00 | 
 (8 rows)
 
 \echo Check import job state after import
