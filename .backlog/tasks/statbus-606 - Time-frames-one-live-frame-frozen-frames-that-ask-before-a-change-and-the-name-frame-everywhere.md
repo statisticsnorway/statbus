@@ -3,9 +3,10 @@ id: STATBUS-606
 title: >-
   Time frames: one live frame, frozen frames that ask before a change, and the
   name frame everywhere
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-10T16:55:00Z'
+updated_date: '2026-11-10T17:02:00Z'
 labels:
   - ui
   - time
@@ -52,3 +53,9 @@ Explore the UI first: build the frame selector, edit form and import page on a l
 - [ ] #5 The three import pages show 'Frame' with the selected frame as default and the edit icon reveals the other options including Source dates; an import job created from each page carries the chosen frame
 - [ ] #6 An edit or import that starts before the live frame shows the confirmation naming the frozen frames it touches; cancelling stores nothing; confirming stores the change; an import job created with 'allow changes to frozen frames' runs unattended
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner 2026-11-10 17:02: the confirmation is UI only. The aim is a simpler UI: fewer things to show and think about, and the defaults just work. Later, at the end of this ticket or in its own: when an edit is likely to need thought (found by heuristics), show the field's timeline in the edit, so the user sees when the value changed and how long the change lasts. Designed together with the owner as UX/interaction work, not specified up front.
+<!-- SECTION:NOTES:END -->
