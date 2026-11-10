@@ -10,7 +10,6 @@ import { _parseAuthStatusRpcResponseToAuthStatus } from "@/lib/auth.types";
 import { contactInfoSchema } from "./contact/validation";
 import {
   resolveSchemaByType,
-  checkValidityBounds,
 } from "@/components/form/helper-functions";
 import { z } from "zod";
 
@@ -113,13 +112,8 @@ export async function updateLegalUnit(
     }
 
     if (overlappingRows && overlappingRows.length > 0) {
-      const boundsError = checkValidityBounds(
-        overlappingRows,
-        valid_from,
-        valid_to,
-        "legal unit"
-      );
-      if (boundsError) return boundsError;
+      // The for-portion-of view applies the edit where the unit exists inside
+      // [valid_from, valid_to]; a portion reaching beyond the unit is clipped.
       const response = await client
         .from("legal_unit__for_portion_of_valid")
         .update(payload)
@@ -134,8 +128,7 @@ export async function updateLegalUnit(
     } else {
       return {
         status: "error",
-        message:
-          "Cannot insert legal unit. Only updates within the existing date range are allowed.",
+        message: `The legal unit does not exist between ${valid_from} and ${valid_to}; choose a period in which it exists.`,
       };
     }
     revalidatePath("/legal-units/[id]", "page");
@@ -407,14 +400,8 @@ export async function upsertTemporalRecord({
       };
     }
     if (overlappingRows && overlappingRows.length > 0) {
-      const boundsError = checkValidityBounds(
-        overlappingRows,
-        valid_from,
-        valid_to,
-        tableName
-      );
-      if (boundsError) return boundsError;
-
+      // The for-portion-of view applies the edit where the record exists
+      // inside [valid_from, valid_to]; a portion reaching beyond it is clipped.
       let updateQuery = client
         .from(`${tableName}__for_portion_of_valid`)
         .update(payload);

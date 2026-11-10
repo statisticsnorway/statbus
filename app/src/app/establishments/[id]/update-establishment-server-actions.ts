@@ -6,7 +6,6 @@ import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validatio
 import { getEditMetadata } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import {
   resolveSchemaByType,
-  checkValidityBounds,
 } from "@/components/form/helper-functions";
 
 export async function updateEstablishment(
@@ -95,13 +94,8 @@ export async function updateEstablishment(
     }
 
     if (overlappingRows && overlappingRows.length > 0) {
-      const boundsError = checkValidityBounds(
-        overlappingRows,
-        valid_from,
-        valid_to,
-        "establishment"
-      );
-      if (boundsError) return boundsError;
+      // The for-portion-of view applies the edit where the unit exists inside
+      // [valid_from, valid_to]; a portion reaching beyond the unit is clipped.
       const response = await client
         .from("establishment__for_portion_of_valid")
         .update(payload)
@@ -116,8 +110,7 @@ export async function updateEstablishment(
     } else {
       return {
         status: "error",
-        message:
-          "Cannot insert establishment. Only updates within the existing date range are allowed.",
+        message: `The establishment does not exist between ${valid_from} and ${valid_to}; choose a period in which it exists.`,
       };
     }
 
