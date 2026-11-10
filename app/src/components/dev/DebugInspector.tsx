@@ -491,7 +491,8 @@ export const DebugInspector = () => {
   const stateToDisplay = fullState;
 
   return (
-    <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto z-[9999]">
+    // Bottom centre: notifications (toaster) take the bottom right and the Next.js dev badge the bottom left.
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black bg-opacity-80 text-white rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto z-[9999]">
       <div className="sticky top-0 z-10 bg-black bg-opacity-80 p-2 flex justify-between items-center">
         <span onClick={() => setIsExpanded(!isExpanded)} className="cursor-pointer font-bold">Debug Inspector {isExpanded ? '▼' : '▶'}</span>
         <div className="flex items-center space-x-1">
