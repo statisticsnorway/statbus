@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T10:25:00Z'
-updated_date: '2026-11-10T16:41:00Z'
+updated_date: '2026-11-10T19:12:00Z'
 labels:
   - app
   - db
@@ -90,4 +90,6 @@ Progress 2026-11-10 13:59 (branch statbus-604-safeupdate, local):
 - Open with owner: how the default range relates to the selected period (end at period end or value end; telling the user why the start is not the period start).
 
 Owner review 2026-11-10 16:41 in Firefox (https://local.statbus.org:3007, branch statbus-604-safeupdate at 0f04da4d8, test slot rebuilt from the branch with pg_safeupdate on, unit 24 NORDLYS born 2026-11-07): the name edit opens on 2026-11-07..(open end). The owner saved a rename with portion 2026-01-01..infinity and one with portion from the opened date; both succeeded and the unit has one row 2026-11-07..infinity with the new name (no row before the unit exists). No console errors, no HTTP >= 400, no errors in the dev server log. AC3 checked.
+
+2026-11-10 19:12: release check green at 4321421d8 (16/16) with the 52 edited released migrations declared (tmp/604-declare.txt). CI rounds: 397 vs profiling preload (3b992d0cb), preload list syntax (1decba131), sql_saga notice (730cf9042), upgraded-database function drift found by Hibiscus (5a6790c3e, proven release-migrated then upgraded: 935/935 functions match fresh), released-SQL floor test fragments (4321421d8). Slow tests 400-403 pass under the guard; 404's analytics count 178->40 predates this work: introduced by 65cde4ca9 (STATBUS-558, v2026.11.2), intended per crab; expected output to be re-blessed separately. Ready for the owner's cut.
 <!-- SECTION:NOTES:END -->
