@@ -659,7 +659,8 @@ BEGIN
         SELECT count(*) INTO v_discarded FROM public.statistical_history_facet_delta_staging;
         TRUNCATE public.statistical_history_facet_delta_staging;
         UPDATE worker.statistical_history_facet_delta_state
-           SET rebuild_generation = v_task_id, rebuild_needed = false;
+           SET rebuild_generation = v_task_id, rebuild_needed = false
+         WHERE true; -- the single state row (unique index on (true))
     ELSE
         -- Rows of a cycle whose flush never committed: its units are still in statistical_unit_staging
         -- and are staged again below, against the same statistical_unit.
@@ -715,7 +716,8 @@ BEGIN
         v_applied := 'added';
     ELSIF v_state.rebuild_generation <= v_state.flushed_generation THEN
         CALL worker.statistical_history_facet_delta_apply(p_replace => true);
-        UPDATE worker.statistical_history_facet_delta_state SET rebuild_generation = NULL;
+        UPDATE worker.statistical_history_facet_delta_state SET rebuild_generation = NULL
+         WHERE rebuild_generation IS NOT NULL;
         v_applied := 'replaced';
     ELSE
         -- The rebuild cycle's flush has not committed: the tables keep their rows, and the next cycle
@@ -1067,9 +1069,11 @@ BEGIN
      WHERE me.state = 'processing' AND me.worker_pid = pg_backend_pid() AND me.command = 'statistical_unit_flush_staging'
      ORDER BY h.id DESC LIMIT 1;
     IF v_history_task.state = 'completed' THEN
-        UPDATE worker.statistical_history_facet_delta_state SET flushed_generation = v_history_task.id;
+        UPDATE worker.statistical_history_facet_delta_state SET flushed_generation = v_history_task.id
+         WHERE true; -- the single state row (unique index on (true))
     ELSIF EXISTS (SELECT 1 FROM public.statistical_unit_staging) THEN
-        UPDATE worker.statistical_history_facet_delta_state SET rebuild_needed = true;
+        UPDATE worker.statistical_history_facet_delta_state SET rebuild_needed = true
+         WHERE NOT rebuild_needed;
     END IF;
 
     SELECT count(*) INTO v_staging_count FROM public.statistical_unit_staging;
