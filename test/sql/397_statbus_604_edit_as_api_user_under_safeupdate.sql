@@ -13,6 +13,10 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \set ECHO none
 \i samples/norway/getting-started.sql
 \o
+-- The test asserts rows. sql_saga's notices depend on table statistics: its
+-- index hint appears once legal_unit's estimated rows reach 512, and its index
+-- check compares '[0:0]={id}' with '{id}', so it hints even with legal_unit_id_idx.
+SET client_min_messages = warning;
 \set ECHO all
 
 \echo "The guard is active in this session, as in every production session"
