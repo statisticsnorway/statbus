@@ -623,7 +623,7 @@ ALTER TABLE public.statistical_unit_staging
 -- =============================================================================
 ALTER TABLE public.settings RENAME COLUMN analytics_partition_count TO report_partition_count;
 ALTER TABLE public.settings ALTER COLUMN report_partition_count SET DEFAULT 128;
-UPDATE public.settings SET report_partition_count = 128;
+UPDATE public.settings SET report_partition_count = 128 WHERE only_one_setting;
 
 -- =============================================================================
 -- Clear derived data (force full refresh)

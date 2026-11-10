@@ -229,7 +229,7 @@ ALTER TABLE public.settings
 
 -- Reset existing rows to neutral default; adjust_partition_count_target
 -- will retune on its next invocation based on current unit count.
-UPDATE public.settings SET partition_count_target = 256;
+UPDATE public.settings SET partition_count_target = 256 WHERE only_one_setting;
 
 ALTER FUNCTION public.get_report_partition_modulus() RENAME TO get_partition_count_target;
 
@@ -1028,8 +1028,10 @@ $derive_statistical_unit_facet_partition$;
 -- Triggers are BEFORE INSERT only, so UPDATE does not re-fire them; we
 -- assign the new value directly.
 
-UPDATE public.statistical_unit         SET hash_slot = public.hash_slot(unit_type, unit_id);
-UPDATE public.statistical_unit_staging SET hash_slot = public.hash_slot(unit_type, unit_id);
+UPDATE public.statistical_unit         SET hash_slot = public.hash_slot(unit_type, unit_id)
+ WHERE true; -- every unit: the partition key is recomputed for all rows
+UPDATE public.statistical_unit_staging SET hash_slot = public.hash_slot(unit_type, unit_id)
+ WHERE true; -- every unit: the partition key is recomputed for all rows
 
 -- ============================================================
 -- Block H — MERGE POINT: paralegal #67 output

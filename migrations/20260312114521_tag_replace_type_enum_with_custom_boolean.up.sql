@@ -5,7 +5,8 @@ BEGIN;
 
 -- Step 1: Add custom column and populate from type
 ALTER TABLE public.tag ADD COLUMN custom boolean;
-UPDATE public.tag SET custom = (type = 'custom');
+UPDATE public.tag SET custom = (type = 'custom')
+ WHERE true; -- every row: backfill the column for all existing rows
 ALTER TABLE public.tag ALTER COLUMN custom SET NOT NULL;
 ALTER TABLE public.tag ALTER COLUMN custom SET DEFAULT false;
 

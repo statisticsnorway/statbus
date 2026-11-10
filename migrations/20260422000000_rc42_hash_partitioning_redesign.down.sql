@@ -1802,10 +1802,12 @@ $procedure$;
 -- re-fire them; we assign the new value directly.
 
 UPDATE public.statistical_unit
-   SET hash_slot = abs(hashtext(unit_type::text || ':' || unit_id::text)) % 256;
+   SET hash_slot = abs(hashtext(unit_type::text || ':' || unit_id::text)) % 256
+ WHERE true; -- every unit: the partition key is recomputed for all rows
 
 UPDATE public.statistical_unit_staging
-   SET hash_slot = abs(hashtext(unit_type::text || ':' || unit_id::text)) % 256;
+   SET hash_slot = abs(hashtext(unit_type::text || ':' || unit_id::text)) % 256
+ WHERE true; -- every unit: the partition key is recomputed for all rows
 
 -- ============================================================
 -- R-C — Drop rc.42 statistical_history TYPE; recreate pre-rc.42 TYPE
@@ -2775,7 +2777,7 @@ BEGIN
     IF v_desired != v_current THEN
         RAISE LOG 'adjust_report_partition_modulus: % units -> % partitions (was %)',
             v_unit_count, v_desired, v_current;
-        UPDATE public.settings SET report_partition_modulus = v_desired;
+        UPDATE public.settings SET report_partition_modulus = v_desired WHERE only_one_setting;
     END IF;
 END;
 $procedure$

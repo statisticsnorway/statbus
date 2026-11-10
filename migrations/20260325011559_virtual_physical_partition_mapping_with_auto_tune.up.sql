@@ -57,7 +57,7 @@ BEGIN
     IF v_desired != v_current THEN
         RAISE LOG 'adjust_report_partition_modulus: % units -> % partitions (was %)',
             v_unit_count, v_desired, v_current;
-        UPDATE public.settings SET report_partition_modulus = v_desired;
+        UPDATE public.settings SET report_partition_modulus = v_desired WHERE only_one_setting;
     END IF;
 END;
 $adjust_report_partition_modulus$;

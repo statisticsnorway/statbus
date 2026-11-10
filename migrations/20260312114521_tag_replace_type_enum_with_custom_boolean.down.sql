@@ -7,7 +7,8 @@ CREATE TYPE public.tag_type AS ENUM ('custom', 'system');
 
 -- Step 2: Add type column and populate from custom
 ALTER TABLE public.tag ADD COLUMN type public.tag_type;
-UPDATE public.tag SET type = CASE WHEN custom THEN 'custom'::public.tag_type ELSE 'system'::public.tag_type END;
+UPDATE public.tag SET type = CASE WHEN custom THEN 'custom'::public.tag_type ELSE 'system'::public.tag_type END
+ WHERE true; -- every row: backfill the column for all existing rows
 ALTER TABLE public.tag ALTER COLUMN type SET NOT NULL;
 
 -- Step 3: Drop custom column and its index, restore type index

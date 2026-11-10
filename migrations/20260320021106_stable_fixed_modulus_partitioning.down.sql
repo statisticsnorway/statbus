@@ -77,7 +77,7 @@ BEGIN
     IF v_desired_count != v_current_count THEN
         RAISE LOG 'adjust_analytics_partition_count: % units → % partitions (was %)',
             v_unit_count, v_desired_count, v_current_count;
-        UPDATE public.settings SET analytics_partition_count = v_desired_count;
+        UPDATE public.settings SET analytics_partition_count = v_desired_count WHERE only_one_setting;
     END IF;
 END;
 $procedure$;
@@ -96,7 +96,8 @@ BEGIN
         UPDATE public.statistical_unit
         SET report_partition_seq = public.report_partition_seq(
             unit_type, unit_id, NEW.analytics_partition_count
-        );
+        )
+ WHERE true; -- every unit: the partition key is recomputed for all rows
 
         TRUNCATE public.statistical_unit_facet_staging;
         TRUNCATE public.statistical_history_facet_partitions;
@@ -396,7 +397,7 @@ BEGIN
         WHEN v_count <= 100000 THEN 16 WHEN v_count <= 500000 THEN 32
         WHEN v_count <= 2000000 THEN 64 ELSE 128
     END;
-    UPDATE public.settings SET analytics_partition_count = v_desired;
+    UPDATE public.settings SET analytics_partition_count = v_desired WHERE only_one_setting;
 END $$;
 
 -- Recompute partition assignments
@@ -404,7 +405,8 @@ UPDATE public.statistical_unit
 SET report_partition_seq = public.report_partition_seq(
     unit_type, unit_id,
     (SELECT analytics_partition_count FROM public.settings)
-);
+)
+ WHERE true; -- every unit: the partition key is recomputed for all rows
 
 -- Restore reset_abandoned_processing_tasks with old column names
 -- (This is a partial restore — requires recreate-database for full rollback)

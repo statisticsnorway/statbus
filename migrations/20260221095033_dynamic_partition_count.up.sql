@@ -9,7 +9,7 @@ BEGIN;
 -- =============================================================================
 ALTER TABLE public.settings RENAME COLUMN report_partition_count TO analytics_partition_count;
 ALTER TABLE public.settings ALTER COLUMN analytics_partition_count SET DEFAULT 4;
-UPDATE public.settings SET analytics_partition_count = 4;
+UPDATE public.settings SET analytics_partition_count = 4 WHERE only_one_setting;
 
 -- =============================================================================
 -- Part 2: Replace GENERATED column with regular column + trigger
@@ -422,7 +422,8 @@ BEGIN
         UPDATE public.statistical_unit
         SET report_partition_seq = public.report_partition_seq(
             unit_type, unit_id, NEW.analytics_partition_count
-        );
+        )
+ WHERE true; -- every unit: the partition key is recomputed for all rows
 
         -- Clear derived partition data (force full refresh)
         TRUNCATE public.statistical_unit_facet_staging;
@@ -468,7 +469,7 @@ BEGIN
         RAISE LOG 'adjust_analytics_partition_count: % units → % partitions (was %)',
             v_unit_count, v_desired_count, v_current_count;
         -- This fires the settings trigger which handles propagation
-        UPDATE public.settings SET analytics_partition_count = v_desired_count;
+        UPDATE public.settings SET analytics_partition_count = v_desired_count WHERE only_one_setting;
     END IF;
 END;
 $adjust_analytics_partition_count$;
@@ -698,7 +699,8 @@ $derive_statistical_unit$;
 -- Part 7: Recompute existing data with new count
 -- =============================================================================
 UPDATE public.statistical_unit
-SET report_partition_seq = public.report_partition_seq(unit_type, unit_id, 4);
+SET report_partition_seq = public.report_partition_seq(unit_type, unit_id, 4)
+ WHERE true; -- every unit: the partition key is recomputed for all rows
 
 -- Clear derived data (force full refresh on next run)
 TRUNCATE public.statistical_unit_facet_staging;

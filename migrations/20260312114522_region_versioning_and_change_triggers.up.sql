@@ -47,7 +47,8 @@ VALUES ('initial', 'Initial regions', 'Seed version for pre-existing regions', N
 
 -- Add column as nullable first, backfill, then set NOT NULL
 ALTER TABLE public.region ADD COLUMN version_id INTEGER REFERENCES public.region_version(id);
-UPDATE public.region SET version_id = (SELECT id FROM public.region_version WHERE code = 'initial');
+UPDATE public.region SET version_id = (SELECT id FROM public.region_version WHERE code = 'initial')
+ WHERE true; -- every row: backfill the column for all existing rows
 ALTER TABLE public.region ALTER COLUMN version_id SET NOT NULL;
 
 -- Path must be unique within a version (replaces the old global UNIQUE on path)
@@ -89,7 +90,8 @@ ALTER TABLE public.location ADD CONSTRAINT location_region_version_consistency
 ALTER TABLE public.settings ADD COLUMN region_version_id INTEGER
     REFERENCES public.region_version(id);
 UPDATE public.settings
-   SET region_version_id = (SELECT id FROM public.region_version WHERE code = 'initial');
+   SET region_version_id = (SELECT id FROM public.region_version WHERE code = 'initial')
+ WHERE only_one_setting;
 ALTER TABLE public.settings ALTER COLUMN region_version_id SET NOT NULL;
 
 -- GENERATED column: always TRUE. Used as FK target to enforce "enabled" on referenced rows.
