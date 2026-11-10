@@ -41,7 +41,7 @@ ALTER SEQUENCE public.establishment_id_seq RESTART WITH 1;
 -- everything and re-enqueue from scratch — selective filters that tried
 -- to preserve maint rows missed completed rows that survived both
 -- `state='pending'` and `command IN (...)` predicates.
-DELETE FROM worker.tasks;
+DELETE FROM worker.tasks WHERE true; -- every task: the clean slate described above
 ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 1;
 SELECT worker.enqueue_task_cleanup();         -- INSERTs at id=1 (no conflict, fresh table)
 SELECT worker.enqueue_import_job_cleanup();   -- INSERTs at id=2 (no conflict, fresh table)

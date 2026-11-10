@@ -49,9 +49,10 @@ if [ "${DEBUG:-false}" = "true" ]; then
   LOG_MIN_MESSAGES="INFO"
   LOG_MIN_DURATION_STATEMENT="0"
   
-  # Enable auto_explain for detailed query plan analysis in debug mode
+  # Enable auto_explain for detailed query plan analysis in debug mode.
+  # safeupdate stays loaded alongside it (postgresql.conf, STATBUS-604).
   echo "DEBUG mode: Enabling auto_explain for import performance debugging."
-  PG_PARAMS="$PG_PARAMS -c session_preload_libraries=auto_explain"
+  PG_PARAMS="$PG_PARAMS -c session_preload_libraries=safeupdate,auto_explain"
   PG_PARAMS="$PG_PARAMS -c auto_explain.log_min_duration=100"      # Log plans for queries > 100ms
   PG_PARAMS="$PG_PARAMS -c auto_explain.log_analyze=true"          # Include actual timings and row counts
   PG_PARAMS="$PG_PARAMS -c auto_explain.log_buffers=true"          # Include buffer usage statistics
