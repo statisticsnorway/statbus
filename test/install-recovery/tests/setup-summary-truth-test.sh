@@ -21,17 +21,20 @@ export REBOOT_REQUIRED_FILE="$REBOOT_DIR/reboot-required"
 export REBOOT_REQUIRED_PKGS_FILE="$REBOOT_DIR/reboot-required.pkgs"
 source "$SCRIPT"
 SERVICE_USER=statbus
+declare -gA STAGE_CHANGE 2>/dev/null # the script's own registry when it has one
 
 line_of() { grep -nE "$1" "$SCRIPT" | head -1 | cut -d: -f1; }
 present() { if [[ -n "$2" ]]; then echo "PASS $1"; else echo "FAIL $1 (not found)"; fail=1; fi; }
 before() { if [[ -n "$2" && -n "$3" && "$2" -lt "$3" ]]; then echo "PASS $1"; else echo "FAIL $1 (${2:-missing} vs ${3:-missing})"; fail=1; fi; }
 
-reset_summary() { # every stage's outcome ok
+reset_summary() { # every stage's outcome ok, as on a first install
     local slug
     STAGE_OUTCOME=()
-    for slug in "${STAGE_SLUGS[@]}"; do STAGE_OUTCOME[$slug]=ok; done
+    STAGE_CHANGE=()
+    for slug in "${STAGE_SLUGS[@]}"; do STAGE_OUTCOME[$slug]=ok; STAGE_CHANGE[$slug]="changed /etc/$slug.conf"; done
     FAILED_VERIFICATIONS=()
     CLOUD=true
+    STATBUS_INSTALL_DIR="$REBOOT_DIR/no-statbus-here"
 }
 summary() { print_run_summary 2>&1; }
 has() { grep -qF "$2" <<<"$1"; }
@@ -55,8 +58,8 @@ for line in 'APT sources use HTTPS' \
             'Automatic security updates enabled' \
             'CrowdSec intrusion detection and UFW firewall active' \
             'Docker and core tools installed' \
-            'devops user created (ops/admin)' \
-            'statbus service account created' \
+            'devops user ready (ops/admin)' \
+            'statbus service account ready for the StatBus install: changed /etc/service-account.conf' \
             'CI command allowlist installed'; do
     has "$out" "$line" || { echo "FAIL all-ok summary is missing: $line"; fail=1; }
 done
@@ -149,6 +152,55 @@ else
     echo "FAIL newly appeared reboot wording is wrong"; echo "$out"; fail=1
 fi
 rm -f "$REBOOT_REQUIRED_FILE" "$REBOOT_REQUIRED_PKGS_FILE"
+
+# 3g. A rerun on a configured box reads as a rerun: every stage that changed
+#     nothing says its work was already in place, a stage that did change
+#     something names it, and with StatBus installed there is no install step.
+reset_summary
+for slug in "${STAGE_SLUGS[@]}"; do STAGE_CHANGE[$slug]=""; done
+STAGE_CHANGE[core-tools]="upgraded docker-ce 5:29.9.2 -> 5:29.9.3"
+mkdir -p "$STATBUS_INSTALL_DIR" && : > "$STATBUS_INSTALL_DIR/.env"
+out="$(summary)"
+if has "$out" 'statbus service account ready for the StatBus install: already in place' \
+    && has "$out" 'SSH hardened (key-only authentication): already in place' \
+    && has "$out" 'Docker and core tools installed: upgraded docker-ce 5:29.9.2 -> 5:29.9.3' \
+    && [[ "$(grep -c ': already in place$' <<<"$out")" -eq $(( ${#STAGE_SLUGS[@]} - 1 )) ]] \
+    && has "$out" "StatBus is already installed in $STATBUS_INSTALL_DIR" \
+    && lacks "$out" 'install.sh | bash'; then
+    echo "PASS a rerun shows each stage already in place or what it changed, and no install step"
+else
+    echo "FAIL a rerun summary does not show what the run found and changed"; echo "$out"; fail=1
+fi
+
+# 3h. The change a stage reports is measured, not declared: a snapshot of the
+#     configuration and installed packages taken before and after the stage.
+STATE_ROOT="$REBOOT_DIR/state"
+mkdir -p "$STATE_ROOT/etc"
+printf 'a\n' > "$STATE_ROOT/etc/kept.conf"
+printf 'old\n' > "$STATE_ROOT/etc/edited.conf"
+STATE_SNAPSHOT_PATHS="$STATE_ROOT/etc"
+PKGS='docker-ce 5:29.9.2
+git 1:2.51.0'
+installed_packages() { printf '%s\n' "$PKGS"; }
+snap_a="$(state_snapshot)"
+same="$(describe_state_change "$snap_a" "$(state_snapshot)")"
+printf 'new\n' > "$STATE_ROOT/etc/edited.conf"
+printf 'x\n' > "$STATE_ROOT/etc/added.conf"
+PKGS='docker-ce 5:29.9.3
+git 1:2.51.0
+ufw 0.36.2'
+changed="$(describe_state_change "$snap_a" "$(state_snapshot)")"
+if [[ -z "$same" ]] \
+    && has "$changed" 'upgraded docker-ce 5:29.9.2 -> 5:29.9.3' \
+    && has "$changed" 'installed ufw 0.36.2' \
+    && has "$changed" "$STATE_ROOT/etc/edited.conf" \
+    && has "$changed" "$STATE_ROOT/etc/added.conf" \
+    && lacks "$changed" 'kept.conf' \
+    && lacks "$changed" 'git'; then
+    echo "PASS the stage change is measured from a before/after snapshot"
+else
+    echo "FAIL the before/after snapshot does not describe the change (same='$same' changed='$changed')"; fail=1
+fi
 
 # 4. The general installation guidance names NO channel at all: stable is the
 #    default, and naming our internal channels would invite an ordinary operator
