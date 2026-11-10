@@ -101,7 +101,7 @@ Indexes:
     "idx_statistical_unit_domestic" btree (domestic)
     "idx_statistical_unit_establishment_id" btree (unit_id)
     "idx_statistical_unit_external_idents" btree (external_idents)
-    "idx_statistical_unit_hash_slot" btree (hash_slot)
+    "idx_statistical_unit_hash_slot" btree (hash_slot) INCLUDE (unit_type, unit_id, used_for_counting, valid_from, valid_until, birth_date, death_date, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, stats_summary)
     "idx_statistical_unit_legal_form_id" btree (legal_form_id)
     "idx_statistical_unit_name" btree (name)
     "idx_statistical_unit_physical_country_id" btree (physical_country_id)
