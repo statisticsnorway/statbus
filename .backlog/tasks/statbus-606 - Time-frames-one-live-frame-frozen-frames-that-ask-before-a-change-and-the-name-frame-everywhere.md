@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T16:55:00Z'
-updated_date: '2026-11-10T17:02:00Z'
+updated_date: '2026-11-10T21:03:00Z'
 labels:
   - ui
   - time
@@ -58,4 +58,6 @@ Explore the UI first: build the frame selector, edit form and import page on a l
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner 2026-11-10 17:02: the confirmation is UI only. The aim is a simpler UI: fewer things to show and think about, and the defaults just work. Later, at the end of this ticket or in its own: when an edit is likely to need thought (found by heuristics), show the field's timeline in the edit, so the user sees when the value changed and how long the change lasts. Designed together with the owner as UX/interaction work, not specified up front.
+
+Owner 2026-11-10 21:02: names reviewed all the way through, database included. 'Live frame YYYY' = [1 Jan of the current year, infinity): 'live' means until further notice. 'Frame YYYY' = 1 Jan .. 31 Dec of that year (closed). These frames are not called frozen in the product, because changes to them are not tracked; they are 'frozen' only in the light sense that the UI asks before an edit or import reaches into them. A real frozen frame would be a stored copy (snapshot) of the frame's statistical_unit rows with a predictable name (frozen_frame), possibly later; time_frame is the view into statistical_unit we have now. Sizing on the full Norway register (local): one frame is 3.12M of 3.14M statistical_unit rows, 85 columns, 6.1 GB, so a copy costs about the table's size per frozen year.
 <!-- SECTION:NOTES:END -->
