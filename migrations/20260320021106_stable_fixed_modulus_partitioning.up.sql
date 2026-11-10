@@ -1157,7 +1157,7 @@ BEGIN
                     'crash_recovery', true
                 )
             );
-            UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+            UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
         END IF;
     END IF;
 

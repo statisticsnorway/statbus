@@ -27,7 +27,8 @@ BEGIN
       WHEN is_release    THEN 'release'::public.release_status_type
       WHEN is_prerelease THEN 'prerelease'::public.release_status_type
       ELSE                    'commit'::public.release_status_type
-    END;
+    END
+    WHERE true; -- every row: backfill the column for all existing rows
 
     -- Apply constraints to match the schema from the modified 20260328092344 migration
     ALTER TABLE public.upgrade ALTER COLUMN release_status SET NOT NULL;

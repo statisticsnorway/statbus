@@ -53,7 +53,7 @@ BEGIN
                 -- units over all time.
                 PERFORM worker.enqueue_derive_statistical_unit_all();
             END IF;
-            UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+            UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
         END IF;
     END IF;
 

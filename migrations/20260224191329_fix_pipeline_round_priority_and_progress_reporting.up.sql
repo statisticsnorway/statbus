@@ -650,7 +650,7 @@ BEGIN
     -- Atomically drain all committed rows, merging multiranges.
     -- No FOR UPDATE needed: structured concurrency ensures only one
     -- collect_changes runs at a time (serial top-level analytics tasks).
-    FOR v_row IN DELETE FROM worker.base_change_log RETURNING * LOOP
+    FOR v_row IN DELETE FROM worker.base_change_log WHERE true RETURNING * LOOP -- every row: the drain takes all logged changes
         v_est_ids := v_est_ids + v_row.establishment_ids;
         v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
         v_ent_ids := v_ent_ids + v_row.enterprise_ids;
@@ -658,7 +658,7 @@ BEGIN
     END LOOP;
 
     -- Clear crash recovery flag
-    UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+    UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
 
     -- If any changes exist, enqueue derive
     IF v_est_ids != '{}'::int4multirange

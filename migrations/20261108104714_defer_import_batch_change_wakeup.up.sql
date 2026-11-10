@@ -6,8 +6,10 @@ LANGUAGE plpgsql
 AS $publish_base_change_wakeup$
 BEGIN
     -- Serialize publication with a collector before it takes its drain snapshot.
+    PERFORM 1 FROM worker.base_change_log_has_pending FOR UPDATE;
     UPDATE worker.base_change_log_has_pending
-    SET has_pending = TRUE;
+    SET has_pending = TRUE
+    WHERE NOT has_pending;
 
     INSERT INTO worker.tasks (command, payload)
     VALUES ('collect_changes', '{"command":"collect_changes"}'::jsonb)
@@ -251,8 +253,8 @@ BEGIN
             NULLIF(p_payload->>'valid_ranges', '')::datemultirange,
             '{[-infinity,infinity)}'::datemultirange
         );
-        DELETE FROM worker.base_change_log;
-        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+        DELETE FROM worker.base_change_log WHERE true; -- every row: a full-range derive supersedes all logged changes
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
     ELSIF v_direct_mode THEN
         -- Caller supplied explicit ranges. A NULL / JSON-null value for a
         -- given key means "all ids of that kind" — synthesise from base
@@ -290,10 +292,10 @@ BEGIN
             NULLIF(p_payload->>'valid_ranges', '')::datemultirange,
             '{}'::datemultirange
         );
-        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
     ELSE
         -- Drain-log mode: unchanged from 20260319124229.
-        FOR v_row IN DELETE FROM worker.base_change_log RETURNING * LOOP
+        FOR v_row IN DELETE FROM worker.base_change_log WHERE true RETURNING * LOOP -- every row: the drain takes all logged changes
             v_est_ids := v_est_ids + v_row.establishment_ids;
             v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
             v_ent_ids := v_ent_ids + v_row.enterprise_ids;
@@ -301,7 +303,7 @@ BEGIN
             v_valid_range := v_valid_range + v_row.valid_ranges;
         END LOOP;
 
-        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
     END IF;
 
     IF v_all_units

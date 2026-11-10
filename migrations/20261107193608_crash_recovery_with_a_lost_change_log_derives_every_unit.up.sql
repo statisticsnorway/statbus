@@ -51,7 +51,7 @@ BEGIN
             -- and otherwise adds it beside an interrupted one.
             RAISE LOG 'Crash recovery: base_change_log_has_pending=TRUE but base_change_log is empty. Spawning full refresh.';
             PERFORM worker.enqueue_derive_statistical_unit_all();
-            UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+            UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
         END IF;
     END IF;
 

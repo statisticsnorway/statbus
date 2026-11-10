@@ -29,14 +29,14 @@ DECLARE
     v_valid_from DATE;
     v_valid_until DATE;
 BEGIN
-    FOR v_row IN DELETE FROM worker.base_change_log RETURNING * LOOP
+    FOR v_row IN DELETE FROM worker.base_change_log WHERE true RETURNING * LOOP -- every row: the drain takes all logged changes
         v_est_ids := v_est_ids + v_row.establishment_ids;
         v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
         v_ent_ids := v_ent_ids + v_row.enterprise_ids;
         v_valid_range := v_valid_range + v_row.valid_ranges;
     END LOOP;
 
-    UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+    UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
 
     IF v_est_ids != '{}'::int4multirange
        OR v_lu_ids != '{}'::int4multirange

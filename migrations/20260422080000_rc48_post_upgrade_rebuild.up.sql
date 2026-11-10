@@ -123,10 +123,10 @@ BEGIN
             NULLIF(p_payload->>'valid_ranges', '')::datemultirange,
             '{}'::datemultirange
         );
-        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
     ELSE
         -- Drain-log mode: unchanged from 20260319124229.
-        FOR v_row IN DELETE FROM worker.base_change_log RETURNING * LOOP
+        FOR v_row IN DELETE FROM worker.base_change_log WHERE true RETURNING * LOOP -- every row: the drain takes all logged changes
             v_est_ids := v_est_ids + v_row.establishment_ids;
             v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
             v_ent_ids := v_ent_ids + v_row.enterprise_ids;
@@ -134,7 +134,7 @@ BEGIN
             v_valid_range := v_valid_range + v_row.valid_ranges;
         END LOOP;
 
-        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
     END IF;
 
     IF v_est_ids != '{}'::int4multirange
@@ -648,7 +648,7 @@ BEGIN
                     )
                 );
             END IF;
-            UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+            UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
         END IF;
     END IF;
 
