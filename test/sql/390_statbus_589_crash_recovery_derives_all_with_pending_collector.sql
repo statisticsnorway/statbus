@@ -31,8 +31,8 @@ SELECT (SELECT count(*) FROM public.legal_unit) AS legal_units,
 
 -- The state a crash leaves: the change log is empty (UNLOGGED, truncated),
 -- has_pending is TRUE, and the import's ordinary collector is still pending.
-DELETE FROM worker.base_change_log;
-UPDATE worker.base_change_log_has_pending SET has_pending = TRUE;
+DELETE FROM worker.base_change_log WHERE true; -- test setup: start from an empty table
+UPDATE worker.base_change_log_has_pending SET has_pending = TRUE WHERE NOT has_pending;
 
 \echo "--- Crash state: one ordinary collect_changes pending ---"
 SELECT state, payload FROM worker.tasks WHERE command = 'collect_changes' AND state IN ('pending', 'interrupted');
@@ -53,8 +53,8 @@ SELECT (SELECT count(*) FROM public.statistical_unit WHERE unit_type = 'legal_un
 
 \echo "--- No collector waiting: recovery enqueues one full derive ---"
 DELETE FROM worker.tasks WHERE command = 'collect_changes' AND state IN ('pending', 'interrupted');
-DELETE FROM worker.base_change_log;
-UPDATE worker.base_change_log_has_pending SET has_pending = TRUE;
+DELETE FROM worker.base_change_log WHERE true; -- test setup: start from an empty table
+UPDATE worker.base_change_log_has_pending SET has_pending = TRUE WHERE NOT has_pending;
 SELECT worker.reset_abandoned_processing_tasks() AS reset_count;
 SELECT state, payload->'valid_ranges' AS valid_ranges
 FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';

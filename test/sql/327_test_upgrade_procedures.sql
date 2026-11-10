@@ -393,7 +393,7 @@ ROLLBACK TO SAVEPOINT before_apply_prerelease;
 \echo '=== retention: caps flip — NULL caps + install_purge=false → zero plan ==='
 
 SAVEPOINT before_caps_flip;
-UPDATE public.upgrade_retention_caps SET time_cap = NULL, count_cap = NULL, install_purge = false;
+UPDATE public.upgrade_retention_caps SET time_cap = NULL, count_cap = NULL, install_purge = false WHERE true; -- test setup: the single caps row
 SELECT count(*) AS planner_rows FROM public.upgrade_retention_plan('all', 16);
 ROLLBACK TO SAVEPOINT before_caps_flip;
 
@@ -470,8 +470,8 @@ SELECT state, superseded_at IS NOT NULL AS has_superseded_at
 
 \echo '=== schedule: parked same-row retry ==='
 
-DELETE FROM public.upgrade_state_log;
-DELETE FROM public.upgrade;
+DELETE FROM public.upgrade_state_log WHERE true; -- test setup: start from an empty table
+DELETE FROM public.upgrade WHERE true; -- test setup: start from an empty table
 
 INSERT INTO public.upgrade (
     commit_sha, committed_at, state, summary, scheduled_at, started_at,
@@ -511,8 +511,8 @@ SELECT old_state, new_state,
 
 \echo '=== schedule: standalone unpark captures old evidence ==='
 
-DELETE FROM public.upgrade_state_log;
-DELETE FROM public.upgrade;
+DELETE FROM public.upgrade_state_log WHERE true; -- test setup: start from an empty table
+DELETE FROM public.upgrade WHERE true; -- test setup: start from an empty table
 
 INSERT INTO public.upgrade (
     commit_sha, committed_at, state, summary, scheduled_at, started_at,
@@ -547,8 +547,8 @@ SELECT old_state, new_state,
 
 \echo '=== schedule: live in-progress refusal ==='
 
-DELETE FROM public.upgrade_state_log;
-DELETE FROM public.upgrade;
+DELETE FROM public.upgrade_state_log WHERE true; -- test setup: start from an empty table
+DELETE FROM public.upgrade WHERE true; -- test setup: start from an empty table
 
 INSERT INTO public.upgrade (
     commit_sha, committed_at, state, summary, scheduled_at, started_at,
@@ -578,8 +578,8 @@ SELECT state = 'in_progress'
 
 \echo '=== schedule: restore-broke refusal ==='
 
-DELETE FROM public.upgrade_state_log;
-DELETE FROM public.upgrade;
+DELETE FROM public.upgrade_state_log WHERE true; -- test setup: start from an empty table
+DELETE FROM public.upgrade WHERE true; -- test setup: start from an empty table
 
 INSERT INTO public.upgrade (commit_sha, committed_at, state, summary)
 VALUES ('1111111111111111111111111111111111111111', '2026-08-05 00:00:00+00', 'available',
@@ -612,8 +612,8 @@ SELECT state = 'failed'
 
 \echo '=== schedule: unregistered is idempotent ==='
 
-DELETE FROM public.upgrade_state_log;
-DELETE FROM public.upgrade;
+DELETE FROM public.upgrade_state_log WHERE true; -- test setup: start from an empty table
+DELETE FROM public.upgrade WHERE true; -- test setup: start from an empty table
 
 SELECT schedule_result, landed_state, superseded_count
   FROM public.upgrade_schedule('ffffffffffffffffffffffffffffffffffffffff', false);
@@ -652,8 +652,8 @@ SELECT state = 'scheduled'
 
 \echo '=== schedule: obsolete superseded target is a no-mutation refusal ==='
 
-DELETE FROM public.upgrade_state_log;
-DELETE FROM public.upgrade;
+DELETE FROM public.upgrade_state_log WHERE true; -- test setup: start from an empty table
+DELETE FROM public.upgrade WHERE true; -- test setup: start from an empty table
 
 INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary)
 VALUES ('6666666666666666666666666666666666666666', '2026-08-09 00:00:00+00', 'release',

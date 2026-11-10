@@ -197,7 +197,7 @@ SELECT (SELECT t.info->>'rebuild' FROM worker.tasks AS t WHERE t.command = 'deri
 SAVEPOINT unbounded;
 SET LOCAL ROLE postgres;
 TRUNCATE public.statistical_history_facet_delta, public.statistical_history_facet_delta_staging;
-DELETE FROM public.statistical_unit;
+DELETE FROM public.statistical_unit WHERE true; -- test setup: start from an empty table
 INSERT INTO public.statistical_unit (unit_type, unit_id, valid_from, valid_to, valid_until, name, used_for_counting,
                                      hash_slot, stats_summary)
 VALUES ('legal_unit', 9001, '-infinity', '2020-12-31', '2021-01-01', 'Unbounded start', true, 1,

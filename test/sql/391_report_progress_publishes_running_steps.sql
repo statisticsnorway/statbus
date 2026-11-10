@@ -1,7 +1,7 @@
 \echo '=== STATBUS-577: publish report steps before executing their handlers ==='
 BEGIN;
 LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
-DELETE FROM worker.tasks;
+DELETE FROM worker.tasks WHERE true; -- test setup: start from an empty table
 SET client_min_messages = warning;
 
 -- Capture the production notifier's actual payloads without delivering events.

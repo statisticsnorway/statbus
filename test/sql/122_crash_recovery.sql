@@ -17,7 +17,7 @@ LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
 -- pending stubs; worker transitions them to completed and re-enqueues at
 -- later sequence values) is gone because we DELETE everything and
 -- re-enqueue from scratch.
-DELETE FROM worker.tasks;
+DELETE FROM worker.tasks WHERE true; -- test setup: start from an empty table
 ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 1;
 SELECT worker.enqueue_task_cleanup();         -- INSERTs at id=1 (no conflict, fresh table)
 SELECT worker.enqueue_import_job_cleanup();   -- INSERTs at id=2 (no conflict, fresh table)
@@ -80,8 +80,8 @@ INSERT INTO worker.tasks (command, payload, state)
 VALUES ('collect_changes', '{"command":"collect_changes"}', 'pending');
 
 -- 3. Set up crash recovery conditions: has_pending=TRUE, empty change log
-UPDATE worker.base_change_log_has_pending SET has_pending = TRUE;
-DELETE FROM worker.base_change_log;
+UPDATE worker.base_change_log_has_pending SET has_pending = TRUE WHERE NOT has_pending;
+DELETE FROM worker.base_change_log WHERE true; -- test setup: start from an empty table
 
 \echo "--- B1. Before reset: one processing, one pending ---"
 SELECT command, state, worker_pid
@@ -238,6 +238,6 @@ ROLLBACK TO SAVEPOINT scenario_e;
 -- ============================================================================
 
 -- Restore base_change_log_has_pending to clean state
-UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
 
 ROLLBACK;

@@ -8,7 +8,7 @@
 BEGIN;
 
 -- Reset sequence and clear table for deterministic ids
-DELETE FROM public.image;
+DELETE FROM public.image WHERE true; -- test setup: start from an empty table
 ALTER SEQUENCE public.image_id_seq RESTART WITH 1;
 
 -- ============================================================================

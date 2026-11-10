@@ -191,7 +191,7 @@ CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT (SELECT t.info->>'rebuild' FROM worker.tasks AS t WHERE t.command = 'derive_statistical_history_facet_delta'
          ORDER BY t.id DESC LIMIT 1) AS next_cycle_rebuilt;
-DELETE FROM snapshot;
+DELETE FROM snapshot WHERE true; -- test setup: start from an empty table
 INSERT INTO snapshot SELECT 'incremental', kind, row_text FROM stored_rows;
 SELECT worker.enqueue_derive_statistical_unit_all() IS NOT NULL AS rebuild_scheduled;
 CALL worker.process_tasks(p_queue => 'analytics');
