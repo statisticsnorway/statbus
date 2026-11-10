@@ -27,9 +27,9 @@ import { isEqual } from 'moderndash'
 // TIME FRAME ATOMS & HOOKS
 // ============================================================================
 
-// The selected time frame (public.time_frame), kept across visits. The storage
-// key is new with time frames, so a value saved under the retired key
-// 'selectedTimeContext' is not read and the default frame is selected instead.
+// The selected time frame (public.time_frame), kept across visits under the
+// key 'selectedTimeFrame'. A browser without a stored frame starts on the
+// default frame, the live frame (timeFrameAutoSelectEffectAtom).
 export const selectedTimeFrameAtom = atomWithStorage<Tables<"time_frame"> | null>(
   'selectedTimeFrame',
   null

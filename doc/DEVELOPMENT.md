@@ -499,7 +499,7 @@ on window focus, so a changed stamp shows up within ~30s or immediately on focus
 - Small, independent atoms prevent re-render loops
 - If state can change independently, it MUST be in its own atom
 - Use `atomEffect` for set-if-null patterns, NOT `useEffect`
-- Variables match atom names: `const timeContext = useAtomValue(timeContextAtom)`
+- Variables match atom names: `const selectedTimeFrame = useAtomValue(selectedTimeFrameAtom)`
 
 **Use Guarded Effects**:
 ```typescript
