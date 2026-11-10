@@ -301,7 +301,7 @@ erDiagram
 		text note
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
-		text time_context_ident
+		text time_frame_ident
 		date default_valid_from
 		date default_valid_to
 		text default_data_source_code
@@ -593,14 +593,6 @@ erDiagram
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
-	}
-	relative_period["relative_period"] {
-		integer id
-		relative_period_code code
-		character_varying(256) name_when_query
-		character_varying(256) name_when_input
-		relative_period_scope scope
-		boolean enabled
 	}
 	sector["sector"] {
 		integer id

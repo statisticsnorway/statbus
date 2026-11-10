@@ -103,8 +103,6 @@ each role can see and modify.
   - Policies: `region_used_admin_user_manage` (ALL → admin_user), `region_used_authenticated_read` (SELECT → authenticated), `region_used_regular_user_read` (SELECT → regular_user)
 - **`region_version`** — RLS ON
   - Policies: `region_version_admin_user_manage` (ALL → admin_user), `region_version_authenticated_read` (SELECT → authenticated), `region_version_regular_user_read` (SELECT → regular_user)
-- **`relative_period`** — RLS ON
-  - Policies: `relative_period_admin_user_manage` (ALL → admin_user), `relative_period_authenticated_read` (SELECT → authenticated), `relative_period_regular_user_read` (SELECT → regular_user)
 - **`sector`** — RLS ON
   - Policies: `sector_admin_user_manage` (ALL → admin_user), `sector_authenticated_read` (SELECT → authenticated), `sector_regular_user_read` (SELECT → regular_user)
 - **`sector_used`** — RLS ON
@@ -243,7 +241,6 @@ auto-updatable) also require INSERT.
 - **`region_version_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_version_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_version_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`relative_period_with_time`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`sector_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`sector_custom_only`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`sector_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -264,7 +261,7 @@ auto-updatable) also require INSERT.
 - **`tag_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`tag_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`tag_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`time_context`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`time_frame`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`timeline_enterprise_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`timeline_establishment_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`timeline_legal_unit_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
