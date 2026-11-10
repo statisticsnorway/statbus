@@ -4,6 +4,7 @@ title: Records added to a unit can be removed from the edit form
 status: To Do
 assignee: []
 created_date: '2026-11-10T21:29:00Z'
+updated_date: '2026-11-10T21:30:00Z'
 labels:
   - ui
   - edit
@@ -40,3 +41,9 @@ Owner testing on Norway (v2026.11.4-rc.01, 2026-11-10 21:29): after adding a tes
 - [ ] #3 The edit form offers the agreed remove action for every record it can add; a test removes a record through the form and asserts the stored rows and the edit comment
 - [ ] #4 [Owner] Removes the test physical location (region 03, Åland Islands) from 0404 GRUE TRAVKLUBB (933130436) on Norway through the form after the release carrying this. The answer is recorded in this ticket's notes: yes closes the ticket; no gives the error to investigate.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner 2026-11-10 21:30: other single-value fields already turn Save into a delete when the value is erased (external identifiers: update-external-ident-server-action.ts deletes the row when the ident is emptied, refusing the last one; the image: clearing it clears image_id and deletes the image). A form with several fields (a location: address parts, post code, region, country, coordinates) needs an explicit UI interaction for removal, not erase-to-delete. The test physical location 2312602 on Norway was removed by hand (SQL, exactly one row, 21:30) at the owner's request; the postal address 1889376 remains.
+<!-- SECTION:NOTES:END -->
