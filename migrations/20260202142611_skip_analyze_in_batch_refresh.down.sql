@@ -423,7 +423,7 @@ BEGIN
     ANALYZE public.timepoints;
 
     IF p_establishment_id_ranges IS NULL AND p_legal_unit_id_ranges IS NULL AND p_enterprise_id_ranges IS NULL THEN
-        DELETE FROM public.timesegments;
+        DELETE FROM public.timesegments WHERE true; -- every row: rebuilt below from timesegments_def
         INSERT INTO public.timesegments SELECT * FROM public.timesegments_def;
     ELSE
         IF p_establishment_id_ranges IS NOT NULL THEN

@@ -357,7 +357,7 @@ BEGIN
     IF NOT v_is_partial_refresh THEN
         -- Full refresh with ANALYZE
         ANALYZE public.timepoints;
-        DELETE FROM public.timesegments;
+        DELETE FROM public.timesegments WHERE true; -- every row: rebuilt below from timesegments_def
         INSERT INTO public.timesegments SELECT * FROM public.timesegments_def;
         ANALYZE public.timesegments;
     ELSE
