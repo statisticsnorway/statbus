@@ -20,7 +20,7 @@ ordinal: 466204
 Confirming that someone can still log in is something the operator must actually do. The question cannot be passed with Enter.
 
 ### Zoom out
-Stage 2 asks "Did that connect?" through ask_yes_no with default n, so the prompt shows [y/N] and an empty answer counts as no. That is safe (nothing changes) but lets the operator skip the check without thinking. Owner ruling 2026-10-30: this question has no default.
+Before SSH hardening locks down access, the operator confirms that a fresh login works. A safety check like this must not be skippable by pressing Enter: the operator has to answer it. Owner ruling 2026-10-30: this question has no default.
 
 ### Zoom in
 Uganda run 2026-10-30, Stage 2: prompt "Did that connect? [y/N]".

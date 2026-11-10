@@ -23,7 +23,7 @@ ordinal: 465204
 After Stage 4 the box accepts SSH on the conventional port 22 and on every port sshd really listens on, and the CrowdSec firewall bouncer is actually banning: registered, accepted by the local API and running.
 
 ### Zoom out
-Stage 4 opens only the port(s) sshd listens on (STATBUS-506). Owner ruling 2026-10-30: always allow 22/tcp as well. That is the convention for this service, and leaving it closed is surprising; with nothing listening there, nothing is exposed. When sshd's ports cannot be determined, Stage 4 still refuses to enable the firewall, since 22 alone may not be where SSH listens.
+Stage 4 opens only the port(s) sshd listens on (STATBUS-506). Owner ruling 2026-10-30, revised the same day: the standard SSH port is always allowed, through Ubuntu's OpenSSH app profile, because that is the convention for this service and a closed standard port surprises operators. When sshd's ports cannot be determined, Stage 4 still refuses to enable the firewall, since 22 alone may not be where SSH listens.
 STATBUS-498 made Stage 4 create a bouncer key only when api_key is empty. A key kept from an earlier install that CrowdSec no longer knows passes that check, so the bouncer runs inert.
 
 ### Zoom in
