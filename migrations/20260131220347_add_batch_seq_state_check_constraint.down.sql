@@ -15,7 +15,7 @@ BEGIN
     IF p_for_processing THEN
         -- For processing phase: assign batch_seq only to rows with action = 'use'.
         -- First NULL out all batch_seq, then re-assign to relevant rows.
-        EXECUTE format($$UPDATE public.%1$I SET batch_seq = NULL$$, p_data_table_name);
+        EXECUTE format($$UPDATE public.%1$I SET batch_seq = NULL WHERE true$$, p_data_table_name); -- every row: renumbered below
         
         EXECUTE format($$
             WITH numbered AS (
@@ -34,6 +34,7 @@ BEGIN
         EXECUTE format($$
             UPDATE public.%1$I
             SET batch_seq = ((row_id - 1) / %2$L + 1)::INTEGER
+            WHERE true -- every row: the analysis phase numbers all rows
         $$, p_data_table_name, p_batch_size);
     END IF;
     
