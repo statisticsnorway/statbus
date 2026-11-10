@@ -57,6 +57,26 @@ describe("readEditRange", () => {
     expect(record.calls).toContainEqual(["eq", "type", "physical"]);
   });
 
+  it("treats a field group's columns as one value: the stretch where the whole address is unchanged", async () => {
+    const record = { calls: [] as unknown[] };
+    const client = fakeClient(
+      [
+        { valid_from: "2020-01-01", valid_to: "2026-03-31", address_part1: "Vei 1", postcode: "0001" },
+        { valid_from: "2026-04-01", valid_to: "infinity", address_part1: "Vei 1", postcode: "0002" },
+      ],
+      record
+    );
+    const range = await readEditRange(client as never, {
+      table: "location",
+      match: { legal_unit_id: 7, type: "physical" },
+      column: ["address_part1", "postcode"],
+      shownValue: { address_part1: "Vei 1", postcode: "0002" },
+      context: { valid_from: "2026-01-01", valid_to: "2026-12-31" },
+    });
+    expect(range).toEqual({ validFrom: "2026-04-01", validTo: "2026-12-31" });
+    expect(record.calls).toContainEqual(["select", "valid_from,valid_to,address_part1,postcode"]);
+  });
+
   it("falls back to the selected context when the read fails", async () => {
     const client = {
       from: () => ({

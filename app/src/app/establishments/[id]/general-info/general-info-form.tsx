@@ -23,6 +23,7 @@ import { EditableFieldGroup } from "@/components/form/editable-field-group";
 import { EditableImageFieldWithMetadata } from "@/components/form/editable-image-field-with-metadata";
 import { useClientReady } from "@/hooks/use-client-ready";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { LOCATION_COLUMNS } from "@/components/form/read-edit-range";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
@@ -89,6 +90,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         response={state}
         formAction={formAction}
         metadata={establishment}
+        editSource={{ table: "establishment", match: { id: parseInt(id, 10) }, column: "name" }}
       />
       <EditableImageFieldWithMetadata
         fieldId="image"
@@ -139,6 +141,12 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         response={locationState}
         metadata={physicalLocation}
         hiddenFields={{ type: "physical" }}
+        editSource={{
+          table: "location",
+          match: { establishment_id: parseInt(id, 10), type: "physical" },
+          column: [...LOCATION_COLUMNS],
+        }}
+        shownValues={physicalLocation ?? undefined}
       >
         {({ isEditing }) => (
           <div className="flex flex-col gap-4">

@@ -7,7 +7,8 @@ import { Label } from "../ui/label";
 import { useEditManager } from "@/atoms/edits";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { cn } from "@/lib/utils";
-import { useTimeContext } from "@/atoms/app-derived";
+import { useStartEdit } from "./use-start-edit";
+import type { EditFieldSource } from "./read-edit-range";
 import { SubmissionFeedbackDebugInfo } from "./submission-feedback-debug-info";
 
 import {
@@ -39,6 +40,8 @@ interface EditableSelectWithMetadataProps {
   formAction: (formData: FormData) => void;
   response: UpdateResponse;
   metadata?: Metadata;
+  /** The rows this field shows over time; the edit then opens on the shown value's stretch. */
+  editSource?: EditFieldSource;
   hiddenFields?: Record<string, string | number>;
 }
 
@@ -53,12 +56,13 @@ export const EditableSelectWithMetadata = ({
   response,
   metadata,
   hiddenFields,
+  editSource,
 }: EditableSelectWithMetadataProps) => {
-  const { selectedTimeContext } = useTimeContext();
+  const startEdit = useStartEdit();
 
   const [open, setOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  const { currentEdit, setEditTarget, exitEditMode } = useEditManager();
+  const { currentEdit, exitEditMode } = useEditManager();
 
   const isEditing = currentEdit?.fieldId === fieldId;
 
@@ -101,15 +105,7 @@ export const EditableSelectWithMetadata = ({
                 variant="ghost"
                 size="sm"
                 type="button"
-                onClick={() =>
-                  setEditTarget(fieldId, {
-                    validFrom: selectedTimeContext?.valid_from,
-                    validTo:
-                      selectedTimeContext?.valid_to === "infinity"
-                        ? null
-                        : selectedTimeContext?.valid_to,
-                  })
-                }
+                onClick={() => startEdit(fieldId, editSource, value)}
               >
                 <Pencil className="text-zinc-700" />
               </EditButton>

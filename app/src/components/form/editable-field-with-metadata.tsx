@@ -5,7 +5,8 @@ import { Pencil } from "lucide-react";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useEditManager } from "@/atoms/edits";
-import { useTimeContext } from "@/atoms/app-derived";
+import { useStartEdit } from "./use-start-edit";
+import type { EditFieldSource } from "./read-edit-range";
 import { SubmissionFeedbackDebugInfo } from "./submission-feedback-debug-info";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { EditMetadataControls } from "./edit-metadata-controls";
@@ -22,6 +23,8 @@ interface EditableFieldWithMetadataProps {
   response: UpdateResponse;
   hiddenFields?: Record<string, string | number>;
   metadata?: Metadata;
+  /** The rows this field shows over time; the edit then opens on the shown value's stretch. */
+  editSource?: EditFieldSource;
 }
 export const EditableFieldWithMetadata = ({
   fieldId,
@@ -32,13 +35,14 @@ export const EditableFieldWithMetadata = ({
   response,
   hiddenFields,
   metadata,
+  editSource,
 }: EditableFieldWithMetadataProps) => {
-  const { selectedTimeContext } = useTimeContext();
+  const startEdit = useStartEdit();
   const [showResponse, setShowResponse] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const { currentEdit, setEditTarget, exitEditMode } = useEditManager();
+  const { currentEdit, exitEditMode } = useEditManager();
   const isEditing = currentEdit?.fieldId === fieldId;
   useGuardedEffect(
     () => {
@@ -87,15 +91,7 @@ export const EditableFieldWithMetadata = ({
                 variant="ghost"
                 size="sm"
                 type="button"
-                onClick={() =>
-                  setEditTarget(fieldId, {
-                    validFrom: selectedTimeContext?.valid_from,
-                    validTo:
-                      selectedTimeContext?.valid_to === "infinity"
-                        ? null
-                        : selectedTimeContext?.valid_to,
-                  })
-                }
+                onClick={() => startEdit(fieldId, editSource, value)}
               >
                 <Pencil className="text-zinc-700" />
               </EditButton>

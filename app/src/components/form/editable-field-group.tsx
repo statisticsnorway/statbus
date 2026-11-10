@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { useRef, useState } from "react";
 import { SubmissionFeedbackDebugInfo } from "./submission-feedback-debug-info";
-import { useTimeContext } from "@/atoms/app-derived";
+import { useStartEdit } from "./use-start-edit";
+import type { EditFieldSource } from "./read-edit-range";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { EditMetadataControls } from "./edit-metadata-controls";
 import { EditButton } from "./edit-button";
@@ -17,6 +18,10 @@ interface EditableFieldGroupProps {
   action: (formData: FormData) => void;
   response: UpdateResponse;
   metadata?: Metadata;
+  /** The rows this group shows over time; the edit then opens on the shown values' stretch. */
+  editSource?: EditFieldSource;
+  /** The group's shown values by column, compared with editSource's rows. */
+  shownValues?: object;
   children: (props: { isEditing: boolean }) => React.ReactNode;
   hiddenFields?: Record<string, string | number>;
 }
@@ -29,12 +34,14 @@ export function EditableFieldGroup({
   metadata,
   children,
   hiddenFields,
+  editSource,
+  shownValues,
 }: EditableFieldGroupProps) {
-  const { selectedTimeContext } = useTimeContext();
+  const startEdit = useStartEdit();
   const formRef = useRef<HTMLFormElement>(null);
   const [formKey, setFormKey] = useState(0);
 
-  const { currentEdit, setEditTarget, exitEditMode } = useEditManager();
+  const { currentEdit, exitEditMode } = useEditManager();
 
   const isEditing = currentEdit?.fieldId === fieldGroupId;
   const wasEditing = useRef(isEditing);
@@ -92,15 +99,7 @@ export function EditableFieldGroup({
             variant="ghost"
             size="icon"
             type="button"
-            onClick={() =>
-              setEditTarget(fieldGroupId, {
-                validFrom: selectedTimeContext?.valid_from,
-                validTo:
-                  selectedTimeContext?.valid_to === "infinity"
-                    ? null
-                    : selectedTimeContext?.valid_to,
-              })
-            }
+            onClick={() => startEdit(fieldGroupId, editSource, shownValues)}
             className="h-8 w-8"
           >
             <Pencil className="h-4 w-4 text-zinc-700" />

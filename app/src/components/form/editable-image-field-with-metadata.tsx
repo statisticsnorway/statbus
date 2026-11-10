@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { Label } from "../ui/label";
 import { useEditManager } from "@/atoms/edits";
-import { useTimeContext } from "@/atoms/app-derived";
+import { useStartEdit } from "./use-start-edit";
+import type { EditFieldSource } from "./read-edit-range";
 import { SubmissionFeedbackDebugInfo } from "./submission-feedback-debug-info";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { EditMetadataControls } from "./edit-metadata-controls";
@@ -28,6 +29,8 @@ interface EditableImageFieldWithMetadataProps {
   formAction: (formData: FormData) => void;
   response: UpdateResponse;
   metadata?: Metadata;
+  /** The rows this field shows over time; the edit then opens on the shown value's stretch. */
+  editSource?: EditFieldSource;
 }
 
 export const EditableImageFieldWithMetadata = ({
@@ -38,15 +41,16 @@ export const EditableImageFieldWithMetadata = ({
   formAction,
   response,
   metadata,
+  editSource,
 }: EditableImageFieldWithMetadataProps) => {
-  const { selectedTimeContext } = useTimeContext();
+  const startEdit = useStartEdit();
   const [showResponse, setShowResponse] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [deleteImage, setDeleteImage] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { currentEdit, setEditTarget, exitEditMode } = useEditManager();
+  const { currentEdit, exitEditMode } = useEditManager();
   const isEditing = currentEdit?.fieldId === fieldId;
 
   const { hasUnsavedChanges, handleCancel: baseHandleCancel } =
@@ -116,12 +120,7 @@ export const EditableImageFieldWithMetadata = ({
             <EditButton
               className="h-8"
               variant="ghost"
-              onClick={() =>
-                setEditTarget(fieldId, {
-                  validFrom: selectedTimeContext?.valid_from ?? null,
-                  validTo: selectedTimeContext?.valid_to ?? null,
-                })
-              }
+              onClick={() => startEdit(fieldId, editSource, imageId)}
             >
               <Pencil className="text-zinc-700" />
             </EditButton>
