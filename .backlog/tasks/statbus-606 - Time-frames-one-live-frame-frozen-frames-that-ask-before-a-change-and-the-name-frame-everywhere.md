@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T16:55:00Z'
-updated_date: '2026-11-10T21:47:00Z'
+updated_date: '2026-11-10T21:48:00Z'
 labels:
   - ui
   - time
@@ -21,19 +21,21 @@ ordinal: 520204
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ## Zoom out
-Statisticians think in time frames: one live frame that takes every new import and edit, and the years before it, which change only on purpose. Ville (Statistics Finland) works with frozen frames; StatBus stores timelines, and a time frame is the window a user looks through. Today that window is called "time context" and its list was built as a hedge (owner, 2026-11-10): public.relative_period has 26 period kinds of which 3 are enabled (year_curr, year_prev, year_prev_only), each with a query name and an input name and a scope (query, input, both); public.time_context unions those with tags carrying context dates (0 on every box) and one entry per year with data ("2024 (Data)"). Import jobs reference it as import_job.time_context_ident: r_year_curr on et 13, ma 4, ug 2, demo 1; r_year_prev on demo 6; none elsewhere.
+Statisticians think in time frames: one live frame that takes every new import and edit, and the years before it, which change only on purpose. Ville (Statistics Finland) works with frozen frames; StatBus stores timelines, and a time frame is the window a user looks through. Today that window is called "time context" and its list was built as a hedge (owner, 2026-11-10): public.relative_period has 26 period kinds of which 3 are enabled (year_curr, year_prev, year_prev_only), each with a query name, an input name and a scope (query, input, both); public.time_context unions those with tags carrying context dates (0 on every box) and one entry per year with data ("2024 (Data)"). Import jobs reference it as import_job.time_context_ident: r_year_curr on et 13, ma 4, ug 2, demo 1; r_year_prev on demo 6; none elsewhere. A cloned job keeps the ident and re-derives its dates (public.import_job_clone), so a relative ident is what a recurring job needs.
 
 ## Zoom in
-Approved by the owner 2026-11-10 (notes):
-- One list everywhere, menu, edit form and import page alike:
-  - Live frame YYYY, ident `live`: 1 January of the current year to infinity, read as of today. "Live" means until further notice; the ident stays across New Year.
-  - Frame YYYY, ident `y_YYYY`: 1 January to 31 December, read as of 31 December; the previous year always, and every earlier year with data.
-- These frames are frozen only in the light sense: the UI asks before an edit or import reaches before the live frame (UI only; no database enforcement). A real frozen frame (a stored copy of the frame's statistical_unit rows) is not in scope.
-- One migration renames time_context to time_frame everywhere (view, type, import_job.time_frame_ident, admin.import_job_derive, public.import_job_clone, comments), drops relative_period, relative_period_with_time, the scope split, the second name and tag frames, and maps existing job idents: r_year_curr -> live, r_year_prev -> y_<previous year>; jobs keep their stored dates.
+Decided by the owner 2026-11-10 (details in the notes):
+- Three kinds of frame, one list everywhere:
+  - Live frame (kind live, ident `live`): "Live frame (2026)", 1 January of the current year to infinity, read as of today. Changes go straight in.
+  - Relative frame (kind relative, ident `prev`): "Previous frame (2025)", 1 January to 31 December of the previous year, read as of 31 December. Moves on 1 January.
+  - Fixed frame (kind fixed, ident `y_YYYY`): "Frame 2024", one closed year forever; every year with data, and the previous year.
+- The menu lists live, relative, then fixed frames, leaving out a fixed frame that equals a relative one (Frame 2025 today). The import page shows all three groups in full, so a recurring job picks Previous frame and a one-off picks Frame 2025.
+- Relative and fixed frames ask before a change reaches into them: "fixed frame" wording, UI only, no database enforcement. A real frozen frame (a stored copy of statistical_unit rows) is not in scope.
+- One migration renames time_context to time_frame everywhere (view, kind type, import_job.time_frame_ident, the valid_time_from mode, the definition_snapshot key, admin.import_job_derive, public.import_job_clone, admin.apply_rls_to_all_tables, comments), drops relative_period, relative_period_with_time, the scope split, the second name and tag frames, and maps job idents r_year_curr -> live, r_year_prev -> prev; jobs keep their stored dates.
 - The app, CLI, tests, samples and docs follow; no old name remains.
 - The edit form and the import pages show a Frame dropdown defaulting to the selected frame; an edit icon opens the details (Data Source, Valid From, Valid To; on import pages the other options, including Source dates).
-- Explored with the owner in Firefox before each step lands.
-- Later, not here: a custom date picker below the frames to look at any date; a timeline in the edit when a change needs thought.
+- Each step is shown to the owner in Firefox before it lands.
+- Later, not here: a custom date picker below the frames; a timeline in the edit when a change needs thought.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
