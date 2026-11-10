@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T10:25:00Z'
-updated_date: '2026-11-10T13:08:00Z'
+updated_date: '2026-11-10T13:59:00Z'
 labels:
   - app
   - db
@@ -82,4 +82,10 @@ Progress 2026-11-10 13:07, local branch statbus-604-safeupdate (not pushed), one
 Next: down-all and up again under the guard; then the test suite one test at a time; doc/db regen; declare the edited released migrations.
 
 AC1 and AC2 verified 13:07: test 397 (9eb3f50bc) edits as a user through the three views under the guard, asserting rows, no pre-birth rows, other units unchanged; RED against v2026.11.3's flag function (tmp/604-red-397.log), GREEN on the branch. The untargeted statement was worker.publish_base_change_wakeup's flag UPDATE; it now locks the row FOR UPDATE and sets it WHERE NOT has_pending (3743bf94b).
+
+Progress 2026-11-10 13:59 (branch statbus-604-safeupdate, local):
+- 139/139 fast SQL tests pass under pg_safeupdate (every session). Principles committed one each; doc/db regenerated (040e0092d); rule in .claude/rules/sql.md (4c137bb98).
+- App: defaultEditRange (6b4dc91c3), app date check removed (34893f347), empty location fields are null and country is required (fc47499fc), each with jest tests RED then GREEN.
+- Owner decisions 13:57-13:58: the down file 20260317114643 (drops columns before the view that reads them) is fixed here in its own commit (delegated); the edit range is wired with option 1, a small hook doing one standard read per edit start, bounded by the selected time context.
+- Open with owner: how the default range relates to the selected period (end at period end or value end; telling the user why the start is not the period start).
 <!-- SECTION:NOTES:END -->
