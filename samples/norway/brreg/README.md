@@ -44,24 +44,27 @@ Norwegian partnership forms (ANS, DA, KS) have multiple co-equal partners via DT
 
 ## Monthly Intake
 
-Norway (rune) takes in BRREG every month, unattended, from the statbus user's crontab (STATBUS-600). The run on the 2nd downloads the full files BRREG built on the 1st, which hold the register as of the end of the previous month, and closes the units BRREG deleted since the previous run. Four import jobs per month, in this order:
+Norway (rune) takes in BRREG every month, unattended, from the statbus user's crontab (STATBUS-600). The run on the 2nd downloads the full files BRREG built on the 1st, which hold the register as of the end of the previous month, and closes the units that left the register. Jobs per month, in this order:
 
 | Job | Definition | Rows | Valid from |
 |-----|-----------|------|------------|
 | `import_hovedenhet_YYYY_MM` | `brreg_hovedenhet_2025` | every legal unit | 1st of the month the file covers |
 | `import_underenhet_YYYY_MM` | `brreg_underenhet_2025` | every establishment whose legal unit is in the file | same |
-| `import_hovedenhet_slettet_YYYY_MM` | `legal_unit_source_dates` | each legal unit BRREG deleted | per row |
-| `import_underenhet_slettet_YYYY_MM` | `establishment_for_lu_source_dates` | each establishment BRREG deleted | per row |
+| `import_roller_YYYY_MM` | `brreg_roller_2025` | every controlling relationship between two legal units in the file | same |
+| `import_hovedenhet_slettet_YYYY_MM` | `legal_unit_source_dates` | each legal unit that left the register | per row |
+| `import_underenhet_slettet_YYYY_MM` | `establishment_for_lu_source_dates` | each establishment that left the register | per row |
 
 `YYYY_MM` is the month the files cover: the run on 2 December creates `import_hovedenhet_2026_11`, valid from 1 November, so a unit born in November counts as a November birth. A full-file job adds a record only for a unit that changed; an unchanged unit keeps its record.
 
-A deletion row is `organisasjonsnummer`, `death_date` = BRREG's `slettedato`, and `valid_from` = the 1st of the month containing the day before the death, because the import requires the death to fall after the start of the record it writes. The unit stops counting on its deletion day; its history stays. Deletions BRREG reports for a unit StatBus never had (born and deleted between two runs) are counted, not imported. A deletion job exists only when its list has rows.
+A closure row is `organisasjonsnummer`, `death_date`, and `valid_from` = the 1st of the month containing the day before the death, raised to the unit's first StatBus record, because the import requires the death to fall after the start of the record it writes. A unit BRREG's change feed reports as deleted closes on its `slettedato`. A unit StatBus still counts that the full file no longer lists, without a deletion in the feed, closes on its `slettedato` when the BRREG lookup has one, otherwise on the 1st of the run month, and is counted separately. The unit stops counting on its closing day; its history stays. Deletions for a unit StatBus never had (born and deleted between two runs) are counted, not imported. A closure job exists only when its list has rows.
+
+Catch-up: `--deletions-only --since A --until B` replays one past month's deletions with their exact dates and creates no full-file job, because BRREG publishes only today's full file. A baseline loaded with its real snapshot date, followed by one catch-up run per month, exercises the monthly path without waiting months.
 
 Status: BRREG has no status column, only flags. The loader derives `status_code` before upload: `passive` when `konkurs`, `underAvvikling` or `underTvangsavviklingEllerTvangsopplosning` is true, otherwise `active`. Establishments stay `active` until deleted. This bridge goes when import definitions can derive values themselves (STATBUS-601).
 
 BRREG adds columns to its downloads over time, so the loader writes each file with exactly the definition's columns, matched by name.
 
-Each run waits up to two hours for a scheduled or running upgrade, then skips the month and reports it. It stops at the first failure, posts it to `#statbus-utvikling`, and does not retry. Run state lives in `tmp/brreg-monthly/`: `figures.tsv` (one row per month: database size, record counts, counted legal units, run times, closed units), `last-since` (where the next run starts reading the feed), the month's files, and one log per run. The Slack message compares the month with the previous one.
+Each run waits up to two hours for a scheduled or running upgrade, then skips the month and reports it. It stops at the first failure, posts it to `#statbus-utvikling`, and does not retry. The figures are the month's import jobs and StatBus's own history; the Slack message compares this run's jobs with the previous run's. Run state lives in `tmp/brreg-monthly/`: `last-since` (where the next run starts reading the feed), each run's files, and one log per run.
 
 The crontab entry, as the statbus user on rune (02:00 Oslo time on the 2nd). The scripts run from their own clone (`~/brreg-monthly`, kept on master with `git pull`) so the release checkout `~/statbus`, which the upgrader manages, stays clean; `STATBUS_DIR` points them at it:
 

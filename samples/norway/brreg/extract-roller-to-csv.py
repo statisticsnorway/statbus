@@ -26,9 +26,13 @@ WORKSPACE = os.path.dirname(os.path.abspath(__file__))
 WORKSPACE = os.path.join(WORKSPACE, '..', '..', '..')
 WORKSPACE = os.path.normpath(WORKSPACE)
 
-ROLLER_JSON_GZ = os.path.join(WORKSPACE, 'tmp', 'roller.json.gz')
-ENHETER_CSV = os.path.join(WORKSPACE, 'tmp', 'enheter.csv')
-OUTPUT_CSV = os.path.join(WORKSPACE, 'tmp', 'roller_legal_relationships.csv')
+# Paths default to the download layout of download-to-tmp.sh; the monthly intake
+# (brreg-monthly.sh) passes its month's folder: extract-roller-to-csv.py ROLLER_GZ ENHETER_CSV OUTPUT_CSV
+ROLLER_JSON_GZ, ENHETER_CSV, OUTPUT_CSV = (sys.argv[1:4] if len(sys.argv) == 4 else (
+    os.path.join(WORKSPACE, 'tmp', 'roller.json.gz'),
+    os.path.join(WORKSPACE, 'tmp', 'enheter.csv'),
+    os.path.join(WORKSPACE, 'tmp', 'roller_legal_relationships.csv'),
+))
 
 
 def load_enheter_orgnums(path):

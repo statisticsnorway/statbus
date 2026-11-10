@@ -38,6 +38,7 @@ Usage:
              window is Sletting or Fjernet, one per line (the feed's account of who left).
 """
 import argparse
+import concurrent.futures
 import csv
 import datetime
 import json
@@ -68,16 +69,19 @@ def fetch_json(url, attempts=5):
     raise RuntimeError("unreachable")
 
 
-def last_change_per_unit(register, since):
-    """Return {organisasjonsnummer: endringstype of its last change}, and the last id read."""
+def last_change_per_unit(register, since, until=None):
+    """Return {organisasjonsnummer: endringstype of its last change in [since, until)}, and the last id read."""
     key = EMBEDDED_KEY[register]
     last = {}
     url = f"{API}/oppdateringer/{register}?dato={since}T00:00:00.000Z&size={PAGE_SIZE}"
     last_id = None
+    stop = f"{until}T00:00:00" if until else None
     while True:
         page = fetch_json(url)
         items = page.get("_embedded", {}).get(key, [])
         for item in items:
+            if stop and item["dato"] >= stop:
+                return last, last_id
             last[item["organisasjonsnummer"]] = item["endringstype"]
             last_id = item["oppdateringsid"]
         if len(items) < PAGE_SIZE:
@@ -97,6 +101,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--register", required=True, choices=sorted(EMBEDDED_KEY))
     parser.add_argument("--since", required=True, type=datetime.date.fromisoformat)
+    parser.add_argument("--until", type=datetime.date.fromisoformat,
+                        help="read the feed up to 00:00 UTC this day, exclusive (a catch-up month)")
     parser.add_argument("--known", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--state")
@@ -111,7 +117,8 @@ def main():
             orgnr, first_valid_from = line.strip().split(",")
             known[orgnr] = datetime.date.fromisoformat(first_valid_from)
 
-    last, last_id = last_change_per_unit(args.register, args.since.isoformat())
+    last, last_id = last_change_per_unit(args.register, args.since.isoformat(),
+                                         args.until.isoformat() if args.until else None)
     deleted = sorted(orgnr for orgnr, change in last.items() if change == "Sletting")
     removed = sorted(orgnr for orgnr, change in last.items() if change == "Fjernet")
     if args.gone_out:
@@ -124,11 +131,13 @@ def main():
     with open(args.out, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file)
         writer.writerow(["tax_ident", "death_date", "valid_from", "valid_to"])
-        for orgnr in deleted:
-            if orgnr not in known:
-                counts["deleted_unknown_to_statbus"] += 1
-                continue
-            death = slettedato(args.register, orgnr)
+        candidates = [orgnr for orgnr in deleted if orgnr in known]
+        counts["deleted_unknown_to_statbus"] = len(deleted) - len(candidates)
+        # One lookup per deleted unit; a catch-up month can hold tens of thousands.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
+            deaths = dict(zip(candidates, pool.map(lambda o: slettedato(args.register, o), candidates)))
+        for orgnr in candidates:
+            death = deaths[orgnr]
             if death is None:
                 counts["deleted_without_slettedato"] += 1
                 continue
@@ -140,10 +149,12 @@ def main():
             counts["written"] += 1
 
     counts["last_oppdateringsid"] = last_id
-    print(json.dumps({"register": args.register, "since": args.since.isoformat(), **counts}))
+    summary = {"register": args.register, "since": args.since.isoformat(),
+               "until": args.until.isoformat() if args.until else None, **counts}
+    print(json.dumps(summary))
     if args.state:
         with open(args.state, "w", encoding="utf-8") as state_file:
-            json.dump({"register": args.register, "since": args.since.isoformat(), **counts}, state_file)
+            json.dump(summary, state_file)
     return 0
 
 
