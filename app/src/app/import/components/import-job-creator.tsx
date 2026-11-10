@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { describeError } from "@/lib/error-format";
+import { useFixedFrameConfirmation } from "@/components/fixed-frame-confirmation";
 
 interface ImportJobCreatorProps {
   importMode: ImportMode;
@@ -35,8 +36,22 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
 
   const { useExplicitDates, explicitStartDate, explicitEndDate, selectedDefinition } = importState;
   const { selectedTimeFrame } = timeFrame;
+  const { ask, dialog } = useFixedFrameConfirmation();
 
-  const handleContinue = async () => {
+  // A job on a relative or fixed frame, or with explicit dates in the past,
+  // asks first (useFixedFrameConfirmation); a job with source dates carries
+  // its dates in the file and is not asked about here.
+  const handleContinue = () => {
+    const period =
+      selectedDefinition?.valid_time_from === 'job_provided'
+        ? useExplicitDates
+          ? { from: explicitStartDate, to: explicitEndDate }
+          : { from: selectedTimeFrame?.valid_from, to: selectedTimeFrame?.valid_to }
+        : { from: null, to: null };
+    if (!ask(period.from, period.to, () => void createJob())) void createJob();
+  };
+
+  const createJob = async () => {
     if (selectedDefinition?.valid_time_from === 'job_provided') {
       if (useExplicitDates) {
         if (!explicitStartDate || !explicitEndDate) {
@@ -69,6 +84,7 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
 
   return (
     <div className="mt-6">
+      {dialog}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
           {error}

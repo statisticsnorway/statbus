@@ -1,4 +1,4 @@
-import { groupTimeFrames, TIME_FRAME_GROUPS, type TimeFrame } from "./time-frame";
+import { framesNeedingConfirmation, groupTimeFrames, TIME_FRAME_GROUPS, type TimeFrame } from "./time-frame";
 
 const frame = (overrides: Partial<TimeFrame>): TimeFrame => ({
   ident: null,
@@ -46,5 +46,32 @@ describe("groupTimeFrames", () => {
     expect(groups.map((g) => [g.kind, g.explanation])).toEqual(
       TIME_FRAME_GROUPS.map((g) => [g.kind, g.explanation])
     );
+  });
+});
+
+describe("framesNeedingConfirmation", () => {
+  const dated: TimeFrame[] = [
+    frame({ ident: "live", kind: "live", name: "Live frame (2026)", valid_from: "2026-01-01", valid_to: "infinity" }),
+    frame({ ident: "prev", kind: "relative", name: "Previous frame (2025)", valid_from: "2025-01-01", valid_to: "2025-12-31" }),
+    frame({ ident: "y_2025", kind: "fixed", name: "Frame 2025", valid_from: "2025-01-01", valid_to: "2025-12-31", equals_frame_ident: "prev" }),
+    frame({ ident: "y_2024", kind: "fixed", name: "Frame 2024", valid_from: "2024-01-01", valid_to: "2024-12-31" }),
+  ];
+  const names = (fs: TimeFrame[]) => fs.map((f) => f.name);
+
+  it("asks nothing for a change inside the live frame", () => {
+    expect(names(framesNeedingConfirmation(dated, "2026-01-01", null))).toEqual([]);
+    expect(names(framesNeedingConfirmation(dated, "2026-03-01", "2026-06-30"))).toEqual([]);
+  });
+
+  it("names the previous frame once, not also Frame 2025, for a change in last year", () => {
+    expect(names(framesNeedingConfirmation(dated, "2025-01-01", "2025-12-31"))).toEqual(["Previous frame (2025)"]);
+  });
+
+  it("names every past frame an open-ended change from 2024 reaches into", () => {
+    expect(names(framesNeedingConfirmation(dated, "2024-07-01", null))).toEqual(["Previous frame (2025)", "Frame 2024"]);
+  });
+
+  it("asks nothing when the change has no start yet", () => {
+    expect(framesNeedingConfirmation(dated, null, null)).toEqual([]);
   });
 });

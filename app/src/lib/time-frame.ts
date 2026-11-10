@@ -37,6 +37,32 @@ export interface TimeFrameGroup {
 }
 
 /**
+ * The relative and fixed frames a change over [validFrom, validTo] reaches
+ * into, the frames the user is asked about before it is stored. The live frame
+ * takes changes without asking. A fixed frame equal to a relative frame is
+ * named once, under the relative frame. validTo null or "infinity" is open-ended.
+ * Dates are ISO yyyy-mm-dd, valid_to inclusive.
+ */
+export function framesNeedingConfirmation(
+  frames: readonly TimeFrame[],
+  validFrom: string | null | undefined,
+  validTo: string | null | undefined
+): TimeFrame[] {
+  if (!validFrom) return [];
+  const end = !validTo || validTo === "infinity" ? "infinity" : validTo;
+  const startsBy = (a: string, b: string) => b === "infinity" || a <= b;
+  return frames.filter(
+    (f) =>
+      (f.kind === "relative" || f.kind === "fixed") &&
+      !f.equals_frame_ident &&
+      f.valid_from != null &&
+      f.valid_to != null &&
+      startsBy(f.valid_from, end) &&
+      startsBy(validFrom, f.valid_to)
+  );
+}
+
+/**
  * The frames grouped by kind, in public.time_frame's order (live, relative,
  * fixed, newest first). The menu is for looking at data, so `forMenu` leaves
  * out a fixed frame that shows the same year as a relative frame today

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { useFixedFrameConfirmation } from "@/components/fixed-frame-confirmation";
 import { useDetailsPageData, useEditManager } from "@/atoms/edits";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { Button } from "@/components/ui/button";
@@ -54,6 +56,40 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   const frameGroups = groupTimeFrames(timeFrames, { forMenu: false });
   const periodText = `${currentEdit.validFrom ?? "?"} to ${currentEdit.validTo ?? "open end"}`;
 
+  // Every save of this edit goes through its form's submit, whichever button
+  // starts it. A save reaching into a relative or fixed frame is held and the
+  // user is asked (useFixedFrameConfirmation); Confirm submits again, marked
+  // confirmed so it passes; Cancel stores nothing.
+  const { ask, dialog } = useFixedFrameConfirmation();
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const confirmedRef = useRef(false);
+  useGuardedEffect(
+    () => {
+      const form = anchorRef.current?.closest("form");
+      if (!form) return;
+      const onSubmit = (event: SubmitEvent) => {
+        if (confirmedRef.current) {
+          confirmedRef.current = false;
+          return;
+        }
+        // The period submitted is the form's own valid_from/valid_to fields.
+        const data = new FormData(form);
+        const held = ask(data.get("valid_from") as string | null, data.get("valid_to") as string | null, () => {
+          confirmedRef.current = true;
+          form.requestSubmit();
+        });
+        if (held) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      };
+      form.addEventListener("submit", onSubmit, { capture: true });
+      return () => form.removeEventListener("submit", onSubmit, { capture: true });
+    },
+    [ask],
+    "EditMetadataControls:askBeforeFixedFrameSave"
+  );
+
   return (
     <>
       <input
@@ -66,6 +102,8 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         <input type="hidden" name="data_source_id" value={currentEdit.dataSourceId} />
       )}
       <Separator className="mt-1" />
+      <div ref={anchorRef} hidden />
+      {dialog}
       {!showDetails ? (
         <div>
           <Label
