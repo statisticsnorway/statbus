@@ -309,7 +309,7 @@ if sys.argv[1:] == base:
         assert re.fullmatch(r"'[^']*'(, '[^']*')*", rhs), f'{name}: every value element is quoted'
         items = re.findall(r"'([^']*)'", rhs)
         if name == 'session_preload_libraries':
-            assert all(',' not in item for item in items), 'each preload library is its own quoted element'
+            assert items == ['safeupdate', 'auto_explain'], 'preload libraries are two quoted elements: safeupdate, auto_explain'
         settings[name] = ', '.join(items)
     assert settings == expected, 'exact requested instrumentation/privacy settings'
     assert 'SELECT pg_reload_conf() AS reloaded \\gset' in sql
