@@ -4,7 +4,7 @@ title: SSH access confirmation needs an explicit yes or no
 status: Done
 assignee: []
 created_date: '2026-10-30T09:29:00Z'
-updated_date: '2026-11-10T09:17:00Z'
+updated_date: '2026-11-10T09:55:00Z'
 labels:
   - setup
 dependencies: []
@@ -46,4 +46,6 @@ Implemented in ad449113f: ask_yes_no accepts default 'none' (hint [y/n], empty a
 AC4 verified 2026-11-02 on statbus-manual (freshly rebuilt Ubuntu 26.04) with released v2026.11.0 setup.sh (banner 'StatBus: v2026.11.0'). Session log tmp/statbus-manual-session.log lines 1673-1675: 'Did that connect? [y/n]:' + Enter -> 'Please type yes or no; this needs an explicit answer.' and the question again; a real second-terminal ssh as statbus succeeded, answered y, setup completed all 9 stages (line 2497 'Setup Complete!').
 
 2026-11-10 09:17 UTC Uganda (statbus.ubos.org, Ubuntu 26.04, setup v2026.11.3), owner ran --only-stages "base-system security-tools": base-system verified (etckeeper installed and initialised, bash history, C.UTF-8 and en_US.UTF-8 locales); security-tools verified: CrowdSec running, firewall bouncer has an API key, is registered with the local API ('Bouncer statbus-firewall-bouncer is registered') and running, SSHD collection installed, UFW active, OpenSSH allowed, SSH port 713 allowed, HTTP, HTTPS and PostgreSQL allowed. Summary: 'No follow-up from this run.' Earlier the same morning: auto-updates stage, Docker in the nightly updates (STATBUS-583). (The SSH access confirmation lives in ssh-hardening, not rerun here; AC4 stands on its earlier evidence.)
+
+2026-11-10 09:52 UTC Uganda (statbus.ubos.org, Ubuntu 26.04), owner ran the full released setup (curl -fsSL https://statbus.org/setup.sh | bash, v2026.11.3), an idempotency rerun of every stage on a configured box. https-sources auto-skipped (HTTP egress works). base-system, service-account (statbus exists, 1 key already present, 0 added), auto-updates and security-tools verified with no changes. ssh-hardening: 'I can see remote access is already set up for statbus (1 key(s))'; 'SSH is listening on port(s) 713'; prompt 'Did that connect? [y/n]: y' (no default); SSH configuration valid; all six checks green (hardening config, config valid, service running, root password login disabled, password auth disabled, statbus key). Firewall: 'Skipping adding existing rule' for OpenSSH and 713/tcp; all 13 checks green. The SSH access confirmation shows [y/n] on the released setup on Uganda (AC4).
 <!-- SECTION:NOTES:END -->
