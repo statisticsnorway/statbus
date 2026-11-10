@@ -8,9 +8,9 @@ BEGIN;
 \pset tuples_only on
 SET client_min_messages = error;
 RESET ROLE;
-DELETE FROM worker.tasks;
-DELETE FROM worker.base_change_log;
-UPDATE worker.base_change_log_has_pending SET has_pending = false;
+DELETE FROM worker.tasks WHERE true; -- test setup: start from an empty table
+DELETE FROM worker.base_change_log WHERE true; -- test setup: start from an empty table
+UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
 CREATE TEMP TABLE t377_ids(id integer);
 
 -- A domain write logs its exact changed IDs and publishes in the same statement:
@@ -43,9 +43,9 @@ SELECT (SELECT count(*) FROM worker.base_change_log) = 2,
        (SELECT count(*) FROM worker.tasks WHERE command='collect_changes' AND state='pending') = 1;
 
 -- A statement that changes no rows logs nothing and publishes nothing.
-DELETE FROM worker.tasks;
-DELETE FROM worker.base_change_log;
-UPDATE worker.base_change_log_has_pending SET has_pending=false;
+DELETE FROM worker.tasks WHERE true; -- test setup: start from an empty table
+DELETE FROM worker.base_change_log WHERE true; -- test setup: start from an empty table
+UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
 UPDATE public.enterprise SET short_name=short_name WHERE false;
 \echo Empty statement: no log, false pending flag, no collector
 SELECT (SELECT count(*) FROM worker.base_change_log) = 0,
@@ -63,8 +63,8 @@ BEGIN
         (SELECT has_pending FROM worker.base_change_log_has_pending)=p_expected
         AND (SELECT count(*) FROM worker.tasks WHERE command='collect_changes' AND state='pending')=p_expected::int
         AND (SELECT count(*)=0 FROM worker.base_change_log);
-    DELETE FROM worker.tasks;
-    UPDATE worker.base_change_log_has_pending SET has_pending=false;
+    DELETE FROM worker.tasks WHERE true; -- test setup: start from an empty table
+    UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
 END $test$;
 DO $test$
 DECLARE producer text; table_name text; column_name text;
@@ -78,21 +78,21 @@ BEGIN
         EXECUTE format('CREATE TRIGGER t377_delete AFTER DELETE ON %I FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes_for_%s()',table_name,producer);
         EXECUTE format('INSERT INTO %I VALUES(NULL)',table_name);
         CALL pg_temp.t377_check_guard(p_producer => producer, p_scenario => 'insert_null', p_expected => false);
-        EXECUTE format('UPDATE %I SET %I=NULL',table_name,column_name);
+        EXECUTE format('UPDATE %I SET %I=NULL WHERE true',table_name,column_name);
         CALL pg_temp.t377_check_guard(p_producer => producer, p_scenario => 'update_null', p_expected => false);
         EXECUTE format('INSERT INTO %I SELECT NULL::integer WHERE false',table_name);
         CALL pg_temp.t377_check_guard(p_producer => producer, p_scenario => 'insert_empty', p_expected => false);
         EXECUTE format('UPDATE %I SET %I=1 WHERE false',table_name,column_name);
         CALL pg_temp.t377_check_guard(p_producer => producer, p_scenario => 'update_empty', p_expected => false);
-        EXECUTE format('UPDATE %I SET %I=1',table_name,column_name);
+        EXECUTE format('UPDATE %I SET %I=1 WHERE true',table_name,column_name);
         CALL pg_temp.t377_check_guard(p_producer => producer, p_scenario => 'update_qualified', p_expected => true);
         EXECUTE format('INSERT INTO %I VALUES(2)',table_name);
         CALL pg_temp.t377_check_guard(p_producer => producer, p_scenario => 'insert_qualified', p_expected => true);
         EXECUTE format('DELETE FROM %I WHERE false',table_name);
         CALL pg_temp.t377_check_guard(p_producer => producer, p_scenario => 'delete_empty_unconditional', p_expected => true);
-        EXECUTE format('UPDATE %I SET %I=NULL',table_name,column_name);
+        EXECUTE format('UPDATE %I SET %I=NULL WHERE true',table_name,column_name);
         CALL pg_temp.t377_check_guard(p_producer => producer, p_scenario => 'update_cleared', p_expected => false);
-        EXECUTE format('DELETE FROM %I',table_name);
+        EXECUTE format('DELETE FROM %I WHERE true',table_name);
         CALL pg_temp.t377_check_guard(p_producer => producer, p_scenario => 'delete_null_unconditional', p_expected => true);
     END LOOP;
 END $test$;
@@ -118,9 +118,9 @@ SELECT '2020-01-01','infinity','physical',r.id,r.version_id,c.id,lu.id,u.id
 FROM (SELECT id,version_id FROM public.region ORDER BY path LIMIT 1) r
 CROSS JOIN public.country c CROSS JOIN public.legal_unit lu CROSS JOIN auth."user" u
 WHERE c.iso_2='NO' AND lu.name='T377 region unit' AND u.email='test.admin@statbus.org';
-DELETE FROM worker.tasks;
-DELETE FROM worker.base_change_log;
-UPDATE worker.base_change_log_has_pending SET has_pending=false;
+DELETE FROM worker.tasks WHERE true; -- test setup: start from an empty table
+DELETE FROM worker.base_change_log WHERE true; -- test setup: start from an empty table
+UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
 UPDATE public.region SET name=name WHERE false;
 UPDATE public.region SET name=name
 WHERE id=(SELECT id FROM public.region WHERE id NOT IN(SELECT region_id FROM public.location) ORDER BY path LIMIT 1);
