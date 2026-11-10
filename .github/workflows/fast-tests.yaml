@@ -277,7 +277,8 @@ jobs:
           docker compose exec -T db psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
           LOAD 'auto_explain';
           -- safeupdate stays loaded alongside auto_explain, as in every session (postgres/postgresql.conf, STATBUS-604).
-          ALTER SYSTEM SET session_preload_libraries = 'safeupdate,auto_explain';
+          -- A list: each library is its own quoted element.
+          ALTER SYSTEM SET session_preload_libraries = 'safeupdate', 'auto_explain';
           ALTER SYSTEM SET auto_explain.log_min_duration = '1000ms';
           ALTER SYSTEM SET auto_explain.log_nested_statements = 'on';
           ALTER SYSTEM SET auto_explain.log_analyze = 'on';
@@ -305,7 +306,7 @@ jobs:
           SQL
             )
             echo "Fresh-connection profiling settings (attempt $attempt): $settings"
-            if [ "$settings" = 'safeupdate,auto_explain|1000|on|on|off|0|0|0' ]; then
+            if [ "$settings" = 'safeupdate, auto_explain|1000|on|on|off|0|0|0' ]; then
               verified=true
               break
             fi

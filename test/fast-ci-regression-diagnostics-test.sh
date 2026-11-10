@@ -287,7 +287,7 @@ count = int(count_file.read_text()) + 1 if count_file.exists() else 1
 count_file.write_text(str(count))
 (root / f'connection-{count}.sql').write_text(sql)
 expected = {
-    'session_preload_libraries': 'safeupdate,auto_explain',
+    'session_preload_libraries': 'safeupdate, auto_explain',
     'auto_explain.log_min_duration': '1000ms',
     'auto_explain.log_nested_statements': 'on',
     'auto_explain.log_analyze': 'on',
@@ -301,7 +301,16 @@ if sys.argv[1:] == base:
         print('fixture: configuration transport failed', file=sys.stderr)
         sys.exit(47)
     assert sql.startswith("LOAD 'auto_explain';\n"), 'LOAD must register real GUCs first'
-    settings = dict(re.findall(r"ALTER SYSTEM SET ([\w.]+) = '([^']+)';", sql))
+    # Read each value as PostgreSQL does: a list of quoted elements, shown joined
+    # by ", ". One quoted string holding a comma is ONE library name, which the
+    # server then fails to load (Fast Tests run 42862488936).
+    settings = {}
+    for name, rhs in re.findall(r"ALTER SYSTEM SET ([\w.]+) = ([^;]+);", sql):
+        assert re.fullmatch(r"'[^']*'(, '[^']*')*", rhs), f'{name}: every value element is quoted'
+        items = re.findall(r"'([^']*)'", rhs)
+        if name == 'session_preload_libraries':
+            assert all(',' not in item for item in items), 'each preload library is its own quoted element'
+        settings[name] = ', '.join(items)
     assert settings == expected, 'exact requested instrumentation/privacy settings'
     assert 'SELECT pg_reload_conf() AS reloaded \\gset' in sql
     assert '\\if :reloaded' in sql and '\\quit 1' in sql
