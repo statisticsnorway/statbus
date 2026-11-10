@@ -1171,10 +1171,12 @@ $reset_abandoned_processing_tasks$;
 
 -- Recompute slot assignments with fixed modulus 256
 UPDATE public.statistical_unit
-SET report_partition_seq = public.report_partition_seq(unit_type, unit_id);
+SET report_partition_seq = public.report_partition_seq(unit_type, unit_id)
+ WHERE true; -- every unit: the partition key is recomputed for all rows
 
 UPDATE public.statistical_unit_staging
-SET report_partition_seq = public.report_partition_seq(unit_type, unit_id);
+SET report_partition_seq = public.report_partition_seq(unit_type, unit_id)
+ WHERE true; -- every unit: the partition key is recomputed for all rows
 
 -- Clear all derived data — worker will rebuild on next trigger
 TRUNCATE public.statistical_unit_facet_staging;
