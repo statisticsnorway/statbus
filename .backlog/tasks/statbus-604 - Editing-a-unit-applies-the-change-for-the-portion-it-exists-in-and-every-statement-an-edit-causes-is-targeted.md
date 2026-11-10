@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T10:25:00Z'
-updated_date: '2026-11-10T11:27:00Z'
+updated_date: '2026-11-10T13:08:00Z'
 labels:
   - app
   - db
@@ -38,15 +38,21 @@ Reported on Norway (no.statbus.org, v2026.11.3 b9d6661e0) 2026-11-10 and reprodu
 - Problem 1: checkValidityBounds (app/src/components/form/helper-functions.ts) guards updateLegalUnit, updateEstablishment and upsertTemporalRecord (location, contact, activity, stat_for_unit). The for-portion-of view already clips the portion to where the unit exists.
 - Problem 2: reproduce locally with safeupdate loaded, as the authenticated role, through the view, verbose errors and debug logs; the error context names the untargeted statement and its function. Bound it to what it is meant to change, in sql_saga upstream or in StatBus, whichever owns it. Not `WHERE true`.
 - RED first: SQL tests under safeupdate for legal unit, establishment and location edits through the views, with a portion equal to the row and a portion starting before the unit exists. Assert the edited rows, no history before the unit existed, and other units unchanged.
+
+### Closing review
+
+- Memory: recorded. Owner's small loop (first stop, fix the principle everywhere, commit per principle) and consistency over smallest change.
+- Documentation: `.claude/rules/sql.md` states that every UPDATE and DELETE names its rows, with `WHERE true` and a comment for deliberate whole-table changes, and that every session runs under pg_safeupdate. doc/db regenerated with the migrations.
+- Cleanup: scratch databases statbus_604_repro and statbus_604_full; tmp/venv-pglast.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 With safeupdate loaded, an edit through legal_unit__for_portion_of_valid, establishment__for_portion_of_valid and location__for_portion_of_valid succeeds for a portion equal to the row and for one starting before the unit exists; the test asserts the resulting rows, no rows before the unit's first valid_from, and other units unchanged (RED before, GREEN after)
-- [ ] #2 The untargeted UPDATE on the edit path is named (statement and function) and bounded to the rows it is meant to change, not WHERE true
+- [x] #1 With safeupdate loaded, an edit through legal_unit__for_portion_of_valid, establishment__for_portion_of_valid and location__for_portion_of_valid succeeds for a portion equal to the row and for one starting before the unit exists; the test asserts the resulting rows, no rows before the unit's first valid_from, and other units unchanged (RED before, GREEN after)
+- [x] #2 The untargeted UPDATE on the edit path is named (statement and function) and bounded to the rows it is meant to change, not WHERE true
 - [ ] #3 The app sends the edit with the form's portion and lets the database clip it: the legal unit rename with portion 2026-01-01..infinity on a unit from 2026-11-07 succeeds and changes the name from 2026-11-07
 - [ ] #4 Adding a physical location to an establishment that has only a postal one succeeds; the 409 cause is named and fixed
-- [ ] #5 [Owner] On Norway, after the release carrying the fix, the reported edits on 314286 and 479720 succeed
+- [ ] #5 [Owner] Confirms on Norway, after the release candidate carrying the fix, that renaming 314286 and editing 479720 succeed. The answer is recorded in this ticket's notes: yes closes the ticket; no reopens the investigation with the new error from rune's logs.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -65,4 +71,15 @@ Decisions 2026-11-10 (owner):
 Decision 2026-11-10 11:23 (owner): safeupdate is loaded for every session through postgresql.conf (session_preload_libraries), including debug mode. The one stated exemption is the migration runner: its sessions start with -c safeupdate.enabled=off, alongside the existing read-only-window exemption (migrateReadOnlyExemptOptions), so released migrations stay byte-identical and the seed build, which replays every migration through sb migrate, keeps working. All code that runs outside migrations names its target: the 15 live function statements (including the flag fix (i)) and our scripts; deliberate whole-table clears use WHERE true with a comment. Tests get the guard because the server loads it, the same as production.
 
 Decision 2026-11-10 11:27 (owner), replaces the 11:23 runner exemption: safeupdate applies to every session with no exemption, the migration runner included. Reason: consistency going forward. With one rule, SQL written in a migration and SQL written in a function follow the same convention, and an agent cannot learn two. Released migrations that touch every row get an explicit WHERE (WHERE true with a comment where the whole table is meant), shipped through the existing STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION mechanism, which re-stamps the content hash on boxes and is declared at the release cut. The full set of statements is found by replaying all migrations (seed build) and the test suite under the guard, not by text scan alone: DO blocks and functions called during migrations are only visible at run time.
+
+Progress 2026-11-10 13:07, local branch statbus-604-safeupdate (not pushed), one commit per principle:
+- b809c285e (master, local): extension install/update scripts run with safeupdate lifted for that statement, every extension.
+- All migrations replay from empty under the guard: timesegments and *_used full refreshes, settings (WHERE only_one_setting), partition-key recomputes, column backfills, derived-data clears, deliberate whole-table deletes, each named.
+- 3743bf94b: flag fix (i), collector and crash recovery name their rows.
+- 93a204b57: import batch numbering names its all-row update.
+- 9eb3f50bc: postgresql.conf loads safeupdate for every session; test 397 edits as a user through the for-portion views.
+- RED: test 397 against v2026.11.3's publish_base_change_wakeup fails with 'UPDATE requires a WHERE clause' (tmp/604-red-397.log). GREEN: test 397 passes.
+Next: down-all and up again under the guard; then the test suite one test at a time; doc/db regen; declare the edited released migrations.
+
+AC1 and AC2 verified 13:07: test 397 (9eb3f50bc) edits as a user through the three views under the guard, asserting rows, no pre-birth rows, other units unchanged; RED against v2026.11.3's flag function (tmp/604-red-397.log), GREEN on the branch. The untargeted statement was worker.publish_base_change_wakeup's flag UPDATE; it now locks the row FOR UPDATE and sets it WHERE NOT has_pending (3743bf94b).
 <!-- SECTION:NOTES:END -->
