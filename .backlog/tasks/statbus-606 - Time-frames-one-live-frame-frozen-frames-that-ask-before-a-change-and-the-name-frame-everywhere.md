@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T16:55:00Z'
-updated_date: '2026-11-10T21:49:00Z'
+updated_date: '2026-11-10T22:18:00Z'
 labels:
   - ui
   - time
@@ -65,4 +65,6 @@ Owner 2026-11-10 21:46: the word is 'fixed frame', not 'frozen frame'. Fixed fra
 Owner 2026-11-10 21:46-21:47: three kinds of frame. Live frame (kind live: Live frame YYYY, current year onwards, open-ended, changes go straight in). Relative frame (kind relative: Previous frame YYYY, one closed year named by its position, moves on 1 January). Fixed frame (kind fixed: Frame YYYY, one closed year named by its number, never moves). Relative and fixed frames ask before a change. The time_frame view carries kind in (live, relative, fixed); the menu lists live, relative, then fixed frames, leaving out a fixed frame that equals a relative one; the import page shows all three groups in full.
 
 21:49 RED: test 399 (test/sql/399_statbus_606_time_frames.sql, 98bb66402) fails on master with 'relation public.time_frame does not exist'. Next: the time_frame migration.
+
+Owner 2026-11-10 23:16 (passing by the screenshots): likes what he sees; asked for a small info icon next to Live frame, Relative frames and Fixed frames explaining the concept. Done in f077e315d: one explanation per kind in TIME_FRAME_GROUPS (app/src/lib/time-frame.ts), shown by TimeFrameGroupHeading in the menu, the import list and the command palette. Night 22:05-22:18 progress on branch statbus-606-time-frames (not pushed): app 0d00d31de, docs 93171e821, tests+samples 44351e8f5 (19/20 pass, 404 only the known STATBUS-558 analytics line), palette ed616f171, 015/302 fcfa0c754, doc/db 9d272adb7, leftovers 35bf4b8ae. rg over app/src, cli, test/sql, samples, doc (outside doc/db and the dated audit/security snapshots) and the live schema finds no old name. tsc 0, lint 0 errors, jest 248/248. Review screenshots + README in tmp/606-review/ (script tmp/606-review-shots.mjs).
 <!-- SECTION:NOTES:END -->
