@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@rabbit'
 created_date: '2026-11-09T18:50:00Z'
-updated_date: '2026-11-09T22:48:00Z'
+updated_date: '2026-11-10T08:47:00Z'
 labels:
   - import
   - norway
@@ -99,4 +99,6 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 2026-11-09 22:47 UTC a456e15d7 lists units missing from the file without a feed deletion (counted in Slack, not closed). Read-only dry run on rune: 70,090 legal units and 83,994 establishments rune counts are absent from today's files with no deletion in the feed since 2026-11-01. A sample of 5 looked up in BRREG all have a slettedato between 2025-08-12 and 2026-04-28: rune's baseline files held units deleted long before, and rune stamped them valid from 2026-11-07, so none can be closed with their real date. Proposal for Q5, improved: look each missing unit up and close it at its slettedato (with option A this applies only to units missing after the re-baseline). Recommendation for Q10 stays A.
 
 2026-11-09 22:50 UTC caveat for option A: today's files no longer list units BRREG deleted between 1 and 9 November (1,372 legal units, 793 establishments, including 879755662 and 969313480), so a re-baseline valid from 2026-11-01 leaves them out instead of closing them on their date. AC5 ("closes 879755662 and 969313480 at 2026-11-07") then needs rewording to "absent from the November register", or those units must be added from the BRREG unit lookup with their death date. Owner to choose in the morning.
+
+2026-11-10 08:47 UTC owner answers: Q4 yes (full files valid from the 1st of the month they cover). Q5 yes (missing unit without feed deletion closes on the 1st of the run month, counted separately; the run will use BRREG's slettedato when the lookup has one). Q6: all unit types supported, relationships (roller) included. Q7 yes. Q8: no separate figures table or file; report to Slack, the import jobs and StatBus's own graphs hold the rest. Q9: yes to running on rune and installing the crontab, provided it logs to Slack, adds no extra table and follows the plan. Q10 (strategy): owner proposes dating rune's existing data to when the files were really downloaded, then catching up from there, so the change algorithm is tested now instead of over months. Finding: rune's files are not from April; their latest registration, bankruptcy and winding-up dates are 2025-08-06, so they are the BRREG snapshot of about 2025-08-07 (copied to rune 2026-04-21). BRREG's feed reaches back past that (2,664,946 changes since 2025-10-26 alone).
 <!-- SECTION:NOTES:END -->
