@@ -17,9 +17,9 @@ BEGIN
             NEW.definition_id, COALESCE(definition.name, 'N/A'), COALESCE(definition.validation_error, 'Definition not found or not marked valid');
     END IF;
 
-    -- Validate time_context_ident if provided on the job
-    IF NEW.time_context_ident IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.time_context WHERE ident = NEW.time_context_ident) THEN
-        RAISE EXCEPTION 'Cannot create import job: Invalid time_context_ident % provided for the job does not exist in public.time_context.', NEW.time_context_ident;
+    -- Validate time_frame_ident if provided on the job
+    IF NEW.time_frame_ident IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.time_frame WHERE ident = NEW.time_frame_ident) THEN
+        RAISE EXCEPTION 'Cannot create import job: time frame % does not exist (public.time_frame).', NEW.time_frame_ident;
     END IF;
 
     IF NEW.slug IS NULL THEN
@@ -70,29 +70,29 @@ BEGIN
 
     -- Validate and set default validity dates based on the definition's declarative valid_time_from
     IF definition.valid_time_from = 'job_provided' THEN
-        -- Case A: The definition requires job-level dates. The user must provide EITHER a time_context_ident OR explicit dates, but not both.
-        IF NEW.time_context_ident IS NOT NULL AND (NEW.default_valid_from IS NOT NULL OR NEW.default_valid_to IS NOT NULL) THEN
-            RAISE EXCEPTION 'Cannot specify both a time_context_ident and explicit default_valid_from/to dates for a job with definition %.', definition.name;
+        -- Case A: The definition requires job-level dates. The user must provide EITHER a time_frame_ident OR explicit dates, but not both.
+        IF NEW.time_frame_ident IS NOT NULL AND (NEW.default_valid_from IS NOT NULL OR NEW.default_valid_to IS NOT NULL) THEN
+            RAISE EXCEPTION 'Cannot specify both a time_frame_ident and explicit default_valid_from/to dates for a job with definition %.', definition.name;
         END IF;
-        IF NEW.time_context_ident IS NULL AND (NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL) THEN
-            RAISE EXCEPTION 'Must specify either a time_context_ident or explicit default_valid_from/to dates for a job with definition %.', definition.name;
+        IF NEW.time_frame_ident IS NULL AND (NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL) THEN
+            RAISE EXCEPTION 'Must specify either a time_frame_ident or explicit default_valid_from/to dates for a job with definition %.', definition.name;
         END IF;
 
-        -- If time_context_ident is provided, derive the default dates.
-        IF NEW.time_context_ident IS NOT NULL THEN
-            SELECT tc.valid_from, tc.valid_to
+        -- If time_frame_ident is provided, derive the default dates.
+        IF NEW.time_frame_ident IS NOT NULL THEN
+            SELECT tf.valid_from, tf.valid_to
             INTO NEW.default_valid_from, NEW.default_valid_to
-            FROM public.time_context tc
-            WHERE tc.ident = NEW.time_context_ident;
+            FROM public.time_frame tf
+            WHERE tf.ident = NEW.time_frame_ident;
 
-            SELECT v_snapshot || jsonb_build_object('time_context', row_to_json(tc))
+            SELECT v_snapshot || jsonb_build_object('time_frame', row_to_json(tf))
             INTO v_snapshot
-            FROM public.time_context tc WHERE tc.ident = NEW.time_context_ident;
+            FROM public.time_frame tf WHERE tf.ident = NEW.time_frame_ident;
         END IF;
 
     ELSIF definition.valid_time_from = 'source_columns' THEN
-        IF NEW.time_context_ident IS NOT NULL THEN
-            RAISE EXCEPTION 'Cannot specify a time_context_ident for an import job when its definition (%) has valid_time_from="source_columns".', definition.name;
+        IF NEW.time_frame_ident IS NOT NULL THEN
+            RAISE EXCEPTION 'Cannot specify a time_frame_ident for an import job when its definition (%) has valid_time_from="source_columns".', definition.name;
         END IF;
         IF NEW.default_valid_from IS NOT NULL OR NEW.default_valid_to IS NOT NULL THEN
             RAISE EXCEPTION 'Cannot specify default_valid_from/to for an import job when its definition (%) has valid_time_from="source_columns".', definition.name;

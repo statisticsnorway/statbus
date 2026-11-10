@@ -20,7 +20,6 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.country'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.data_source'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.tag'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.relative_period'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.unit_size'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.power_group_type'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.legal_reorg_type'::regclass);
