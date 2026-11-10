@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T16:55:00Z'
-updated_date: '2026-11-10T21:46:00Z'
+updated_date: '2026-11-10T21:47:00Z'
 labels:
   - ui
   - time
@@ -58,4 +58,6 @@ Owner 2026-11-10 21:36: approved the cleanup. One list everywhere: Live frame YY
 Owner 2026-11-10 21:37-21:45, revising the list: relative and fixed frames are different things and are named apart. Relative: Live frame (ident live, 1 Jan current year .. infinity, read as of today) and Previous frame (ident prev, 1 Jan .. 31 Dec of the previous year, read as of 31 Dec: it ends like a fixed frame). Fixed: Frame YYYY (ident y_YYYY, that year forever). Relative idents are what recurring import jobs need: import_job_clone keeps the ident and re-derives the dates, so a job on prev loads last year every year. The time_frame view carries kind (relative/fixed) and, for a fixed frame, which relative frame it currently equals. The menu hides a fixed frame that equals a relative one (Live, Previous, Frame 2024, ...); the import page shows all, grouped 'Moves with the calendar' / 'Fixed year'. Ident mapping: r_year_curr -> live, r_year_prev -> prev (supersedes y_<previous year>).
 
 Owner 2026-11-10 21:46: the word is 'fixed frame', not 'frozen frame'. Fixed frames are Frame YYYY (that year forever); relative frames are Live frame and Previous frame. The confirmation before a change reaches into a past year says fixed frame.
+
+Owner 2026-11-10 21:46-21:47: three kinds of frame. Live frame (kind live: Live frame YYYY, current year onwards, open-ended, changes go straight in). Relative frame (kind relative: Previous frame YYYY, one closed year named by its position, moves on 1 January). Fixed frame (kind fixed: Frame YYYY, one closed year named by its number, never moves). Relative and fixed frames ask before a change. The time_frame view carries kind in (live, relative, fixed); the menu lists live, relative, then fixed frames, leaving out a fixed frame that equals a relative one; the import page shows all three groups in full.
 <!-- SECTION:NOTES:END -->
