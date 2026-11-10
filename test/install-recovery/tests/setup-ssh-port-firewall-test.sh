@@ -281,4 +281,39 @@ else
     nope "stage 4 does not verify 'OpenSSH allowed in UFW'"
 fi
 
+# 12. STATBUS-602: the end-of-run summary names the ports the firewall lets in,
+#     from the ports sshd listens on, so an operator knows SSH is reachable on
+#     its real port without running ufw status.
+summary_for() { # sshd ports -> the security-tools summary line after a verified stage
+    fakes_reset
+    export FAKE_SSHD_PORTS=$1 UFW_LOG="$work/ufw-summary.log"
+    : > "$UFW_LOG"
+    PATH="$work/bin:$PATH" bash -c '
+        set -u
+        source "$1"
+        ufw_allow_ssh_ports > /dev/null
+        record_stage security-tools ok
+        stage_done_line security-tools
+    ' _ "$SCRIPT" 2>&1
+}
+line=$(summary_for "713")
+if grep -qF 'OpenSSH (22)' <<<"$line" && grep -qF '713/tcp' <<<"$line" \
+    && grep -qF '80/tcp' <<<"$line" && grep -qF '443/tcp' <<<"$line" && grep -qF '5432/tcp' <<<"$line"; then
+    pass "sshd on 713: the summary names OpenSSH (22), 713/tcp, 80, 443 and 5432"
+else
+    nope "sshd on 713: the summary must name OpenSSH (22), 713/tcp, 80/tcp, 443/tcp and 5432/tcp, got: $line"
+fi
+line=$(summary_for "22")
+if grep -qF 'OpenSSH (22)' <<<"$line" && ! grep -qF 'Custom SSH' <<<"$line" && ! grep -qE '(^|[^0-9])22/tcp' <<<"$line"; then
+    pass "sshd on 22: the summary names OpenSSH (22) and no custom SSH port"
+else
+    nope "sshd on 22: the summary must name OpenSSH (22) and nothing else for SSH, got: $line"
+fi
+intro="$(awk '/^stage_security_tools\(\)/,/ask_yes_no "Run this stage\?"/' "$SCRIPT")"
+if grep -q 'ssh_listen_ports' <<<"$intro"; then
+    pass "stage 4's description names the SSH port(s) from the ports sshd listens on"
+else
+    nope "stage 4's description does not name the SSH port(s) it will open"
+fi
+
 exit $fail
