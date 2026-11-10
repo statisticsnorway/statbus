@@ -1,7 +1,7 @@
 ---
 id: STATBUS-605
 title: Timeline refresh reads only the batch's units
-status: In Progress
+status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-10T11:32:00Z'
@@ -12,6 +12,7 @@ labels:
   - statistical-unit
 dependencies: []
 priority: high
+type: enhancement
 ordinal: 519204
 ---
 
