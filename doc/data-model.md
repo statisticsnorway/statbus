@@ -147,8 +147,6 @@ Enumerated types used across the schema, with their possible values.
 - **`public.location_type`**: `physical`, `postal`
 - **`public.person_sex`**: `Male`, `Female`
 - **`public.power_group_root_status`**: `single`, `cycle`, `multi`
-- **`public.relative_period_code`**: `today`, `year_curr`, `year_prev`, `year_curr_only`, `year_prev_only`, `start_of_week_curr`, `stop_of_week_prev`, `start_of_week_prev`, `start_of_month_curr`, `stop_of_month_prev`, `start_of_month_prev`, `start_of_quarter_curr`, `stop_of_quarter_prev`, `start_of_quarter_prev`, `start_of_semester_curr`, `stop_of_semester_prev`, `start_of_semester_prev`, `start_of_year_curr`, `stop_of_year_prev`, `start_of_year_prev`, `start_of_quinquennial_curr`, `stop_of_quinquennial_prev`, `start_of_quinquennial_prev`, `start_of_decade_curr`, `stop_of_decade_prev`, `start_of_decade_prev`
-- **`public.relative_period_scope`**: `input_and_query`, `query`, `input`
 - **`public.release_builds_status_type`**: `building`, `ready`, `failed`
 - **`public.release_status_type`**: `commit`, `prerelease`, `release`
 - **`public.reset_scope`**: `units`, `data`, `getting-started`, `all`
@@ -156,7 +154,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.stat_type`**: `int`, `float`, `string`, `bool`
 - **`public.statbus_role`**: `admin_user`, `regular_user`, `restricted_user`, `external_user`
 - **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `power_group`
-- **`public.time_context_type`**: `relative_period`, `tag`, `year`
+- **`public.time_frame_kind`**: `live`, `relative`, `fixed`
 - **`public.upgrade_actor_source`**: `verified`, `self-reported`, `absent`
 - **`public.upgrade_failure_code`**: `MIGRATION_FAILED`, `BACKUP_FAILED`, `DOCKER_UP_FAILED`, `HEALTHCHECK_REST_DOWN`, `HEALTHCHECK_APP_DOWN`, `HEALTHCHECK_DB_DOWN`, `ROLLBACK_FAILED_GIT_CORRUPT`, `ROLLBACK_FAILED_DB_RESTORE`, `UPGRADE_STOPPED_NOTHING_CHANGED`, `ROLLBACK_FAILED_SERVICES_UP`, `ROLLBACK_FAILED_SERVICES_NOT_STOPPED`, `ROLLBACK_FAILED_BINARY_CORRUPT`, `BINARY_REPLACE_FAILED`, `BINARY_BUILD_FAILED`, `INSTALL_FIXUP_FAILED`, `GIT_FETCH_FAILED_RETRYABLE`, `INSTALL_PRECONDITION_FAILED`, `ROLLBACK_SCHEMA_FLOOR_FAILED`
 - **`public.upgrade_state`**: `available`, `scheduled`, `in_progress`, `completed`, `failed`, `rolled_back`, `dismissed`, `skipped`, `superseded`
@@ -183,12 +181,8 @@ Enumerated types used across the schema, with their possible values.
 ### Derivations for UI listing of relevant time periods
 
 - `timesegments_years(year)` — **derived**
-- `relative_period(id, code, name_when_query, name_when_input, enabled, scope)` — **reference**
-  - Enums: `code` (`public.relative_period_code`), `scope` (`public.relative_period_scope`).
-- `relative_period_with_time(id, code, name_when_query, name_when_input, valid_on, valid_from, valid_to, enabled, scope)`
-  - Enums: `code` (`public.relative_period_code`), `scope` (`public.relative_period_scope`).
-- `time_context(type, ident, name_when_query, name_when_input, code, path, valid_from, valid_to, valid_on, scope)`
-  - Enums: `code` (`public.relative_period_code`), `scope` (`public.relative_period_scope`), `type` (`public.time_context_type`).
+- `time_frame(ident, name, equals_frame_ident, valid_from, valid_to, valid_on, kind, year)`
+  - Enums: `kind` (`public.time_frame_kind`).
 
 ### Derivations for drilling on facets of statistical_unit (/reports)
 
@@ -234,7 +228,7 @@ Handles the ingestion of data from external files.
 - `import_mapping(id, source_value, definition_id, source_column_id, target_data_column_id, created_at, updated_at, source_expression, is_ignored, target_data_column_purpose)` — **transient**
   - Key FKs: definition_id, source_column_id, target_data_column_id, target_data_column_id, target_data_column_purpose.
   - Enums: `source_expression` (`public.import_source_expression`), `target_data_column_purpose` (`public.import_data_column_purpose`).
-- `import_job(id, slug, time_context_ident, default_data_source_code, upload_table_name, data_table_name, current_step_code, definition_id, user_id, created_at, updated_at, preparing_data_at, analysis_start_at, analysis_stop_at, changes_approved_at, changes_rejected_at, processing_start_at, processing_stop_at, expires_at, description, note, default_valid_from, default_valid_to, priority, analysis_batch_size, processing_batch_size, definition_snapshot, analysis_completed_pct, analysis_rows_per_sec, current_step_priority, max_analysis_priority, total_analysis_steps_weighted, completed_analysis_steps_weighted, total_rows, imported_rows, import_completed_pct, import_rows_per_sec, last_progress_update, state, error, review, edit_comment, error_count, warning_count, unique_units, truncate_overlong, warning)` — **transient**
+- `import_job(id, slug, time_frame_ident, default_data_source_code, upload_table_name, data_table_name, current_step_code, definition_id, user_id, created_at, updated_at, preparing_data_at, analysis_start_at, analysis_stop_at, changes_approved_at, changes_rejected_at, processing_start_at, processing_stop_at, expires_at, description, note, default_valid_from, default_valid_to, priority, analysis_batch_size, processing_batch_size, definition_snapshot, analysis_completed_pct, analysis_rows_per_sec, current_step_priority, max_analysis_priority, total_analysis_steps_weighted, completed_analysis_steps_weighted, total_rows, imported_rows, import_completed_pct, import_rows_per_sec, last_progress_update, state, error, review, edit_comment, error_count, warning_count, unique_units, truncate_overlong, warning)` — **transient**
   - Key FKs: definition_id, user_id.
   - Enums: `state` (`public.import_job_state`).
 

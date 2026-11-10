@@ -121,9 +121,7 @@ DECLARE
         )),
         (4, 2, 2, 'Derivations for UI listing of relevant time periods', NULL, jsonb_build_array(
             '{"schema": "public", "name": "timesegments_years", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "relative_period", "class": "reference"}'::jsonb,
-            '{"schema": "public", "name": "relative_period_with_time", "type": "VIEW"}'::jsonb,
-            '{"schema": "public", "name": "time_context", "type": "VIEW"}'::jsonb
+            '{"schema": "public", "name": "time_frame", "type": "VIEW"}'::jsonb
         )),
         (4, 2, 3, 'Derivations for drilling on facets of statistical_unit (/reports)', NULL, jsonb_build_array(
             '{"schema": "public", "name": "statistical_unit_facet", "class": "derived"}'::jsonb,
@@ -293,7 +291,7 @@ Views have no class (they follow their underlying table).
                 SELECT 1 FROM information_schema.columns
                 WHERE table_schema = v_entity_data->>'schema'
                   AND table_name = v_entity_data->>'name'
-                  AND v_entity_data->>'name' NOT IN ('relative_period_with_time', 'time_context')
+                  AND v_entity_data->>'name' <> 'time_frame'
                   AND (column_name IN ('valid_from', 'valid_after') OR table_name LIKE 'timeline_%')
             ) INTO v_is_temporal;
 

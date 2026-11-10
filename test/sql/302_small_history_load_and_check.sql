@@ -201,13 +201,12 @@ ORDER BY
 CALL worker.process_tasks(p_queue => 'analytics'); -- This will call all of the refresh functions above.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
-\echo "Checking time_context view for correct dynamic names and filtering"
--- This check verifies that:
--- 1. Relative periods for current/previous year have dynamic names.
--- 2. Year entries that overlap with relative periods are filtered out.
--- 3. The remaining years are sorted in descending order.
-SELECT type, ident, name_when_query, name_when_input
-FROM public.time_context;
+\echo "Checking the time frames for this history"
+-- The live frame and the previous (relative) frame come first, then a fixed
+-- frame for the previous year and for every earlier year with data, newest
+-- first; equals_frame_ident marks the fixed frame the menu leaves out.
+SELECT kind, ident, name, valid_from, valid_to, equals_frame_ident
+FROM public.time_frame;
 
 SELECT test.sudo_exec($sql$
   CREATE INDEX IF NOT EXISTS tidx_establishment_valid_from_valid_to ON establishment (valid_from, valid_to);

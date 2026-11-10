@@ -395,23 +395,22 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
  import    | completed |   408
 (2 rows)
 
-\echo "Checking time_context view for correct dynamic names and filtering"
-"Checking time_context view for correct dynamic names and filtering"
--- This check verifies that:
--- 1. Relative periods for current/previous year have dynamic names.
--- 2. Year entries that overlap with relative periods are filtered out.
--- 3. The remaining years are sorted in descending order.
-SELECT type, ident, name_when_query, name_when_input
-FROM public.time_context;
-      type       |      ident       |   name_when_query    |          name_when_input           
------------------+------------------+----------------------+------------------------------------
- relative_period | r_year_curr      | Current Year (2026)  | Current year and onwards (2026->)
- relative_period | r_year_prev      | Previous Year (2025) | Previous year and onwards (2025->)
- relative_period | r_year_prev_only |                      | Previous year only (2025)
- year            | y_2018           | 2018 (Data)          | 2018
- year            | y_2017           | 2017 (Data)          | 2017
- year            | y_2016           | 2016 (Data)          | 2016
- year            | y_2015           | 2015 (Data)          | 2015
+\echo "Checking the time frames for this history"
+"Checking the time frames for this history"
+-- The live frame and the previous (relative) frame come first, then a fixed
+-- frame for the previous year and for every earlier year with data, newest
+-- first; equals_frame_ident marks the fixed frame the menu leaves out.
+SELECT kind, ident, name, valid_from, valid_to, equals_frame_ident
+FROM public.time_frame;
+   kind   | ident  |         name          | valid_from |  valid_to  | equals_frame_ident 
+----------+--------+-----------------------+------------+------------+--------------------
+ live     | live   | Live frame (2026)     | 2026-01-01 | infinity   | 
+ relative | prev   | Previous frame (2025) | 2025-01-01 | 2025-12-31 | 
+ fixed    | y_2025 | Frame 2025            | 2025-01-01 | 2025-12-31 | prev
+ fixed    | y_2018 | Frame 2018            | 2018-01-01 | 2018-12-31 | 
+ fixed    | y_2017 | Frame 2017            | 2017-01-01 | 2017-12-31 | 
+ fixed    | y_2016 | Frame 2016            | 2016-01-01 | 2016-12-31 | 
+ fixed    | y_2015 | Frame 2015            | 2015-01-01 | 2015-12-31 | 
 (7 rows)
 
 SELECT test.sudo_exec($sql$
