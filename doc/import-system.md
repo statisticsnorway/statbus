@@ -39,7 +39,7 @@ The import system is built around several key database tables and concepts:
     *   Represents a specific *type* of import (e.g., "Import Legal Units for Current Year", "Import Establishments with Explicit Dates").
     *   Defines the overall behavior, such as the final database operation (`strategy`: `insert_or_replace`, `insert_only`, `replace_only`) and the structural `mode` (`legal_unit`, `establishment_formal`, `establishment_informal`, `generic_unit`). The `mode` column is `NOT NULL`.
     *   Declaratively specifies how the validity period for imported units is determined via the `valid_time_from` column. This column is a non-nullable `ENUM` (`public.import_valid_time_from`) with two possible values:
-        *   `'job_provided'`: The validity period is derived from parameters provided on the `import_job` itself, which can be either a `time_context_ident` or explicit `default_valid_from`/`to` dates.
+        *   `'job_provided'`: The validity period is derived from parameters provided on the `import_job` itself, which can be either a `time_frame_ident` (a row of `public.time_frame`: the live frame, a relative frame or a fixed frame) or explicit `default_valid_from`/`to` dates.
         *   `'source_columns'`: The validity period is derived from `valid_from` and `valid_to` columns present in the source data file.
     *   Is linked to the specific `import_step` records it utilizes via the `import_definition_step` table. All definitions must include the `valid_time` step.
     *   Links together all the necessary components for the chosen steps: source columns, data columns, and mappings.
@@ -171,8 +171,8 @@ The import system is built around several key database tables and concepts:
 8.  **Import Job (`import_job`)**:
     *   Represents a specific instance of an import, created by a user based on an `import_definition`.
     *   The way validity dates are provided depends on the `import_definition`'s `valid_time_from` value:
-        *   If `'job_provided'`, the job **must** have either a `time_context_ident` or explicit `default_valid_from`/`to` dates.
-        *   If `'source_columns'`, the job **must not** provide `time_context_ident` or `default_valid_from`/`to`.
+        *   If `'job_provided'`, the job **must** have either a `time_frame_ident` or explicit `default_valid_from`/`to` dates.
+        *   If `'source_columns'`, the job **must not** provide `time_frame_ident` or `default_valid_from`/`to`.
     *   Allows for job-specific configuration, such as `analysis_batch_size` and `processing_batch_size`, which independently control the number of rows processed in a single transaction during the analysis and processing phases, respectively.
     *   Tracks the overall state. The `import_job_state` enum includes:
         *   `waiting_for_upload`: Initial state. Job created, awaiting file upload.
@@ -214,7 +214,7 @@ The import system is built around several key database tables and concepts:
     *   `generic_unit`: Used for operations that apply to any pre-existing unit type, such as updating statistical variables. These definitions typically do not create new units but modify existing ones identified by external identifiers.
     *   `definition_snapshot` (JSONB column in `public.import_job`): Captures the complete state of an `import_definition` and its related entities at job creation. This ensures immutable processing. The structure is a JSONB object with keys corresponding to the source tables/views:
         *   `import_definition`: A JSON representation of the `public.import_definition` row.
-        *   `time_context` (optional): If `valid_time_from = 'time_context'`, a JSON representation of the `public.time_context` row.
+        *   `time_frame` (optional): If the job names a `time_frame_ident`, a JSON representation of that `public.time_frame` row as it was when the job was created.
         *   `import_step_list`: An array of `public.import_step` JSON objects for the definition.
         *   `import_data_column_list`: An array of `public.import_data_column` JSON objects for the definition's steps.
         *   `import_source_column_list`: An array of `public.import_source_column` JSON objects for the definition.

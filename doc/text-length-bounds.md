@@ -87,7 +87,6 @@ so they need no change. `timeline_establishment_def` and
 
 These still carry the original 256 bound and have not been measured or
 decided under this policy: `legal_unit.name`, `establishment.name`,
-`power_group.name`, `tag.name`, `contact.web_address`,
-`relative_period.name_when_query` and `relative_period.name_when_input` (and
-the timeline, statistical_unit and view columns derived from them). When one
+`power_group.name`, `tag.name` and `contact.web_address` (and the timeline,
+statistical_unit and view columns derived from them). When one
 of them needs to move, measure the real data, decide, and record it here.
