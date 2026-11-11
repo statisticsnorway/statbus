@@ -1,28 +1,47 @@
 "use client";
 
 import React from "react";
-import { Tables } from "@/lib/database.types"; // Import Tables type
+import { Tables } from "@/lib/database.types";
+import { useTimeFrame } from "@/atoms/app-derived";
+import { useDetailsPageData } from "@/atoms/edits";
+import { summarizeJob } from "@/lib/import-job-summary";
 
-// Define types locally or import if available globally
 type ImportJob = Tables<"import_job">;
 type ImportDefinition = Tables<"import_definition">;
 
 interface ImportJobDetailsProps {
   job: ImportJob;
-  // Definition might be null if not fetched or related
-  definition: ImportDefinition | null; 
+  definition: ImportDefinition | null;
 }
 
+/**
+ * The job as it was set on the import page: its Time frame and period, Data
+ * source and Comment (lib/import-job-summary.ts), and its definition. Shown
+ * on the upload page and the job's data page, so the job reads the same
+ * everywhere it appears.
+ */
 export function ImportJobDetails({ job, definition }: ImportJobDetailsProps) {
+  const { timeFrames } = useTimeFrame();
+  const { dataSources } = useDetailsPageData();
+  const summary = summarizeJob(job, timeFrames, dataSources);
+  const rows: [string, React.ReactNode][] = [
+    ["Time frame", <>{summary.timeFrame} <span className="text-zinc-500">· {summary.period}</span></>],
+    ["Data source", summary.dataSource ?? <span className="text-zinc-500">From the file or the definition</span>],
+    ...(summary.comment ? ([["Comment", <span key="c" className="whitespace-pre-wrap">{summary.comment}</span>]] as [string, React.ReactNode][]) : []),
+    ["Definition", definition?.name ?? job.description],
+  ];
+
   return (
-    <div className="border rounded-md p-4">
-      <h3 className="font-medium mb-3">Import Configuration</h3>
-      <div className="space-y-1 text-sm">
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Description</span>
-          <span className="font-medium text-right">{job.description}</span>
-        </div>
-      </div>
+    <div className="rounded-md border border-zinc-200 bg-white p-4" data-import-job-summary>
+      <h3 className="mb-3 font-medium">Import Configuration</h3>
+      <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1.5 text-sm">
+        {rows.map(([label, value]) => (
+          <React.Fragment key={label}>
+            <dt className="text-zinc-500">{label}</dt>
+            <dd className="text-right font-medium" data-summary-field={label}>{value}</dd>
+          </React.Fragment>
+        ))}
+      </dl>
     </div>
   );
 }
