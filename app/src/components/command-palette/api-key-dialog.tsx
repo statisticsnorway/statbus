@@ -150,6 +150,10 @@ export function ApiKeyDialog() {
             <dt className="text-zinc-500">Name in key</dt>
             <dd data-api-key-name={keyName ?? undefined}>
               {keyName ?? "—"}
+              <span className="block text-xs text-zinc-500">
+                Course certificates show this name. To change it, edit your{" "}
+                <a href="/profile" className="underline">profile</a>, then recreate the key.
+              </span>
               {nameOutdated && (
                 <span className="block text-red-600" data-api-key-name-outdated>
                   Your profile name is now {profileName}. Recreate the key to carry it.
