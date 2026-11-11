@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-11T11:57:00Z'
-updated_date: '2026-11-11T11:59:00Z'
+updated_date: '2026-11-11T13:29:00Z'
 labels:
   - performance
   - ops
@@ -36,15 +36,19 @@ Closing review: ops/bench-box.sh documents itself in its usage text, linked from
 - [ ] #2 After down, hcloud lists no bench box
 - [ ] #3 A round takes all code from the commit under test, checked by the round log: it records the commit's sb version (./sb --version), the image tag of each running container (docker compose images), and the seed's newest migration, all naming that commit
 - [ ] #4 ops/bench-box.sh without arguments prints its usage and exits 2; up, status, ssh, data, run, results and down each exit 0 against a real box, and run leaves a round log and fingerprint per round in tmp/bench/
-- [ ] #5 test/import_benchmark.py --worker-in-container runs the worker inside the compose worker container (the commit's statbus-worker image): the round log shows the worker started with docker compose exec and the import finished
-- [ ] #6 [Owner] Each workaround in Implementation Notes gets a decision, recorded here: keep it in bench-box, or fix it in setup or the scripts as its own change
+- [x] #5 [Owner] Each workaround in Implementation Notes gets a decision, recorded here: keep it in bench-box, or fix it in setup or the scripts as its own change
+- [ ] #6 Each round runs the worker as a one-off container of the commit's statbus-worker image (docker compose run worker ... --stop-when-idle), with no Crystal or Go on the box: the round log names the worker image tag and every import job finished
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Workarounds and findings while building the bench box, for the owner to decide on systematic fixes (AC6):
-1. test/import_benchmark.py starts the worker only as a host binary (cli/bin/statbus), which needs Crystal on the host. The owner chose option A on 2026-11-11: the box runs the commit's worker image, through the flag in AC5.
-2. Non-interactive setup needs SERVER_FQDN even on a box with no public name; the bench box sets a .local name, as manual-box does.
-3. Setup's core tools lack python3-venv, which the benchmark and BRREG scripts need; bench-box installs it with apt.
+Findings while building the bench box, each fixed where it lives (owner, 2026-11-11: fix as we go, land early):
+1. test/import_benchmark.py starts the worker only as a host binary, which needs Crystal. Owner chose option A: the box runs the commit's worker image (docker compose run of the worker service), so the box needs no compiler.
+2. dev.sh fetched sb from its image again on every call on a fresh Linux clone (the copied binary kept the image's build time). Fixed in f26c17644, test dev-sb-procurement-test.sh RED 2 fetches, GREEN 1.
+3. run_bounded left its timer's sleep holding the test-run lock up to 120 s after dev.sh exited. Fixed in f26c17644, test dev-run-bounded-test.sh RED 1 holder, GREEN 0 (3 of 3 runs each).
+4. brreg-import-downloads-from-tmp.sh failed since STATBUS-600 (missing status_code). Fixed in ca8f444f5: fits each file as brreg-monthly does; 200-row check RED COPY error, GREEN 160 rows (159 active, 1 passive).
+5. Setup's core tools lacked python3-venv, which StatBus's Python helpers need. Fixed in 3824b3407.
+6. Setup asks every StatBus server for its full name; a box with no public name is given a .local one, as manual-box does. That is setup's intended contract, not a gap.
+Landed on master: f26c17644 and ca8f444f5 (Rabbit, ca8f444f5).
 <!-- SECTION:NOTES:END -->
