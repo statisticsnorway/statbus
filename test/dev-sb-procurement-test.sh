@@ -152,7 +152,7 @@ case "${1:-}" in
   committed-drift|db) exit 0 ;;
   dotenv)
     case "${5:-}" in
-      SITE_DOMAIN) echo 'eval.statbus.test' ;;
+      CADDY_DB_BIND_ADDRESS) echo 'eval.statbus.test' ;;
       CADDY_DEPLOYMENT_MODE) echo 'development' ;;
       POSTGRES_APP_DB) echo 'statbus_eval' ;;
       POSTGRES_ADMIN_USER) echo 'postgres' ;;
@@ -188,6 +188,44 @@ chmod +x "$fixture/bin/docker" "$fixture/bin/uname"
 )
 echo "PASS: procured sb kept postgres-variables stdout safe to eval"
 
+# A procured sb is current for its commit until a cli/ source file changes after
+# the procurement. docker cp keeps the image's build mtime, older than a fresh
+# clone's files; the hot-edit check must still count it as current, so a second
+# dev.sh call in the same checkout runs without procuring again.
+(
+    cd "$fixture/repo"
+    # The fixture sb from the case above, kept as what the image ships.
+    cp ./sb "$fixture/sb-in-image"
+    rm -f ./sb
+    touch cli/main.go
+    cat >"$fixture/bin/docker" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >>"$fixture/docker.log"
+case "\${1:-} \${2:-}" in
+  'manifest inspect') exit 0 ;;
+  'pull ghcr.io/'*) exit 0 ;;
+  'create ghcr.io/'*) echo 'fixture-container' ;;
+  'cp fixture-container:/sb')
+    # docker cp keeps the mtime the file has in the image: its build time.
+    cp "$fixture/sb-in-image" "\$3"
+    touch -t 202001010000 "\$3"
+    ;;
+  'rm fixture-container') exit 0 ;;
+  *) exit 97 ;;
+esac
+EOF
+    : >"$fixture/docker.log"
+    PATH="$fixture/bin:/usr/bin:/bin" ./dev.sh postgres-variables >/dev/null 2>&1
+    first=$(grep -c '^pull ' "$fixture/docker.log" || true)
+    PATH="$fixture/bin:/usr/bin:/bin" ./dev.sh postgres-variables >/dev/null 2>&1
+    second=$(grep -c '^pull ' "$fixture/docker.log" || true)
+    echo "pulls after first call: $first, after second call: $second"
+    test "$first" -eq 1
+    test "$second" -eq 1
+)
+echo "PASS: a procured sb older than the clone's files is not procured again"
+
 # The optional seed fetch runs before every action when the cache is absent.
 # Its non-fatal fallback must also stay off stdout because postgres-variables
 # callers eval that stream. This fixture intentionally has no .db-seed cache.
@@ -202,7 +240,7 @@ case "${1:-}" in
   db) exit 1 ;;
   dotenv)
     case "${5:-}" in
-      SITE_DOMAIN) echo 'seed-failure.statbus.test' ;;
+      CADDY_DB_BIND_ADDRESS) echo 'seed-failure.statbus.test' ;;
       CADDY_DEPLOYMENT_MODE) echo 'development' ;;
       POSTGRES_APP_DB) echo 'statbus_seed_failure' ;;
       POSTGRES_ADMIN_USER) echo 'postgres' ;;
