@@ -30,7 +30,7 @@ BEGIN
         -- Change sets of up to 8000 units: work paid once per refresh batch is cheaper with fewer batches, and
         -- 451 batches still keep four workers busy to the end. Full register (3,118,352 units, 4 workers), same
         -- rows at every size: 1000 units 3,162 batches 607/599 s; 2000 565/581 s; 4000 548/534 s; 8000 514/526/514 s;
-        -- 16000 517 s with 15 s batches (STATBUS-614). The filtered path below keeps its own size.
+        -- 16000 517 s with 15 s batches (STATBUS-614). The filtered path below sizes its sets from the change.
         FOR v_batch IN SELECT * FROM public.get_temporally_closed_change_sets(p_target_change_set_size => 8000)
         LOOP
             v_enterprise_count := v_enterprise_count + COALESCE(array_length(v_batch.enterprise_ids, 1), 0);
@@ -147,7 +147,9 @@ BEGIN
             IF to_regclass('pg_temp._change_sets') IS NOT NULL THEN DROP TABLE _change_sets; END IF;
             CREATE TEMP TABLE _change_sets ON COMMIT DROP AS
             SELECT * FROM public.get_temporally_closed_change_sets(
-                p_target_change_set_size => 1000,
+                -- Sized from the change: see worker.partial_change_set_size (STATBUS-623).
+                p_target_change_set_size => worker.partial_change_set_size(
+                    p_establishment_id_ranges, p_legal_unit_id_ranges, p_enterprise_id_ranges),
                 p_establishment_id_ranges => NULLIF(p_establishment_id_ranges, '{}'::int4multirange),
                 p_legal_unit_id_ranges => NULLIF(p_legal_unit_id_ranges, '{}'::int4multirange),
                 p_enterprise_id_ranges => NULLIF(p_enterprise_id_ranges, '{}'::int4multirange)
