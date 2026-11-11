@@ -30,6 +30,14 @@
 #                              time one recalculation by the commit's worker:
 #                              full (default), or after renaming pct percent of
 #                              the legal units (the same units on every box)
+#   ops/bench-box.sh series <base> <candidate> [pcts, default "1 50 99"]
+#                              after restore at <base> and one recalc, the whole
+#                              comparison, detached: freeze the database (copy in
+#                              Postgres, about a minute), base's changes, then the
+#                              candidate on a fresh copy of the frozen base:
+#                              migrate, full recalculation, the same changes.
+#                              Results in ~/bench/series; follow with: series-log
+#   ops/bench-box.sh series-log   the series log so far
 #   Add --box NAME to any command to address a second box, statbus-bench-NAME.
 #   ops/bench-box.sh results   copy the round logs and fingerprints to tmp/bench/
 #                              and print the summary
@@ -383,6 +391,24 @@ docker compose stop worker > /dev/null 2>&1 || true
 echo "restored $dump in \$((\$(date +%s) - t0)) s, now at migration \$(./sb psql -X -At -c 'SELECT max(version) FROM db.migration')"
 ./sb psql -X -At -F ' ' -c "SELECT unit_type, count(*) FROM public.statistical_unit GROUP BY 1 ORDER BY 1" | sed 's/^/  units /'
 EOF
+    ;;
+series)
+    base=${2:?Usage: ops/bench-box.sh series <base> <candidate> [pcts] [--box NAME]}
+    candidate=${3:?Usage: ops/bench-box.sh series <base> <candidate> [pcts] [--box NAME]}
+    pcts=${4:-1 50 99}
+    [[ "$pcts" =~ ^[0-9\ ]+$ ]] || { echo "pcts: whole numbers separated by spaces" >&2; exit 2; }
+    base_sha=$(git -C "$ROOT" rev-parse --verify "$base^{commit}")
+    candidate_sha=$(git -C "$ROOT" rev-parse --verify "$candidate^{commit}")
+    if box statbus 'pgrep -f "bench/series.sh" > /dev/null'; then
+        echo "REFUSE: a series is running on the box. See: ops/bench-box.sh series-log" >&2; exit 1
+    fi
+    box statbus "mkdir -p ~/bench && cat > ~/bench/fingerprint.sql" < "$ROOT/ops/bench-box-fingerprint.sql"
+    box statbus "cat > ~/bench/series.sh" < "$ROOT/ops/bench-box-series.sh"
+    box statbus "rm -rf ~/bench/series; setsid bash ~/bench/series.sh $base_sha $candidate_sha '$pcts' > /dev/null 2>&1 < /dev/null & echo started"
+    echo "Series: $base ($base_sha) then $candidate ($candidate_sha), changes $pcts %. Follow: ops/bench-box.sh series-log"
+    ;;
+series-log)
+    box statbus 'cat ~/bench/series/series.log 2>/dev/null || echo "No series yet."; pgrep -f bench/series.sh > /dev/null && echo "(running, load $(cut -d" " -f1-3 /proc/loadavg))" || echo "(not running)"'
     ;;
 recalc)
     # One timed recalculation of the box's app database by its commit's worker
