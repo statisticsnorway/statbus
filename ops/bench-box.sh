@@ -21,6 +21,16 @@
 #                              recalculation, fingerprint of every public table
 #   ops/bench-box.sh progress  the running measurement's log so far
 #   ops/bench-box.sh stop      end the running measurement, every round of it
+#
+# Recalculation on restored data (no import), one commit per box:
+#   ops/bench-box.sh stack <commit>      that commit's stack, empty database
+#   ops/bench-box.sh restore <dump>      a Norway dump from rune:statbus/dbdumps,
+#                              then the commit's migrations on top
+#   ops/bench-box.sh recalc <label> [pct]
+#                              time one recalculation by the commit's worker:
+#                              full (default), or after renaming pct percent of
+#                              the legal units (the same units on every box)
+#   Add --box NAME to any command to address a second box, statbus-bench-NAME.
 #   ops/bench-box.sh results   copy the round logs and fingerprints to tmp/bench/
 #                              and print the summary
 #   ops/bench-box.sh ssh       log in as statbus
@@ -49,6 +59,17 @@ source "${STATBUS_CREDENTIALS_FILE:-$ROOT/.env.credentials}"
 export HCLOUD_TOKEN
 
 name=statbus-bench
+# --box NAME, anywhere on the command line, addresses a second box
+# (statbus-bench-NAME), so two commits can be measured side by side.
+args=()
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --box) [[ "${2:-}" =~ ^[a-z0-9]+$ ]] || { echo "--box takes a short name of lower-case letters and digits" >&2; exit 2; }
+               name=statbus-bench-$2; shift 2 ;;
+        *) args+=("$1"); shift ;;
+    esac
+done
+set -- ${args[@]+"${args[@]}"}
 type=ccx33
 image=ubuntu-26.04
 # Falkenstein, rune's data centre: the BRREG files travel server to server.
@@ -91,6 +112,19 @@ box() { # user command...: run a command on the box
     ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 "$user@$ip" "$@"
 }
 
+# box_script user [ssh options...] < script: run a script on the box from a file.
+# A script fed to "bash -s" on stdin is read by the first command in it that
+# reads stdin (docker compose, psql), which swallows the rest of the script.
+box_script() {
+    local user=$1 ip f; shift
+    ip=$(box_ip)
+    [ -n "$ip" ] || exit 1
+    f=bench-step-$$.sh
+    ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 "$user@$ip" "cat > /tmp/$f"
+    ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 "$@" "$user@$ip" \
+        "bash -euo pipefail /tmp/$f < /dev/null; rc=\$?; rm -f /tmp/$f; exit \$rc"
+}
+
 wait_for_ssh() {
     local ip=$1 i
     ssh-keygen -R "$ip" >/dev/null 2>&1 || true
@@ -110,7 +144,7 @@ wait_for_ssh() {
 # Setup asks for the server's full name, as for any StatBus server; this box
 # has no public one, so it is given a .local name, as manual-box does.
 prepare() {
-    box root "bash -s" <<EOF
+    box_script root <<EOF
 set -euo pipefail
 cat > /root/.setup-ubuntu.env <<CFG
 GITHUB_USERS="$github_users"
@@ -125,7 +159,7 @@ cd /root && HOME=/root bash -l /root/setup.sh --non-interactive --only-stages "b
 # loader's helpers need it.
 dpkg -s python3-venv > /dev/null 2>&1 || DEBIAN_FRONTEND=noninteractive apt-get install -y -q python3-venv > /dev/null
 EOF
-    box statbus "bash -s" <<EOF
+    box_script statbus <<EOF
 set -euo pipefail
 [ -d ~/statbus/.git ] || git clone -q $repo ~/statbus
 mkdir -p ~/statbus/tmp
@@ -309,6 +343,82 @@ stop)
     # client and psql it starts belongs to it: end the whole session, so no
     # round outlives its run.
     box statbus 'sids=$(ps -eo sid=,args= | awk "/bench\/round/ {print \$1}" | sort -u); [ -n "$sids" ] || { echo "Nothing running."; exit 0; }; for s in $sids; do pkill -TERM -s "$s"; done; sleep 2; for s in $sids; do pkill -KILL -s "$s" 2>/dev/null; done; cd ~/statbus && docker compose ps -q --filter name=worker-run | xargs -r docker rm -f > /dev/null; echo "Stopped session(s): $sids"'
+    ;;
+stack)
+    # The commit's stack with an empty database, no import: for a restored dump.
+    commit=${2:?Usage: ops/bench-box.sh stack <commit> [--box NAME]}
+    sha=$(git -C "$ROOT" rev-parse --verify "$commit^{commit}")
+    box_script statbus <<EOF
+set -euo pipefail
+cd ~/statbus
+docker compose --profile all down -v --remove-orphans > /dev/null 2>&1 || true
+git fetch -q origin && git checkout -q -f --detach $sha
+[ -f .users.yml ] || cp .users.example .users.yml
+rm -f ./sb
+./dev.sh postgres-variables > /dev/null 2>&1 || true
+[ -x ./sb ] || { echo "dev.sh did not procure ./sb"; exit 1; }
+# Commits before STATBUS-616 keep the image's build time on the procured sb.
+touch ./sb
+./sb config generate > /dev/null
+docker compose --profile all_except_app pull -q
+docker compose up -d --wait db proxy rest > /dev/null
+echo "stack \$(git describe --tags --always), \$(./sb --version | head -1)"
+EOF
+    ;;
+restore)
+    # A Norway dump from rune into this box's app database, then the box's
+    # commit's migrations on top. Rune is only read.
+    dump=${2:?Usage: ops/bench-box.sh restore <dump file in rune:statbus/dbdumps> [--box NAME]}
+    [[ "$dump" =~ ^[A-Za-z0-9_.-]+\.pg_dump$ ]] || { echo "Not a dump file name: $dump" >&2; exit 2; }
+    ip=$(box_ip)
+    box_script statbus -A <<EOF
+set -euo pipefail
+cd ~/statbus && mkdir -p dbdumps
+ssh-keygen -F rune.statbus.org > /dev/null || ssh-keyscan -H rune.statbus.org >> ~/.ssh/known_hosts 2> /dev/null
+[ -s dbdumps/$dump ] || rsync -a $rune:statbus/dbdumps/$dump dbdumps/
+t0=\$(date +%s)
+./sb db restore dbdumps/$dump --yes > tmp/bench-restore.log 2>&1 || { tail -20 tmp/bench-restore.log; exit 1; }
+docker compose stop worker > /dev/null 2>&1 || true
+./sb migrate up > tmp/bench-migrate.log 2>&1 || { tail -20 tmp/bench-migrate.log; exit 1; }
+echo "restored $dump in \$((\$(date +%s) - t0)) s, now at migration \$(./sb psql -X -At -c 'SELECT max(version) FROM db.migration')"
+./sb psql -X -At -F ' ' -c "SELECT unit_type, count(*) FROM public.statistical_unit GROUP BY 1 ORDER BY 1" | sed 's/^/  units /'
+EOF
+    ;;
+recalc)
+    # One timed recalculation of the box's app database by its commit's worker
+    # image. full: everything. A number: first rename that percent of the
+    # current legal units, chosen by id modulo 100 so every box changes the same
+    # units, and time the recalculation that change sets off.
+    label=${2:?Usage: ops/bench-box.sh recalc <label> [full|pct] [--box NAME]}
+    pct=${3:-full}
+    [[ "$label" =~ ^[a-z0-9_-]+$ ]] || { echo "Label: lower-case letters, digits, - and _" >&2; exit 2; }
+    [[ "$pct" = full || "$pct" =~ ^([1-9][0-9]?|100)$ ]] || { echo "Give full or a percent 1-100" >&2; exit 2; }
+    box statbus "mkdir -p ~/bench/recalc && cat > ~/bench/fingerprint.sql" < "$ROOT/ops/bench-box-fingerprint.sql"
+    box_script statbus <<EOF
+set -euo pipefail
+cd ~/statbus
+sql() { ./sb psql -X -At -v ON_ERROR_STOP=1 "\$@"; }
+out=~/bench/recalc/$label
+docker compose stop worker > /dev/null 2>&1 || true
+sql -c "VACUUM (ANALYZE)" > /dev/null
+first=\$(sql -c "SELECT coalesce(max(id), 0) FROM worker.tasks")
+if [ "$pct" = full ]; then
+    sql -c "SELECT worker.enqueue_derive_statistical_unit_all()" > /dev/null
+    changed=all
+else
+    # The WHERE names the rows (safeupdate): the chosen share of current records.
+    changed=\$(sql -c "WITH c AS (UPDATE public.legal_unit SET name = left(name, 230) || ' (bench $label)' WHERE id % 100 < $pct AND valid_until = 'infinity' RETURNING 1) SELECT count(*) FROM c")
+fi
+t0=\$(date +%s)
+docker compose run --rm -T --no-deps worker timeout 36000 /app/bin/statbus worker --stop-when-idle > \$out.worker.log 2>&1
+t1=\$(date +%s)
+{
+  echo "$label change=$pct rows=\$changed wall_s=\$((t1 - t0)) failed=\$(sql -c "SELECT count(*) FROM worker.tasks WHERE id > \$first AND state = 'failed'") commit=\$(git describe --tags --always)"
+  sql -F ' ' -c "SELECT command, count(*), round(sum(process_duration_ms) / 1000, 1) FROM worker.tasks WHERE id > \$first GROUP BY 1 ORDER BY 3 DESC NULLS LAST LIMIT 10" | sed 's/^/  /'
+} | tee \$out.log
+sql < ~/bench/fingerprint.sql > \$out.fingerprint
+echo "  fingerprint \$(md5sum < \$out.fingerprint | cut -c1-12)" | tee -a \$out.log
+EOF
     ;;
 results)
     ip=$(box_ip)
