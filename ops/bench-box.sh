@@ -26,10 +26,11 @@
 #   ops/bench-box.sh stack <commit>      that commit's stack, empty database
 #   ops/bench-box.sh restore <dump>      a Norway dump from rune:statbus/dbdumps,
 #                              then the commit's migrations on top
-#   ops/bench-box.sh recalc <label> [pct]
+#   ops/bench-box.sh recalc <label> [full|pct|nN]
 #                              time one recalculation by the commit's worker:
 #                              full (default), or after renaming pct percent of
-#                              the legal units (the same units on every box)
+#                              the legal units, or nN of them (n3: a few hand
+#                              edits); the same units on every box
 #   ops/bench-box.sh series <base> <candidate> [pcts, default "1 50 99"]
 #                              after restore at <base> and one recalc, the whole
 #                              comparison, detached: freeze the database (copy in
@@ -414,11 +415,12 @@ recalc)
     # One timed recalculation of the box's app database by its commit's worker
     # image. full: everything. A number: first rename that percent of the
     # current legal units, chosen by id modulo 100 so every box changes the same
-    # units, and time the recalculation that change sets off.
-    label=${2:?Usage: ops/bench-box.sh recalc <label> [full|pct] [--box NAME]}
+    # units. nN (n3): rename N current legal units, the lowest ids not renamed
+    # yet, the same units on every box: the size of a few hand edits.
+    label=${2:?Usage: ops/bench-box.sh recalc <label> [full|pct|nN] [--box NAME]}
     pct=${3:-full}
     [[ "$label" =~ ^[a-z0-9_-]+$ ]] || { echo "Label: lower-case letters, digits, - and _" >&2; exit 2; }
-    [[ "$pct" = full || "$pct" =~ ^([1-9][0-9]?|100)$ ]] || { echo "Give full or a percent 1-100" >&2; exit 2; }
+    [[ "$pct" = full || "$pct" =~ ^([1-9][0-9]?|100)$ || "$pct" =~ ^n[1-9][0-9]{0,3}$ ]] || { echo "Give full, a percent 1-100, or nN for N units (n3)" >&2; exit 2; }
     box statbus "mkdir -p ~/bench/recalc && cat > ~/bench/fingerprint.sql" < "$ROOT/ops/bench-box-fingerprint.sql"
     box_script statbus <<EOF
 set -euo pipefail
@@ -431,6 +433,9 @@ first=\$(sql -c "SELECT coalesce(max(id), 0) FROM worker.tasks")
 if [ "$pct" = full ]; then
     sql -c "SELECT worker.enqueue_derive_statistical_unit_all()" > /dev/null
     changed=all
+elif [ "${pct#n}" != "$pct" ]; then
+    # The WHERE names the rows (safeupdate): N current records not renamed yet.
+    changed=\$(sql -c "WITH pick AS (SELECT id FROM public.legal_unit WHERE valid_until = 'infinity' AND name NOT LIKE '%(bench %' ORDER BY id LIMIT ${pct#n}), c AS (UPDATE public.legal_unit AS lu SET name = left(lu.name, 230) || ' (bench $label)' FROM pick WHERE lu.id = pick.id AND lu.valid_until = 'infinity' RETURNING 1) SELECT count(*) FROM c")
 else
     # The WHERE names the rows (safeupdate): the chosen share of current records.
     changed=\$(sql -c "WITH c AS (UPDATE public.legal_unit SET name = left(name, 230) || ' (bench $label)' WHERE id % 100 < $pct AND valid_until = 'infinity' RETURNING 1) SELECT count(*) FROM c")
