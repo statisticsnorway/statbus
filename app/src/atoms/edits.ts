@@ -31,7 +31,7 @@ export const initialEditAtom: EditTarget = {
 
 export const currentEditAtom = atom<EditTarget>(initialEditAtom);
 
-export type EditTargetOptions = Omit<EditTarget, "fieldId" | "dataSourceId" | "editComment">;
+export type EditTargetOptions = Omit<EditTarget, "fieldId">;
 
 export const setEditTargetAtom = atom(
   null,
@@ -41,16 +41,25 @@ export const setEditTargetAtom = atom(
       frameIdent: options?.frameIdent ?? null,
       validFrom: options?.validFrom ?? null,
       validTo: options?.validTo ?? null,
+      dataSourceId: options?.dataSourceId ?? null,
+      editComment: options?.editComment ?? null,
       source: options?.source,
       shownValue: options?.shownValue,
     }));
   }
 );
 
-/** Moves the open edit to another frame and the dates derived from it, keeping data source and comment. */
+/**
+ * Moves the open edit to another frame and the dates derived from it. The data
+ * source and comment are those of the row the edit now starts in, when read.
+ */
 export const setEditFrameAtom = atom(
   null,
-  (get, set, frame: { frameIdent: string; validFrom: string | null; validTo: string | null }) => {
+  (
+    get,
+    set,
+    frame: { frameIdent: string; validFrom: string | null; validTo: string | null; dataSourceId?: string | null; editComment?: string | null }
+  ) => {
     set(currentEditAtom, (prev) => ({ ...prev, ...frame }));
   }
 );

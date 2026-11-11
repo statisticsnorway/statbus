@@ -120,7 +120,7 @@ export const EditableImageFieldWithMetadata = ({
             <EditButton
               className="h-8"
               variant="ghost"
-              onClick={() => startEdit(fieldId, editSource, imageId)}
+              onClick={() => startEdit(fieldId, editSource, imageId, metadata)}
             >
               <Pencil className="text-zinc-700" />
             </EditButton>

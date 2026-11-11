@@ -110,13 +110,16 @@ export interface TimeFramePanelProps {
   /** The chosen data source, by code. */
   dataSourceCode: string | null;
   onDataSourceChange: (code: string | null) => void;
-  /** Shown when no source is chosen, e.g. the import definition's own source. */
+  /** Shown for no source, and offered in the list to clear it: e.g. the import definition's own source. Default "None". */
   dataSourcePlaceholder?: string;
   comment: string | null;
   onCommentChange: (comment: string | null) => void;
   /** Rendered as hidden fields for a form post (the edit form): valid_from, valid_to, data_source_id, edit_comment. */
   formFields?: boolean;
 }
+
+/** The Data source list's entry for no source: Radix Select reserves the empty value. */
+const NO_SOURCE = "__none__";
 
 /**
  * Where a change applies and where it comes from, the same for an edit and
@@ -268,13 +271,17 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
             Data source
           </Label>
           <Select
-            value={dataSourceCode ?? ""}
-            onValueChange={(code) => onDataSourceChange(code || null)}
+            value={dataSourceCode ?? NO_SOURCE}
+            onValueChange={(code) => onDataSourceChange(code === NO_SOURCE ? null : code)}
           >
             <SelectTrigger id={`${idPrefix}-datasource`} className="h-9 w-full min-w-0 border-zinc-300 bg-white">
-              <SelectValue placeholder={dataSourcePlaceholder ?? "Select data source"} />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              {/* Choosing no source clears it; on an import the file or the definition then decides. */}
+              <SelectItem value={NO_SOURCE}>
+                <span className="text-zinc-500">{dataSourcePlaceholder ?? "None"}</span>
+              </SelectItem>
               {dataSources.map((d) => (
                 <SelectItem key={d.code!} value={d.code!}>
                   <span className="font-mono text-xs text-zinc-500">{d.code}</span>

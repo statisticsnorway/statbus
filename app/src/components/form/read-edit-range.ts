@@ -18,6 +18,18 @@ export interface EditFieldSource {
   column: string | string[];
 }
 
+/**
+ * The edit's default period (defaultEditRange) and where its value came from:
+ * the data source and comment of the row holding the shown value on the
+ * period's first day. The edit starts with them, so a save that changes neither
+ * keeps them; the user can change or clear either. Absent when the rows could
+ * not be read.
+ */
+export interface EditStart extends EditRange {
+  dataSourceId?: string | null;
+  editComment?: string | null;
+}
+
 export interface ReadEditRangeArgs extends EditFieldSource {
   shownValue: unknown;
   context: TimeFrameRange;
@@ -48,9 +60,11 @@ export async function readEditRange(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: PostgrestClient<any, any, any>,
   { table, match, column, shownValue, context }: ReadEditRangeArgs
-): Promise<EditRange> {
+): Promise<EditStart> {
   const columns = Array.isArray(column) ? column : [column];
-  let query = client.from(table).select(`valid_from,valid_to,${columns.join(",")}`);
+  let query = client
+    .from(table)
+    .select(`valid_from,valid_to,data_source_id,edit_comment,${columns.join(",")}`);
   for (const [key, value] of Object.entries(match)) query = query.eq(key, value);
   const { data, error } = await query.order("valid_from");
   if (error || !data) {
@@ -66,5 +80,13 @@ export async function readEditRange(
   const shown = Array.isArray(column)
     ? valueOf((shownValue ?? {}) as Record<string, unknown>)
     : String(shownValue ?? "");
-  return defaultEditRange(rows, shown, context);
+  const range = defaultEditRange(rows, shown, context);
+  const first = (data as unknown as Record<string, unknown>[]).find(
+    (r) => String(r.valid_from) <= range.validFrom && (r.valid_to === "infinity" || String(r.valid_to) >= range.validFrom)
+  );
+  return {
+    ...range,
+    dataSourceId: first?.data_source_id == null ? null : String(first.data_source_id),
+    editComment: first?.edit_comment ? String(first.edit_comment) : null,
+  };
 }

@@ -28,10 +28,10 @@ describe("readEditRange", () => {
       shownValue: "0001 INVEST AS",
       context: { valid_from: "2026-01-01", valid_to: "2026-12-31" },
     });
-    expect(range).toEqual({ validFrom: "2026-11-07", validTo: "2026-12-31" });
+    expect(range).toEqual({ validFrom: "2026-11-07", validTo: "2026-12-31", dataSourceId: null, editComment: null });
     expect(record.calls).toEqual([
       ["from", "legal_unit"],
-      ["select", "valid_from,valid_to,name"],
+      ["select", "valid_from,valid_to,data_source_id,edit_comment,name"],
       ["eq", "id", 314286],
       ["order", "valid_from"],
     ]);
@@ -53,7 +53,7 @@ describe("readEditRange", () => {
       shownValue: "Testveien 604",
       context: { valid_from: "2026-01-01", valid_to: "infinity" },
     });
-    expect(range).toEqual({ validFrom: "2026-06-01", validTo: "infinity" });
+    expect(range).toEqual({ validFrom: "2026-06-01", validTo: "infinity", dataSourceId: null, editComment: null });
     expect(record.calls).toContainEqual(["eq", "type", "physical"]);
   });
 
@@ -73,8 +73,8 @@ describe("readEditRange", () => {
       shownValue: { address_part1: "Vei 1", postcode: "0002" },
       context: { valid_from: "2026-01-01", valid_to: "2026-12-31" },
     });
-    expect(range).toEqual({ validFrom: "2026-04-01", validTo: "2026-12-31" });
-    expect(record.calls).toContainEqual(["select", "valid_from,valid_to,address_part1,postcode"]);
+    expect(range).toEqual({ validFrom: "2026-04-01", validTo: "2026-12-31", dataSourceId: null, editComment: null });
+    expect(record.calls).toContainEqual(["select", "valid_from,valid_to,data_source_id,edit_comment,address_part1,postcode"]);
   });
 
   it("falls back to the selected context when the read fails", async () => {

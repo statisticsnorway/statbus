@@ -91,7 +91,7 @@ export const EditableFieldWithMetadata = ({
                 variant="ghost"
                 size="sm"
                 type="button"
-                onClick={() => startEdit(fieldId, editSource, value)}
+                onClick={() => startEdit(fieldId, editSource, value, metadata)}
               >
                 <Pencil className="text-zinc-700" />
               </EditButton>

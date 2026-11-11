@@ -99,7 +99,7 @@ export function EditableFieldGroup({
             variant="ghost"
             size="icon"
             type="button"
-            onClick={() => startEdit(fieldGroupId, editSource, shownValues)}
+            onClick={() => startEdit(fieldGroupId, editSource, shownValues, metadata)}
             className="h-8 w-8"
           >
             <Pencil className="h-4 w-4 text-zinc-700" />
