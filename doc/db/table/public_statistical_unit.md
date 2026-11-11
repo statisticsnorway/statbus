@@ -119,6 +119,7 @@ Indexes:
     "idx_statistical_unit_sector_path" btree (sector_path)
     "idx_statistical_unit_tag_paths" btree (tag_paths)
     "idx_statistical_unit_unit_type" btree (unit_type)
+    "statistical_unit_unit_idx" btree (unit_type, unit_id)
     "su_ei_stat_ident_idx" btree ((external_idents ->> 'stat_ident'::text))
     "su_ei_tax_ident_idx" btree ((external_idents ->> 'tax_ident'::text))
     "su_s_employees_idx" btree ((stats ->> 'employees'::text))

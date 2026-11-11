@@ -29,13 +29,15 @@ BEGIN
     -- Step 1: Pre-cleanup DELETE.
     -- Remove main rows for affected (unit_type, unit_id) tuples that have
     -- no matching temporal slice in staging. Scoped to affected units so we
-    -- never touch unrelated rows.
+    -- never touch unrelated rows. The affected units are a semi join on
+    -- staging, which needs no DISTINCT; the main rows are found through
+    -- statistical_unit_unit_idx (STATBUS-613).
     v_start_time := clock_timestamp();
     DELETE FROM public.statistical_unit AS t
-    USING (
-        SELECT DISTINCT unit_type, unit_id FROM public.statistical_unit_staging
-    ) AS u
-    WHERE t.unit_type = u.unit_type AND t.unit_id = u.unit_id
+    WHERE EXISTS (
+          SELECT 1 FROM public.statistical_unit_staging AS u
+          WHERE u.unit_type = t.unit_type AND u.unit_id = t.unit_id
+      )
       AND NOT EXISTS (
           SELECT 1 FROM public.statistical_unit_staging AS s
           WHERE s.unit_type = t.unit_type
