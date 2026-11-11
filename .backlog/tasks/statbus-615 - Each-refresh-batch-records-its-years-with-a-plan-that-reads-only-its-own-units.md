@@ -19,6 +19,8 @@ ordinal: 529204
 <!-- SECTION:DESCRIPTION:BEGIN -->
 Every refresh batch should cost the same no matter how many batches its worker has run before, so a full recalculation does not slow down as it goes. Recording which years a batch covers should read only that batch's own units, at any point in a worker's session, and record the same years as before.
 
+Zoom out: a PL/pgSQL statement is planned once for all calls after its fifth execution in a session, so a statement whose filters are switched on and off by parameters gets a plan that must serve every combination. A statement that serves one case keeps a plan fit for that case.
+
 Zoom in: public.timesegments_refresh records the years with one statement that OR-s four filters, each switched on by whether that unit type's ids were passed. PL/pgSQL gives a statement a generic plan after five executions in a session; the generic plan cannot see which filters apply and reads the batch's segments through the GiST index idx_timesegments_unit_daterange, on its non-leading unit_type and unit_id columns. Each worker session runs many batches, so most batches pay it.
 
 Measured on import_benchmark_64469 (full register, 3,118,352 units, 8000-unit batches): the years statement takes 11 ms with a plan for the call's own values and 1,234 ms with the generic plan; the refresh rises from 322-361 ms (calls 1-5) to 686-837 ms (calls 6-10). A full recalculation scans the GiST index 1,524,130 times, all from this statement. On rune (rc.01, 1000-unit batches), 16,162,002 GiST scans since start; per call 999-1,000 scans and 90-154 ms; with one statement per unit type 0 scans and 44-73 ms. plan_cache_mode = force_custom_plan (the STATBUS-555 remedy) does not help here: on rune even the custom plan picks the GiST index (estimate 381 rows for 2,000).
@@ -30,10 +32,10 @@ Closing review: no memory change; the reason is recorded at the statement in the
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 After more than five refresh calls in one session, recording the years scans idx_timesegments_unit_daterange 0 times
-- [x] #2 Full recalculations on the full register produce identical derived tables, with and without the change
-- [ ] #3 The rune measurement (four full recalculations, two with and two without the change) is recorded in this ticket's notes
-- [x] #4 timesegments_years holds the same years as before for the same batches: test 357 records the years from eight refresh calls and compares them with the years of the refreshed segments (same_as_refreshed_segments = t, 40 years with and without the change)
+- [x] #1 Full recalculations on the full register produce identical derived tables, with and without the change
+- [ ] #2 The rune measurement (four full recalculations, two with and two without the change) is recorded in this ticket's notes
+- [x] #3 timesegments_years holds the same years as before for the same batches: test 357 records the years from eight refresh calls and compares them with the years of the refreshed segments (same_as_refreshed_segments = t, 40 years with and without the change)
+- [x] #4 After more than five refresh calls in one session, recording the years scans idx_timesegments_unit_daterange 0 times: test 357 shows 0 GiST scans after eight refresh calls in one session (1,400 without the change)
 <!-- AC:END -->
 
 ## Implementation Notes
