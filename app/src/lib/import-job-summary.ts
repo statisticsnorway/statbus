@@ -39,8 +39,11 @@ export function summarizeJob(
   const source = job.default_data_source_code
     ? dataSources.find((d) => d.code === job.default_data_source_code)
     : undefined;
+  // The code alone until its name is known (the source list loads after the job).
   const dataSource = job.default_data_source_code
-    ? `${job.default_data_source_code} – ${source?.name ?? "unknown source"}`
+    ? source?.name
+      ? `${job.default_data_source_code} – ${source.name}`
+      : job.default_data_source_code
     : null;
   const comment = job.edit_comment?.trim() ? job.edit_comment.trim() : null;
 

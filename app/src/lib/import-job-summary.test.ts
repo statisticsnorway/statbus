@@ -49,4 +49,9 @@ describe("summarizeJob", () => {
     expect(summarizeJob(job({ time_frame_ident: "y_2019", default_valid_from: "2019-01-01", default_valid_to: "2019-12-31" }), frames, sources))
       .toMatchObject({ timeFrame: "y_2019" });
   });
+
+  it("shows the source code alone while its name is not known", () => {
+    expect(summarizeJob(job({ default_data_source_code: "nlr" }), frames, []))
+      .toMatchObject({ dataSource: "nlr" });
+  });
 });

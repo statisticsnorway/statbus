@@ -1,17 +1,15 @@
 "use client";
 
 import React from "react";
-import { Tables } from "@/lib/database.types";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { useDetailsPageData } from "@/atoms/edits";
-import { summarizeJob } from "@/lib/import-job-summary";
-
-type ImportJob = Tables<"import_job">;
-type ImportDefinition = Tables<"import_definition">;
+import { summarizeJob, type JobValiditySource } from "@/lib/import-job-summary";
 
 interface ImportJobDetailsProps {
-  job: ImportJob;
-  definition: ImportDefinition | null;
+  /** The job's dating, source and comment fields, and its description. */
+  job: JobValiditySource & { description: string | null };
+  /** The definition the job was made from; only its name is shown. */
+  definition: { name: string | null } | null;
 }
 
 /**

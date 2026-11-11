@@ -53,6 +53,7 @@ import {
   JwtExpiredError,
 } from "@/hooks/use-swr-with-auth-refresh";
 import { statbusConfig } from "@/lib/statbus-config";
+import { ImportJobDetails } from "@/app/import/components/import-job-details";
 
 const formatNumber = (num: number | null | undefined): string => {
   if (num === null || num === undefined) return "0";
@@ -901,6 +902,9 @@ export default function ImportJobDataPage() {
           Description: {job.description ?? "N/A"} | Table: {job.data_table_name}
         </p>
       </div>
+
+      {/* The same summary as the upload page: time frame, data source, comment, definition. */}
+      <ImportJobDetails job={job} definition={job.import_definition ?? null} />
 
       {/* Approve/Reject bar for review workflow */}
       {job.state === "waiting_for_review" && (
