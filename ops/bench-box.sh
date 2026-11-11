@@ -32,7 +32,10 @@
 # the box's Docker cache for later rounds.
 #
 # Cost: ccx33 (8 dedicated cores, 32 GB, 240 GB) is about EUR 0.24 per hour,
-# billed hourly. A four-round run takes a few hours.
+# billed hourly. A four-round run takes a few hours. The project's dedicated-core
+# limit holds one ccx33, which the release ladder's LXD fleet also needs: up
+# refuses while another dedicated server runs; agree the slot with whoever runs
+# releases, and down the box as soon as the numbers are in.
 
 # The whole script is one block, so bash reads it completely before running:
 # editing this file during a long run changes nothing for the running copy.
@@ -242,6 +245,12 @@ case "${1:-}" in
 up)
     server=$(describe)
     if [ -z "$server" ]; then
+        # The project's dedicated-core limit holds one ccx33. The release ladder's
+        # LXD fleet host (ops/lxd-fleet/up.sh) is a ccx33 too, and a release
+        # outranks a measurement: refuse while it, or any other dedicated-core
+        # server, is up.
+        busy=$(hcloud server list -o json | jq -r '[.[] | select(.server_type.cpu_type == "dedicated") | .name] | join(", ")')
+        [ -z "$busy" ] || { echo "REFUSE: dedicated-core server(s) running: $busy. The project's limit holds one; the release ladder needs it. Try again when they are gone." >&2; exit 1; }
         hcloud server create --name "$name" --type "$type" --image "$image" \
             --location "$location" --ssh-key "$ssh_key" --label "$label" >/dev/null
         server=$(describe)
