@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-11T11:57:00Z'
-updated_date: '2026-11-11T13:29:00Z'
+updated_date: '2026-11-11T14:07:00Z'
 labels:
   - performance
   - ops
@@ -33,7 +33,7 @@ Closing review: ops/bench-box.sh documents itself in its usage text, linked from
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 A base, candidate, candidate, base run of rc.01 (4a66d259) against master reports wall time per load and identical fingerprints, recorded in this ticket
-- [ ] #2 After down, hcloud lists no bench box
+- [x] #2 After down, hcloud lists no bench box
 - [ ] #3 A round takes all code from the commit under test, checked by the round log: it records the commit's sb version (./sb --version), the image tag of each running container (docker compose images), and the seed's newest migration, all naming that commit
 - [ ] #4 ops/bench-box.sh without arguments prints its usage and exits 2; up, status, ssh, data, run, results and down each exit 0 against a real box, and run leaves a round log and fingerprint per round in tmp/bench/
 - [x] #5 [Owner] Each workaround in Implementation Notes gets a decision, recorded here: keep it in bench-box, or fix it in setup or the scripts as its own change
@@ -51,4 +51,6 @@ Findings while building the bench box, each fixed where it lives (owner, 2026-11
 5. Setup's core tools lacked python3-venv, which StatBus's Python helpers need. Fixed in 3824b3407.
 6. Setup asks every StatBus server for its full name; a box with no public name is given a .local one, as manual-box does. That is setup's intended contract, not a gap.
 Landed on master: f26c17644 and ca8f444f5 (Rabbit, ca8f444f5).
+
+First master round (081fd660), stopped at 14:07 to free the dedicated cores for the rc.02 release ladder (Hetzner's dedicated-core limit holds one ccx33; the LXD fleet host is one). By then the import had processed 944,000 of 1,134,476 legal units in 45 minutes (13:22-14:07, load 2.7-3.5 on 8 cores); establishments (823,768) and relationships (33,710) not started. Partial logs in tmp/bench/20261111T132150Z/. Verified on the real box: up, data (945 MB from rune in 10 s, md5 equal), run (detached, returns in 1 s), progress, results, down (exit 0, hcloud lists no statbus-bench); usage without arguments exits 2. f2828f4cb: up refuses while any dedicated-core server runs.
 <!-- SECTION:NOTES:END -->
