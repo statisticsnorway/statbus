@@ -1,4 +1,22 @@
-import { recreateApiKey, keyValidity } from "./api-key";
+import { recreateApiKey, keyValidity, tokenDisplayName } from "./api-key";
+
+describe("tokenDisplayName", () => {
+  // The token's claims are fixed when the key is created (auth.generate_api_key_token);
+  // tools such as the www.statbus.org course certificate read display_name from them.
+  const token = (claims: object) =>
+    `x.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.y`;
+
+  it("reads the display name the key was created with, Unicode intact", () => {
+    expect(tokenDisplayName(token({ display_name: "Jørgen Hermanrud Fjeld", email: "jorgen@veridit.no" }))).toBe(
+      "Jørgen Hermanrud Fjeld"
+    );
+  });
+
+  it("is null for a token without a display name or that cannot be read", () => {
+    expect(tokenDisplayName(token({ email: "a@b.c" }))).toBeNull();
+    expect(tokenDisplayName("not-a-token")).toBeNull();
+  });
+});
 
 describe("keyValidity", () => {
   it("states the ISO expiry date and the whole days left", () => {

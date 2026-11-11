@@ -2,6 +2,7 @@
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { toast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { useAtomValue } from "jotai";
 import { Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import {
@@ -17,7 +18,8 @@ import {
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { getBrowserRestClient } from "@/context/RestClientStore";
-import { keyValidity, recreateApiKey, type ApiKeyRow } from "@/lib/api-key";
+import { currentUserAtom } from "@/atoms/auth";
+import { keyValidity, recreateApiKey, tokenDisplayName, type ApiKeyRow } from "@/lib/api-key";
 
 type ShownKey = ApiKeyRow & { token: string };
 
@@ -25,11 +27,15 @@ type ShownKey = ApiKeyRow & { token: string };
  * "Show API key" from the command palette. A user may hold several keys
  * (public.api_key, one row per key); the dialog shows the active one most
  * recently created, with its description, creation date and how long it stays
- * valid, and how many active keys the user has. Recreate key (after a
- * confirmation) replaces the shown key with a new one and revokes it
- * (recreateApiKey, STATBUS-617), for a key that was exposed.
+ * valid, the name it carries, and how many active keys the user has. The name
+ * is fixed when the key is created, and tools that read the key (the
+ * www.statbus.org course certificate) show it; when the profile name has
+ * changed since, the dialog says so. Recreate key (after a confirmation)
+ * replaces the shown key with a new one and revokes it (recreateApiKey,
+ * STATBUS-617), for a key that was exposed or carries an outdated name.
  */
 export function ApiKeyDialog() {
+  const currentUser = useAtomValue(currentUserAtom);
   const [open, setOpen] = useState(false);
   const [apiKey, setApiKey] = useState<ShownKey | null>(null);
   const [activeCount, setActiveCount] = useState(0);
@@ -115,6 +121,9 @@ export function ApiKeyDialog() {
   };
 
   const validity = keyValidity(apiKey?.expires_at ?? null);
+  const keyName = apiKey ? tokenDisplayName(apiKey.token) : null;
+  const profileName = currentUser?.display_name ?? null;
+  const nameOutdated = !!keyName && !!profileName && keyName !== profileName;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -138,6 +147,15 @@ export function ApiKeyDialog() {
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm" data-api-key-details>
             <dt className="text-zinc-500">Description</dt>
             <dd>{apiKey.description ?? "—"}</dd>
+            <dt className="text-zinc-500">Name in key</dt>
+            <dd data-api-key-name={keyName ?? undefined}>
+              {keyName ?? "—"}
+              {nameOutdated && (
+                <span className="block text-red-600" data-api-key-name-outdated>
+                  Your profile name is now {profileName}. Recreate the key to carry it.
+                </span>
+              )}
+            </dd>
             <dt className="text-zinc-500">Created</dt>
             <dd>{apiKey.created_at?.slice(0, 10) ?? "—"}</dd>
             <dt className="text-zinc-500">Valid until</dt>
