@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-11T11:57:00Z'
-updated_date: '2026-11-11T14:07:00Z'
+updated_date: '2026-11-11T19:19:00Z'
 labels:
   - performance
   - ops
@@ -32,7 +32,7 @@ Closing review: ops/bench-box.sh documents itself in its usage text, linked from
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A base, candidate, candidate, base run of rc.01 (4a66d259) against master reports wall time per load and identical fingerprints, recorded in this ticket
+- [x] #1 A base, candidate, candidate, base run of rc.01 (4a66d259) against master reports wall time per load and identical fingerprints, recorded in this ticket
 - [x] #2 After down, hcloud lists no bench box
 - [ ] #3 A round takes all code from the commit under test, checked by the round log: it records the commit's sb version (./sb --version), the image tag of each running container (docker compose images), and the seed's newest migration, all naming that commit
 - [ ] #4 ops/bench-box.sh without arguments prints its usage and exits 2; up, status, ssh, data, run, results and down each exit 0 against a real box, and run leaves a round log and fingerprint per round in tmp/bench/
@@ -53,4 +53,12 @@ Findings while building the bench box, each fixed where it lives (owner, 2026-11
 Landed on master: f26c17644 and ca8f444f5 (Rabbit, ca8f444f5).
 
 First master round (081fd660), stopped at 14:07 to free the dedicated cores for the rc.02 release ladder (Hetzner's dedicated-core limit holds one ccx33; the LXD fleet host is one). By then the import had processed 944,000 of 1,134,476 legal units in 45 minutes (13:22-14:07, load 2.7-3.5 on 8 cores); establishments (823,768) and relationships (33,710) not started. Partial logs in tmp/bench/20261111T132150Z/. Verified on the real box: up, data (945 MB from rune in 10 s, md5 equal), run (detached, returns in 1 s), progress, results, down (exit 0, hcloud lists no statbus-bench); usage without arguments exits 2. f2828f4cb: up refuses while any dedicated-core server runs.
+
+Bench series 2026-11-11 on ccx33 (8 dedicated cores), rune dump no_20261110_161917 (1,134,475 legal units, 823,767 establishments), each commit from the same frozen copy (CREATE DATABASE TEMPLATE, 68-76 s). Wall seconds, rc.01 4a66d2591 vs master d6978425d (rc.02 + STATBUS-622), 0 failed tasks in every run:
+- full recalculation: 740 vs 512 (-31%). Refresh batches 1,614 s in 3,162 vs 1,068 s in 451; history 482 vs 394; flush 61 vs 41. Fingerprints identical on every public table except relative_period (removed by STATBUS-606).
+- 1% (11,344 LU renamed): 74 vs 70. Facets dominate (63 vs 57 s summed).
+- 50% (567,249): 850 vs 835. Flush 453 vs 452, refresh 766 vs 716.
+- 99% (1,123,131): 1,626 vs 1,698. Flush 874 vs 970, history 827 vs 611, refresh 1,492 vs 1,399.
+- 3 legal units renamed, 3 rounds: master 20.6/21.6/19.6 s, rc.01 19.7/22.6/20.6 s.
+Change-run fingerprints are not comparable in this run: the rename text carried the per-commit label (fixed in 409138e65). Results in tmp/bench/20261111-series/. Box deleted 19:18.
 <!-- SECTION:NOTES:END -->
