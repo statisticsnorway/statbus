@@ -43,8 +43,8 @@ Closing review: ops/bench-box.sh documents itself in its usage text, linked from
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Workarounds and findings while building the bench box (for the owner, to decide on systematic fixes):
-1. test/import_benchmark.py runs the worker only as a host binary (cli/bin/statbus), which needs Crystal on the host. Fix in this ticket: a --worker-in-container flag that runs the commit's worker image instead.
+Workarounds and findings while building the bench box, for the owner to decide on systematic fixes (AC6):
+1. test/import_benchmark.py starts the worker only as a host binary (cli/bin/statbus), which needs Crystal on the host. The owner chose option A on 2026-11-11: the box runs the commit's worker image, through the flag in AC5.
 2. Non-interactive setup needs SERVER_FQDN even on a box with no public name; the bench box sets a .local name, as manual-box does.
 3. Setup's core tools lack python3-venv, which the benchmark and BRREG scripts need; bench-box installs it with apt.
 <!-- SECTION:NOTES:END -->
