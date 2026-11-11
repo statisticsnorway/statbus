@@ -68,6 +68,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
 import { useBaseData } from "@/atoms/base-data";
+import { useTimeFrame } from "@/atoms/app-derived";
+import { useDetailsPageData } from "@/atoms/edits";
+import { summarizeJob } from "@/lib/import-job-summary";
+import { InfoPopover } from "@/components/info-popover";
 import { statbusConfig } from "@/lib/statbus-config";
 
 const SWR_KEY_IMPORT_JOBS = "/api/import-jobs";
@@ -199,6 +203,8 @@ export default function ImportJobsPage() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { statbusUsers } = useBaseData();
+  const { timeFrames } = useTimeFrame();
+  const { dataSources } = useDetailsPageData();
 
   // Read state directly from URL to build the SWR key
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
@@ -377,7 +383,9 @@ export default function ImportJobsPage() {
     () => [
       {
         id: "select",
-        size: 40,
+        // The 16 px box after the cell's 8 px left padding; the next column's
+        // own left padding gives the same 8 px after it.
+        size: 24,
         header: ({ table }) => (
           <Checkbox
             checked={
@@ -403,9 +411,11 @@ export default function ImportJobsPage() {
       {
         id: "id",
         accessorKey: "id",
-        size: 60,
+        // Fits the title, its sort arrow and a five-digit id, so the space
+        // left and right of the centred values is the same.
+        size: 54,
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="ID" />
+          <DataTableColumnHeader column={column} title="ID" align="center" />
         ),
         cell: ({ row }) => {
           const job = row.original;
@@ -413,13 +423,13 @@ export default function ImportJobsPage() {
             return (
               <Link
                 href={getUploadPathForJob(job)}
-                className="text-xs hover:underline"
+                className="block text-center text-xs hover:underline"
               >
                 {job.id}
               </Link>
             );
           }
-          return <div className="text-xs">{job.id}</div>;
+          return <div className="text-center text-xs">{job.id}</div>;
         },
         enableSorting: true,
       },
@@ -431,17 +441,28 @@ export default function ImportJobsPage() {
         ),
         cell: ({ row }) => {
           const job = row.original;
-          if (job.state === "waiting_for_upload") {
-            return (
-              <Link
-                href={getUploadPathForJob(job)}
-                className="font-medium hover:underline"
-              >
-                {job.description}
-              </Link>
-            );
-          }
-          return <div className="font-medium">{job.description}</div>;
+          // The job's comment, from the import page (lib/import-job-summary.ts), under its description.
+          const comment = summarizeJob(job, timeFrames, dataSources).comment;
+          const title = job.state === "waiting_for_upload" ? (
+            <Link
+              href={getUploadPathForJob(job)}
+              className="font-medium hover:underline"
+            >
+              {job.description}
+            </Link>
+          ) : (
+            <div className="font-medium">{job.description}</div>
+          );
+          return (
+            <div className="min-w-0">
+              {title}
+              {comment && (
+                <div className="max-w-xs truncate text-xs text-zinc-500" title={comment} data-job-comment>
+                  {comment}
+                </div>
+              )}
+            </div>
+          );
         },
         meta: {
           label: "Description",
@@ -449,6 +470,41 @@ export default function ImportJobsPage() {
           variant: "text",
         },
         enableColumnFilter: true,
+      },
+      {
+        id: "time_frame",
+        header: "Time frame",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const s = summarizeJob(row.original, timeFrames, dataSources);
+          return (
+            <div className="text-xs" data-job-time-frame={row.original.time_frame_ident ?? undefined}>
+              <div className="font-medium whitespace-nowrap">{s.timeFrame}</div>
+              <div className="text-zinc-500 whitespace-nowrap">{s.period}</div>
+            </div>
+          );
+        },
+      },
+      {
+        id: "data_source",
+        header: "Source",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const job = row.original;
+          const s = summarizeJob(job, timeFrames, dataSources);
+          return (
+            <span className="inline-flex items-center gap-1 text-xs whitespace-nowrap" data-job-source={job.default_data_source_code ?? undefined}>
+              {job.default_data_source_code ? (
+                <span className="font-mono">{job.default_data_source_code}</span>
+              ) : (
+                <span className="text-zinc-400">From file</span>
+              )}
+              <InfoPopover label={`About the data source of job ${job.id}`} title="Data source">
+                {s.dataSource ?? "The job names no source: each row's own source is used, or the import definition's."}
+              </InfoPopover>
+            </span>
+          );
+        },
       },
       {
         id: "state",
@@ -1008,7 +1064,7 @@ export default function ImportJobsPage() {
         },
       },
     ],
-    [setErrorToShow, isDeleting, handleDeleteJobs, statbusUsers, mutate]
+    [setErrorToShow, isDeleting, handleDeleteJobs, statbusUsers, mutate, timeFrames, dataSources]
   );
 
   const pageCount = useMemo(() => {
