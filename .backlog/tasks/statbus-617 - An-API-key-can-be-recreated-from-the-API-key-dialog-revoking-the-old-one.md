@@ -1,0 +1,34 @@
+---
+id: STATBUS-617
+title: An API key can be recreated from the API key dialog, revoking the old one
+status: To Do
+assignee: []
+created_date: '2026-11-11T12:40:00Z'
+labels:
+  - app
+  - auth
+dependencies: []
+priority: medium
+ordinal: 530204
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+## North Star
+A user who has exposed an API key replaces it in one step, where they already find it, and the old key stops working at once.
+
+## Zoom out
+2026-11-11: PR 324 (Erik Søberg) committed his admin_user API key for ma.statbus.org to a public branch. Rotating it today is possible only over REST (rpc/login, rpc/create_api_key, rpc/revoke_api_key), which we wrote out for him in the PR (comment 6796072544). Proven locally: tmp/pr324-rotation-local.log (old key 200, after revoke 'API Key has been revoked.', new key 200).
+The app's only API key UI is the command palette's 'Show API key' dialog (app/src/components/command-palette/api-key-dialog.tsx). It shows the first key and copies it, nothing else.
+
+## Zoom in
+Owner 12:39: a Recreate (refresh) button on the show-key dialog. Recreate creates a new key (same description and duration) and revokes the one shown, then shows the new token to copy.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 The API key dialog offers Recreate; pressing it shows a new token, and the previous token is refused with 'API Key has been revoked.'; a test asserts both against the REST API
+- [ ] #2 The dialog shows the active key (not a revoked one) when the user has several keys; a test asserts it
+- [ ] #3 [Owner] Recreates his key on a box after the release carrying this. The answer is recorded in this ticket's notes: yes closes the ticket; no gives the error to investigate.
+<!-- AC:END -->
