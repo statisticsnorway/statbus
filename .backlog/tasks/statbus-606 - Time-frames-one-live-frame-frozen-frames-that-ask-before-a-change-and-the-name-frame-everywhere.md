@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T16:55:00Z'
-updated_date: '2026-11-11T11:52:00Z'
+updated_date: '2026-11-11T14:18:00Z'
 labels:
   - ui
   - time
@@ -71,4 +71,6 @@ Owner 2026-11-10 23:16 (passing by the screenshots): likes what he sees; asked f
 Night 22:18-22:52: edit form (d70088ad7) opens on Frame = selected frame; choosing a frame re-derives the dates by the 604 rule (editPeriodInFrame, jest); pencil shows Data Source/Valid From/Valid To, 'Back to frame' returns. Import pages (7673efb03) open on Frame; pencil reveals the other options incl. Source Dates; jobs from legal-units/establishments/establishments-without-legal-unit carry the chosen ident (prev, 2025 dates; tmp/606-review/import-jobs.json). Confirmation (0763a80c6): framesNeedingConfirmation + useFixedFrameConfirmation; real app on FRAME REVIEW AS (6060606060, from 2023): prev Save asks 'Previous frame (2025)', Cancel stores nothing, Confirm stores 2025 only; Frame 2024 asks 'Frame 2024'; live saves without asking; import Continue on Frame 2024 asks, Cancel no job, Confirm job y_2024 (tmp/606-review/confirm-*.json). Fast suite 139/139 (tmp/test-606-fast-2.log), jest 255/255, tsc 0, lint 0 errors. Open for owner: AC#7 'allow changes to fixed frames' setting (UI-only question means API/CLI jobs are never asked) and the wording questions in tmp/606-review/README.md. Local housekeeping: rejected stale local demo jobs 7-9 (waiting_for_review since 16:57, blocking the queue); job 10 failed as a consequence.
 
 Owner 2026-11-11 11:51: AC#7 decided as 'only the UI asks'; no 'allow changes to fixed frames' job setting (it would matter only if the database refused changes to past frames, a separate ticket). The criterion was rewritten and is now the last one. Review 11:44-11:49: upload pages show the one-line job summary (010bf6e8e), approved; edit form on FRAME REVIEW AS approved, confirmation worked, rename saved to Previous frame (2025) only. Found: the edit's Data source starts empty, so the rename stored data_source_id NULL for 2025 (was 2). Owner: default Data source and Comment to the values already there, so doing nothing preserves them, and allow clearing both. Fix next, before the merge of master.
+
+2026-11-11 14:05: in release candidate v2026.11.4-rc.02 (49376c40a; CI all green, ./sb release check green). Release tests held up by outside outages (Hetzner core limit, then Canonical snap store); re-run when the store answers. Remaining owner checks after the release reaches a box.
 <!-- SECTION:NOTES:END -->
