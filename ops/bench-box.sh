@@ -31,12 +31,15 @@
 #                              full (default), or after renaming pct percent of
 #                              the legal units, or nN of them (n3: a few hand
 #                              edits); the same units on every box
-#   ops/bench-box.sh series <base> <candidate> [pcts, default "1 50 99"]
+#   ops/bench-box.sh series <base> <candidate> [changes, default "1 50 99"]
 #                              after restore at <base> and one recalc, the whole
 #                              comparison, detached: freeze the database (copy in
 #                              Postgres, about a minute), base's changes, then the
 #                              candidate on a fresh copy of the frozen base:
 #                              migrate, full recalculation, the same changes.
+#                              A change is a percent of legal units, or nN for the
+#                              first N ("n3 n3 n3 1 50 99"). Each run also saves
+#                              every task's start and end (<label>.tasks.tsv).
 #                              Results in ~/bench/series; follow with: series-log
 #   ops/bench-box.sh series-log   the series log so far
 #   Add --box NAME to any command to address a second box, statbus-bench-NAME.
@@ -397,7 +400,7 @@ series)
     base=${2:?Usage: ops/bench-box.sh series <base> <candidate> [pcts] [--box NAME]}
     candidate=${3:?Usage: ops/bench-box.sh series <base> <candidate> [pcts] [--box NAME]}
     pcts=${4:-1 50 99}
-    [[ "$pcts" =~ ^[0-9\ ]+$ ]] || { echo "pcts: whole numbers separated by spaces" >&2; exit 2; }
+    [[ "$pcts" =~ ^(n?[0-9]+)(\ n?[0-9]+)*$ ]] || { echo "changes: percents or nN, separated by spaces (n3 n3 1 50 99)" >&2; exit 2; }
     base_sha=$(git -C "$ROOT" rev-parse --verify "$base^{commit}")
     candidate_sha=$(git -C "$ROOT" rev-parse --verify "$candidate^{commit}")
     if box statbus 'pgrep -f "bench/series.sh" > /dev/null'; then
