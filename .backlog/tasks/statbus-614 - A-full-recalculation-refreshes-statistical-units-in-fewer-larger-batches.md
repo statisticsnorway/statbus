@@ -1,11 +1,11 @@
 ---
 id: STATBUS-614
 title: A full recalculation refreshes statistical units in fewer, larger batches
-status: In Progress
+status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-11T05:02:00Z'
-updated_date: '2026-11-11T07:22:00Z'
+updated_date: '2026-11-11T07:42:00Z'
 labels:
   - performance
   - db
@@ -50,4 +50,6 @@ Fast suite 140/140 + 094 + 143 PASS (tmp/test-614-fast.log); 356 in the shared r
 Open: in the full fast suite 356 took 324 s once (06:46 run, load up to 21), 30 s and 6.4 s in two shared-prefix runs, 6 s alone; with every table's statistics forced to one row a full recalculation of its fixture takes 3.3 s. The quadratic enterprise-timeline plan is fixed (4,504,500 -> 3,000 segment reads); the 324 s outlier is not yet explained and is being chased before Done.
 
 07:22 Clean fast runs on the committed tree: 140/140 + 094 + 143 PASS twice, test 356 in 6.4 s and 6.3 s; stamp recorded at 4b6f21271 (source 20261111050226). The single 324 s run (first after the template rebuild, machine load 21 from another project's compiler tests) did not recur in four later runs (6-30 s); with every table's statistics forced to one row the fixture's full recalculation takes 3.3 s.
+
+On master f186ba886 (Rabbit fast-forward). CI at f186ba886 all completed/success: Fast Tests 42979424935, Go Test 42979051136, app build & lint 42979051206, Images 42979051171, Harness Selftest 42979051292, Push on master 42979050566.
 <!-- SECTION:NOTES:END -->

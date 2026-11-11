@@ -1,0 +1,98 @@
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+-- STATBUS-615: each refresh batch records its years with a plan that reads only
+-- its own units, however many batches its session has run.
+--
+-- public.timesegments_refresh records the years a batch covers in
+-- public.timesegments_years. PL/pgSQL gives a statement a generic plan after
+-- five executions in a session, and a worker session runs many batches. The
+-- years are read with one statement per unit type, each filtered only by its
+-- own ids, so even its generic plan reads through the (unit_type, unit_id)
+-- btree. One statement OR-ing four flag-guarded filters got a generic plan
+-- that read the batch through the GiST daterange index on its non-leading
+-- columns: 1,234 ms per 8000-unit batch instead of 11 ms on the full register,
+-- 16 million GiST scans on rune.
+--
+-- The fixture: 10,000 enterprises, each with one legal unit valid from one of
+-- 40 years (1990-2029), analyzed. At this size the generic plan of the OR-ed
+-- statement chooses the GiST index, as on the full register. Eight refresh
+-- calls of 100 legal units and their enterprises run in one session, the
+-- first five planned for their values and the rest generic. GiST scans are
+-- counted with pg_stat_get_xact_numscans, this transaction's own scans.
+CALL test.set_user_from_email('test.admin@statbus.org');
+\o /dev/null
+\set ECHO none
+"User selected the Activity Category Standard"
+"User uploads the demo activity categories"
+"User uploads the demo regions"
+"User uploads the demo sectors"
+"User uploads the demo legal forms"
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
+SELECT format('E615-%s', n), (SELECT id FROM auth.user LIMIT 1), 'STATBUS-615 test enterprise'
+FROM generate_series(1, 10000) AS n;
+INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
+SELECT make_date(1990 + substring(e.short_name FROM 6)::int % 40, 1, 1), format('LU615-%s', e.short_name), e.id, true,
+       (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
+       (SELECT id FROM auth.user LIMIT 1), 'STATBUS-615 test legal unit'
+FROM public.enterprise AS e
+WHERE e.short_name LIKE 'E615-%';
+-- The worker runs the analytics as the database owner, not as an application user.
+RESET ROLE;
+CALL worker.process_tasks(p_queue => 'analytics');
+ANALYZE public.timesegments;
+\echo "615.1 the fixture: one timesegment per unit, 40 years"
+"615.1 the fixture: one timesegment per unit, 40 years"
+SELECT unit_type, count(*) AS segments, count(DISTINCT EXTRACT(year FROM valid_from)) AS years
+FROM public.timesegments GROUP BY unit_type ORDER BY unit_type;
+ unit_type  | segments | years 
+------------+----------+-------
+ legal_unit |    10000 |    40
+ enterprise |    10000 |    40
+(2 rows)
+
+-- Refresh 800 legal units and their enterprises in eight calls in one session, into an empty years table.
+DELETE FROM public.timesegments_years WHERE true; -- every row: the refreshes below record them again
+CREATE TEMP TABLE call ON COMMIT DROP AS
+SELECT (row_number() OVER (ORDER BY lu.id) - 1) / 100 AS n, lu.id AS legal_unit_id, lu.enterprise_id
+FROM public.legal_unit AS lu
+ORDER BY lu.id
+LIMIT 800;
+SELECT pg_stat_get_xact_numscans('public.idx_timesegments_unit_daterange'::regclass) AS gist_before \gset
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT n, range_agg(int4range(legal_unit_id, legal_unit_id, '[]')) AS lu,
+                     range_agg(int4range(enterprise_id, enterprise_id, '[]')) AS en
+             FROM pg_temp.call GROUP BY n ORDER BY n LOOP
+    CALL public.timesegments_refresh(p_establishment_id_ranges => '{}', p_legal_unit_id_ranges => r.lu,
+                                     p_enterprise_id_ranges => r.en, p_power_group_id_ranges => '{}');
+  END LOOP;
+END $$;
+\echo "615.2 eight refresh calls in one session read no segment through the GiST daterange index"
+"615.2 eight refresh calls in one session read no segment through the GiST daterange index"
+SELECT (SELECT count(DISTINCT n) FROM call) AS calls,
+       pg_stat_get_xact_numscans('public.idx_timesegments_unit_daterange'::regclass) - :gist_before AS gist_scans;
+ calls | gist_scans 
+-------+------------
+     8 |          0
+(1 row)
+
+\echo "615.3 timesegments_years holds exactly the years of the refreshed units"
+"615.3 timesegments_years holds exactly the years of the refreshed units"
+SELECT count(*) AS years, min(year) AS first_year, max(year) AS last_year,
+       array_agg(year ORDER BY year) = (SELECT array_agg(DISTINCT EXTRACT(year FROM t.valid_from)::int ORDER BY EXTRACT(year FROM t.valid_from)::int)
+                                          FROM public.timesegments AS t
+                                          JOIN call AS c ON (t.unit_type = 'legal_unit' AND t.unit_id = c.legal_unit_id)
+                                                         OR (t.unit_type = 'enterprise' AND t.unit_id = c.enterprise_id)) AS same_as_refreshed_segments
+FROM public.timesegments_years;
+ years | first_year | last_year | same_as_refreshed_segments 
+-------+------------+-----------+----------------------------
+    40 |       1990 |      2029 | t
+(1 row)
+
+ROLLBACK;
