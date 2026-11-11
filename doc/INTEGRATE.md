@@ -53,13 +53,15 @@ When you use the StatBus web interface, every action calls a `/rest` endpoint (o
 
 **You can copy those exact same calls** into your scripts. Add an API key for authentication, and you have the same access as the web interface - with the same security (PostgreSQL Row Level Security still enforces what you can see and do).
 
-This section helps you integrate with the StatBus REST API using Python or R.
+This section helps you integrate with the StatBus REST API using Python or R. For the endpoints themselves, with sample URLs you can paste into a browser, see the [REST API reference for data consumers](integration/api-reference.md).
 
 ### Getting Your API Key
 
 1. Log into your StatBus instance using a web browser
-2. Visit the API key endpoint: `https://your-statbus-url/rest/api_key?select=token`
+2. Open the command palette (Ctrl/Cmd+K) and choose **Show API key**, or visit `https://your-statbus-url/rest/api_key?select=token`
 3. Copy the token value displayed
+
+If a key has been exposed, press **Recreate key** in the same dialog: you get a new key and the old one stops working.
 
 ### Setting Up Your Environment
 

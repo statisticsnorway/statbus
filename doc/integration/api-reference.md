@@ -14,7 +14,7 @@ Most read endpoints require a valid API key. Pass it as a Bearer token:
 Authorization: Bearer YOUR_API_KEY
 ```
 
-To get your API key, log into the web interface, get the key in command palette or simply visit:
+To get your API key, log into the web interface and open **Show API key** in the command palette (Ctrl/Cmd+K), or visit:
 
 ```
 https://ma.statbus.org/rest/api_key?select=token
@@ -31,6 +31,9 @@ For browser exploration, the session cookie set by the web login works automatic
 | POST | `/rest/rpc/refresh` | Refresh an expired access token |
 | GET | `/rest/rpc/auth_status` | Check current authentication state |
 | POST | `/rest/rpc/create_api_key` | Create an API key for scripted access |
+| POST | `/rest/rpc/revoke_api_key` | Revoke a key by its `jti` (`{"key_jti": "..."}`) |
+
+A key that has leaked can be replaced with **Recreate key** in the API key dialog, which creates a new key and revokes the old one.
 
 ---
 
@@ -92,12 +95,14 @@ https://ma.statbus.org/rest/statistical_unit?select=unit_type,name&name=ilike.*b
 
 **Sample browser URL — establishments in a specific region:**
 ```
-https://ma.statbus.org/rest/statistical_unit?select=name,physical_region_path,primary_activity_category_path&unit_type=eq.establishment&physical_region_path=like.Norway.Oslo.*&limit=10
+https://ma.statbus.org/rest/statistical_unit?select=name,physical_region_code,physical_region_path,primary_activity_category_path&unit_type=eq.establishment&physical_region_code=like.03*&limit=10
 ```
+
+Region paths are `ltree` values built from region codes (e.g. `03.01`), so filter on `physical_region_code` with `like`, or on the path with `eq`. Replace `03` with a code from `/rest/region_used`.
 
 **Sample browser URL — with coordinates, employees and turnover:**
 ```
-https://ma.statbus.org/rest/statistical_unit?select=unit_type,physical_latitude,physical_longitude,name,stats->>employees,stats->>turnover&limit=10
+https://ma.statbus.org/rest/statistical_unit?select=unit_type,physical_latitude,physical_longitude,name,employees:stats->employees->>value,turnover:stats->turnover->>value&limit=10
 ```
 
 **Useful columns:**
@@ -106,7 +111,7 @@ https://ma.statbus.org/rest/statistical_unit?select=unit_type,physical_latitude,
 |--------|-------------|
 | `unit_type` | `legal_unit`, `establishment`, or `enterprise` |
 | `name` | Unit name |
-| `external_idents` | External identifiers (JSONB), e.g. `{"tax_ident": "...", "stat_ident": "..."}` |
+| `external_idents` | External identifiers (JSONB), e.g. `{"tax_ident": "...", "stat_ident": "..."}`; the identifier types are listed in `/rest/external_ident_type_enabled` |
 | `physical_region_path` | Physical location region hierarchy |
 | `primary_activity_category_path` | Main industry classification path |
 | `sector_path` | Institutional sector |
@@ -115,24 +120,27 @@ https://ma.statbus.org/rest/statistical_unit?select=unit_type,physical_latitude,
 | `physical_longitude` | Longitude coordinate |
 | `valid_from` | Start of validity period |
 | `valid_to` | End of validity period |
+| `existence_from`, `existence_until` | When the unit exists (birth/death dates applied); use these to ask "which units exist on a date", see [Time frames](#time-frames) |
 | `stats` | JSONB with the unit's own statistical values (see below) |
 | `stats_summary` | JSONB with aggregated stats across the unit hierarchy |
 
 #### Accessing statistical variables (employees, turnover, etc.)
 
-Statistical variables like `employees` and `turnover` are **not top-level columns** — they are stored inside the `stats` JSONB column. Use PostgREST JSON operators to extract them:
+Statistical variables like `employees` and `turnover` are **not top-level columns** — they are stored inside the `stats` JSONB column, each as `{"type": "int", "value": 12}`. Use PostgREST JSON operators to extract them, and name the result with `alias:` so two values do not share a key:
 
 | What you want | PostgREST select syntax |
 |---------------|------------------------|
-| Unit's own employees | `stats->>employees` |
-| Unit's own turnover | `stats->>turnover` |
+| Unit's own employees | `employees:stats->employees->>value` |
+| Unit's own turnover | `turnover:stats->turnover->>value` |
 | All stats as JSON | `stats` |
-| Aggregated employee sum | `stats_summary->employees->>sum` |
-| Aggregated turnover sum | `stats_summary->turnover->>sum` |
+| Aggregated employee sum | `employees_sum:stats_summary->employees->>sum` |
+| Aggregated turnover sum | `turnover_sum:stats_summary->turnover->>sum` |
+
+`stats_summary` also holds `count`, `min`, `max`, `mean` and more for each variable.
 
 **Sample browser URL — enterprise-level aggregated stats:**
 ```
-https://ma.statbus.org/rest/statistical_unit?select=name,stats_summary->employees->>sum,stats_summary->turnover->>sum&unit_type=eq.enterprise&limit=10
+https://ma.statbus.org/rest/statistical_unit?select=name,employees_sum:stats_summary->employees->>sum,turnover_sum:stats_summary->turnover->>sum&unit_type=eq.enterprise&limit=10
 ```
 
 To see which statistical variables are defined in your instance:
@@ -144,13 +152,25 @@ https://ma.statbus.org/rest/stat_definition_enabled?select=code,name,description
 
 Full details for a single statistical unit.
 
+```
+https://ma.statbus.org/rest/rpc/statistical_unit_details?unit_id=1&unit_type=legal_unit
+```
+
 ### `GET /rest/rpc/statistical_unit_hierarchy`
 
 Returns the parent-child hierarchy for a unit (enterprise > legal unit > establishment).
 
+```
+https://ma.statbus.org/rest/rpc/statistical_unit_hierarchy?unit_id=1&unit_type=legal_unit
+```
+
 ### `GET /rest/rpc/statistical_unit_stats`
 
 Statistical variable values for a specific unit.
+
+```
+https://ma.statbus.org/rest/rpc/statistical_unit_stats?unit_id=1&unit_type=legal_unit
+```
 
 ### `POST /rest/rpc/statistical_unit_facet_drilldown`
 
@@ -160,27 +180,34 @@ Faceted drilldown for building reports — filter by region, activity, sector, e
 
 ## Core Entity Tables
 
-Direct access to the underlying business entity tables, for more detailed queries.
+Direct access to the underlying business entity tables, for more detailed queries. Identifiers such as `tax_ident` and `stat_ident` live in `external_ident`, one row per identifier (`statistical_unit.external_idents` has them all in one JSON object).
 
 ### `GET /rest/legal_unit`
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/legal_unit?select=id,stat_ident,name,birth_date,valid_from,valid_to&limit=10&order=id.asc
+https://ma.statbus.org/rest/legal_unit?select=id,name,birth_date,valid_from,valid_to&limit=10&order=id.asc
 ```
 
 ### `GET /rest/establishment`
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/establishment?select=id,stat_ident,name,birth_date,valid_from,valid_to&limit=10&order=id.asc
+https://ma.statbus.org/rest/establishment?select=id,name,birth_date,valid_from,valid_to&limit=10&order=id.asc
+```
+
+### `GET /rest/external_ident`
+
+**Sample browser URL — the identifiers of legal unit 1:**
+```
+https://ma.statbus.org/rest/external_ident?select=ident,type:external_ident_type(code)&legal_unit_id=eq.1
 ```
 
 ### `GET /rest/enterprise`
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/enterprise?select=id,stat_ident,name,valid_from,valid_to&limit=10&order=id.asc
+https://ma.statbus.org/rest/enterprise?select=id,short_name,edit_at&limit=10&order=id.asc
 ```
 
 ---
@@ -262,7 +289,7 @@ https://ma.statbus.org/rest/country_enabled?select=iso_2,name&order=name.asc
 | `/rest/external_ident_type` | Types of external identifiers |
 | `/rest/stat_definition` | Statistical variable definitions |
 
-Each of these has `_enabled` and `_ordered` variants for convenience.
+Most of these have `_enabled` and `_ordered` variants (for example `/rest/status_enabled`, `/rest/data_source_ordered`).
 
 ---
 
@@ -279,24 +306,29 @@ https://ma.statbus.org/rest/stat_definition_enabled?select=code,name,description
 
 ---
 
-## Time Context
+## Time frames
 
-### `GET /rest/time_context`
+The data is a time series: each unit has records valid over date ranges. A **time frame** names the date you look at. The web interface's frame menu uses these same frames.
 
-Returns the valid date range for the data — useful for knowing which time periods are available.
+### `GET /rest/time_frame`
+
+| `ident` | Kind | Meaning |
+|---------|------|---------|
+| `live` | `live` | Today; imports cover the current year onwards |
+| `prev` | `relative` | The end of last year; moves forward each new year |
+| `y_YYYY` | `fixed` | The end of year YYYY, e.g. `y_2024`; never moves |
+
+Each row has `valid_on`, the date the frame looks at, and `valid_from`/`valid_to`, the period an import into that frame covers. The first row is the default.
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/time_context
+https://ma.statbus.org/rest/time_frame?select=ident,kind,name,valid_on&order=valid_on.desc
 ```
 
-### `GET /rest/relative_period`
+To list the units that exist in a frame, read its `valid_on` and filter on the existence columns:
 
-Pre-defined relative time periods (e.g. "last year", "current quarter").
-
-**Sample browser URL:**
 ```
-https://ma.statbus.org/rest/relative_period?select=code,name&order=code.asc
+https://ma.statbus.org/rest/statistical_unit?select=unit_type,name&existence_from=lte.2025-12-31&existence_until=gt.2025-12-31&limit=10
 ```
 
 ---
@@ -314,7 +346,7 @@ All endpoints support PostgREST filtering. Common operators:
 | `like` | Pattern match (case-sensitive) | `?name=like.*Corp*` |
 | `ilike` | Pattern match (case-insensitive) | `?name=ilike.*bakery*` |
 | `in` | In a list | `?unit_type=in.(legal_unit,establishment)` |
-| `is` | IS (for null/boolean) | `?deleted_at=is.null` |
+| `is` | IS (for null/boolean) | `?death_date=is.null` |
 | `order` | Sort | `?order=name.asc` or `?order=year.desc` |
 | `limit` | Max rows | `?limit=100` |
 | `offset` | Skip rows (pagination) | `?offset=100` |
@@ -341,13 +373,13 @@ The response header `Content-Range: 0-0/1234` tells you there are 1234 matching 
 
 ## OpenAPI Specification
 
-Your StatBus instance serves a live, auto-generated OpenAPI spec with every table, view, and function:
+Your StatBus instance serves a live, auto-generated OpenAPI spec with every table, view, and function you can access. Request it with your API key:
 
-```
-https://ma.statbus.org/postgrest
+```bash
+curl -H "Authorization: Bearer YOUR_API_KEY" "https://ma.statbus.org/rest" > statbus-openapi.json
 ```
 
-Load this URL into [Swagger Editor](https://editor.swagger.io/) or any OpenAPI tool for an interactive, always-up-to-date reference of all available endpoints and their parameters.
+Load the saved file into [Swagger Editor](https://editor.swagger.io/) or any OpenAPI tool for an interactive, always-up-to-date reference of all available endpoints and their parameters.
 
 ---
 
