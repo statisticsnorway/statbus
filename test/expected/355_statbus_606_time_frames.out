@@ -18,38 +18,57 @@
 --     a live or relative frame derives them again, so a recurring job follows
 --     the calendar, and a clone of a job on a fixed frame keeps its year.
 SET datestyle TO 'ISO, DMY';
-
 BEGIN;
-
 \i test/setup.sql
-
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
 CALL test.set_user_from_email('test.admin@statbus.org');
-
 \o /dev/null
 \set ECHO none
-\i samples/norway/getting-started.sql
-\o
-\set ECHO all
-
 -- Years with data: 2022 and 2024 (2023 has none, so it is not a frame).
 DELETE FROM public.timesegments_years WHERE true; -- test setup: start from known years
 INSERT INTO public.timesegments_years (year) VALUES (2022), (2024), (2026);
-
 \echo "On 2026-11-10: the live frame, the relative frame and the fixed frames"
+"On 2026-11-10: the live frame, the relative frame and the fixed frames"
 SELECT set_config('app.current_date', '2026-11-10', true) IS NOT NULL AS date_set;
+ date_set 
+----------
+ t
+(1 row)
+
 SELECT ident, kind, name, valid_from, valid_to, valid_on, equals_frame_ident
 FROM public.time_frame
 ORDER BY kind, valid_from DESC;
+ ident  |   kind   |         name          | valid_from |  valid_to  |  valid_on  | equals_frame_ident 
+--------+----------+-----------------------+------------+------------+------------+--------------------
+ live   | live     | Live frame (2026)     | 2026-01-01 | infinity   | 2026-11-10 | 
+ prev   | relative | Previous frame (2025) | 2025-01-01 | 2025-12-31 | 2025-12-31 | 
+ y_2025 | fixed    | Frame 2025            | 2025-01-01 | 2025-12-31 | 2025-12-31 | prev
+ y_2024 | fixed    | Frame 2024            | 2024-01-01 | 2024-12-31 | 2024-12-31 | 
+ y_2022 | fixed    | Frame 2022            | 2022-01-01 | 2022-12-31 | 2022-12-31 | 
+(5 rows)
 
 \echo "The menu leaves out a fixed frame that equals a relative frame"
+"The menu leaves out a fixed frame that equals a relative frame"
 SELECT ident, name
 FROM public.time_frame
 WHERE equals_frame_ident IS NULL
 ORDER BY kind, valid_from DESC;
+ ident  |         name          
+--------+-----------------------
+ live   | Live frame (2026)
+ prev   | Previous frame (2025)
+ y_2024 | Frame 2024
+ y_2022 | Frame 2022
+(4 rows)
 
 \echo "Import jobs derive their dates from their frame"
+"Import jobs derive their dates from their frame"
 INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_frame_ident)
-SELECT d.id, 'tf_606_' || f.ident, 'STATBUS-606 job on ' || f.ident, 'test 399', f.ident
+SELECT d.id, 'tf_606_' || f.ident, 'STATBUS-606 job on ' || f.ident, 'test 355', f.ident
 FROM public.import_definition AS d
 CROSS JOIN (VALUES ('live'), ('prev'), ('y_2024')) AS f(ident)
 WHERE d.slug = 'legal_unit_job_provided';
@@ -58,14 +77,35 @@ SELECT slug, time_frame_ident, default_valid_from, default_valid_to,
 FROM public.import_job
 WHERE slug LIKE 'tf_606_%'
 ORDER BY slug;
+     slug      | time_frame_ident | default_valid_from | default_valid_to | snapshot_frame 
+---------------+------------------+--------------------+------------------+----------------
+ tf_606_live   | live             | 2026-01-01         | infinity         | live
+ tf_606_prev   | prev             | 2025-01-01         | 2025-12-31       | prev
+ tf_606_y_2024 | y_2024           | 2024-01-01         | 2024-12-31       | y_2024
+(3 rows)
 
 \echo "On 2027-01-01 the live and relative frames have moved; fixed frames have not"
+"On 2027-01-01 the live and relative frames have moved; fixed frames have not"
 SELECT set_config('app.current_date', '2027-01-01', true) IS NOT NULL AS date_set;
+ date_set 
+----------
+ t
+(1 row)
+
 SELECT ident, kind, name, valid_from, valid_to, valid_on, equals_frame_ident
 FROM public.time_frame
 ORDER BY kind, valid_from DESC;
+ ident  |   kind   |         name          | valid_from |  valid_to  |  valid_on  | equals_frame_ident 
+--------+----------+-----------------------+------------+------------+------------+--------------------
+ live   | live     | Live frame (2027)     | 2027-01-01 | infinity   | 2027-01-01 | 
+ prev   | relative | Previous frame (2026) | 2026-01-01 | 2026-12-31 | 2026-12-31 | 
+ y_2026 | fixed    | Frame 2026            | 2026-01-01 | 2026-12-31 | 2026-12-31 | prev
+ y_2024 | fixed    | Frame 2024            | 2024-01-01 | 2024-12-31 | 2024-12-31 | 
+ y_2022 | fixed    | Frame 2022            | 2022-01-01 | 2022-12-31 | 2022-12-31 | 
+(5 rows)
 
 \echo "A clone re-derives a live or relative frame's dates; a fixed frame keeps its year"
+"A clone re-derives a live or relative frame's dates; a fixed frame keeps its year"
 SELECT j.slug AS source,
        (c).time_frame_ident, (c).default_valid_from, (c).default_valid_to
 FROM (
@@ -75,12 +115,20 @@ FROM (
     ORDER BY j.slug
 ) AS j
 ORDER BY j.slug;
+    source     | time_frame_ident | default_valid_from | default_valid_to 
+---------------+------------------+--------------------+------------------
+ tf_606_live   | live             | 2027-01-01         | infinity
+ tf_606_prev   | prev             | 2026-01-01         | 2026-12-31
+ tf_606_y_2024 | y_2024           | 2024-01-01         | 2024-12-31
+(3 rows)
 
 \echo "A job names a frame that exists"
+"A job names a frame that exists"
 SAVEPOINT unknown_frame;
 INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_frame_ident)
-SELECT d.id, 'tf_606_unknown', 'unknown frame', 'test 399', 'r_year_curr'
+SELECT d.id, 'tf_606_unknown', 'unknown frame', 'test 355', 'r_year_curr'
 FROM public.import_definition AS d WHERE d.slug = 'legal_unit_job_provided';
+ERROR:  Cannot create import job: time frame r_year_curr does not exist (public.time_frame).
+CONTEXT:  PL/pgSQL function admin.import_job_derive() line 18 at RAISE
 ROLLBACK TO SAVEPOINT unknown_frame;
-
 ROLLBACK;
