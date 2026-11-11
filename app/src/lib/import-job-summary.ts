@@ -12,8 +12,8 @@ export interface JobValiditySource {
 export interface JobSummary {
   /** "Previous frame (2025)", "Chosen dates" or "Source dates". */
   timeFrame: string;
-  /** "2025-01-01 – 2025-12-31", or the file's columns for source dates. */
-  period: string;
+  /** "2025-01-01 – 2025-12-31"; null for source dates, where each row carries its own. */
+  period: string | null;
   /** "survey – Survey Data", or null when the job names none (rows bring their own). */
   dataSource: string | null;
   comment: string | null;
@@ -66,7 +66,7 @@ export function summarizeJob(
   }
   return {
     timeFrame: "Source dates",
-    period: "From the file (valid_from, valid_to)",
+    period: null,
     dataSource,
     comment,
   };

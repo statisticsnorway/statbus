@@ -42,7 +42,7 @@ describe("summarizeJob", () => {
 
   it("calls a job with neither Source dates", () => {
     expect(summarizeJob(job({}), frames, sources))
-      .toMatchObject({ timeFrame: "Source dates", period: "From the file (valid_from, valid_to)" });
+      .toMatchObject({ timeFrame: "Source dates", period: null });
   });
 
   it("shows a frame that no longer exists by its ident", () => {

@@ -480,7 +480,7 @@ export default function ImportJobsPage() {
           return (
             <div className="text-xs" data-job-time-frame={row.original.time_frame_ident ?? undefined}>
               <div className="font-medium whitespace-nowrap">{s.timeFrame}</div>
-              <div className="text-zinc-500 whitespace-nowrap">{s.period}</div>
+              {s.period && <div className="text-zinc-500 whitespace-nowrap">{s.period}</div>}
             </div>
           );
         },

@@ -880,7 +880,8 @@ export default function ImportJobDataPage() {
 
   return (
     <div className="space-y-4">
-      <div>
+      {/* Heading, then one line summarising the job (ImportJobDetails). */}
+      <div className="min-w-0">
         <div className="flex items-center space-x-2">
           <Link
             href="/import"
@@ -898,13 +899,8 @@ export default function ImportJobDataPage() {
           <ChevronRight className="h-6 w-6 text-gray-400" />
           <h1 className="text-2xl font-semibold">Data for Job: {job.id}</h1>
         </div>
-        <p className="text-sm text-gray-500 mt-1">
-          Description: {job.description ?? "N/A"} | Table: {job.data_table_name}
-        </p>
+        <ImportJobDetails job={job} definition={job.import_definition ?? null} className="mt-1" />
       </div>
-
-      {/* The same summary as the upload page: time frame, data source, comment, definition. */}
-      <ImportJobDetails job={job} definition={job.import_definition ?? null} />
 
       {/* Approve/Reject bar for review workflow */}
       {job.state === "waiting_for_review" && (
