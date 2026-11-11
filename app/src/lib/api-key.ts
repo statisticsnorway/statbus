@@ -16,6 +16,24 @@ export interface ApiKeyRow {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * How long a key stays valid, for the dialog: its expiry as an ISO date and
+ * the whole days left (0 once expired). Null for a key without an expiry.
+ */
+export function keyValidity(
+  expiresAt: string | null,
+  now: Date = new Date()
+): { validUntil: string; daysLeft: number; expired: boolean } | null {
+  if (!expiresAt) return null;
+  const expires = new Date(expiresAt);
+  const msLeft = expires.getTime() - now.getTime();
+  return {
+    validUntil: expires.toISOString().slice(0, 10),
+    daysLeft: msLeft > 0 ? Math.floor(msLeft / DAY_MS) : 0,
+    expired: msLeft <= 0,
+  };
+}
+
 /** The key's lifetime in whole days, as create_api_key's duration; a year when it is not known. */
 function lifetime(key: ApiKeyRow): string {
   if (!key.created_at || !key.expires_at) return "365 days";

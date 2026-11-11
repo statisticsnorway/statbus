@@ -1,4 +1,26 @@
-import { recreateApiKey } from "./api-key";
+import { recreateApiKey, keyValidity } from "./api-key";
+
+describe("keyValidity", () => {
+  it("states the ISO expiry date and the whole days left", () => {
+    expect(keyValidity("2027-03-27T12:00:00Z", new Date("2026-11-11T13:00:00Z"))).toEqual({
+      validUntil: "2027-03-27",
+      daysLeft: 135,
+      expired: false,
+    });
+  });
+
+  it("marks a key past its expiry as expired", () => {
+    expect(keyValidity("2026-11-01T00:00:00Z", new Date("2026-11-11T00:00:00Z"))).toEqual({
+      validUntil: "2026-11-01",
+      daysLeft: 0,
+      expired: true,
+    });
+  });
+
+  it("has no expiry when the key has none", () => {
+    expect(keyValidity(null, new Date("2026-11-11T00:00:00Z"))).toBeNull();
+  });
+});
 
 // STATBUS-617: Recreate replaces the shown key with a new one of the same
 // description and lifetime, then revokes the shown one, so a leaked token

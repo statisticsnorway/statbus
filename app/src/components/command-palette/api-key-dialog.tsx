@@ -4,44 +4,62 @@ import { toast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { getBrowserRestClient } from "@/context/RestClientStore";
-import { recreateApiKey, type ApiKeyRow } from "@/lib/api-key";
+import { keyValidity, recreateApiKey, type ApiKeyRow } from "@/lib/api-key";
 
 type ShownKey = ApiKeyRow & { token: string };
 
 /**
- * "Show API key" from the command palette: the user's active key (the newest
- * one not revoked), to copy. Recreate replaces it with a new key and revokes
- * the shown one (recreateApiKey, STATBUS-617), for a key that was exposed.
+ * "Show API key" from the command palette. A user may hold several keys
+ * (public.api_key, one row per key); the dialog shows the active one most
+ * recently created, with its description, creation date and how long it stays
+ * valid, and how many active keys the user has. Recreate key (after a
+ * confirmation) replaces the shown key with a new one and revokes it
+ * (recreateApiKey, STATBUS-617), for a key that was exposed.
  */
 export function ApiKeyDialog() {
   const [open, setOpen] = useState(false);
   const [apiKey, setApiKey] = useState<ShownKey | null>(null);
+  const [activeCount, setActiveCount] = useState(0);
+  const [confirming, setConfirming] = useState(false);
   const [recreating, setRecreating] = useState(false);
+
+  const loadActiveKey = async () => {
+    const client = await getBrowserRestClient();
+    const { data, error } = await client
+      .from("api_key")
+      .select("jti,description,created_at,expires_at,token")
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false });
+    if (error) {
+      throw new Error(`API key fetch failed: ${error.message}`);
+    }
+    const key = data?.[0];
+    if (!key?.token || !key.jti) {
+      throw new Error("API key invalid or not found");
+    }
+    setApiKey(key as ShownKey);
+    setActiveCount(data.length);
+  };
 
   useGuardedEffect(
     () => {
       const showDialog = async () => {
         setOpen(true);
         try {
-          const client = await getBrowserRestClient();
-          const { data, error } = await client
-            .from("api_key")
-            .select("jti,description,created_at,expires_at,token")
-            .is("revoked_at", null)
-            .order("created_at", { ascending: false })
-            .limit(1);
-          if (error) {
-            throw new Error(`API key fetch failed: ${error.message}`);
-          }
-          const key = data?.[0];
-          if (key?.token && key.jti) {
-            setApiKey(key as ShownKey);
-          } else {
-            throw new Error("API key invalid or not found");
-          }
+          await loadActiveKey();
         } catch (error) {
           console.error("Failed to fetch API key:", error);
           toast({
@@ -77,8 +95,9 @@ export function ApiKeyDialog() {
     setRecreating(true);
     try {
       const client = await getBrowserRestClient();
-      const created = await recreateApiKey(client, apiKey);
-      setApiKey({ ...apiKey, jti: created.jti, token: created.token });
+      await recreateApiKey(client, apiKey);
+      await loadActiveKey();
+      setConfirming(false);
       toast({
         title: "New API key created",
         description: "The previous key no longer works. Copy the new one.",
@@ -95,14 +114,14 @@ export function ApiKeyDialog() {
     }
   };
 
+  const validity = keyValidity(apiKey?.expires_at ?? null);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Your API Key</DialogTitle>
-          <DialogDescription>
-            Copy the API key below. If it has been shared or exposed, recreate it: the current key stops working at once.
-          </DialogDescription>
+          <DialogDescription>Copy the API key below to use the REST API from scripts and tools.</DialogDescription>
         </DialogHeader>
         <div className="flex items-center space-x-2">
           <Input
@@ -115,19 +134,70 @@ export function ApiKeyDialog() {
             Copy
           </Button>
         </div>
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={handleRecreate} disabled={!apiKey || recreating}>
-            {recreating ? (
+        {apiKey && (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm" data-api-key-details>
+            <dt className="text-zinc-500">Description</dt>
+            <dd>{apiKey.description ?? "—"}</dd>
+            <dt className="text-zinc-500">Created</dt>
+            <dd>{apiKey.created_at?.slice(0, 10) ?? "—"}</dd>
+            <dt className="text-zinc-500">Valid until</dt>
+            <dd data-api-key-valid-until={validity?.validUntil}>
+              {validity ? (
+                <>
+                  {validity.validUntil}{" "}
+                  <span className={validity.expired || validity.daysLeft < 30 ? "text-red-600" : "text-zinc-500"}>
+                    ({validity.expired ? "expired" : `${validity.daysLeft} days left`})
+                  </span>
+                </>
+              ) : (
+                "No expiry"
+              )}
+            </dd>
+            {activeCount > 1 && (
               <>
-                <Loader2 className="animate-spin" aria-hidden />
-                Recreating…
+                <dt className="text-zinc-500">Active keys</dt>
+                <dd>{activeCount} (the newest is shown)</dd>
               </>
-            ) : (
-              "Recreate key"
             )}
+          </dl>
+        )}
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={() => setConfirming(true)} disabled={!apiKey || recreating}>
+            Recreate key
           </Button>
         </div>
       </DialogContent>
+      <AlertDialog open={confirming} onOpenChange={(next) => !recreating && setConfirming(next)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recreate this API key?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A new key is created and this one stops working at once. Scripts and tools that use it must be given the
+              new key. Do this when the key has been shared or exposed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={recreating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={recreating}
+              onClick={(e) => {
+                // Stay open until the new key is in place; it closes on success.
+                e.preventDefault();
+                void handleRecreate();
+              }}
+            >
+              {recreating ? (
+                <>
+                  <Loader2 className="animate-spin" aria-hidden />
+                  Recreating…
+                </>
+              ) : (
+                "Recreate key"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
