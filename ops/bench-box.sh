@@ -332,7 +332,8 @@ run)
     done
     run_id=$(date -u +%Y%m%dT%H%M%SZ)
     # One measurement at a time: two would share the database and the CPUs.
-    if box statbus 'pgrep -f "bench/round" > /dev/null'; then
+    # The bracket keeps pgrep from matching this ssh command's own command line.
+    if box statbus 'pgrep -f "bench/[r]ound" > /dev/null'; then
         echo "REFUSE: a measurement is running on the box. See: ops/bench-box.sh progress; end it with: ops/bench-box.sh stop" >&2
         exit 1
     fi
@@ -348,7 +349,7 @@ run)
     echo "Follow:  ops/bench-box.sh progress     Collect: ops/bench-box.sh results"
     ;;
 progress)
-    box statbus 'f=$(ls -t ~/bench/*/run.log 2>/dev/null | head -1); [ -n "$f" ] || { echo "No run yet."; exit 0; }; echo "$f"; cat "$f"; pgrep -f "bench/round" >/dev/null && echo "(running, load $(cut -d" " -f1-3 /proc/loadavg))" || echo "(not running)"'
+    box statbus 'f=$(ls -t ~/bench/*/run.log 2>/dev/null | head -1); [ -n "$f" ] || { echo "No run yet."; exit 0; }; echo "$f"; cat "$f"; pgrep -f "bench/[r]ound" >/dev/null && echo "(running, load $(cut -d" " -f1-3 /proc/loadavg))" || echo "(not running)"'
     ;;
 stop)
     # The run is its own session (setsid), and every round, worker container
@@ -408,7 +409,8 @@ series)
     [[ "$pcts" =~ ^(n?[0-9]+)(\ n?[0-9]+)*$ ]] || { echo "changes: percents or nN, separated by spaces (n3 n3 1 50 99)" >&2; exit 2; }
     base_sha=$(git -C "$ROOT" rev-parse --verify "$base^{commit}")
     candidate_sha=$(git -C "$ROOT" rev-parse --verify "$candidate^{commit}")
-    if box statbus 'pgrep -f "bench/series.sh" > /dev/null'; then
+    # The bracket keeps pgrep from matching this ssh command's own command line.
+    if box statbus 'pgrep -f "bench/[s]eries.sh" > /dev/null'; then
         echo "REFUSE: a series is running on the box. See: ops/bench-box.sh series-log" >&2; exit 1
     fi
     box statbus "mkdir -p ~/bench && cat > ~/bench/fingerprint.sql" < "$ROOT/ops/bench-box-fingerprint.sql"
@@ -417,7 +419,7 @@ series)
     echo "Series: $base ($base_sha) then $candidate ($candidate_sha), changes $pcts %. Follow: ops/bench-box.sh series-log"
     ;;
 series-log)
-    box statbus 'cat ~/bench/series/series.log 2>/dev/null || echo "No series yet."; pgrep -f bench/series.sh > /dev/null && echo "(running, load $(cut -d" " -f1-3 /proc/loadavg))" || echo "(not running)"'
+    box statbus 'cat ~/bench/series/series.log 2>/dev/null || echo "No series yet."; pgrep -f "bench/[s]eries.sh" > /dev/null && echo "(running, load $(cut -d" " -f1-3 /proc/loadavg))" || echo "(not running)"'
     ;;
 recalc)
     # One timed recalculation of the box's app database by its commit's worker
