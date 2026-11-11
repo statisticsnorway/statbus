@@ -1,9 +1,10 @@
 ---
 id: STATBUS-617
 title: An API key can be recreated from the API key dialog, revoking the old one
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-11T12:40:00Z'
+updated_date: '2026-11-11T12:54:00Z'
 labels:
   - app
   - auth
@@ -28,7 +29,13 @@ Owner 12:39: a Recreate (refresh) button on the show-key dialog. Recreate create
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The API key dialog offers Recreate; pressing it shows a new token, and the previous token is refused with 'API Key has been revoked.'; a test asserts both against the REST API
-- [ ] #2 The dialog shows the active key (not a revoked one) when the user has several keys; a test asserts it
+- [x] #1 The API key dialog offers Recreate; pressing it shows a new token, and the previous token is refused with 'API Key has been revoked.'; a test asserts both against the REST API
+- [x] #2 The dialog shows the active key (not a revoked one) when the user has several keys; a test asserts it
 - [ ] #3 [Owner] Recreates his key on a box after the release carrying this. The answer is recorded in this ticket's notes: yes closes the ticket; no gives the error to investigate.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-11 owner asked for it in rc.02 (12:50). Built eee0bc661: lib/api-key.ts recreateApiKey (create_api_key with the same description and lifetime, then revoke_api_key on the shown jti; the old key stays if creation fails); the dialog shows the newest unrevoked key and a 'Recreate key' button. Test api-key.test.ts RED tmp/617-red.log, GREEN tmp/617-green.log; jest 270, tsc 0, lint 0 errors. Real app (tmp/617-recreate-check.mjs/.json): after Recreate the old token is refused (400 'API Key has been revoked.') and the new one works (200). AC#3 waits for the owner on a box after the release.
+<!-- SECTION:NOTES:END -->
