@@ -1,11 +1,11 @@
 ---
 id: STATBUS-615
 title: Each refresh batch records its years with a plan that reads only its own units
-status: In Progress
+status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-11T10:50:00Z'
-updated_date: '2026-11-11T11:34:00Z'
+updated_date: '2026-11-11T11:35:00Z'
 labels:
   - performance
   - db
@@ -46,4 +46,6 @@ Fast suite with the fix: 141/141 + 1 + 1 passed (tmp/test-615-fast.log), 357 in 
 AC1: test 357, eight refresh calls in one session on 10,000 analyzed enterprises and legal units: 1,400 GiST scans on master (RED), 0 with the fix (GREEN). Full-register recalculation on import_benchmark_64469: 1,524,130 GiST scans on master, 0 with the fix. AC2: four local full-register recalculations (fix, master, fix, master, twice), all 16 derived-table fingerprints identical; rune rounds 1-2 identical to rune's before-fingerprint. AC4: test 357, 40 years with and without the change, same_as_refreshed_segments = t.
 
 AC2, rune (rc.01, 1000-unit batches, 8 cores, load under 2), full recalculations through rune's own worker, order fix, current, current, fix, VACUUM ANALYZE before each round: wall 820, 819, 840, 819 s; statistical_unit_refresh_batch summed 2,044, 2,115, 2,143, 2,104 s; GiST scans +0, +3,099,812, +3,099,808, +0; every round 0 failed tasks and all 16 derived-table fingerprints identical to the fingerprint taken before any change. On rune the fix removes the scans but saves only about 2-3% of batch time and nothing in wall time: rune's GiST reads are cheap at 1000-unit batches. Rune restored: \sf public.timesegments_refresh equals the backup, worker idle (only the 3 recurring tasks pending), no.statbus.org answers.
+
+CI on master 8c7724027 (fast-forwarded by Rabbit from 590d66aaf): all 8 runs success, including Fast Tests, Images, Go Test, Harness Selftest, app build & lint.
 <!-- SECTION:NOTES:END -->
