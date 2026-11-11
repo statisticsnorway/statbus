@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-11T05:02:00Z'
-updated_date: '2026-11-11T06:59:00Z'
+updated_date: '2026-11-11T07:06:00Z'
 labels:
   - performance
   - db
@@ -46,4 +46,6 @@ Test 356: RED on master (6 batches of 1000; 4,504,500 segment rows read) / GREEN
 Full register at 8000 with good statistics, ABBA: timeline guard on 570/534 s, off 542/536 s (within spread), all 16 tables identical x4. Other rejected candidate: history-delta spawner from estimates (saves 22-33 s, partitions pay ~30 s wall as first readers of fresh staging; net ~0).
 
 Fast suite 140/140 + 094 + 143 PASS (tmp/test-614-fast.log); 356 in the shared run in seconds. doc/db regenerated (two procedures); the unrelated view-deparse flip in public_statistical_unit_def.md left out.
+
+Open: in the full fast suite 356 took 324 s once (06:46 run, load up to 21), 30 s and 6.4 s in two shared-prefix runs, 6 s alone; with every table's statistics forced to one row a full recalculation of its fixture takes 3.3 s. The quadratic enterprise-timeline plan is fixed (4,504,500 -> 3,000 segment reads); the 324 s outlier is not yet explained and is being chased before Done.
 <!-- SECTION:NOTES:END -->
