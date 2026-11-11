@@ -15,12 +15,10 @@ import {
 } from "@/components/ui/accordion";
 import { InfoBox } from "@/components/info-box";
 import { PendingJobsList } from "../components/pending-jobs-list";
+import { ImportDemoFiles } from "../components/import-demo-files";
 
 export default function LegalRelationshipsPage() {
-  const { counts, importState } = useImportManager();
-  const { selectedDefinition, availableDefinitions } = importState;
-  const jobProvidedDef = availableDefinitions.find(d => d.valid_time_from === 'job_provided');
-  const sourceColumnsDef = availableDefinitions.find(d => d.valid_time_from === 'source_columns');
+  const { counts } = useImportManager();
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("legal_relationship");
   const [isClient, setIsClient] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -134,34 +132,7 @@ export default function LegalRelationshipsPage() {
               links. Each row specifies an influencing Legal Unit, an influenced
               Legal Unit, a relationship type code, and an optional percentage.
             </p>
-            <table className="text-sm">
-              <thead>
-                <tr>
-                  <th className="pr-4 py-1 text-left"></th>
-                  <th className="px-2 py-1 text-left">CSV</th>
-                  <th className="px-2 py-1 text-left">Excel</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className={selectedDefinition?.valid_time_from === "job_provided" ? "font-bold" : ""}>
-                  <td className="pr-4 py-1">With a defined validity period</td>
-                  <td className="px-2 py-1"><a href="/demo/legal_relationships_demo.csv" download="legal_relationships_demo.csv" className="underline">CSV demo</a></td>
-                  {jobProvidedDef && <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${jobProvidedDef.id}&demoFile=legal_relationships_demo.csv`} download className="underline text-blue-600">Excel demo</a></td>}
-                </tr>
-                <tr className={selectedDefinition?.valid_time_from === "source_columns" ? "font-bold" : ""}>
-                  <td className="pr-4 py-1">With validity from source file</td>
-                  <td className="px-2 py-1"><a href="/demo/legal_relationships_with_source_dates_demo.csv" download="legal_relationships_with_source_dates_demo.csv" className="underline">CSV demo</a></td>
-                  {sourceColumnsDef && <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${sourceColumnsDef.id}&demoFile=legal_relationships_with_source_dates_demo.csv`} download className="underline text-blue-600">Excel demo</a></td>}
-                </tr>
-              </tbody>
-            </table>
-            <p className="text-sm text-gray-600 mt-3">
-              Excel files include code list sheets with dropdown validation.{' '}
-              Download an empty Excel template:{' '}
-              {jobProvidedDef && <a href={`/api/import/template?definitionId=${jobProvidedDef.id}`} download className="underline text-blue-600">Template</a>}
-              {jobProvidedDef && sourceColumnsDef && ' / '}
-              {sourceColumnsDef && <a href={`/api/import/template?definitionId=${sourceColumnsDef.id}`} download className="underline text-blue-600">Template (with source dates)</a>}
-            </p>
+            <ImportDemoFiles demoFile="legal_relationships_demo.csv" sourceDatesDemoFile="legal_relationships_with_source_dates_demo.csv" />
           </AccordionContent>
         </AccordionItem>
       </Accordion>

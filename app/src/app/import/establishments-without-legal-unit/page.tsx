@@ -15,13 +15,11 @@ import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { PendingJobsList } from "../components/pending-jobs-list";
+import { ImportDemoFiles } from "../components/import-demo-files";
 import { statbusConfig } from '@/lib/statbus-config';
 
 export default function UploadEstablishmentsWithoutLegalUnitPage() {
-  const { counts: { establishmentsWithoutLegalUnit }, importState } = useImportManager();
-  const { selectedDefinition, availableDefinitions } = importState;
-  const jobProvidedDef = availableDefinitions.find(d => d.valid_time_from === 'job_provided');
-  const sourceColumnsDef = availableDefinitions.find(d => d.valid_time_from === 'source_columns');
+  const { counts: { establishmentsWithoutLegalUnit } } = useImportManager();
   // Use the generalized hook with the specific import mode for informal establishments
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("establishment_informal");
   const [isClient, setIsClient] = useState(false);
@@ -176,37 +174,10 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
               An Informal Establishments file is a CSV file containing
               establishments that are independent of legal units. Only ids for
               the establishments should be provided. Download an example to see
-              the structure. The correct example to use depends on the &quot;Data
-              validity period&quot; selected above.
+              the structure. The correct example to use depends on the &quot;Time
+              frame&quot; chosen above.
             </p>
-            <table className="text-sm">
-              <thead>
-                <tr>
-                  <th className="pr-4 py-1 text-left"></th>
-                  <th className="px-2 py-1 text-left">CSV</th>
-                  <th className="px-2 py-1 text-left">Excel</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className={selectedDefinition?.valid_time_from === "job_provided" ? "font-bold" : ""}>
-                  <td className="pr-4 py-1">With a defined validity period</td>
-                  <td className="px-2 py-1"><a href="/demo/informal_establishments_units_demo.csv" download="informal_establishments_units_demo.csv" className="underline">CSV demo</a></td>
-                  {jobProvidedDef && <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${jobProvidedDef.id}&demoFile=informal_establishments_units_demo.csv`} download className="underline text-blue-600">Excel demo</a></td>}
-                </tr>
-                <tr className={selectedDefinition?.valid_time_from === "source_columns" ? "font-bold" : ""}>
-                  <td className="pr-4 py-1">With validity from source file</td>
-                  <td className="px-2 py-1"><a href="/demo/informal_establishments_units_with_source_dates_demo.csv" download="informal_establishments_units_with_source_dates_demo.csv" className="underline">CSV demo</a></td>
-                  {sourceColumnsDef && <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${sourceColumnsDef.id}&demoFile=informal_establishments_units_with_source_dates_demo.csv`} download className="underline text-blue-600">Excel demo</a></td>}
-                </tr>
-              </tbody>
-            </table>
-            <p className="text-sm text-gray-600 mt-3">
-              Excel files include code list sheets with dropdown validation.{' '}
-              Download an empty Excel template:{' '}
-              {jobProvidedDef && <a href={`/api/import/template?definitionId=${jobProvidedDef.id}`} download className="underline text-blue-600">Template</a>}
-              {jobProvidedDef && sourceColumnsDef && ' / '}
-              {sourceColumnsDef && <a href={`/api/import/template?definitionId=${sourceColumnsDef.id}`} download className="underline text-blue-600">Template (with source dates)</a>}
-            </p>
+            <ImportDemoFiles demoFile="informal_establishments_units_demo.csv" sourceDatesDemoFile="informal_establishments_units_with_source_dates_demo.csv" />
           </AccordionContent>
         </AccordionItem>
       </Accordion>

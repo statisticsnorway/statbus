@@ -101,6 +101,10 @@ export interface ImportState {
   explicitStartDate: string | null; // YYYY-MM-DD
   explicitEndDate: string | null;   // YYYY-MM-DD
   review: boolean | null;
+  /** data_source.code for rows without their own source; null keeps the definition's (import_job.default_data_source_code). */
+  dataSourceCode: string | null;
+  /** Written to every row the job changes, like an edit comment (import_job.edit_comment). */
+  editComment: string | null;
 }
 
 export const initialImportState: ImportState = {
@@ -116,9 +120,19 @@ export const initialImportState: ImportState = {
   explicitStartDate: null,
   explicitEndDate: null,
   review: null,
+  dataSourceCode: null,
+  editComment: null,
 };
 
 export const importStateAtom = atom<ImportState>(initialImportState)
+
+/**
+ * Simple shows only the Time frame; Advanced offers Frame, Dates or Source
+ * dates (components/time-frame-panel.tsx). Kept apart from the import state
+ * because the import pages' demo-file table follows it too: Simple offers only
+ * the file for a time frame, so users download the matching example.
+ */
+export const importValidityModeAtom = atom<"simple" | "advanced">("simple");
 
 // ============================================================================
 // UNIT COUNTS ATOMS (for Import feature)
@@ -303,6 +317,20 @@ export const setImportReviewAtom = atom(
   }
 );
 
+export const setImportDataSourceCodeAtom = atom(
+  null,
+  (get, set, dataSourceCode: string | null) => {
+    set(importStateAtom, (prev) => ({ ...prev, dataSourceCode }));
+  }
+);
+
+export const setImportEditCommentAtom = atom(
+  null,
+  (get, set, editComment: string | null) => {
+    set(importStateAtom, (prev) => ({ ...prev, editComment }));
+  }
+);
+
 export const setSelectedImportDefinitionAtom = atom(
   null,
   (get, set, definition: Tables<'import_definition'>) => {
@@ -384,6 +412,8 @@ export const createImportJobAtom = atom<null, [], Promise<Tables<'import_job'> |
       slug: null!,
       upload_table_name: null!,
       review: importState.review,
+      default_data_source_code: importState.dataSourceCode,
+      edit_comment: importState.editComment || null,
     };
 
     if (definition.valid_time_from === 'job_provided') {
@@ -444,6 +474,8 @@ export const useImportManager = () => {
   const doLoadDefinitions = useSetAtom(loadImportDefinitionsAtom);
   const doSetSelectedDefinition = useSetAtom(setSelectedImportDefinitionAtom);
   const doSetReview = useSetAtom(setImportReviewAtom);
+  const setDataSourceCode = useSetAtom(setImportDataSourceCodeAtom);
+  const setEditComment = useSetAtom(setImportEditCommentAtom);
   const doCreateJob = useSetAtom(createImportJobAtom);
 
   // An import job may name any time frame (lib/time-frame.ts lists them all,
@@ -524,6 +556,8 @@ export const useImportManager = () => {
     loadDefinitions,
     setSelectedDefinition,
     setReview,
+    setDataSourceCode,
+    setEditComment,
     createImportJob,
     importState: currentImportState,
     refreshBaseData,
