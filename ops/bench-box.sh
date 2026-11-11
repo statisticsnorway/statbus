@@ -388,6 +388,11 @@ set -euo pipefail
 cd ~/statbus && mkdir -p dbdumps
 ssh-keygen -F rune.statbus.org > /dev/null || ssh-keyscan -H rune.statbus.org >> ~/.ssh/known_hosts 2> /dev/null
 [ -s dbdumps/$dump ] || rsync -a $rune:statbus/dbdumps/$dump dbdumps/
+# The dump carries rune's migration ledger, whose content hashes are those of rune's
+# upgrade channel; the box migrates on the same channel, or migrate up refuses the ledger.
+channel=\$(ssh $rune "cd statbus && ./sb dotenv -f .env.config get UPGRADE_CHANNEL" 2> /dev/null || echo prerelease)
+if grep -q '^UPGRADE_CHANNEL=' .env.config; then sed -i "s/^UPGRADE_CHANNEL=.*/UPGRADE_CHANNEL=\$channel/" .env.config; else echo "UPGRADE_CHANNEL=\$channel" >> .env.config; fi
+./sb config generate > /dev/null
 t0=\$(date +%s)
 ./sb db restore dbdumps/$dump --yes > tmp/bench-restore.log 2>&1 || { tail -20 tmp/bench-restore.log; exit 1; }
 docker compose stop worker > /dev/null 2>&1 || true
