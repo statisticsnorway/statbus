@@ -19,7 +19,7 @@ ordinal: 531204
 A statistician sees where units are, on a map, from the place they are already looking: a unit, a report, a search result, the region list. The map is built from the same data and filters as the page, and stays fast on a full national register.
 
 ## Zoom out
-- 2026-11-11: PR 324 (Erik Søberg) adds `map/statistical_units.html`, a standalone MapLibre page that reads `/rest/statistical_unit` and `stat_definition_enabled` with an API key, with clustering, search by name, a unit type filter and colour by any statistical variable (OpenFreeMap tiles). Commit c2ee419c7 on branch `doc/api-reference`. Its API key must not be reused (see PR 324 comment); the ticket keeps the idea, not the file.
+- 2026-11-11: PR 324 (Erik Søberg) adds `map/statistical_units.html`, a standalone MapLibre page that reads `/rest/statistical_unit` and `stat_definition_enabled` with an API key, with clustering, search by name, a unit type filter and colour by any statistical variable (OpenFreeMap tiles). Commit c2ee419c7 on branch `doc/api-reference`. The ticket keeps the idea, not the file.
 - www.statbus.org prototypes (repo statbus-web, `charts/`): `unitsonmap.html` (counts per region), `statistical_units.html` (units from `statistical_units_geo.json`, auto-fit, per-type cluster counts), `fetchunitstomap.html` (fetch from ma's REST API with a JSON fallback).
 - Owner's notes, 2026-11-11 (verbatim; also in the owner's statbus-todo.md):
 

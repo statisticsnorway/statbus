@@ -20,8 +20,7 @@ ordinal: 530204
 A user who has exposed an API key replaces it in one step, where they already find it, and the old key stops working at once.
 
 ## Zoom out
-2026-11-11: PR 324 (Erik Søberg) committed his admin_user API key for ma.statbus.org to a public branch. Rotating it today is possible only over REST (rpc/login, rpc/create_api_key, rpc/revoke_api_key), which we wrote out for him in the PR (comment 6796072544). Proven locally: tmp/pr324-rotation-local.log (old key 200, after revoke 'API Key has been revoked.', new key 200).
-The app's only API key UI is the command palette's 'Show API key' dialog (app/src/components/command-palette/api-key-dialog.tsx). It shows the first key and copies it, nothing else.
+The app's only API key UI is the command palette's 'Show API key' dialog (app/src/components/command-palette/api-key-dialog.tsx). It shows the first key and copies it, nothing else; replacing a key takes REST calls (rpc/login, rpc/create_api_key, rpc/revoke_api_key).
 
 ## Zoom in
 Owner 12:39: a Recreate (refresh) button on the show-key dialog. Recreate creates a new key (same description and duration) and revokes the one shown, then shows the new token to copy.
