@@ -58,22 +58,27 @@ export default function TimeFrameSelector({
             <CommandEmpty>No results found.</CommandEmpty>
             {groups.map((group) => (
               <CommandGroup key={group.kind} heading={<TimeFrameGroupHeading group={group} />}>
-                {group.frames.map((timeFrame) => (
-                  <CommandItem
-                    key={timeFrame.ident!}
-                    value={`${timeFrame.name} ${timeFrame.ident}`}
-                    onSelect={() => {
-                      setSelectedTimeFrame(timeFrame);
-                      setIsPopoverOpen(false);
-                    }}
-                    className="space-x-2"
-                  >
-                    {selectedTimeFrame?.ident === timeFrame.ident ? (
-                      <Check size={14} />
-                    ) : null}
-                    <span>{timeFrame.name}</span>
-                  </CommandItem>
-                ))}
+                {group.frames.map((timeFrame) => {
+                  const isSelected = selectedTimeFrame?.ident === timeFrame.ident;
+                  return (
+                    <CommandItem
+                      key={timeFrame.ident!}
+                      value={`${timeFrame.name} ${timeFrame.ident}`}
+                      onSelect={() => {
+                        setSelectedTimeFrame(timeFrame);
+                        setIsPopoverOpen(false);
+                      }}
+                      data-chosen={isSelected || undefined}
+                      className={cn("gap-1.5", isSelected && "font-medium")}
+                    >
+                      {/* Every row keeps the check's column, so names stay aligned whichever frame is selected. */}
+                      <span className="flex size-4 shrink-0 items-center justify-center">
+                        {isSelected ? <Check className="size-4 text-zinc-900" strokeWidth={3} /> : null}
+                      </span>
+                      <span>{timeFrame.name}</span>
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             ))}
           </CommandList>
