@@ -2,7 +2,7 @@
 
 This reference lists the REST API endpoints most useful for **data consumers** — analysts, researchers, and integrators who want to query statistical data, look up business units, and browse reference classifications.
 
-All endpoints are served by [PostgREST](https://postgrest.org/) and follow its query syntax. Replace `https://ma.statbus.org` with your actual instance URL (e.g. `https://dev.statbus.org`).
+All endpoints are served by [PostgREST](https://postgrest.org/) and follow its query syntax. Replace `https://demo.statbus.org` with your actual instance URL (e.g. `https://dev.statbus.org`).
 
 > **Try it now:** Every URL below can be pasted directly into a browser. You will get JSON back. Add `&limit=5` to any query to keep the response short while exploring.
 
@@ -14,10 +14,10 @@ Most read endpoints require a valid API key. Pass it as a Bearer token:
 Authorization: Bearer YOUR_API_KEY
 ```
 
-To get your API key, log into the web interface and open **Show API key** in the command palette (Ctrl/Cmd+K), or visit:
+To get your API key, log into the web interface, get the key in command palette or simply visit:
 
 ```
-https://ma.statbus.org/rest/api_key?select=token
+https://demo.statbus.org/rest/api_key?select=token
 ```
 
 For browser exploration, the session cookie set by the web login works automatically — just stay logged in.
@@ -31,9 +31,6 @@ For browser exploration, the session cookie set by the web login works automatic
 | POST | `/rest/rpc/refresh` | Refresh an expired access token |
 | GET | `/rest/rpc/auth_status` | Check current authentication state |
 | POST | `/rest/rpc/create_api_key` | Create an API key for scripted access |
-| POST | `/rest/rpc/revoke_api_key` | Revoke a key by its `jti` (`{"key_jti": "..."}`) |
-
-A key that has leaked can be replaced with **Recreate key** in the API key dialog, which creates a new key and revokes the old one.
 
 ---
 
@@ -45,9 +42,9 @@ The main endpoint for retrieving aggregated counts of business units over time.
 
 **Sample browser URLs:**
 ```
-https://ma.statbus.org/rest/statistical_history?select=year,countable_count&unit_type=eq.establishment&resolution=eq.year
-https://ma.statbus.org/rest/statistical_history?select=year,countable_count&unit_type=eq.enterprise&resolution=eq.year
-https://ma.statbus.org/rest/statistical_history?select=year,countable_count&unit_type=eq.legal_unit&resolution=eq.year
+https://demo.statbus.org/rest/statistical_history?select=year,countable_count&unit_type=eq.establishment&resolution=eq.year
+https://demo.statbus.org/rest/statistical_history?select=year,countable_count&unit_type=eq.enterprise&resolution=eq.year
+https://demo.statbus.org/rest/statistical_history?select=year,countable_count&unit_type=eq.legal_unit&resolution=eq.year
 
 ```
 
@@ -85,24 +82,19 @@ The main view for searching and browsing statistical units (legal units, establi
 
 **Sample browser URL — first 10 units:**
 ```
-https://ma.statbus.org/rest/statistical_unit?select=unit_type,name,physical_region_path,primary_activity_category_path&limit=10
+https://demo.statbus.org/rest/statistical_unit?select=unit_type,name,physical_region_path,primary_activity_category_path&limit=10
+https://demo.statbus.org/rest/statistical_unit?select=unit_type,name,tax_ident,physical_region_path,primary_activity_category_path&limit=10
 ```
 
 **Sample browser URL — search by name:**
 ```
-https://ma.statbus.org/rest/statistical_unit?select=unit_type,name&name=ilike.*ba*&limit=10
+https://demo.statbus.org/rest/statistical_unit?select=unit_type,name&name=ilike.*ba*&limit=10
+https://demo.statbus.org/rest/statistical_unit?select=unit_type,name,tax_ident&name=ilike.*bakery*&limit=10
 ```
 
 **Sample browser URL — establishments in a specific region:**
 ```
-https://ma.statbus.org/rest/statistical_unit?select=name,physical_region_code,physical_region_path,primary_activity_category_path&unit_type=eq.establishment&physical_region_code=like.03*&limit=10
-```
-
-Region paths are `ltree` values built from region codes (e.g. `03.01`), so filter on `physical_region_code` with `like`, or on the path with `eq`. Replace `03` with a code from `/rest/region_used`.
-
-**Sample browser URL — with coordinates, employees and turnover:**
-```
-https://ma.statbus.org/rest/statistical_unit?select=unit_type,physical_latitude,physical_longitude,name,employees:stats->employees->>value,turnover:stats->turnover->>value&limit=10
+https://demo.statbus.org/rest/statistical_unit?select=name,physical_region_path,primary_activity_category_path&unit_type=eq.establishment&physical_region_path=like.Norway.Oslo.*&limit=10
 ```
 
 **Useful columns:**
@@ -111,66 +103,27 @@ https://ma.statbus.org/rest/statistical_unit?select=unit_type,physical_latitude,
 |--------|-------------|
 | `unit_type` | `legal_unit`, `establishment`, or `enterprise` |
 | `name` | Unit name |
-| `external_idents` | External identifiers (JSONB), e.g. `{"tax_ident": "...", "stat_ident": "..."}`; the identifier types are listed in `/rest/external_ident_type_enabled` |
+| `tax_ident` | Tax/registration identifier |
+| `stat_ident` | Statistical identifier |
+| `external_idents` | External identifiers (JSON) |
 | `physical_region_path` | Physical location region hierarchy |
 | `primary_activity_category_path` | Main industry classification path |
 | `sector_path` | Institutional sector |
 | `legal_form_name` | Legal form |
-| `physical_latitude` | Latitude coordinate |
-| `physical_longitude` | Longitude coordinate |
 | `valid_from` | Start of validity period |
 | `valid_to` | End of validity period |
-| `existence_from`, `existence_until` | When the unit exists (birth/death dates applied); use these to ask "which units exist on a date", see [Time frames](#time-frames) |
-| `stats` | JSONB with the unit's own statistical values (see below) |
-| `stats_summary` | JSONB with aggregated stats across the unit hierarchy |
-
-#### Accessing statistical variables (employees, turnover, etc.)
-
-Statistical variables like `employees` and `turnover` are **not top-level columns** — they are stored inside the `stats` JSONB column, each as `{"type": "int", "value": 12}`. Use PostgREST JSON operators to extract them, and name the result with `alias:` so two values do not share a key:
-
-| What you want | PostgREST select syntax |
-|---------------|------------------------|
-| Unit's own employees | `employees:stats->employees->>value` |
-| Unit's own turnover | `turnover:stats->turnover->>value` |
-| All stats as JSON | `stats` |
-| Aggregated employee sum | `employees_sum:stats_summary->employees->>sum` |
-| Aggregated turnover sum | `turnover_sum:stats_summary->turnover->>sum` |
-
-`stats_summary` also holds `count`, `min`, `max`, `mean` and more for each variable.
-
-**Sample browser URL — enterprise-level aggregated stats:**
-```
-https://ma.statbus.org/rest/statistical_unit?select=name,employees_sum:stats_summary->employees->>sum,turnover_sum:stats_summary->turnover->>sum&unit_type=eq.enterprise&limit=10
-```
-
-To see which statistical variables are defined in your instance:
-```
-https://ma.statbus.org/rest/stat_definition_enabled?select=code,name,description,type&order=code.asc
-```
 
 ### `GET /rest/rpc/statistical_unit_details`
 
 Full details for a single statistical unit.
 
-```
-https://ma.statbus.org/rest/rpc/statistical_unit_details?unit_id=1&unit_type=legal_unit
-```
-
 ### `GET /rest/rpc/statistical_unit_hierarchy`
 
 Returns the parent-child hierarchy for a unit (enterprise > legal unit > establishment).
 
-```
-https://ma.statbus.org/rest/rpc/statistical_unit_hierarchy?unit_id=1&unit_type=legal_unit
-```
-
 ### `GET /rest/rpc/statistical_unit_stats`
 
 Statistical variable values for a specific unit.
-
-```
-https://ma.statbus.org/rest/rpc/statistical_unit_stats?unit_id=1&unit_type=legal_unit
-```
 
 ### `POST /rest/rpc/statistical_unit_facet_drilldown`
 
@@ -180,34 +133,27 @@ Faceted drilldown for building reports — filter by region, activity, sector, e
 
 ## Core Entity Tables
 
-Direct access to the underlying business entity tables, for more detailed queries. Identifiers such as `tax_ident` and `stat_ident` live in `external_ident`, one row per identifier (`statistical_unit.external_idents` has them all in one JSON object).
+Direct access to the underlying business entity tables, for more detailed queries.
 
 ### `GET /rest/legal_unit`
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/legal_unit?select=id,name,birth_date,valid_from,valid_to&limit=10&order=id.asc
+https://demo.statbus.org/rest/legal_unit?select=id,stat_ident,name,birth_date,valid_from,valid_to&limit=10&order=id.asc
 ```
 
 ### `GET /rest/establishment`
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/establishment?select=id,name,birth_date,valid_from,valid_to&limit=10&order=id.asc
-```
-
-### `GET /rest/external_ident`
-
-**Sample browser URL — the identifiers of legal unit 1:**
-```
-https://ma.statbus.org/rest/external_ident?select=ident,type:external_ident_type(code)&legal_unit_id=eq.1
+https://demo.statbus.org/rest/establishment?select=id,stat_ident,name,birth_date,valid_from,valid_to&limit=10&order=id.asc
 ```
 
 ### `GET /rest/enterprise`
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/enterprise?select=id,short_name,edit_at&limit=10&order=id.asc
+https://demo.statbus.org/rest/enterprise?select=id,stat_ident,name,valid_from,valid_to&limit=10&order=id.asc
 ```
 
 ---
@@ -226,7 +172,7 @@ These endpoints provide the code lists and classifications used to categorize un
 
 **Sample browser URL — browse enabled activity categories:**
 ```
-https://ma.statbus.org/rest/activity_category_enabled?select=path,code,name,standard_code&limit=20&order=path.asc
+https://demo.statbus.org/rest/activity_category_enabled?select=path,code,name,standard_code&limit=20&order=path.asc
 ```
 
 ### Regions (geography)
@@ -239,7 +185,7 @@ https://ma.statbus.org/rest/activity_category_enabled?select=path,code,name,stan
 
 **Sample browser URL — browse regions:**
 ```
-https://ma.statbus.org/rest/region_used?select=path,code,name&limit=20&order=path.asc
+https://demo.statbus.org/rest/region_used?select=path,code,name&limit=20&order=path.asc
 ```
 
 ### Legal forms
@@ -251,7 +197,7 @@ https://ma.statbus.org/rest/region_used?select=path,code,name&limit=20&order=pat
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/legal_form_enabled?select=code,name&order=code.asc
+https://demo.statbus.org/rest/legal_form_enabled?select=code,name&order=code.asc
 ```
 
 ### Sectors (institutional sector)
@@ -263,7 +209,7 @@ https://ma.statbus.org/rest/legal_form_enabled?select=code,name&order=code.asc
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/sector_enabled?select=code,name&order=code.asc
+https://demo.statbus.org/rest/sector_enabled?select=code,name&order=code.asc
 ```
 
 ### Countries
@@ -275,7 +221,7 @@ https://ma.statbus.org/rest/sector_enabled?select=code,name&order=code.asc
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/country_enabled?select=iso_2,name&order=name.asc
+https://demo.statbus.org/rest/country_enabled?select=iso_2,name&order=name.asc
 ```
 
 ### Other classifications
@@ -289,7 +235,7 @@ https://ma.statbus.org/rest/country_enabled?select=iso_2,name&order=name.asc
 | `/rest/external_ident_type` | Types of external identifiers |
 | `/rest/stat_definition` | Statistical variable definitions |
 
-Most of these have `_enabled` and `_ordered` variants (for example `/rest/status_enabled`, `/rest/data_source_ordered`).
+Each of these has `_enabled` and `_ordered` variants for convenience.
 
 ---
 
@@ -301,34 +247,29 @@ Lists the statistical variables tracked for units (employees, turnover, etc.).
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/stat_definition_enabled?select=code,name,description,type&order=code.asc
+https://demo.statbus.org/rest/stat_definition_enabled?select=code,name,description,type&order=code.asc
 ```
 
 ---
 
-## Time frames
+## Time Context
 
-The data is a time series: each unit has records valid over date ranges. A **time frame** names the date you look at. The web interface's frame menu uses these same frames.
+### `GET /rest/time_context`
 
-### `GET /rest/time_frame`
-
-| `ident` | Kind | Meaning |
-|---------|------|---------|
-| `live` | `live` | Today; imports cover the current year onwards |
-| `prev` | `relative` | The end of last year; moves forward each new year |
-| `y_YYYY` | `fixed` | The end of year YYYY, e.g. `y_2024`; never moves |
-
-Each row has `valid_on`, the date the frame looks at, and `valid_from`/`valid_to`, the period an import into that frame covers. The first row is the default.
+Returns the valid date range for the data — useful for knowing which time periods are available.
 
 **Sample browser URL:**
 ```
-https://ma.statbus.org/rest/time_frame?select=ident,kind,name,valid_on&order=valid_on.desc
+https://demo.statbus.org/rest/time_context
 ```
 
-To list the units that exist in a frame, read its `valid_on` and filter on the existence columns:
+### `GET /rest/relative_period`
 
+Pre-defined relative time periods (e.g. "last year", "current quarter").
+
+**Sample browser URL:**
 ```
-https://ma.statbus.org/rest/statistical_unit?select=unit_type,name&existence_from=lte.2025-12-31&existence_until=gt.2025-12-31&limit=10
+https://demo.statbus.org/rest/relative_period?select=code,name&order=code.asc
 ```
 
 ---
@@ -346,7 +287,7 @@ All endpoints support PostgREST filtering. Common operators:
 | `like` | Pattern match (case-sensitive) | `?name=like.*Corp*` |
 | `ilike` | Pattern match (case-insensitive) | `?name=ilike.*bakery*` |
 | `in` | In a list | `?unit_type=in.(legal_unit,establishment)` |
-| `is` | IS (for null/boolean) | `?death_date=is.null` |
+| `is` | IS (for null/boolean) | `?deleted_at=is.null` |
 | `order` | Sort | `?order=name.asc` or `?order=year.desc` |
 | `limit` | Max rows | `?limit=100` |
 | `offset` | Skip rows (pagination) | `?offset=100` |
@@ -364,7 +305,7 @@ Add the `Prefer: count=exact` header to get a total row count in the `Content-Ra
 ```bash
 curl -H "Authorization: Bearer YOUR_API_KEY" \
      -H "Prefer: count=exact" \
-     "https://ma.statbus.org/rest/statistical_unit?unit_type=eq.establishment&limit=0"
+     "https://demo.statbus.org/rest/statistical_unit?unit_type=eq.establishment&limit=0"
 ```
 
 The response header `Content-Range: 0-0/1234` tells you there are 1234 matching rows.
@@ -373,13 +314,13 @@ The response header `Content-Range: 0-0/1234` tells you there are 1234 matching 
 
 ## OpenAPI Specification
 
-Your StatBus instance serves a live, auto-generated OpenAPI spec with every table, view, and function you can access. Request it with your API key:
+Your StatBus instance serves a live, auto-generated OpenAPI spec with every table, view, and function:
 
-```bash
-curl -H "Authorization: Bearer YOUR_API_KEY" "https://ma.statbus.org/rest" > statbus-openapi.json
+```
+https://demo.statbus.org/postgrest
 ```
 
-Load the saved file into [Swagger Editor](https://editor.swagger.io/) or any OpenAPI tool for an interactive, always-up-to-date reference of all available endpoints and their parameters.
+Load this URL into [Swagger Editor](https://editor.swagger.io/) or any OpenAPI tool for an interactive, always-up-to-date reference of all available endpoints and their parameters.
 
 ---
 
