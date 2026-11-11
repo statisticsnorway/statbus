@@ -194,10 +194,11 @@ http://127.0.0.1:19999 {
         }
     }
 
-    # All other requests to Next.js: the host's dev server (`cd app && pnpm run dev`, port 3000)
-    # when it runs, so local edits show on this site at once; otherwise the app container.
+    # All other requests to Next.js: this checkout's host dev server (`cd app && pnpm run dev`,
+    # APP_DEV_PORT, slot offset+7) when it runs, so local edits show on this site at once;
+    # otherwise the app container.
     handle {
-        reverse_proxy host.docker.internal:3000 app:3000 {
+        reverse_proxy host.docker.internal:{{.AppDevPort}} app:3000 {
             lb_policy first
             lb_try_duration 2s
             fail_duration 10s

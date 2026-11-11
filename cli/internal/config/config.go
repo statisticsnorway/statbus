@@ -133,7 +133,12 @@ type Derived struct {
 	// unauthenticated in v12, same trust level as the main REST loopback port.
 	RestAdminPort        int
 	RestAdminBindAddress string
-	Version              string
+	// AppDevPort is the host port of this checkout's Next.js dev server
+	// (`cd app && pnpm run dev`), slot offset+7. The development Caddy forwards
+	// pages to it before the app container, so each checkout's https site
+	// serves its own code over HTTP/2 (STATBUS-623).
+	AppDevPort int
+	Version    string
 	// CommitShort is the 8-char display form of the git commit (produced by
 	// `git rev-parse --short=8 HEAD`). Length fixed at 8; not encoded in
 	// the field name — there's only one short form (rc.63 canonical
@@ -175,9 +180,11 @@ type CaddyTemplateData struct {
 	CaddyDbTlsBindAddress string
 	AppPort               int
 	AppBindAddress        string
-	PostgrestBindAddress  string
-	TlsCertFile           string
-	TlsKeyFile            string
+	// AppDevPort: see Derived.AppDevPort.
+	AppDevPort           int
+	PostgrestBindAddress string
+	TlsCertFile          string
+	TlsKeyFile           string
 }
 
 // randomString generates a cryptographically random alphanumeric string.
@@ -662,6 +669,8 @@ func computeDerivedInDir(cfg *ConfigEnv, gitDir string) *Derived {
 	// free in every mode — config.go assigns only +0..+5, and standalone
 	// overrides only http/https/db, so +6 is uniform across all deployment modes.
 	restAdminPort := portOffset + 6
+	// +7: this checkout's host dev server (Derived.AppDevPort).
+	appDevPort := portOffset + 7
 
 	var (
 		caddyHttpBind  string
@@ -724,6 +733,7 @@ func computeDerivedInDir(cfg *ConfigEnv, gitDir string) *Derived {
 		PostgrestBindAddress:   fmt.Sprintf("127.0.0.1:%d", postgrestPort),
 		RestAdminPort:          restAdminPort,
 		RestAdminBindAddress:   fmt.Sprintf("127.0.0.1:%d", restAdminPort),
+		AppDevPort:             appDevPort,
 		Version:                version,
 		CommitShort:            commitShort,
 		SiteURL:                cfg.StatbusURL,
@@ -853,6 +863,9 @@ REST_BIND_ADDRESS=%[17]s
 # PostgREST admin server — loopback-only (slot offset+6). Source of the /ready
 # signal the post-swap upgrade health check polls. NEVER public, no Caddy route.
 REST_ADMIN_BIND_ADDRESS=%[26]s
+# This checkout's host dev server port (cd app && pnpm run dev), slot offset+7;
+# the development Caddy serves it on CADDY_HTTPS_PORT over HTTP/2.
+APP_DEV_PORT=%[27]d
 # The publicly exposed address of PostgreSQL inside Supabase
 CADDY_DB_PORT=%[18]d
 CADDY_DB_TLS_PORT=%[19]d
@@ -900,6 +913,7 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 		debugBlock("DEBUG", cfg.Debug), // 24
 		cfg.SiteDomain,                 // 25
 		derived.RestAdminBindAddress,   // 26
+		derived.AppDevPort,             // 27
 	)
 
 	// STATBUS-332 restart-class declarations for the 26 keys written by the
@@ -930,6 +944,7 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 	classes.declare("APP_BIND_ADDRESS", RestartApp) // app's own compose env only; NOT a Caddy template field (verified)
 	classes.declare("REST_BIND_ADDRESS", RestartRest)
 	classes.declare("REST_ADMIN_BIND_ADDRESS", RestartRest)
+	classes.declare("APP_DEV_PORT", RestartProxyRestart) // the development Caddyfile forwards to it; pnpm run dev reads it
 	classes.declare("CADDY_DB_PORT", RestartProxyRestart)
 	classes.declare("CADDY_DB_TLS_PORT", RestartProxyRestart)
 	classes.declare("CADDY_DB_BIND_ADDRESS", RestartProxyRestart)
@@ -1171,6 +1186,7 @@ func generateCaddyFiles(derived *Derived, cfg *ConfigEnv, projDir string, verbos
 		CaddyDbTlsBindAddress: derived.CaddyDbTlsBindAddress,
 		AppPort:               derived.AppPort,
 		AppBindAddress:        derived.AppBindAddress,
+		AppDevPort:            derived.AppDevPort,
 		PostgrestBindAddress:  derived.PostgrestBindAddress,
 		TlsCertFile:           cfg.TlsCertFile,
 		TlsKeyFile:            cfg.TlsKeyFile,
