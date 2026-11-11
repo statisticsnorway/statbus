@@ -1,6 +1,29 @@
 package cmd
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"testing"
+)
+
+// The newest sqlSagaImagePins row is the sql_saga version the current database
+// image installs, so a restore of a fresh database's dump creates it at the
+// version its rows were written for.
+func TestSqlSagaImagePinMatchesDockerfile(t *testing.T) {
+	dockerfile, err := os.ReadFile(filepath.Join("..", "..", "postgres", "Dockerfile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`(?m)^ARG sql_saga_release=v(\S+)$`).FindSubmatch(dockerfile)
+	if m == nil {
+		t.Fatal("postgres/Dockerfile has no ARG sql_saga_release=v<version> line")
+	}
+	newest := sqlSagaImagePins[len(sqlSagaImagePins)-1].sqlSaga
+	if newest != string(m[1]) {
+		t.Errorf("newest sqlSagaImagePins row is %s, postgres/Dockerfile pins sql_saga %s: add a row keyed by the first migration of the release that ships it", newest, m[1])
+	}
+}
 
 // STATBUS-542: ./sb db restore installs sql_saga at the version the dump was
 // made with, so the dump's catalog rows load into the layout they were
@@ -46,6 +69,19 @@ func TestDumpSqlSagaVersion(t *testing.T) {
 			name:      "legacy ledger without any sql_saga update migration is 1.0",
 			migration: migrationCopy + "1\t20240102000000\tx.up.sql\tx\t2026-01-01\n\\.\n",
 			want:      "1.0",
+		},
+		{
+			// rune since its 2026-11-08 reset: created on an image pinned at 1.4,
+			// so the lifecycle step found sql_saga at the default and wrote no
+			// receipt, and the retired update migrations never ran there.
+			name: "ledger past STATBUS-533 without a sql_saga receipt is the 533-era pin 1.4",
+			audit: auditCopy +
+				"1\tjsonb_stats\t\\N\t3.1.0\t2026-11-08\n" +
+				"2\tltree\t\\N\t1.3\t2026-11-08\n\\.\n",
+			migration: migrationCopy +
+				"1\t20240102000000\tx.up.sql\tx\t2026-11-08\n" +
+				"900\t20261027221500\ty.up.sql\ty\t2026-11-08\n\\.\n",
+			want: "1.4",
 		},
 	}
 	for _, c := range cases {

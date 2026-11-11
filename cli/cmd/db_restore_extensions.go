@@ -23,6 +23,23 @@ var legacySqlSagaUpdateMigrations = []struct {
 	{"20261027135139", "1.4"},
 }
 
+// sqlSagaImagePins lists, oldest first, the sql_saga version the database
+// image installs from a migration on, for databases past STATBUS-533's
+// migration 20261027221500. Such a database was created by init-db.sh at the
+// image's pin, and the extension lifecycle step writes a receipt only when it
+// creates or updates the extension: a database that has stayed at the pin it
+// was created with carries no sql_saga receipt. Its sql_saga version is then the
+// pin in force at the newest migration in its ledger. A change of the pin in
+// postgres/Dockerfile (sql_saga_release) adds a row here, keyed by the first
+// migration of the release that ships it; TestSqlSagaImagePinMatchesDockerfile
+// checks the newest row against the Dockerfile.
+var sqlSagaImagePins = []struct {
+	fromMigration string
+	sqlSaga       string
+}{
+	{"20261027221500", "1.4"},
+}
+
 // dumpSqlSagaVersion returns the sql_saga version a dump was made with, read
 // from the dump's own data (pg_dump does not record extension versions):
 // the newest sql_saga receipt in db.extension_upgrade (written by the
@@ -43,16 +60,27 @@ func dumpSqlSagaVersion(auditCopy, migrationCopy string) string {
 		return newestReceipt
 	}
 	applied := map[string]bool{}
+	newestMigration := ""
 	for _, row := range copyRows(migrationCopy) {
 		// id, version, ...
 		if len(row) >= 2 {
 			applied[row[1]] = true
+			if row[1] > newestMigration {
+				newestMigration = row[1]
+			}
 		}
 	}
 	version := "1.0"
 	for _, m := range legacySqlSagaUpdateMigrations {
 		if applied[m.version] {
 			version = m.sqlSaga
+		}
+	}
+	// Past STATBUS-533 the retired update migrations are gone from the ledger,
+	// and a database still at the pin it was created with has no receipt.
+	for _, p := range sqlSagaImagePins {
+		if newestMigration >= p.fromMigration {
+			version = p.sqlSaga
 		}
 	}
 	return version
