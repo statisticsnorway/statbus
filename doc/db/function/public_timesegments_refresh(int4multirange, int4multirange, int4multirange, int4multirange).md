@@ -41,16 +41,41 @@ BEGIN
             DELETE FROM public.timesegments WHERE unit_type = 'power_group' AND unit_id = ANY(v_power_group_ids);
             INSERT INTO public.timesegments SELECT * FROM public.timesegments_def WHERE unit_type = 'power_group' AND unit_id = ANY(v_power_group_ids);
         END IF;
-        -- Partial refresh: record years from the batch's timesegments (O(batch_size))
+        -- Partial refresh: record years from the batch's timesegments (O(batch_size)).
         -- Handles historical data: extracts actual years from whatever dates are processed.
-        INSERT INTO public.timesegments_years (year)
-        SELECT DISTINCT EXTRACT(year FROM t.valid_from)::int
-        FROM public.timesegments AS t
-        WHERE (p_establishment_id_ranges IS NOT NULL AND t.unit_type = 'establishment' AND t.unit_id = ANY(v_establishment_ids))
-           OR (p_legal_unit_id_ranges IS NOT NULL AND t.unit_type = 'legal_unit' AND t.unit_id = ANY(v_legal_unit_ids))
-           OR (p_enterprise_id_ranges IS NOT NULL AND t.unit_type = 'enterprise' AND t.unit_id = ANY(v_enterprise_ids))
-           OR (p_power_group_id_ranges IS NOT NULL AND t.unit_type = 'power_group' AND t.unit_id = ANY(v_power_group_ids))
-        ON CONFLICT (year) DO NOTHING;
+        -- One statement per unit type, each with only its own id filter, so its plan reads the batch's
+        -- segments through the (unit_type, unit_id) btree at any call count. A single statement OR-ing four
+        -- flag-guarded filters got a generic plan after five calls in a worker session; not knowing which
+        -- filters applied, it read through the GiST daterange index on its non-leading columns: 1,234 ms
+        -- per 8000-unit batch instead of 11 ms (STATBUS-615).
+        IF p_establishment_id_ranges IS NOT NULL THEN
+            INSERT INTO public.timesegments_years (year)
+            SELECT DISTINCT EXTRACT(year FROM t.valid_from)::int
+            FROM public.timesegments AS t
+            WHERE t.unit_type = 'establishment' AND t.unit_id = ANY(v_establishment_ids)
+            ON CONFLICT (year) DO NOTHING;
+        END IF;
+        IF p_legal_unit_id_ranges IS NOT NULL THEN
+            INSERT INTO public.timesegments_years (year)
+            SELECT DISTINCT EXTRACT(year FROM t.valid_from)::int
+            FROM public.timesegments AS t
+            WHERE t.unit_type = 'legal_unit' AND t.unit_id = ANY(v_legal_unit_ids)
+            ON CONFLICT (year) DO NOTHING;
+        END IF;
+        IF p_enterprise_id_ranges IS NOT NULL THEN
+            INSERT INTO public.timesegments_years (year)
+            SELECT DISTINCT EXTRACT(year FROM t.valid_from)::int
+            FROM public.timesegments AS t
+            WHERE t.unit_type = 'enterprise' AND t.unit_id = ANY(v_enterprise_ids)
+            ON CONFLICT (year) DO NOTHING;
+        END IF;
+        IF p_power_group_id_ranges IS NOT NULL THEN
+            INSERT INTO public.timesegments_years (year)
+            SELECT DISTINCT EXTRACT(year FROM t.valid_from)::int
+            FROM public.timesegments AS t
+            WHERE t.unit_type = 'power_group' AND t.unit_id = ANY(v_power_group_ids)
+            ON CONFLICT (year) DO NOTHING;
+        END IF;
     END IF;
 END;
 $procedure$
