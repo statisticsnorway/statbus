@@ -1,13 +1,11 @@
 "use client";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AdminDialogFooter } from "@/app/admin/admin-dialog-footer";
 import { Tables } from "@/lib/database.types";
 import { useActionState } from "react";
 import { FormField } from "@/components/form/form-field";
@@ -30,7 +28,7 @@ export function ActivityCategorySettingsForm({
 }) {
   const isEdit = !!activityCategorySetting;
   const action = updateActivityCategorySettings.bind(null, activityCategorySetting.id);
-  const [state, formAction] = useActionState(action, null);
+  const [state, formAction, pending] = useActionState(action, null);
 
   useGuardedEffect(
     () => {
@@ -101,12 +99,7 @@ export function ActivityCategorySettingsForm({
               />
             </div>
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button type="submit">Save changes</Button>
-          </DialogFooter>
+          <AdminDialogFooter submitLabel="Save changes" pending={pending} state={state} />
         </form>
       </DialogContent>
       <SubmissionFeedbackDebugInfo state={state} />

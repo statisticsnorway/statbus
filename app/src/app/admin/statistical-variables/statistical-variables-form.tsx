@@ -1,13 +1,11 @@
 "use client";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AdminDialogFooter } from "@/app/admin/admin-dialog-footer";
 import { Tables } from "@/lib/database.types";
 import { useActionState, useState } from "react";
 import { FormField } from "@/components/form/form-field";
@@ -38,7 +36,7 @@ export function StatDefinitionForm({
   const action = isEdit
     ? updateStatDefinition.bind(null, statDefinition.id)
     : createStatDefinition;
-  const [state, formAction] = useActionState(action, null);
+  const [state, formAction, pending] = useActionState(action, null);
 
   useGuardedEffect(
     () => {
@@ -130,12 +128,7 @@ export function StatDefinitionForm({
               />
             </div>
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button type="submit">{isEdit ? "Save changes" : "Create"}</Button>
-          </DialogFooter>
+          <AdminDialogFooter submitLabel={isEdit ? "Save changes" : "Create"} pending={pending} state={state} />
         </form>
       </DialogContent>
       <SubmissionFeedbackDebugInfo state={state} />

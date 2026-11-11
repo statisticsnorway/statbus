@@ -1,14 +1,12 @@
 "use client";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AdminDialogFooter } from "@/app/admin/admin-dialog-footer";
 import { Tables } from "@/lib/database.types";
 import { useActionState } from "react";
 import { FormField } from "@/components/form/form-field";
@@ -31,7 +29,7 @@ export function UnitSizeForm({
 }) {
   const isEdit = !!unitSize;
   const action = isEdit ? updateUnitSize.bind(null, unitSize.id) : createUnitSize;
-  const [state, formAction] = useActionState(action, null);
+  const [state, formAction, pending] = useActionState(action, null);
 
   useGuardedEffect(
     () => {
@@ -96,12 +94,7 @@ export function UnitSizeForm({
               />
             </div>
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button type="submit">{isEdit ? "Save changes" : "Create"}</Button>
-          </DialogFooter>
+          <AdminDialogFooter submitLabel={isEdit ? "Save changes" : "Create"} pending={pending} state={state} />
         </form>
       </DialogContent>
       <SubmissionFeedbackDebugInfo state={state} />

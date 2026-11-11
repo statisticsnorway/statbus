@@ -1,13 +1,11 @@
 "use client";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AdminDialogFooter } from "@/app/admin/admin-dialog-footer";
 import { Tables } from "@/lib/database.types";
 import { useActionState } from "react";
 import { updateUser, createUser } from "./update-user-server-action";
@@ -33,7 +31,7 @@ export function UserForm({
 }) {
   const isEdit = !!user;
   const action = isEdit ? updateUser : createUser;
-  const [state, formAction] = useActionState(action, null);
+  const [state, formAction, pending] = useActionState(action, null);
 
   const roleOptions = userRoles.map((role) => ({
     value: role.value,
@@ -107,14 +105,7 @@ export function UserForm({
             </div>
             <Separator />
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button type="submit">
-              {isEdit ? "Save changes" : "Create user"}
-            </Button>
-          </DialogFooter>
+          <AdminDialogFooter submitLabel={isEdit ? "Save changes" : "Create user"} pending={pending} state={state} />
         </form>
       </DialogContent>
       <SubmissionFeedbackDebugInfo state={state} />

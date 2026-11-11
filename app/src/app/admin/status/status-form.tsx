@@ -1,14 +1,12 @@
 "use client";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AdminDialogFooter } from "@/app/admin/admin-dialog-footer";
 import { Tables } from "@/lib/database.types";
 import { useActionState } from "react";
 import { FormField } from "@/components/form/form-field";
@@ -32,7 +30,7 @@ export function StatusForm({
   const action = isEdit
     ? updateStatusCode.bind(null, statusCode.id)
     : createStatusCode;
-  const [state, formAction] = useActionState(action, null);
+  const [state, formAction, pending] = useActionState(action, null);
 
   useGuardedEffect(
     () => {
@@ -138,12 +136,7 @@ export function StatusForm({
               />
             </div>
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button type="submit">{isEdit ? "Save changes" : "Create"}</Button>
-          </DialogFooter>
+          <AdminDialogFooter submitLabel={isEdit ? "Save changes" : "Create"} pending={pending} state={state} />
         </form>
       </DialogContent>
       <SubmissionFeedbackDebugInfo state={state} />
