@@ -435,10 +435,12 @@ if [ "$pct" = full ]; then
     changed=all
 elif [ "${pct#n}" != "$pct" ]; then
     # The WHERE names the rows (safeupdate): N current records not renamed yet.
-    changed=\$(sql -c "WITH pick AS (SELECT id FROM public.legal_unit WHERE valid_until = 'infinity' AND name NOT LIKE '%(bench %' ORDER BY id LIMIT ${pct#n}), c AS (UPDATE public.legal_unit AS lu SET name = left(lu.name, 230) || ' (bench $label)' FROM pick WHERE lu.id = pick.id AND lu.valid_until = 'infinity' RETURNING 1) SELECT count(*) FROM c")
+    changed=\$(sql -c "WITH pick AS (SELECT id FROM public.legal_unit WHERE valid_until = 'infinity' AND name NOT LIKE '%(bench %' ORDER BY id LIMIT ${pct#n}), c AS (UPDATE public.legal_unit AS lu SET name = left(lu.name, 230) || ' (bench $pct)' FROM pick WHERE lu.id = pick.id AND lu.valid_until = 'infinity' RETURNING 1) SELECT count(*) FROM c")
 else
     # The WHERE names the rows (safeupdate): the chosen share of current records.
-    changed=\$(sql -c "WITH c AS (UPDATE public.legal_unit SET name = left(name, 230) || ' (bench $label)' WHERE id % 100 < $pct AND valid_until = 'infinity' RETURNING 1) SELECT count(*) FROM c")
+    # The new name depends only on the change size, never on the label, so two
+    # commits given the same change hold the same rows and their fingerprints compare.
+    changed=\$(sql -c "WITH c AS (UPDATE public.legal_unit SET name = left(name, 230) || ' (bench $pct)' WHERE id % 100 < $pct AND valid_until = 'infinity' RETURNING 1) SELECT count(*) FROM c")
 fi
 t0=\$(date +%s)
 docker compose run --rm -T --no-deps worker timeout 36000 /app/bin/statbus worker --stop-when-idle > \$out.worker.log 2>&1

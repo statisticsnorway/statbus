@@ -42,7 +42,9 @@ step() { # label full|percent
         changed=all
     else
         # The WHERE names the rows (safeupdate): the chosen share of current records.
-        changed=$(sql -c "WITH c AS (UPDATE public.legal_unit SET name = left(name, 230) || ' (bench $label)' WHERE id % 100 < $pct AND valid_until = 'infinity' RETURNING 1) SELECT count(*) FROM c")
+        # The new name depends only on the change size, never on the label, so the
+        # base and the candidate hold the same rows and their fingerprints compare.
+        changed=$(sql -c "WITH c AS (UPDATE public.legal_unit SET name = left(name, 230) || ' (bench $pct)' WHERE id % 100 < $pct AND valid_until = 'infinity' RETURNING 1) SELECT count(*) FROM c")
     fi
     t0=$(date +%s)
     docker compose run --rm -T --no-deps worker timeout 36000 /app/bin/statbus worker --stop-when-idle > "$out/$label.worker.log" 2>&1 < /dev/null
