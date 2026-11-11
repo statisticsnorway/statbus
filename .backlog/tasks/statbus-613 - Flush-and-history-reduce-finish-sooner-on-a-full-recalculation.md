@@ -1,11 +1,11 @@
 ---
 id: STATBUS-613
 title: Flush and history reduce finish sooner on a full recalculation
-status: In Progress
+status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-10T23:10:00Z'
-updated_date: '2026-11-11T00:13:00Z'
+updated_date: '2026-11-11T00:37:00Z'
 labels:
   - performance
   - db
@@ -50,4 +50,6 @@ Record rejected variants and their numbers in the migration comments and tmp/591
 Whole recalculation of import_benchmark_64469 (rc.01 + master, 3,118,352 units, no data change), real worker, ABBA, quiet machine (load 8-16), tmp/613/proof.sh, logs tmp/613/rounds/: without 613 661 s and 693 s, with 613 691 s and 663 s (mean 677 vs 677: wall unchanged within run-to-run spread). All 16 derived tables identical in all four rounds. Serial steps: flush 40.2/53.9 -> 39.5/36.7 s, history reduce 36.9/38.1 -> 33.6/31.2 s. In a no-change recalculation the MERGE skips every row, so the larger flush gains are for loads that change data (10% changed: 102.9/119.3 -> 61.0/46.6 s). History old-side read (12,139 units of one partition) uses the new btree: 7.4 s via GiST -> 4.8 s.
 
 Test 399: RED on a master-schema copy (399.4 flush_used_unit_index f), GREEN with the migration; down restores the exact \sf definitions of both procedures (diffed against statbus_seed). Fast suite 139/139 + 094 + 143 PASS (tmp/test-613-fast.log). doc/db regenerated (2 functions, statistical_unit table); an unrelated view-deparse flip in public_statistical_unit_def.md left out; types unchanged.
+
+On master 0cc9fc5e4 (Rabbit fast-forward). CI at 0cc9fc5e4 all completed/success: Fast Tests 42930236563, Go Test 42929798402, app build & lint 42929798441, Images 42929798364, Harness Selftest 42929798347, Push on master 42929797680.
 <!-- SECTION:NOTES:END -->

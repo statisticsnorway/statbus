@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-10T06:31:00Z'
+updated_date: '2026-11-11T02:43:00Z'
 labels:
   - import
   - performance
@@ -181,4 +181,6 @@ Closing review for the withdrawal step: documentation updated (combined-review m
 - Remaining: test/import_benchmark.sh full-register speed and exact parity, master serial vs this branch, on dev or tonight on a quiet machine.
 
 2026-11-10 06:31UTC Hibiscus: the overnight test/import_benchmark.sh speed comparison did not run. It waited from 21:45 UTC for a quiet machine (load below 4 for 10 minutes) and never got one: other projects' compiler builds kept the load at 11-89 (median 16 in the last hour, about 70 at 21:44). Cancelled at 06:30 without taking timings. Proposal: run the same pair, master serial vs statbus-591-concurrency-on-master with four import workers, on dev, or locally at an agreed time with other builds paused.
+
+2026-11-11 serial counterpart of import_benchmark_12794 (concurrent, branch 096eb147c, conc 4): import_benchmark_97846, worktree at the branch's master base c1708596f, same worker binary (sha 1848d00e), same harness (096eb147c test/import_benchmark.py), same BRREG downloads inputs (sha OK) and --valid-from 2026-11-07, template statbus_master_serial_bench_template_20261109 (445 migrations, conc 1); safeupdate.enabled=off for that database because c1708596f's setup.sql predates WHERE true. Result: worker 5,157.9 s, 25,183 tasks completed, consistency checks A/B/C pass, at load 12-17. The concurrent run took 8,643.5 s at a median load of 80, so the two wall times are not a speed comparison. Business parity (tmp/598/now-bench/, su-*.tsv, pg-*.tsv): all legal units, establishments and enterprises identical; all *_used tables and statistical_history equal; 25,635 power groups with identical member sets in both; 244 of the 444 multi/cycle power groups have a different root (and so a different power-group name, and facet/history-facet rows follow). Cause: import.process_power_group_link picks a multi group's root as min(legal_unit id) among natural roots (cycle: min influencing id), and concurrent batches assign legal_unit ids in a different order (e.g. group 811714992|911382008|916769318: serial root 911382008, id 99624; concurrent root 916769318, id 337816). The root-by-business-attributes rule (34c1087ff, branch statbus-591-import-speed, owner review B4) removes the id dependence; neither compared build contains it. Concurrency therefore needs the B4 root rule before its results can equal serial.
 <!-- SECTION:NOTES:END -->

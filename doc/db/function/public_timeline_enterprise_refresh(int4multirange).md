@@ -51,7 +51,20 @@ BEGIN
         PERFORM set_config('client_min_messages', 'warning', true);
         DROP TABLE IF EXISTS public.timeline_legal_unit_filtered;
         DROP TABLE IF EXISTS public.timeline_establishment_filtered;
+        DROP TABLE IF EXISTS pg_temp.timesegments_filtered;
         PERFORM set_config('client_min_messages', 'notice', true);
+
+        -- The batch's enterprise segments, materialized and analyzed like the filtered timelines below: both
+        -- joins read them once per enterprise, and statistics that undercount timesegments (a cloned database,
+        -- an earlier rolled-back load) planned a scan of every enterprise segment per enterprise instead, growing
+        -- with the square of the batch (3,000 enterprises 22 s, 500 enterprises 0.27 s; STATBUS-614).
+        CREATE TEMP TABLE timesegments_filtered ON COMMIT DROP AS
+        SELECT t.unit_type, t.unit_id, t.valid_from, t.valid_until
+        FROM public.timesegments AS t
+        WHERE t.unit_type = 'enterprise'::public.statistical_unit_type
+          AND t.unit_id = ANY(v_unit_ids);
+        CREATE INDEX ON pg_temp.timesegments_filtered (unit_id, valid_from);
+        ANALYZE pg_temp.timesegments_filtered;
 
         -- Pre-filter timeline_legal_unit to only rows for these enterprises
         -- Use UNLOGGED for cross-session visibility (enables concurrency > 1)
@@ -106,7 +119,7 @@ BEGIN
                     en.edit_by_user_id,
                     en.edit_at,
                     en.id AS enterprise_id
-                FROM public.timesegments t
+                FROM pg_temp.timesegments_filtered t
                 JOIN public.enterprise en ON t.unit_type = 'enterprise'::public.statistical_unit_type AND t.unit_id = en.id
                 WHERE t.unit_id = ANY(v_unit_ids)
             ) ten
@@ -305,7 +318,7 @@ BEGIN
                     en.id AS enterprise_id,
                     pes.establishment_id AS primary_establishment_id,
                     plu.legal_unit_id AS primary_legal_unit_id
-                FROM public.timesegments t
+                FROM pg_temp.timesegments_filtered t
                 JOIN public.enterprise en ON t.unit_type = 'enterprise'::public.statistical_unit_type AND t.unit_id = en.id
                 -- Use temp table for primary legal unit lookup
                 LEFT JOIN LATERAL (
@@ -435,6 +448,7 @@ BEGIN
         PERFORM set_config('client_min_messages', 'warning', true);
         DROP TABLE IF EXISTS public.timeline_legal_unit_filtered;
         DROP TABLE IF EXISTS public.timeline_establishment_filtered;
+        DROP TABLE IF EXISTS pg_temp.timesegments_filtered;
         PERFORM set_config('client_min_messages', 'notice', true);
     END IF;
 END;
