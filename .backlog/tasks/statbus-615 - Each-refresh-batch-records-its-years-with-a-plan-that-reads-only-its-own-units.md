@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-11T10:50:00Z'
-updated_date: '2026-11-11T11:07:00Z'
+updated_date: '2026-11-11T11:08:00Z'
 labels:
   - performance
   - db
@@ -17,9 +17,9 @@ ordinal: 529204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Every refresh batch should cost the same no matter how many batches its worker has run before, so a full recalculation does not slow down as it goes.
+Every refresh batch should cost the same no matter how many batches its worker has run before, so a full recalculation does not slow down as it goes. Recording which years a batch covers should read only that batch's own units, at any point in a worker's session, and record the same years as before.
 
-public.timesegments_refresh records the years a batch covers with one statement that OR-s four filters, each switched on by whether that unit type's ids were passed. PL/pgSQL gives a statement a generic plan after five executions in a session; the generic plan cannot see which filters apply and reads the batch's segments through the GiST index idx_timesegments_unit_daterange, on its non-leading unit_type and unit_id columns. Each worker session runs many batches, so most batches pay it.
+Zoom in: public.timesegments_refresh records the years with one statement that OR-s four filters, each switched on by whether that unit type's ids were passed. PL/pgSQL gives a statement a generic plan after five executions in a session; the generic plan cannot see which filters apply and reads the batch's segments through the GiST index idx_timesegments_unit_daterange, on its non-leading unit_type and unit_id columns. Each worker session runs many batches, so most batches pay it.
 
 Measured on import_benchmark_64469 (full register, 3,118,352 units, 8000-unit batches): the years statement takes 11 ms with a plan for the call's own values and 1,234 ms with the generic plan; the refresh rises from 322-361 ms (calls 1-5) to 686-837 ms (calls 6-10). A full recalculation scans the GiST index 1,524,130 times, all from this statement. On rune (rc.01, 1000-unit batches), 16,162,002 GiST scans since start; per call 999-1,000 scans and 90-154 ms; with one statement per unit type 0 scans and 44-73 ms. plan_cache_mode = force_custom_plan (the STATBUS-555 remedy) does not help here: on rune even the custom plan picks the GiST index (estimate 381 rows for 2,000).
 
@@ -30,14 +30,16 @@ Closing review: no memory change; the reason is recorded at the statement in the
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 After more than five refresh calls in one session, recording the years scans idx_timesegments_unit_daterange 0 times
-- [ ] #2 timesegments_years holds the same years as before for the same batches
-- [ ] #3 Full recalculations on the full register produce identical derived tables, with and without the change
-- [ ] #4 The rune measurement (four full recalculations, two with and two without the change) is recorded in this ticket's notes
+- [x] #1 After more than five refresh calls in one session, recording the years scans idx_timesegments_unit_daterange 0 times
+- [x] #2 Full recalculations on the full register produce identical derived tables, with and without the change
+- [ ] #3 The rune measurement (four full recalculations, two with and two without the change) is recorded in this ticket's notes
+- [x] #4 timesegments_years holds the same years as before for the same batches: test 357 records the years from eight refresh calls and compares them with the years of the refreshed segments (same_as_refreshed_segments = t, 40 years with and without the change)
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Fast suite with the fix: 141/141 + 1 + 1 passed (tmp/test-615-fast.log), 357 in 10.5 s. Test 357 on the seed rebuilt by full replay of all 452 migrations: 0 GiST scans, same 40 years as the refreshed segments.
+
+AC1: test 357, eight refresh calls in one session on 10,000 analyzed enterprises and legal units: 1,400 GiST scans on master (RED), 0 with the fix (GREEN). Full-register recalculation on import_benchmark_64469: 1,524,130 GiST scans on master, 0 with the fix. AC2: four local full-register recalculations (fix, master, fix, master, twice), all 16 derived-table fingerprints identical; rune rounds 1-2 identical to rune's before-fingerprint. AC4: test 357, 40 years with and without the change, same_as_refreshed_segments = t.
 <!-- SECTION:NOTES:END -->
