@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-11T12:43:00Z'
-updated_date: '2026-11-11T12:52:00Z'
+updated_date: '2026-11-11T14:18:00Z'
 labels:
   - app
   - db
@@ -45,4 +45,6 @@ One shared footer for the seven admin dialog forms (statistical variables, ident
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-11 12:48 owner: split; this ticket is the Saving… state only, the regeneration in the worker is STATBUS-620. Built 5fe1d9118: AdminDialogFooter in all seven admin dialog forms. Test admin-dialog-footer.test.tsx RED tmp/619-footer-red.log (module missing), GREEN tmp/619-footer-green.log (3/3); jest 268/268, tsc 0, lint 0 errors. 12:51 owner saw the spinner in Firefox on a slow save (AC#3). AC#4 waits for the release carrying this (rc.02).
+
+2026-11-11 14:05: in release candidate v2026.11.4-rc.02 (49376c40a; CI all green, ./sb release check green). Release tests held up by outside outages (Hetzner core limit, then Canonical snap store); re-run when the store answers. Remaining owner checks after the release reaches a box.
 <!-- SECTION:NOTES:END -->
