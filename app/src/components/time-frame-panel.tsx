@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { TimeFrameGroupHeading } from "@/components/time-frame-group-heading";
 import { groupTimeFrames, type TimeFrame } from "@/lib/time-frame";
 import { cn } from "@/lib/utils";
@@ -24,6 +23,18 @@ import { CalendarIcon } from "lucide-react";
 
 /** How a change is dated: by a time frame, by chosen dates, or (imports only) by the file's own columns. */
 export type ValidityChoice = "frame" | "dates" | "source_dates";
+
+/**
+ * The panel's views, offered by the caller in this order. Simple and Advanced
+ * exist today. An edit is expected to gain a Timeline view, where the user
+ * picks a stretch of the field's timeline and sees what the change affects;
+ * it is added here as another mode, with its body rendered by the caller.
+ */
+export type TimeFramePanelMode = "simple" | "advanced";
+export const TIME_FRAME_PANEL_MODES: { mode: TimeFramePanelMode; label: string; hint: string }[] = [
+  { mode: "simple", label: "Simple", hint: "Choose a time frame" },
+  { mode: "advanced", label: "Advanced", hint: "Choose a frame, dates or source dates" },
+];
 
 /** A frame's period, ISO dates, e.g. "2025-01-01 – 2025-12-31" or "2026-01-01 – Present". */
 export function framePeriod(tf: Pick<TimeFrame, "valid_from" | "valid_to">): string {
@@ -83,8 +94,8 @@ export interface TimeFramePanelProps {
   /** Prefix for element ids, unique on the page. */
   idPrefix: string;
   timeFrames: readonly TimeFrame[];
-  mode: "simple" | "advanced";
-  onModeChange: (mode: "simple" | "advanced") => void;
+  mode: TimeFramePanelMode;
+  onModeChange: (mode: TimeFramePanelMode) => void;
   choice: ValidityChoice;
   onChoiceChange: (choice: ValidityChoice) => void;
   frameIdent: string | null;
@@ -185,16 +196,30 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
           <Label htmlFor={`${idPrefix}-frame`} className={headingClass}>
             Time frame
           </Label>
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-500">
-            <span className={cn(!advanced && "font-medium text-zinc-900")}>Simple</span>
-            <Switch
-              checked={advanced}
-              onCheckedChange={(on) => onModeChange(on ? "advanced" : "simple")}
-              aria-label="Advanced: choose dates or source dates"
-              data-time-frame-mode-switch
-            />
-            <span className={cn(advanced && "font-medium text-zinc-900")}>Advanced</span>
-          </label>
+          <div
+            role="radiogroup"
+            aria-label="Time frame view"
+            className="inline-flex rounded-md border border-zinc-200 bg-zinc-100 p-0.5 text-xs"
+            data-time-frame-mode-switch
+          >
+            {TIME_FRAME_PANEL_MODES.map((m) => (
+              <button
+                key={m.mode}
+                type="button"
+                role="radio"
+                aria-checked={mode === m.mode}
+                title={m.hint}
+                data-time-frame-mode={m.mode}
+                onClick={() => mode !== m.mode && onModeChange(m.mode)}
+                className={cn(
+                  "rounded px-2 py-0.5 text-zinc-600 transition-colors",
+                  mode === m.mode ? "bg-white font-medium text-zinc-900 shadow-sm" : "hover:text-zinc-900"
+                )}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {!advanced ? (
@@ -237,7 +262,7 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,14rem)_1fr]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,18rem)_1fr]">
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-datasource`} className={headingClass}>
             Data source
@@ -246,12 +271,14 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
             value={dataSourceCode ?? ""}
             onValueChange={(code) => onDataSourceChange(code || null)}
           >
-            <SelectTrigger id={`${idPrefix}-datasource`} className="h-9 w-full border-zinc-300 bg-white">
+            <SelectTrigger id={`${idPrefix}-datasource`} className="h-9 w-full min-w-0 border-zinc-300 bg-white">
               <SelectValue placeholder={dataSourcePlaceholder ?? "Select data source"} />
             </SelectTrigger>
             <SelectContent>
               {dataSources.map((d) => (
                 <SelectItem key={d.code!} value={d.code!}>
+                  <span className="font-mono text-xs text-zinc-500">{d.code}</span>
+                  <span className="text-zinc-400"> – </span>
                   {d.name}
                 </SelectItem>
               ))}
@@ -262,10 +289,16 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
           <Label htmlFor={`${idPrefix}-comment`} className={headingClass}>
             Comment
           </Label>
-          <Input
+          {/* One line at rest; focused, it opens to three lines and grows with what is typed. */}
+          <textarea
             id={`${idPrefix}-comment`}
-            type="text"
-            className="h-9 border-zinc-300 bg-white"
+            rows={1}
+            className={cn(
+              "block w-full resize-none rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm leading-6 shadow-xs outline-none",
+              "placeholder:text-zinc-500 focus-visible:border-zinc-950 focus-visible:ring-[3px] focus-visible:ring-zinc-950/50",
+              "max-h-9 overflow-hidden text-ellipsis [field-sizing:content]",
+              "focus:max-h-60 focus:min-h-20 focus:overflow-auto"
+            )}
             value={comment ?? ""}
             onChange={(e) => onCommentChange(e.target.value || null)}
             placeholder="Optional, stored with every change"

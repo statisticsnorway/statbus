@@ -6,7 +6,7 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { importValidityModeAtom, useImportManager } from "@/atoms/import";
 import { useDetailsPageData } from "@/atoms/edits";
 import { Spinner } from "@/components/ui/spinner";
-import { TimeFramePanel, type ValidityChoice } from "@/components/time-frame-panel";
+import { TimeFramePanel, type TimeFramePanelMode, type ValidityChoice } from "@/components/time-frame-panel";
 
 interface ImportTimeFrameSelectorProps {
   unitType: "legal-units" | "establishments" | "establishments-without-legal-unit" | "legal-relationships";
@@ -60,7 +60,7 @@ export function ImportTimeFrameSelector({ unitType }: ImportTimeFrameSelectorPro
   };
 
   // Simple always means a frame; dates typed in Advanced stay for when it opens again.
-  const handleModeChange = (next: "simple" | "advanced") => {
+  const handleModeChange = (next: TimeFramePanelMode) => {
     setMode(next);
     if (next === "simple") handleChoiceChange("frame");
   };

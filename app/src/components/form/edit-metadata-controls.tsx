@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useFixedFrameConfirmation } from "@/components/fixed-frame-confirmation";
-import { TimeFramePanel, type ValidityChoice } from "@/components/time-frame-panel";
+import { TimeFramePanel, type TimeFramePanelMode, type ValidityChoice } from "@/components/time-frame-panel";
 import { useDetailsPageData, useEditManager } from "@/atoms/edits";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { Separator } from "@/components/ui/separator";
@@ -32,11 +32,11 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   } = useEditManager();
   const { timeFrames } = useTimeFrame();
   const changeEditFrame = useChangeEditFrame();
-  const [mode, setMode] = useState<"simple" | "advanced">("simple");
+  const [mode, setMode] = useState<TimeFramePanelMode>("simple");
   const [choice, setChoice] = useState<ValidityChoice>("frame");
 
   // Simple always means a frame: the frame's dates come back.
-  const handleModeChange = (next: "simple" | "advanced") => {
+  const handleModeChange = (next: TimeFramePanelMode) => {
     setMode(next);
     if (next === "simple") handleChoiceChange("frame");
   };

@@ -54,6 +54,7 @@ import type { Database, Enums, Tables, TablesInsert } from '@/lib/database.types
 import { restClientAtom } from './rest-client'
 import { useBaseData } from './base-data'
 import { selectedTimeFrameAtom } from './app'
+import type { TimeFramePanelMode } from '@/components/time-frame-panel'
 import { isAuthenticatedStrictAtom, authStateForDataFetchingAtom } from './auth'
 
 // ============================================================================
@@ -132,7 +133,7 @@ export const importStateAtom = atom<ImportState>(initialImportState)
  * because the import pages' demo-file table follows it too: Simple offers only
  * the file for a time frame, so users download the matching example.
  */
-export const importValidityModeAtom = atom<"simple" | "advanced">("simple");
+export const importValidityModeAtom = atom<TimeFramePanelMode>("simple");
 
 // ============================================================================
 // UNIT COUNTS ATOMS (for Import feature)
