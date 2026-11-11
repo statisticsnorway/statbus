@@ -178,9 +178,9 @@ export function ImportJobUpload({
     <div className="space-y-4">
       <div className="border rounded-md p-4">
         <h3 className="font-medium mb-2">
-          Import Job Status:{" "}
+          Status:{" "}
           <span className={state === 'finished' ? 'text-green-600' : state === 'rejected' ? 'text-red-600' : ''}>
-            {statusText[state ?? ''] || `Status: ${state}`}
+            {statusText[state ?? ''] || state}
           </span>
         </h3>
 

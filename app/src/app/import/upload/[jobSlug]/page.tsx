@@ -208,9 +208,10 @@ export default function GenericUploadPage({
 
   return (
     <section className="space-y-8">
-      <h1 className="text-center text-2xl">{heading}</h1>
-
-      <ImportJobDetails job={job} definition={definition} />
+      <div>
+        <h1 className="text-center text-2xl">{heading}</h1>
+        <ImportJobDetails job={job} definition={definition} className="mt-1 justify-center" />
+      </div>
 
       <ImportJobUpload
         jobSlug={jobSlug}

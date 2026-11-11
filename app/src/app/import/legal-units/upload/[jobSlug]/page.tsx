@@ -244,14 +244,14 @@ export default function LegalUnitsUploadPage({
   // Now we have a job, render the details and upload components
   return (
     <section className="space-y-8">
-      <h1 className="text-center text-2xl">Upload Legal Units</h1>
+      <div>
+        <h1 className="text-center text-2xl">Upload Legal Units</h1>
+        <ImportJobDetails job={job} definition={definition} className="mt-1 justify-center" />
+      </div>
       <p>
         Upload a CSV file containing Legal Units you want to use in your
         analysis.
       </p>
-
-      {/* Pass local job and definition state as props */}
-      <ImportJobDetails job={job} definition={definition} />
       
       <ImportJobUpload 
         jobSlug={jobSlug}

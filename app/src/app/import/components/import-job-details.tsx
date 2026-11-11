@@ -13,6 +13,8 @@ interface ImportJobDetailsProps {
   /** The definition the job was made from; only its name is shown. */
   definition: { name: string | null } | null;
   className?: string;
+  /** Show the job's data table: on the data page, which lists its rows. */
+  showTable?: boolean;
 }
 
 /**
@@ -23,14 +25,15 @@ interface ImportJobDetailsProps {
  * read it all. On a narrow screen the line wraps between items, never inside
  * one. Used by the upload pages and the job's data page.
  */
-export function ImportJobDetails({ job, definition, className }: ImportJobDetailsProps) {
+export function ImportJobDetails({ job, definition, className, showTable = false }: ImportJobDetailsProps) {
   const { timeFrames } = useTimeFrame();
   const { dataSources } = useDetailsPageData();
   const summary = summarizeJob(job, timeFrames, dataSources);
 
   const items: { label: string; value: React.ReactNode }[] = [
     { label: "Definition", value: definition?.name ?? "—" },
-    { label: "Description", value: job.description ?? "—" },
+    // A job's description starts as its definition's name; shown only when the user changed it.
+    ...(job.description && job.description !== definition?.name ? [{ label: "Description", value: job.description }] : []),
     { label: "Time frame", value: <>{summary.timeFrame}{summary.period && <span className="text-zinc-500"> ({summary.period})</span>}</> },
     {
       label: "Data source",
@@ -47,7 +50,7 @@ export function ImportJobDetails({ job, definition, className }: ImportJobDetail
         </span>
       ),
     },
-    ...(job.data_table_name ? [{ label: "Table", value: <span className="font-mono">{job.data_table_name}</span> }] : []),
+    ...(showTable && job.data_table_name ? [{ label: "Table", value: <span className="font-mono">{job.data_table_name}</span> }] : []),
     ...(summary.comment
       ? [{
           label: "Comment",
@@ -67,9 +70,10 @@ export function ImportJobDetails({ job, definition, className }: ImportJobDetail
     <p className={cn("flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm", className)} data-import-job-summary>
       {items.map((item, i) => (
         <span key={item.label} className="inline-flex items-center gap-1 whitespace-nowrap" data-summary-field={item.label}>
-          {i > 0 && <span className="text-zinc-300" aria-hidden>·</span>}
           <span className="text-zinc-500">{item.label}</span>
           <span className="text-zinc-900">{item.value}</span>
+          {/* The separator ends its item, so a wrapped line begins with a label. */}
+          {i < items.length - 1 && <span className="text-zinc-300" aria-hidden>·</span>}
         </span>
       ))}
     </p>

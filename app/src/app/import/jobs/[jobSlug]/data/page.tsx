@@ -899,7 +899,7 @@ export default function ImportJobDataPage() {
           <ChevronRight className="h-6 w-6 text-gray-400" />
           <h1 className="text-2xl font-semibold">Data for Job: {job.id}</h1>
         </div>
-        <ImportJobDetails job={job} definition={job.import_definition ?? null} className="mt-1" />
+        <ImportJobDetails job={job} definition={job.import_definition ?? null} className="mt-1" showTable />
       </div>
 
       {/* Approve/Reject bar for review workflow */}
