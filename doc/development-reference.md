@@ -205,6 +205,7 @@ Read [install/upgrade testing](install-upgrade-testing.md) before changing these
 3. Inspect query plans for high filter/join rejection counts, large nested loops, and sequential scans.
 4. In the local test database, hot-patch the current definition with `CREATE OR REPLACE FUNCTION` and measure before creating the migration.
 5. Use the [SQL optimization guidance](../.claude/rules/sql.md) to evaluate batch joins, NULL-safe comparisons, and indexes. Verify semantics as well as performance.
+6. Measure a speed claim on the bench box, not on a laptop or a canary: `ops/bench-box.sh` rents an 8-core server, runs a full BRREG import and a full recalculation for two commits in alternating rounds, and checks that every round produces identical tables. Run it without arguments for its commands, and `down` it when the numbers are in.
 
 ```bash
 # Slow statements and high rejection counts.
