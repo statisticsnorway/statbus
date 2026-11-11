@@ -20,6 +20,7 @@
 #                              each round: fresh database, full BRREG import, full
 #                              recalculation, fingerprint of every public table
 #   ops/bench-box.sh progress  the running measurement's log so far
+#   ops/bench-box.sh stop      end the running measurement, every round of it
 #   ops/bench-box.sh results   copy the round logs and fingerprints to tmp/bench/
 #                              and print the summary
 #   ops/bench-box.sh ssh       log in as statbus
@@ -282,6 +283,11 @@ run)
         esac
     done
     run_id=$(date -u +%Y%m%dT%H%M%SZ)
+    # One measurement at a time: two would share the database and the CPUs.
+    if box statbus 'pgrep -f "bench/round" > /dev/null'; then
+        echo "REFUSE: a measurement is running on the box. See: ops/bench-box.sh progress; end it with: ops/bench-box.sh stop" >&2
+        exit 1
+    fi
     box statbus "mkdir -p ~/bench && cat > ~/bench/rounds.sh" < <(round_script)
     box statbus "cat > ~/bench/fingerprint.sql" < "$ROOT/ops/bench-box-fingerprint.sql"
     git -C "$ROOT" archive HEAD samples/norway/brreg samples/norway/getting-started.sql \
@@ -294,7 +300,13 @@ run)
     echo "Follow:  ops/bench-box.sh progress     Collect: ops/bench-box.sh results"
     ;;
 progress)
-    box statbus 'f=$(ls -t ~/bench/*/run.log 2>/dev/null | head -1); [ -n "$f" ] || { echo "No run yet."; exit 0; }; echo "$f"; cat "$f"; pgrep -f bench/rounds.sh >/dev/null && echo "(running, load $(cut -d" " -f1-3 /proc/loadavg))" || echo "(not running)"'
+    box statbus 'f=$(ls -t ~/bench/*/run.log 2>/dev/null | head -1); [ -n "$f" ] || { echo "No run yet."; exit 0; }; echo "$f"; cat "$f"; pgrep -f "bench/round" >/dev/null && echo "(running, load $(cut -d" " -f1-3 /proc/loadavg))" || echo "(not running)"'
+    ;;
+stop)
+    # The run is its own session (setsid), and every round, worker container
+    # client and psql it starts belongs to it: end the whole session, so no
+    # round outlives its run.
+    box statbus 'sids=$(ps -eo sid=,args= | awk "/bench\/round/ {print \$1}" | sort -u); [ -n "$sids" ] || { echo "Nothing running."; exit 0; }; for s in $sids; do pkill -TERM -s "$s"; done; sleep 2; for s in $sids; do pkill -KILL -s "$s" 2>/dev/null; done; cd ~/statbus && docker compose ps -q --filter name=worker-run | xargs -r docker rm -f > /dev/null; echo "Stopped session(s): $sids"'
     ;;
 results)
     ip=$(box_ip)
