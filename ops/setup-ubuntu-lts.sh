@@ -1769,7 +1769,7 @@ stage_core_tools() {
     stage_header core-tools
 
     echo "This stage will:"
-    echo "  - Install tools: neovim, htop, net-tools, jnettop, git, acl, ripgrep, aptitude, tmux"
+    echo "  - Install tools: neovim, htop, net-tools, jnettop, git, acl, ripgrep, aptitude, tmux, python3-venv"
     echo "  - Set neovim as default editor"
     echo "  - Configure memory/swap settings for server workloads"
     echo "  - Install Docker CE with compose plugin"
@@ -1790,7 +1790,10 @@ stage_core_tools() {
     # list. Plain install: no auto-attach profile.d hook. An operator opts
     # in with `tmux` / `tmux attach` like any other server; this is a
     # deliberate default, reversible later, not an oversight.
-    apt_install "core tools" neovim htop net-tools jnettop git acl ripgrep aptitude tmux
+    # python3-venv: StatBus's own scripts make a Python environment for the
+    # packages they need (the BRREG monthly intake's roller extraction and the
+    # import benchmark); Ubuntu's python3 cannot create one without it.
+    apt_install "core tools" neovim htop net-tools jnettop git acl ripgrep aptitude tmux python3-venv
     
     log "Configuring neovim..."
     if [[ -f /etc/vim/vimrc ]] && ! grep -q "colorscheme elflord" /etc/vim/vimrc; then
