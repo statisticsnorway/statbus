@@ -32,7 +32,7 @@ copy_db() { # from to: replace database `to` with a copy of `from`
     admin "CREATE DATABASE $2 TEMPLATE $1" > /dev/null
 }
 
-step() { # label full|percent
+step() { # label full|percent|nN
     local label=$1 pct=$2 first changed t0 t1
     docker compose stop worker > /dev/null 2>&1 || true
     sql -c "VACUUM (ANALYZE)" > /dev/null
@@ -40,6 +40,11 @@ step() { # label full|percent
     if [ "$pct" = full ]; then
         sql -c "SELECT worker.enqueue_derive_statistical_unit_all()" > /dev/null
         changed=all
+    elif [ "${pct#n}" != "$pct" ]; then
+        # The WHERE names the rows (safeupdate): the first N current records by id, the same
+        # units for every commit; the name depends only on the change, so a repeated nN
+        # renames them again and base and candidate fingerprints still compare.
+        changed=$(sql -c "WITH pick AS (SELECT id FROM public.legal_unit WHERE valid_until = 'infinity' ORDER BY id LIMIT ${pct#n}), c AS (UPDATE public.legal_unit AS lu SET name = left(lu.name, 230) || ' (bench $pct)' FROM pick WHERE lu.id = pick.id AND lu.valid_until = 'infinity' RETURNING 1) SELECT count(*) FROM c")
     else
         # The WHERE names the rows (safeupdate): the chosen share of current records.
         # The new name depends only on the change size, never on the label, so the
@@ -53,6 +58,8 @@ step() { # label full|percent
         echo "$label change=$pct rows=$changed wall_s=$((t1 - t0)) failed=$(sql -c "SELECT count(*) FROM worker.tasks WHERE id > $first AND state = 'failed'") commit=$(git describe --tags --always)"
         sql -F ' ' -c "SELECT command, count(*), round(sum(process_duration_ms) / 1000, 1) FROM worker.tasks WHERE id > $first GROUP BY 1 ORDER BY 3 DESC NULLS LAST LIMIT 10" | sed 's/^/  /'
     } > "$out/$label.log"
+    # Every task of the run with its start, end and parent: where wall time goes between tasks.
+    sql -F $'\t' -c "SELECT id, parent_id, command, state, created_at, scheduled_at, process_start_at, completed_at, process_duration_ms FROM worker.tasks WHERE id > $first ORDER BY id" > "$out/$label.tasks.tsv"
     ./sb psql -X -At -v ON_ERROR_STOP=1 < ~/bench/fingerprint.sql > "$out/$label.fingerprint"
     echo "  fingerprint $(md5sum < "$out/$label.fingerprint" | cut -c1-12)" >> "$out/$label.log"
     cat "$out/$label.log"
@@ -76,7 +83,7 @@ t0=$(date +%s); copy_db "$app_db" bench_base; log "bench_base frozen in $(( $(da
 docker compose start rest > /dev/null 2>&1
 ./sb psql -X -At -v ON_ERROR_STOP=1 < ~/bench/fingerprint.sql > "$out/base-full.fingerprint"
 log "base-full fingerprint $(md5sum < "$out/base-full.fingerprint" | cut -c1-12)"
-for pct in $pcts; do log "base-change-$pct"; step "base-change-$pct" "$pct"; done
+i=0; for pct in $pcts; do i=$((i + 1)); log "base-$i-change-$pct"; step "base-$i-change-$pct" "$pct"; done
 
 log "candidate $candidate_sha"
 docker compose stop worker rest > /dev/null 2>&1 || true
@@ -85,5 +92,5 @@ checkout "$candidate_sha"
 t0=$(date +%s); ./sb migrate up > "$out/candidate-migrate.log" 2>&1 < /dev/null
 log "candidate migrated in $(( $(date +%s) - t0 )) s to $(sql -c 'SELECT max(version) FROM db.migration'), $(./sb --version | head -1)"
 log "candidate-full"; step candidate-full full
-for pct in $pcts; do log "candidate-change-$pct"; step "candidate-change-$pct" "$pct"; done
+i=0; for pct in $pcts; do i=$((i + 1)); log "candidate-$i-change-$pct"; step "candidate-$i-change-$pct" "$pct"; done
 log "series done, load $(cut -d' ' -f1-3 /proc/loadavg)"
