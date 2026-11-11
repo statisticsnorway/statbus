@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-11T19:25:00Z'
+updated_date: '2026-11-11T19:46:00Z'
 labels:
   - performance
   - db
@@ -29,7 +30,13 @@ Closing review: reason recorded at the call in the migration; no memory change.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A partial recalculation of a change larger than 8000 x 16 units uses change sets of up to 8000 units, shown by a test like 356 on the filtered path
-- [ ] #2 A small change still spreads over the workers: a test shows a change of a few thousand units gets more than one batch
+- [x] #1 A partial recalculation of a change larger than 8000 x 16 units uses change sets of up to 8000 units, shown by a test like 356 on the filtered path
+- [x] #2 A small change still spreads over the workers: a test shows a change of a few thousand units gets more than one batch
 - [ ] #3 Bench box series (rune dump) at 1/50/99 % and 3 units, before and after: wall times recorded, derived tables identical before and after for each change size
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+81dd01eb8 (branch statbus-623-partial-batch-size). Test 358 RED on master (seed without 20261111192819): 6,000-unit change, one analytics worker = 6 batches, largest 1000 units. GREEN: 4 batches, largest 1500, 3,000/3,000 legal units in exactly one batch with their enterprise, 3,000/3,000 renamed in statistical_unit. Sizes with four workers: 3 and 6,000 units -> 1000, 40,000 -> 2500, 128,000 and 1,000,000 -> 8000. Down migration restores master's \sf exactly (diffed on a seed copy). Fast suite 145 ok, 0 not ok (tmp/test-623-fast.log). doc/db regenerated, no deletions. Bench (AC3) pending: images are built only on master.
+<!-- SECTION:NOTES:END -->
