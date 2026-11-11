@@ -30,8 +30,12 @@ BEGIN
            public.jsonb_stats_delta_nullif_zero(public.jsonb_stats_delta_agg(stats_delta)) AS stats_delta,
            public.jsonb_stats_delta_nullif_zero(public.jsonb_stats_delta_agg(stats_ended_month)) AS stats_ended_month,
            public.jsonb_stats_delta_nullif_zero(public.jsonb_stats_delta_agg(stats_ended_year)) AS stats_ended_year,
-           array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
-           array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
+           -- Unordered: worker.unit_ids_apply sorts the unit ids it returns, so the order of
+           -- plus_ids and minus_ids is never seen. An ordered aggregate sorted every staged row
+           -- and kept the aggregate serial; a full-register rebuild (3,118,352 staged rows)
+           -- took 19.0 s ordered and 14.8 s unordered, with identical rows (STATBUS-613).
+           array_agg(unit_id) FILTER (WHERE sign > 0) AS plus_ids,
+           array_agg(unit_id) FILTER (WHERE sign < 0) AS minus_ids
       FROM public.statistical_history_facet_delta_staging
      WHERE generation <= v_up_to
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10;
