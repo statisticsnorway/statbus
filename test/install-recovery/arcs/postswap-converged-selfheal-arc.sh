@@ -158,18 +158,19 @@ assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 #   (b) write-probe BELT — a fresh psql session must accept a write (no read_only 25006),
 #       proving the operator-visible truth (box accepts writes) regardless of mechanism.
 #       BEGIN/UPDATE(0-row still trips read-only)/ROLLBACK keeps the box byte-identical;
-#       NOT a temp table (temp writes are ALLOWED under read-only → illusory).
+#       NOT a temp table (temp writes are ALLOWED under read-only → illusory). Every
+#       session runs under pg_safeupdate (STATBUS-604), so the probe names its rows with
+#       WHERE true; ON_ERROR_STOP makes any refusal fail the probe.
 echo ""
 echo "── assert STATBUS-071 P5: the self-heal tail lifted the read-only window itself (backstop silent) + box accepts writes ──"
 [ "$(journal_has "STATBUS-163 BACKSTOP" "$SINCE")" = "no" ] || { echo "✗ boot backstop 'STATBUS-163 BACKSTOP' fired in the arm window — the self-heal tail did NOT lift the read-only window itself (P5 regressed)" >&2; exit 1; }
 echo "  ✓ no STATBUS-163 BACKSTOP in the arm window — the self-heal tail lifted the window itself"
-WRITE_PROBE=$(VM_EXEC bash -c "cd ~/statbus && printf 'BEGIN;\nUPDATE public.system_info SET value = value;\nROLLBACK;\n' | ./sb psql 2>&1" || true)
-if echo "$WRITE_PROBE" | grep -qiE "read_only_sql_transaction|read-only transaction|25006"; then
-    echo "✗ write probe hit read-only (25006) — the window is still ON after the self-heal (P5 did not lift it):" >&2
+if ! WRITE_PROBE=$(VM_EXEC bash -c "cd ~/statbus && printf 'BEGIN;\nUPDATE public.system_info SET value = value WHERE true;\nROLLBACK;\n' | ./sb psql -v ON_ERROR_STOP=1 2>&1"); then
+    echo "✗ write probe failed: the box has not been proved to accept writes after the self-heal:" >&2
     echo "$WRITE_PROBE" >&2
     exit 1
 fi
-echo "  ✓ write probe accepted (BEGIN/UPDATE/ROLLBACK, no 25006) — the box serves writes"
+echo "  ✓ write probe accepted (BEGIN/UPDATE/ROLLBACK) — the box serves writes"
 
 echo ""
 echo "PASS: postswap-converged-selfheal — a REAL working-lineage upgrade converged (migrate applied, services started, health passed, maintenance off) then crashed at the REAL converged-but-unlanded instant (killed-after-health-before-completed-write, exit 137; faithful flag present, row in_progress, box serving); the next boot's resumeNewSb containers-at-target self-heal converged the row to 'completed' (error NULL, [completed-self-heal] logged, flag removed), the resume-death latch stayed silent (UPGRADE_DIED_DURING_RESUME absent — one death, before resume), NRestarts bounded, app/db/rest/worker serving, data intact, and the read-only window was lifted BY THE SELF-HEAL TAIL (no STATBUS-163 BACKSTOP in the arm window; a fresh write is accepted with no 25006 — the third completed writer is now serve-proven in the full STATBUS-192 sense). The live producer for the class the retired rune-wedge fabrication used to stand in for — rune-wedge retired independently (STATBUS-071 P5, root cause dead: e76505eec/61e79e265/cb7344dd6) and does not wait on this arc's own green, per the architect's sequencing; fabricate_resume_state is already deleted at zero callers."

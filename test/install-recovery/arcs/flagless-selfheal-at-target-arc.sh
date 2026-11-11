@@ -189,12 +189,14 @@ assert_health_passes "$VM_NAME"
 #   (b) write-probe BELT — a fresh psql session must accept a write (no read_only 25006),
 #       proving the operator-visible truth (box accepts writes) regardless of mechanism.
 #       BEGIN/UPDATE(0-row still trips read-only)/ROLLBACK keeps the box byte-identical;
-#       NOT a temp table (temp writes are ALLOWED under read-only → illusory).
+#       NOT a temp table (temp writes are ALLOWED under read-only → illusory). Every
+#       session runs under pg_safeupdate (STATBUS-604), so the probe names its rows with
+#       WHERE true; ON_ERROR_STOP makes any refusal fail the probe.
 echo ""
 echo "── assert refinement 1: the tail lifted the read-only window itself (backstop silent) + box accepts writes ──"
 [ "$(journal_has "STATBUS-163 BACKSTOP" "$SINCE")" = "no" ] || { echo "✗ boot backstop 'STATBUS-163 BACKSTOP' fired in the arm window — the serve-proof tail did NOT lift the read-only window itself (refinement 1 regressed)" >&2; exit 1; }
 echo "  ✓ no STATBUS-163 BACKSTOP in the arm window — the tail lifted the window itself"
-if ! WRITE_PROBE=$(VM_EXEC bash -c "cd ~/statbus && printf 'BEGIN;\nUPDATE public.system_info SET value = value;\nROLLBACK;\n' | ./sb psql -v ON_ERROR_STOP=1 2>&1"); then
+if ! WRITE_PROBE=$(VM_EXEC bash -c "cd ~/statbus && printf 'BEGIN;\nUPDATE public.system_info SET value = value WHERE true;\nROLLBACK;\n' | ./sb psql -v ON_ERROR_STOP=1 2>&1"); then
     echo "✗ write probe failed: the box has not been proved to accept writes:" >&2
     echo "$WRITE_PROBE" >&2
     exit 1
