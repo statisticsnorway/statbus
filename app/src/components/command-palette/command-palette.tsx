@@ -60,6 +60,7 @@ import {
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ApiKeyDialog } from "./api-key-dialog";
+import { paletteFilter } from "./palette-filter";
 
 type ImportJobWithDefinition = Tables<'import_job'> & {
   import_definition: Tables<'import_definition'>;
@@ -303,7 +304,7 @@ export function CommandPalette() {
 
   return (
     <>
-      <CommandDialog open={open} onOpenChange={handleOpenChange}>
+      <CommandDialog open={open} onOpenChange={handleOpenChange} filter={paletteFilter}>
         <VisuallyHidden>
           <DialogTitle>Command Palette</DialogTitle>
         </VisuallyHidden>
@@ -337,7 +338,8 @@ export function CommandPalette() {
                     <CommandGroup heading={`Job ${importDownloadContext.jobId}`}>
                       <CommandItem
                         onSelect={() => { setPages([...pages, 'download-filter']); setSearch(''); }}
-                        value="download export csv excel spreadsheet rows"
+                        value="Download rows"
+                        keywords={["export", "csv", "excel", "spreadsheet"]}
                       >
                         <Download className="mr-2 h-4 w-4" />
                         <span>Download rows...</span>
@@ -347,7 +349,8 @@ export function CommandPalette() {
                       </CommandItem>
                       <CommandItem
                         onSelect={handleCloneJob}
-                        value="clone duplicate copy job re-upload"
+                        value="Clone job for re-upload"
+                        keywords={["duplicate", "copy"]}
                       >
                         <Copy className="mr-2 h-4 w-4" />
                         <span>Clone job for re-upload...</span>
@@ -362,7 +365,8 @@ export function CommandPalette() {
                   <CommandGroup heading="Import Actions">
                     <CommandItem
                       onSelect={handleShowCreateJob}
-                      value="create job import definition custom advanced"
+                      value="Create import job from definition"
+                      keywords={["custom", "advanced"]}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       <span>Create import job from definition...</span>
@@ -416,7 +420,8 @@ export function CommandPalette() {
                 </CommandItem>
                 <CommandItem
                   onSelect={handleShowApiKey}
-                  value="show copy api key token"
+                  value="Show API key"
+                  keywords={["copy", "token"]}
                 >
                   <KeyRound className="mr-2 h-4 w-4" />
                   <span>Show API key</span>
@@ -444,7 +449,8 @@ export function CommandPalette() {
                       </CommandItem>
                       <CommandItem
                         onSelect={() => navigate("/getting-started/upload-regions")}
-                        value="Upload Regions"
+                        value="Upload Region Hierarchy"
+                        keywords={["regions"]}
                       >
                         <Upload className="mr-2 h-4 w-4" />
                         <span>Upload Region Hierarchy</span>
@@ -507,7 +513,8 @@ export function CommandPalette() {
                       </CommandItem>
                       <CommandItem
                         onSelect={() => navigate("/import/legal-relationships")}
-                        value="Upload Legal Relationships Power Groups"
+                        value="Upload Legal Relationships"
+                        keywords={["power", "groups"]}
                       >
                         <Upload className="mr-2 h-4 w-4" />
                         <span>Upload Legal Relationships</span>
@@ -529,14 +536,16 @@ export function CommandPalette() {
                   <CommandGroup heading="Admin tools">
                     <CommandItem
                       onSelect={() => navigate("/admin")}
-                      value="admin users customize external ident variable size status source setting"
+                      value="Admin Settings"
+                      keywords={["users", "customize", "external", "ident", "variable", "size", "status", "source"]}
                     >
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Admin Settings</span>
                     </CommandItem>
                     <CommandItem
                       onSelect={() => navigate("/admin/upgrades")}
-                      value="upgrade software update version"
+                      value="Software upgrades"
+                      keywords={["update", "version"]}
                     >
                       <ArrowDownToLine className="mr-2 h-4 w-4" />
                       <span>Software upgrades</span>
@@ -550,14 +559,16 @@ export function CommandPalette() {
                     </CommandItem>
                     <CommandItem
                       onSelect={handleRecalculateAll}
-                      value="recalculate all statistical units reports refresh derive rebuild"
+                      value="Recalculate all statistical units and reports"
+                      keywords={["refresh", "derive", "rebuild"]}
                     >
                       <RefreshCw className="mr-2 h-4 w-4" />
                       <span>Recalculate all statistical units and reports</span>
                     </CommandItem>
                     <CommandItem
                       onSelect={handleResetAll}
-                      value="admin reset everything clean"
+                      value="Reset"
+                      keywords={["admin", "everything", "clean"]}
                     >
                       <Trash className="mr-2 h-4 w-4" />
                       <span>Reset..</span>
@@ -568,21 +579,24 @@ export function CommandPalette() {
                         resetPages();
                         window.open("/pev2.html", "_blank");
                       }}
-                      value="postgres explain visualizer pev2 query performance"
+                      value="Postgres Explain Visualizer"
+                      keywords={["pev2", "query", "performance"]}
                     >
                       <Database className="mr-2 h-4 w-4" />
                       <span>Postgres Explain Visualizer</span>
                     </CommandItem>
                     <CommandItem
                       onSelect={() => navigate("/admin/worker-tasks")}
-                      value="worker tasks queue inspector background jobs"
+                      value="Worker Tasks"
+                      keywords={["queue", "inspector", "background", "jobs"]}
                     >
                       <ListChecks className="mr-2 h-4 w-4" />
                       <span>Worker Tasks</span>
                     </CommandItem>
                     <CommandItem
                       onSelect={handleToggleStateInspector}
-                      value="toggle debug inspector developer tool"
+                      value="Toggle Debug Inspector"
+                      keywords={["developer", "tool"]}
                     >
                       <Binary className="mr-2 h-4 w-4" />
                       <span>Toggle Debug Inspector</span>
@@ -603,24 +617,24 @@ export function CommandPalette() {
                 { label: 'Download' },
               )}>
                 <CommandItem onSelect={() => { setDownloadFilter('full'); setPages([...pages, 'download-format']); setSearch(''); }}
-                  value="all full rows">
+                  value="Download all rows" keywords={["full"]}>
                   Download all rows ({totalRows})
                 </CommandItem>
                 {okCount > 0 && (
                   <CommandItem onSelect={() => { setDownloadFilter('ok'); setPages([...pages, 'download-format']); setSearch(''); }}
-                    value="ok good rows">
+                    value="Download OK rows" keywords={["good"]}>
                     <span className="text-green-700">Download OK rows ({okCount})</span>
                   </CommandItem>
                 )}
                 {warningCount > 0 && (
                   <CommandItem onSelect={() => { setDownloadFilter('warning'); setPages([...pages, 'download-format']); setSearch(''); }}
-                    value="warnings invalid codes">
+                    value="Download warnings" keywords={["invalid", "codes"]}>
                     <span className="text-amber-600">Download warnings ({warningCount})</span>
                   </CommandItem>
                 )}
                 {errorCount > 0 && (
                   <CommandItem onSelect={() => { setDownloadFilter('error'); setPages([...pages, 'download-format']); setSearch(''); }}
-                    value="errors">
+                    value="Download errors">
                     <span className="text-red-600">Download errors ({errorCount})</span>
                   </CommandItem>
                 )}
@@ -644,14 +658,14 @@ export function CommandPalette() {
                   CSV
                 </CommandItem>
                 {excelDisabled ? (
-                  <CommandItem disabled value="excel xlsx disabled">
+                  <CommandItem disabled value="Excel (XLSX) disabled">
                     <FileSpreadsheet className="mr-2 h-4 w-4 text-gray-300" />
                     <span className="text-gray-400">
                       Excel — {filterRows.toLocaleString()} rows exceeds ~1M limit
                     </span>
                   </CommandItem>
                 ) : (
-                  <CommandItem onSelect={() => handleDownload(downloadFilter, 'xlsx')} value="excel xlsx">
+                  <CommandItem onSelect={() => handleDownload(downloadFilter, 'xlsx')} value="Excel (XLSX)">
                     <FileSpreadsheet className="mr-2 h-4 w-4" />
                     Excel (XLSX)
                   </CommandItem>
@@ -711,13 +725,13 @@ export function CommandPalette() {
               { label: selectedDefinition?.name ?? 'Definition', goToDepth: 1 },
               { label: 'Review mode' },
             )}>
-              <CommandItem onSelect={() => handleCreateJob(null)} value="review if errors auto">
+              <CommandItem onSelect={() => handleCreateJob(null)} value="Review if errors (auto)">
                 Review if errors (auto)
               </CommandItem>
-              <CommandItem onSelect={() => handleCreateJob(true)} value="always review">
+              <CommandItem onSelect={() => handleCreateJob(true)} value="Always review">
                 Always review
               </CommandItem>
-              <CommandItem onSelect={() => handleCreateJob(false)} value="never review skip">
+              <CommandItem onSelect={() => handleCreateJob(false)} value="Never review" keywords={["skip"]}>
                 Never review
               </CommandItem>
             </CommandGroup>
@@ -729,13 +743,13 @@ export function CommandPalette() {
               { label: 'Clone job', goToDepth: 0 },
               { label: cloneSourceJob.description ?? cloneSourceJob.import_definition.name },
             )}>
-              <CommandItem onSelect={() => handleClone(null)} value="review if errors auto">
+              <CommandItem onSelect={() => handleClone(null)} value="Review if errors (auto)">
                 Review if errors (auto)
               </CommandItem>
-              <CommandItem onSelect={() => handleClone(true)} value="always review">
+              <CommandItem onSelect={() => handleClone(true)} value="Always review">
                 Always review
               </CommandItem>
-              <CommandItem onSelect={() => handleClone(false)} value="never review skip">
+              <CommandItem onSelect={() => handleClone(false)} value="Never review" keywords={["skip"]}>
                 Never review
               </CommandItem>
             </CommandGroup>
