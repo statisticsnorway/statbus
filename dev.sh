@@ -85,6 +85,10 @@ if [ "$sb_needs_rebuild" = true ]; then
         local timer_pid=$!
         local command_rc=0
         wait "$command_pid" || command_rc=$?
+        # The timer is a subshell running sleep; killing only the subshell would
+        # orphan its sleep, which keeps every inherited fd (the test-run lock's
+        # fd 9 among them) until the deadline. Stop the sleep first.
+        pkill -TERM -P "$timer_pid" 2>/dev/null || true
         kill "$timer_pid" 2>/dev/null || true
         wait "$timer_pid" 2>/dev/null || true
         return "$command_rc"
@@ -116,6 +120,11 @@ if [ "$sb_needs_rebuild" = true ]; then
                 _SB_CID=$(docker create "$_SB_IMAGE")
                 _SB_TMP=$(mktemp "$WORKSPACE/.sb.procure.XXXXXX")
                 if docker cp "${_SB_CID}:/sb" "$_SB_TMP" && chmod +x "$_SB_TMP" && mv "$_SB_TMP" ./sb; then
+                    # docker cp keeps the image's build time as the mtime, older
+                    # than a fresh clone's files. The procured binary is current for
+                    # HEAD as of now, so it takes now: the hot-edit check above then
+                    # fires only for a cli/ edit made after this procurement.
+                    touch ./sb
                     sb_procured=true
                 else
                     rm -f "$_SB_TMP"
@@ -3417,6 +3426,8 @@ EOS
         # fail-loud seed existence check).
         bash "$WORKSPACE/test/dev-postgres-variables-test.sh"
         bash "$WORKSPACE/test/dev-delete-seed-test.sh"
+        # STATBUS-616: run_bounded leaves no process holding the test-run lock.
+        bash "$WORKSPACE/test/dev-run-bounded-test.sh"
       ;;
     'test-assert-db-at-head' )
         # Smoke test for the `./sb assert-db-at-head` Cobra subcommand

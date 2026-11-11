@@ -103,17 +103,28 @@ ON CONFLICT (slug) DO UPDATE SET
     default_valid_to = 'infinity'::DATE,
     review = false;"
 
-# Load data into import tables
+# Load data into import tables. A job's upload table takes columns by position, so
+# each file is fitted to its definition's source columns first, as the monthly
+# intake does (brreg-fit-csv.py): BRREG's download columns change over time, and
+# status_code is derived from BRREG's flags, not read from the file.
+fit_to_definition() { # definition_slug source fitted [fit options...]
+  local slug=$1 source=$2 fitted=$3; shift 3
+  sb_psql -t -A -c "SELECT sc.column_name FROM public.import_source_column sc JOIN public.import_definition d ON d.id = sc.definition_id WHERE d.slug = '${slug}' ORDER BY sc.priority;" > "$fitted.columns"
+  [ -s "$fitted.columns" ] || { echo "Error: import definition ${slug} has no source columns" >&2; exit 1; }
+  python3 "$WORKSPACE/samples/norway/brreg/brreg-fit-csv.py" --columns "$fitted.columns" --in "$source" --out "$fitted" "$@"
+}
 if [ -f "$legal_unit_file" ]; then
     echo "Loading hovedenhet data"
-    sb_psql -c "\copy public.import_hovedenhet_2025_upload FROM 'tmp/enheter.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+    fit_to_definition brreg_hovedenhet_2025 "$legal_unit_file" "$WORKSPACE/tmp/enheter-fitted.csv" --derive-status
+    sb_psql -c "\copy public.import_hovedenhet_2025_upload FROM 'tmp/enheter-fitted.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
 else
     echo "Warning: Legal unit file $legal_unit_file not found, skipping import"
 fi
 
 if [ -f "$establishment_file" ]; then
     echo "Loading underenhet data"
-    sb_psql -c "\copy public.import_underenhet_2025_upload FROM 'tmp/underenheter_filtered.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+    fit_to_definition brreg_underenhet_2025 "$establishment_file" "$WORKSPACE/tmp/underenheter-fitted.csv"
+    sb_psql -c "\copy public.import_underenhet_2025_upload FROM 'tmp/underenheter-fitted.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
 else
     echo "Warning: Establishment file $establishment_file not found, skipping import"
 fi
