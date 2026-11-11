@@ -1,10 +1,4 @@
-import { InfoIcon } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../ui/tooltip";
+import { InfoPopover } from "@/components/info-popover";
 import { useBaseData } from "@/atoms/base-data";
 import { Tables } from "@/lib/database.types";
 import { useDetailsPageData } from "@/atoms/edits";
@@ -63,23 +57,17 @@ export const MetadataTooltip = ({ metadata }: MetadataTooltipProps) => {
     { label: "Edit comment", value: edit_comment },
   ];
 
+  // The row's details open on click, like every (i) in the app (InfoPopover).
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <InfoIcon className="h-4 w-4 ml-2 text-gray-400" />
-        </TooltipTrigger>
-        <TooltipContent>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-2 text-sm">
-            {metadataItems.map(({ label, value }) => (
-              <Fragment key={label}>
-                <dt className="text-right font-semibold">{label}:</dt>
-                <dd className="truncate">{value}</dd>
-              </Fragment>
-            ))}
-          </dl>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <InfoPopover label="About this value" side="top" className="ml-1.5" data-field-metadata="">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-2">
+        {metadataItems.map(({ label, value }) => (
+          <Fragment key={label}>
+            <dt className="text-right text-zinc-500">{label}</dt>
+            <dd className="break-words text-zinc-900">{value}</dd>
+          </Fragment>
+        ))}
+      </dl>
+    </InfoPopover>
   );
 };
