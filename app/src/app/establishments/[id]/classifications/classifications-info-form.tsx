@@ -69,6 +69,11 @@ export default function ClassificationsInfoForm({
         metadata={primaryActivity}
         placeholder="Select an activity category"
         hiddenFields={{ type: "primary" }}
+        editSource={{
+          table: "activity",
+          match: { establishment_id: parseInt(id, 10), type: "primary" },
+          column: "category_id",
+        }}
       />
       <EditableSelectWithMetadata
         label="Secondary Activity category"
@@ -85,6 +90,11 @@ export default function ClassificationsInfoForm({
         metadata={secondaryActivity}
         placeholder="Select an activity category"
         hiddenFields={{ type: "secondary" }}
+        editSource={{
+          table: "activity",
+          match: { establishment_id: parseInt(id, 10), type: "secondary" },
+          column: "category_id",
+        }}
       />
     </div>
   );

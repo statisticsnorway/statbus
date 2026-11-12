@@ -7,6 +7,7 @@ import { updateEstablishment } from "../update-establishment-server-actions";
 import { useDetailsPageData } from "@/atoms/edits";
 import { EditableFieldGroup } from "@/components/form/editable-field-group";
 import { SelectFormField } from "@/components/form/select-form-field";
+import { DEMOGRAPHIC_COLUMNS } from "@/components/form/read-edit-range";
 
 export default function DemographicInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
@@ -43,6 +44,12 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
       action={formAction}
       response={state}
       metadata={establishment}
+      editSource={{
+        table: "establishment",
+        match: { id: parseInt(id, 10) },
+        column: [...DEMOGRAPHIC_COLUMNS],
+      }}
+      shownValues={establishment ?? undefined}
     >
       {({ isEditing }) => (
         <div className="space-y-4">

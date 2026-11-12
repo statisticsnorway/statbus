@@ -7,6 +7,7 @@ import { EditableFieldGroup } from "@/components/form/editable-field-group";
 import { updateLegalUnit } from "../update-legal-unit-server-actions";
 import { useDetailsPageData } from "@/atoms/edits";
 import { SelectFormField } from "@/components/form/select-form-field";
+import { DEMOGRAPHIC_COLUMNS } from "@/components/form/read-edit-range";
 
 export default function DemographicInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
@@ -44,6 +45,12 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
       action={formAction}
       response={state}
       metadata={legalUnit}
+      editSource={{
+        table: "legal_unit",
+        match: { id: parseInt(id, 10) },
+        column: [...DEMOGRAPHIC_COLUMNS],
+      }}
+      shownValues={legalUnit ?? undefined}
     >
       {({ isEditing }) => (
         <div className="space-y-4">

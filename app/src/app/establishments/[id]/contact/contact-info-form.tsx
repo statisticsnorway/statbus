@@ -10,6 +10,10 @@ import { useActionState, useEffect } from "react";
 import { useDetailsPageData } from "@/atoms/edits";
 import { EditableFieldGroup } from "@/components/form/editable-field-group";
 import { SelectFormField } from "@/components/form/select-form-field";
+import {
+  CONTACT_COLUMNS,
+  POSTAL_LOCATION_COLUMNS,
+} from "@/components/form/read-edit-range";
 
 export default function ContactInfoForm({ id }: { readonly id: string }) {
   const [locationState, locationAction] = useActionState(
@@ -54,6 +58,12 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
           action={contactAction}
           response={contactState}
           metadata={establishment?.contact}
+          editSource={{
+            table: "contact",
+            match: { establishment_id: parseInt(id, 10) },
+            column: [...CONTACT_COLUMNS],
+          }}
+          shownValues={establishment?.contact ?? undefined}
         >
           {({ isEditing }) => (
             <>
@@ -113,6 +123,12 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
         response={locationState}
         metadata={postalLocation}
         hiddenFields={{ type: "postal" }}
+        editSource={{
+          table: "location",
+          match: { establishment_id: parseInt(id, 10), type: "postal" },
+          column: [...POSTAL_LOCATION_COLUMNS],
+        }}
+        shownValues={postalLocation ?? undefined}
       >
         {({ isEditing }) => (
           <>

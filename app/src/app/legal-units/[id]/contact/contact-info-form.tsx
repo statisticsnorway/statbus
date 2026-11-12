@@ -15,6 +15,10 @@ import { useDetailsPageData } from "@/atoms/edits";
 import { SelectFormField } from "@/components/form/select-form-field";
 import { useClientReady } from "@/hooks/use-client-ready";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import {
+  CONTACT_COLUMNS,
+  POSTAL_LOCATION_COLUMNS,
+} from "@/components/form/read-edit-range";
 
 export default function ContactInfoForm({ id }: { readonly id: string }) {
   const [locationState, locationAction] = useActionState(
@@ -65,6 +69,12 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
           action={contactAction}
           response={contactState}
           metadata={legalUnit?.contact}
+          editSource={{
+            table: "contact",
+            match: { legal_unit_id: parseInt(id, 10) },
+            column: [...CONTACT_COLUMNS],
+          }}
+          shownValues={legalUnit?.contact ?? undefined}
         >
           {({ isEditing }) => (
             <div className="grid lg:grid-cols-2 gap-4">
@@ -122,6 +132,12 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
         response={locationState}
         metadata={postalLocation}
         hiddenFields={{ type: "postal" }}
+        editSource={{
+          table: "location",
+          match: { legal_unit_id: parseInt(id, 10), type: "postal" },
+          column: [...POSTAL_LOCATION_COLUMNS],
+        }}
+        shownValues={postalLocation ?? undefined}
       >
         {({ isEditing }) => (
           <>

@@ -98,6 +98,11 @@ export default function ClassificationsInfoForm({
         metadata={primaryActivity}
         placeholder="Select an activity category"
         hiddenFields={{ type: "primary" }}
+        editSource={{
+          table: "activity",
+          match: { legal_unit_id: parseInt(id, 10), type: "primary" },
+          column: "category_id",
+        }}
       />
       <EditableSelectWithMetadata
         label="Secondary Activity category"
@@ -114,6 +119,11 @@ export default function ClassificationsInfoForm({
         metadata={secondaryActivity}
         placeholder="Select an activity category"
         hiddenFields={{ type: "secondary" }}
+        editSource={{
+          table: "activity",
+          match: { legal_unit_id: parseInt(id, 10), type: "secondary" },
+          column: "category_id",
+        }}
       />
       <EditableSelectWithMetadata
         label="Legal Form"
@@ -125,6 +135,11 @@ export default function ClassificationsInfoForm({
         options={legalFormOptions}
         metadata={legalUnit}
         placeholder="Select a legal form"
+        editSource={{
+          table: "legal_unit",
+          match: { id: parseInt(id, 10) },
+          column: "legal_form_id",
+        }}
       />
       <EditableSelectWithMetadata
         label="Sector"
@@ -136,6 +151,11 @@ export default function ClassificationsInfoForm({
         options={sectorOptions}
         metadata={legalUnit}
         placeholder="Select a sector"
+        editSource={{
+          table: "legal_unit",
+          match: { id: parseInt(id, 10) },
+          column: "sector_id",
+        }}
       />
     </div>
   );

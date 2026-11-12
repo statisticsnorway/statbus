@@ -49,6 +49,34 @@ export const LOCATION_COLUMNS = [
   "altitude",
 ] as const;
 
+/** The postal location's columns as its form shows them: no region or coordinates. */
+export const POSTAL_LOCATION_COLUMNS = [
+  "address_part1",
+  "address_part2",
+  "address_part3",
+  "postcode",
+  "postplace",
+  "country_id",
+] as const;
+
+/** The columns the Communication group shows and edits together (table contact). */
+export const CONTACT_COLUMNS = [
+  "email_address",
+  "web_address",
+  "phone_number",
+  "landline",
+  "mobile_number",
+  "fax_number",
+] as const;
+
+/** The columns the Demographic group shows and edits together, on the unit's own row. */
+export const DEMOGRAPHIC_COLUMNS = [
+  "status_id",
+  "birth_date",
+  "death_date",
+  "unit_size_id",
+] as const;
+
 /**
  * Reads the field's rows for the unit and returns the default edit range: the
  * stretch where the shown value is valid, bounded by the selected time frame

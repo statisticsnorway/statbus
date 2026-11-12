@@ -71,6 +71,14 @@ export default function StatisticalVariablesForm({
             formAction={statsAction}
             hiddenFields={{ stat_definition_id: statDefinition.id! }}
             metadata={stat}
+            editSource={{
+              table: "stat_for_unit",
+              match: {
+                establishment_id: parseInt(id, 10),
+                stat_definition_id: statDefinition.id!,
+              },
+              column: `value_${statDefinition.type}`,
+            }}
           />
         );
       })}
