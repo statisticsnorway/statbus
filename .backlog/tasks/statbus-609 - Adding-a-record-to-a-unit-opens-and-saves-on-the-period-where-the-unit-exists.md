@@ -4,6 +4,7 @@ title: Adding a record to a unit opens and saves on the period where the unit ex
 status: To Do
 assignee: []
 created_date: '2026-11-10T21:27:00Z'
+updated_date: '2026-11-12T20:22:00Z'
 labels:
   - ui
   - edit
@@ -37,3 +38,9 @@ Owner testing on Norway (v2026.11.4-rc.01, 2026-11-10 21:21), adding a physical 
 - [ ] #2 Saving a new record whose period starts before the unit exists stores it from the unit's first day and no earlier, without an error; a test asserts the stored rows for a portion starting before the unit
 - [ ] #3 [Owner] On Norway after the release carrying this, adds a physical location to 0404 GRUE TRAVKLUBB (933130436) without changing Valid From. The answer is recorded in this ticket's notes: yes closes the ticket; no gives the error to investigate.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner 2026-11-12 20:21 (reviewing /legal-units/28/contact, a unit with no contact or postal rows): the empty-timeline icon ('No values recorded') is fine; the pencil opening Simple/Advanced on Live is fine. Design wish: when editing a record that belongs to a unit (contact, location, activity, statistic), show the unit's own existence as the constraint the edit lives inside. Advanced: dates before the unit starts (or after it ends) cannot be picked. Timeline: show where the unit begins (and ends), so the user sees the bound. Simple needs nothing extra. Unit 28 exists 2023-01-01 to infinity, so a first contact could start on 2023-01-01 at the earliest.
+<!-- SECTION:NOTES:END -->
