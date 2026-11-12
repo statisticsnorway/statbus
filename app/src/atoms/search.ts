@@ -19,6 +19,7 @@ import type { Database, Tables } from '@/lib/database.types'
 import type { TableColumn, AdaptableTableColumn, ColumnProfile, SearchResult as ApiSearchResultType, SearchAction, SetQuery } from '../app/search/search.d'
 import { getStatisticalUnitsData, getStatisticalUnitsEstimatedCount, getStatisticalUnitsExactCount } from '../app/search/search-requests'
 import { setExistenceSearchParams } from '@/lib/unit-existence'
+import { reverseOrder } from '@/lib/search-order'
 import {
   fullTextSearchDeriveStateUpdateFromValue,
   unitTypeDeriveStateUpdateFromValues,
@@ -334,19 +335,10 @@ export const clearSelectionAtom = atom(null, (get, set) => {
 });
 
 /**
- * Flip a PostgREST sort direction for last-page reversal.
- * e.g. "asc" → "desc", "desc.nullslast" → "asc"
- */
-function flipDirection(dir: string): string {
-  if (dir.startsWith('desc')) return 'asc';
-  return 'desc';
-}
-
-/**
  * Create reversed API params for tail-end page optimization.
- * For pages in the back half of results, flips sort direction and computes
- * offset from the end so the DB walks the index from the opposite end (fast)
- * instead of walking a huge OFFSET (slow).
+ * For pages in the back half of results, reverses the order (reverseOrder in @/lib/search-order:
+ * direction and nulls placement both flip) and computes the offset from the end, so the database
+ * reads the same index from the opposite end (fast) instead of walking a huge OFFSET (slow).
  *
  * Example: 850,770 total rows, pageSize=10, requesting page 85076 (second-to-last):
  *   Forward: offset=850750 (DB skips 850,750 rows — slow)
@@ -360,21 +352,9 @@ function reverseParamsForTailPage(
 ): URLSearchParams {
   const reversed = new URLSearchParams(params);
 
-  // Flip sort direction for each order clause
   const order = reversed.get('order');
   if (order) {
-    const flipped = order.split(',').map(clause => {
-      const parts = clause.split('.');
-      if (parts.length >= 2) {
-        const dirIdx = parts.findIndex(p => p === 'asc' || p === 'desc');
-        if (dirIdx >= 0) {
-          parts[dirIdx] = flipDirection(parts[dirIdx]);
-          return parts.filter(p => p !== 'nullslast' && p !== 'nullsfirst').join('.');
-        }
-      }
-      return clause;
-    }).join(',');
-    reversed.set('order', flipped);
+    reversed.set('order', reverseOrder(order));
   }
 
   const lastPage = Math.ceil(total / pageSize);
@@ -1170,7 +1150,11 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
     setExistenceSearchParams(params, selectedTimeFrame.valid_on);
   }
 
-  // 4. Sorting
+  // 4. Sorting. Every order sent here, and its reversal for pages from the end, is read from a
+  // statistical_unit index in that exact order: one per sortable column and direction, ending in
+  // unit_type, unit_id (admin.create_statistical_unit_ui_indices; per statistic
+  // admin.generate_statistical_unit_jsonb_indices). A new sortable column or a changed order
+  // expression adds its index in the same change; test/sql/359 lists the orders it checks.
   const searchSorting = get(sortingAtom);
   if (searchSorting.field) {
     const orderName = searchSorting.field;

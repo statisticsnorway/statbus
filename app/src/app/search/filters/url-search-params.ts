@@ -2,6 +2,14 @@ import { generateFTSQuery } from "@/app/search/generate-fts-query";
 import { SearchAction, Condition, ConditionalValue } from "../search";
 import { Tables } from "@/lib/database.types";
 
+// Each filter below becomes a PostgREST condition on statistical_unit (api_param_name, api_param_value).
+// Every such condition is served by a statistical_unit index built on exactly that expression,
+// so the search stays fast on the whole register: the indexes are made in
+// admin.create_statistical_unit_ui_indices, and per identifier type and per statistic in
+// admin.generate_statistical_unit_jsonb_indices; each index's COMMENT names the filter it serves.
+// A new filter, or a changed column or operator, adds its index in the same change;
+// test/sql/359 checks every filter listed there.
+
 export const SEARCH = "search";
 
 function buildPathQuery(values: (string | null | undefined)[]): string | null {
