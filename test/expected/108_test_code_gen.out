@@ -758,12 +758,10 @@ DELETE FROM public.stat_definition WHERE code = 'employees';
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -774,9 +772,8 @@ UPDATE public.stat_definition SET priority = 1 wHERE code = 'turnover';
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -790,9 +787,8 @@ INSERT INTO public.stat_definition(code, type, frequency, name, description, pri
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -806,18 +802,14 @@ UPDATE public.stat_definition SET enabled = false wHERE code = 'children_employe
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_children_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_children_employees_count_idx
-NOTICE:  Dropped index su_ss_children_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_children_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_children_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -832,15 +824,12 @@ INSERT INTO public.stat_definition(code, type, frequency, name, description, pri
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -1120,21 +1109,16 @@ DELETE FROM public.external_ident_type WHERE code = 'stat_ident';
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_girl_employees_count_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
@@ -1147,21 +1131,16 @@ NOTICE:  Created indices for stat_definition girl_employees
 UPDATE public.external_ident_type SET priority = 1 wHERE code = 'tax_ident';
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_girl_employees_count_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
@@ -1176,21 +1155,16 @@ INSERT INTO public.external_ident_type(code, name, priority, description) VALUES
 	('mobile', 'Mobile Number', 3, 'Mandated reporting by all phone companies.');
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_girl_employees_count_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
 NOTICE:  Created btree index su_ei_mobile_idx for external_ident_type
@@ -1207,21 +1181,16 @@ NOTICE:  Dropped index su_ei_mobile_idx
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_girl_employees_count_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -1415,21 +1384,16 @@ INSERT INTO public.external_ident_type(code, name, priority, description) VALUES
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_girl_employees_count_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
 NOTICE:  Created btree index su_ei_national_ident_idx for external_ident_type
@@ -1445,21 +1409,16 @@ NOTICE:  Dropped index su_ei_national_ident_idx
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_girl_employees_count_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
 NOTICE:  Created btree index su_ei_national_ident_idx for external_ident_type
@@ -1492,24 +1451,18 @@ NOTICE:  Dropped index su_ei_national_ident_idx
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_absences_idx
-NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_absences_count_idx
-NOTICE:  Dropped index su_ss_absences_sum_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_girl_employees_count_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_absences_sum_asc_idx
+NOTICE:  Dropped index su_ss_absences_sum_desc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
 NOTICE:  Created btree index su_ei_personal_ident_idx for external_ident_type
@@ -1527,24 +1480,18 @@ NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_personal_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_absences_idx
-NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_absences_count_idx
-NOTICE:  Dropped index su_ss_absences_sum_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_girl_employees_count_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_absences_sum_asc_idx
+NOTICE:  Dropped index su_ss_absences_sum_desc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
 NOTICE:  Created btree index su_ei_personal_ident_idx for external_ident_type
@@ -1589,24 +1536,18 @@ NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_personal_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_sick_days_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_girl_employees_count_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_sick_days_count_idx
-NOTICE:  Dropped index su_ss_sick_days_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_sick_days_sum_asc_idx
+NOTICE:  Dropped index su_ss_sick_days_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -1622,24 +1563,18 @@ DELETE FROM public.stat_definition WHERE code = 'sick_days';
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_sick_days_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_girl_employees_count_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_sick_days_count_idx
-NOTICE:  Dropped index su_ss_sick_days_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_sick_days_sum_asc_idx
+NOTICE:  Dropped index su_ss_sick_days_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -1677,21 +1612,16 @@ SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_girl_employees_count_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -1706,20 +1636,16 @@ NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
-NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type

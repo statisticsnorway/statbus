@@ -56,12 +56,10 @@ VALUES ('test_surveyor_hierarchical', 'Test Surveyor Hierarchical', 'hierarchica
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -77,12 +75,10 @@ NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_test_surveyor_hierarchical_idx
 NOTICE:  Dropped index su_ei_test_surveyor_hierarchical_ltree_gist_idx
-NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -124,12 +120,10 @@ VALUES ('test_surveyor', 'Test Surveyor Hierarchical', 'Region/City/Seq hierarch
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -261,12 +255,10 @@ VALUES ('test_hierarchical_surveyor', 'Test Hierarchical Surveyor', 'hierarchica
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -282,12 +274,10 @@ NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_test_hierarchical_surveyor_idx
 NOTICE:  Dropped index su_ei_test_hierarchical_surveyor_ltree_gist_idx
-NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type

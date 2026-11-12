@@ -1,3 +1,7 @@
+-- test-isolation: database-per-test
+-- The plans read here depend on the table's statistics: in the shared database, earlier tests
+-- leave statistical_unit filled and analyzed, and the planner then weighs indexes differently.
+-- A database of its own gives every run the same empty register and the same plans.
 BEGIN;
 \i test/setup.sql
 \echo -- test/setup.sql output suppressed for cleaner test output
