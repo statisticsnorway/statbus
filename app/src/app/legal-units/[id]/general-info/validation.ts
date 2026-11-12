@@ -1,4 +1,8 @@
-import { editMetadataSchemaFields } from "@/components/form/metadata-validation";
+import {
+  editMetadataSchemaFields,
+  optionalText,
+  requiredText,
+} from "@/components/form/metadata-validation";
 import { z } from "zod";
 import { zfd } from "zod-form-data";
 
@@ -12,7 +16,7 @@ const optionalFileSchema = z.any().transform((val) => {
 }).optional();
 
 export const generalInfoSchema = zfd.formData({
-  name: z.string().optional(),
+  name: requiredText("Enter a name"),
   image: optionalFileSchema,
   delete_image: z.string().optional(),
   ...editMetadataSchemaFields,
@@ -27,11 +31,11 @@ const optionalNumber = z.preprocess(
 );
 
 export const locationSchema = zfd.formData({
-  address_part1: z.string().optional(),
-  address_part2: z.string().optional(),
-  address_part3: z.string().optional(),
-  postcode: z.string().optional(),
-  postplace: z.string().optional(),
+  address_part1: optionalText,
+  address_part2: optionalText,
+  address_part3: optionalText,
+  postcode: optionalText,
+  postplace: optionalText,
   region_id: optionalNumber,
   country_id: z.preprocess(
     (val) => (val === "" || val === undefined ? undefined : Number(val)),
@@ -46,4 +50,3 @@ export const locationSchema = zfd.formData({
   type: z.enum(["physical", "postal"]),
   ...editMetadataSchemaFields,
 });
-

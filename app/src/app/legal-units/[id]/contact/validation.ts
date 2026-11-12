@@ -1,13 +1,12 @@
-import { editMetadataSchemaFields } from "@/components/form/metadata-validation";
-import { z } from "zod";
+import { editMetadataSchemaFields, optionalText } from "@/components/form/metadata-validation";
 import { zfd } from "zod-form-data";
 
 export const contactInfoSchema = zfd.formData({
-  email_address: z.string().optional(),
-  phone_number: z.string().optional(),
-  web_address: z.string().optional(),
-  landline: z.string().optional(),
-  mobile_number: z.string().optional(),
-  fax_number: z.string().optional(),
+  email_address: optionalText,
+  phone_number: optionalText,
+  web_address: optionalText,
+  landline: optionalText,
+  mobile_number: optionalText,
+  fax_number: optionalText,
   ...editMetadataSchemaFields,
 });
