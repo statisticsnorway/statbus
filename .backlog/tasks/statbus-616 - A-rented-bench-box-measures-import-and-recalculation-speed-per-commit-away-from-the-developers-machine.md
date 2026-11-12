@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-11T11:57:00Z'
-updated_date: '2026-11-11T19:19:00Z'
+updated_date: '2026-11-12T01:00:00Z'
 labels:
   - performance
   - ops
@@ -61,4 +61,6 @@ Bench series 2026-11-11 on ccx33 (8 dedicated cores), rune dump no_20261110_1619
 - 99% (1,123,131): 1,626 vs 1,698. Flush 874 vs 970, history 827 vs 611, refresh 1,492 vs 1,399.
 - 3 legal units renamed, 3 rounds: master 20.6/21.6/19.6 s, rc.01 19.7/22.6/20.6 s.
 Change-run fingerprints are not comparable in this run: the rename text carried the per-commit label (fixed in 409138e65). Results in tmp/bench/20261111-series/. Box deleted 19:18.
+
+Night 2026-11-11 (box 20:42-00:52, results tmp/bench/20261111-evening): restore needs rune's UPGRADE_CHANNEL (fixed 2e63132be); refuse guards matched their own ssh command (fixed 55bfff367). Index probe at 50 %: all 40 indexes 901/776 s, without the 14 never scanned 705/746 s, without only the 10 unusable 728 s, identical tables (-> STATBUS-627). Series d6978425d vs 2e63132be: see STATBUS-623. 3-unit edit timeline: work ~6 s, statistical_unit_facet_reduce alone 11-16 s (-> STATBUS-626).
 <!-- SECTION:NOTES:END -->
