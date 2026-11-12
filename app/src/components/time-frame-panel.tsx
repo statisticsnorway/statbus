@@ -44,6 +44,18 @@ export function framePeriod(tf: Pick<TimeFrame, "valid_from" | "valid_to">): str
 
 const headingClass = "text-xs font-medium text-zinc-500";
 
+/**
+ * Why a date typed into Advanced's From or To cannot be used: it falls outside
+ * the bounds (where the unit exists, for an edit of a unit's record). Null for a
+ * date inside them, an open end, a date not yet fully typed, or no bounds.
+ */
+export function dateOutsideBounds(value: string | null, bounds: DateBounds | undefined): string | null {
+  if (!bounds || !value || value === "infinity" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  if (value < bounds.from) return `The unit exists from ${bounds.from}`;
+  if (bounds.to !== "infinity" && value > bounds.to) return `The unit exists until ${bounds.to}`;
+  return null;
+}
+
 function DateInput({
   id,
   label,
@@ -62,20 +74,32 @@ function DateInput({
   const parsed = value && value !== "infinity" && !isNaN(new Date(value).getTime()) ? new Date(value) : undefined;
   const earliest = bounds?.from ? new Date(`${bounds.from}T00:00:00`) : undefined;
   const latest = bounds?.to && bounds.to !== "infinity" ? new Date(`${bounds.to}T00:00:00`) : undefined;
+  const problem = dateOutsideBounds(value, bounds);
+  // The calendar's month and year are drop-downs, from the unit's first year
+  // (or 1900) to its last (or ten years ahead), so a far date is two picks away.
+  const thisYear = new Date().getFullYear();
+  const startMonth = earliest ?? new Date(1900, 0, 1);
+  const endMonth = latest ?? new Date(thisYear + 10, 11, 31);
   return (
     <div className="relative min-w-0 flex-1">
       <Input
         id={id}
         aria-label={label}
+        aria-invalid={problem ? true : undefined}
         type="text"
         placeholder={`${label} yyyy-mm-dd`}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value || null)}
-        className="h-9 border-zinc-300 bg-white pr-9"
+        className={cn("h-9 border-zinc-300 bg-white pr-9", problem && "border-red-500 focus-visible:ring-red-500/40")}
       />
+      {problem && (
+        <p className="mt-1 text-xs text-red-600" data-date-out-of-bounds="">
+          {problem}
+        </p>
+      )}
       <Popover>
         <PopoverTrigger asChild>
-          <Button type="button" variant="ghost" className="absolute right-0 top-0 h-full rounded-l-none px-2" aria-label={`Pick ${label}`}>
+          <Button type="button" variant="ghost" className="absolute right-0 top-0 h-9 rounded-l-none px-2" aria-label={`Pick ${label}`}>
             <CalendarIcon className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
@@ -89,8 +113,11 @@ function DateInput({
           )}
           <Calendar
             mode="single"
+            captionLayout="dropdown"
+            startMonth={startMonth}
+            endMonth={endMonth}
             selected={parsed}
-            defaultMonth={parsed ?? earliest}
+            defaultMonth={parsed && (!earliest || parsed >= earliest) ? parsed : earliest}
             disabled={[...(earliest ? [{ before: earliest }] : []), ...(latest ? [{ after: latest }] : [])]}
             onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : null)}
           />

@@ -3,7 +3,12 @@
 import { useRef, useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useFixedFrameConfirmation } from "@/components/fixed-frame-confirmation";
-import { TimeFramePanel, type TimeFramePanelMode, type ValidityChoice } from "@/components/time-frame-panel";
+import {
+  TimeFramePanel,
+  dateOutsideBounds,
+  type TimeFramePanelMode,
+  type ValidityChoice,
+} from "@/components/time-frame-panel";
 import { useDetailsPageData, useEditManager } from "@/atoms/edits";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { Separator } from "@/components/ui/separator";
@@ -123,18 +128,32 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   const { ask, dialog } = useFixedFrameConfirmation();
   const anchorRef = useRef<HTMLDivElement>(null);
   const confirmedRef = useRef(false);
+  // A date outside the unit's existence (dateOutsideBounds) holds the save: the
+  // field already says why, so nothing is sent.
+  const dateBounds =
+    existence?.length ? { from: existence[0].validFrom, to: existence[existence.length - 1].validTo } : undefined;
+  const boundsFrom = dateBounds?.from;
+  const boundsTo = dateBounds?.to;
   useGuardedEffect(
     () => {
       const form = anchorRef.current?.closest("form");
       if (!form) return;
+      const bounds = boundsFrom && boundsTo ? { from: boundsFrom, to: boundsTo } : undefined;
       const onSubmit = (event: SubmitEvent) => {
+        const data = new FormData(form);
+        const from = data.get("valid_from") as string | null;
+        const to = data.get("valid_to") as string | null;
+        if (dateOutsideBounds(from, bounds) || dateOutsideBounds(to, bounds)) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          return;
+        }
         if (confirmedRef.current) {
           confirmedRef.current = false;
           return;
         }
         // The period submitted is the form's own valid_from/valid_to fields.
-        const data = new FormData(form);
-        const held = ask(data.get("valid_from") as string | null, data.get("valid_to") as string | null, () => {
+        const held = ask(from, to, () => {
           confirmedRef.current = true;
           form.requestSubmit();
         });
@@ -146,7 +165,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
       form.addEventListener("submit", onSubmit, { capture: true });
       return () => form.removeEventListener("submit", onSubmit, { capture: true });
     },
-    [ask],
+    [ask, boundsFrom, boundsTo],
     "EditMetadataControls:askBeforeFixedFrameSave"
   );
 
@@ -176,11 +195,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         comment={currentEdit.editComment ?? null}
         onCommentChange={setEditComment}
         formFields
-        dateBounds={
-          existence?.length
-            ? { from: existence[0].validFrom, to: existence[existence.length - 1].validTo }
-            : undefined
-        }
+        dateBounds={dateBounds}
         timeline={
           empty && pieces.length > 0 ? (
             <div className="space-y-1" data-edit-timeline="skeleton">
