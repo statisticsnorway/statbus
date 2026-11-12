@@ -7,6 +7,8 @@
 
 <link href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" rel="stylesheet" />
 <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<!-- API key loaded from config.js (gitignored). Copy config.example.js to config.js and add your key. -->
+<script src="config.js"></script>
 
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -103,11 +105,10 @@
 <script>
 {
   // ── Configuration ──────────────────────────────────────────────────
-  const API_URL = 'https://ma.statbus.org';
-  //const API_KEY = ''; // Set your Bearer token here for cross-origin access
-  //sample erik key morocco with some dummy lat lons use you own, below i is not valid
-  const API_KEY = 'yJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOiAxODA2MTQ0NjcxLCAiaWF0IjogMTc3NDYwODY3MSwgImp0aSI6ICIwMTlkMmVlYi02MmQ4LTcwNjQtYjE2OC02MzFjODU2OTdkMTEiLCAic3ViIjogIjAxOWQyZWViLTYyYzAtN2EzOS05ZWFkLWRlN2VkOWMyY2Y2YyIsICJ1aWQiOiAyLCAicm9sZSI6ICJlcmlrLnNvYmVyZ0Bzc2Iubm8iLCAidHlwZSI6ICJhcGlfa2V5IiwgImVtYWlsIjogImVyaWsuc29iZXJnQHNzYi5ubyIsICJkZXNjcmlwdGlvbiI6ICJEZWZhdWx0IEFQSSBLZXkiLCAiZGlzcGxheV9uYW1lIjogImVyaWsuc29iZXJnIiwgInN0YXRidXNfcm9sZSI6ICJhZG1pbl91c2VyIn0.ZKN9VtjeMAKoaEWFGfiC27QdVj2mGdrbgujXLoJD9yM';
-
+  // API_URL and API_KEY are loaded from config.js (gitignored).
+  // Copy config.example.js to config.js and set your values there.
+  if (typeof API_URL === 'undefined') var API_URL = 'https://ma.statbus.org';
+  if (typeof API_KEY === 'undefined') var API_KEY = '';
   // Maximum rows to fetch
   const FETCH_LIMIT = 5000;
 
