@@ -185,6 +185,10 @@ DEPLOYMENT_SLOT_PORT_OFFSET=1
 CADDY_DEPLOYMENT_MODE=development
 SITE_DOMAIN=localhost
 CFG
+# The database gets the share of memory rune gives it, half the host (rune:
+# DB_MEM_LIMIT=32G of 62 GB). The development share (4G) measures a box whose
+# indexes do not fit in memory, unlike the production host the numbers are for.
+grep -q '^DB_MEM_LIMIT=' ~/statbus/.env.config || echo "DB_MEM_LIMIT=\$(( \$(free -g | awk '/^Mem:/ {print \$2}') / 2 ))G # bench: rune's share of memory" >> ~/statbus/.env.config
 EOF
 }
 
