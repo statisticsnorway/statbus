@@ -11,6 +11,7 @@ import { contactInfoSchema } from "./contact/validation";
 import {
   resolveSchemaByType,
 } from "@/components/form/helper-functions";
+import { describeInvalidForm } from "@/components/form/metadata-validation";
 import { z } from "zod";
 
 export async function getEditMetadata(client: Awaited<ReturnType<typeof getServerRestClient>>) {
@@ -43,14 +44,7 @@ export async function updateLegalUnit(
   const schema = resolveSchemaByType(schemaType);
   const validatedFields = schema.safeParse(formData);
   if (!validatedFields.success) {
-    return {
-      status: "error",
-      message: "failed to parse form data",
-      errors: validatedFields.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    };
+    return describeInvalidForm(validatedFields.error);
   }
 
   const { valid_from, valid_to } = validatedFields.data;
@@ -360,14 +354,7 @@ export async function upsertTemporalRecord({
   const validatedFields = schemaType.safeParse(formData);
 
   if (!validatedFields.success) {
-    return {
-      status: "error",
-      message: `failed to parse form data for ${tableName}`,
-      errors: validatedFields.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    };
+    return describeInvalidForm(validatedFields.error);
   }
   const unitIdFieldName = `${unitType}_id`;
   const unitId = parseInt(id, 10);
@@ -501,4 +488,3 @@ export async function setPrimaryLegalUnit(id: number) {
 
   revalidatePath("/legal-units/[id]", "page");
 }
-

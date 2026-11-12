@@ -34,6 +34,19 @@ export const requiredNumber = z.preprocess(
     .optional()
 );
 
+/**
+ * A refused edit's response: the toast says what to fix (the fields' own
+ * messages), and errors carry each message on its field.
+ */
+export function describeInvalidForm(error: z.ZodError): UpdateResponse {
+  const errors = error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message }));
+  return {
+    status: "error",
+    message: [...new Set(errors.map((e) => e.message))].join("; "),
+    errors,
+  };
+}
+
 export const editMetadataSchemaFields = {
   edit_comment: z.string().optional(),
   data_source_id: z.preprocess(

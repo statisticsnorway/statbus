@@ -7,6 +7,7 @@ import { getEditMetadata } from "@/app/legal-units/[id]/update-legal-unit-server
 import {
   resolveSchemaByType,
 } from "@/components/form/helper-functions";
+import { describeInvalidForm } from "@/components/form/metadata-validation";
 
 export async function updateEstablishment(
   id: string,
@@ -18,14 +19,7 @@ export async function updateEstablishment(
   const schema = resolveSchemaByType(schemaType);
   const validatedFields = schema.safeParse(formData);
   if (!validatedFields.success) {
-    return {
-      status: "error",
-      message: "failed to parse form data",
-      errors: validatedFields.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    };
+    return describeInvalidForm(validatedFields.error);
   }
 
   const { valid_from, valid_to } = validatedFields.data;
