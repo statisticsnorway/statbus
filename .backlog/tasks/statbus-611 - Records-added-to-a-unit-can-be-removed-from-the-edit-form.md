@@ -4,7 +4,7 @@ title: Records added to a unit can be removed from the edit form
 status: To Do
 assignee: []
 created_date: '2026-11-10T21:29:00Z'
-updated_date: '2026-11-12T15:38:00Z'
+updated_date: '2026-11-12T21:25:00Z'
 labels:
   - ui
   - edit
@@ -48,4 +48,6 @@ Owner testing on Norway (v2026.11.4-rc.01, 2026-11-10 21:29): after adding a tes
 Owner 2026-11-10 21:30: other single-value fields already turn Save into a delete when the value is erased (external identifiers: update-external-ident-server-action.ts deletes the row when the ident is emptied, refusing the last one; the image: clearing it clears image_id and deletes the image). A form with several fields (a location: address parts, post code, region, country, coordinates) needs an explicit UI interaction for removal, not erase-to-delete. The test physical location 2312602 on Norway was removed by hand (SQL, exactly one row, 21:30) at the owner's request; the postal address 1889376 remains.
 
 2026-11-12 15:38 database findings (Rabbit, rolled back, tmp/611-delete-portion-probe.log, tmp/611-delete-probe.log): (1) DELETE through location__for_portion_of_valid is refused: 'The for_portion_of view only supports UPDATE operations' (sql_saga.for_portion_of_trigger). (2) DELETE_FOR_PORTION_OF is a temporal_merge MODE (sql_saga.temporal_merge_mode), not a delete_mode; the delete_mode enum is NONE / DELETE_MISSING_TIMELINE / DELETE_MISSING_ENTITIES / DELETE_MISSING_TIMELINE_AND_ENTITIES. (3) CALL sql_saga.temporal_merge(target_table=>'public.location', source_table=>src(row_id,id,valid_from,valid_until), primary_identity_columns=>ARRAY['id'], mode=>'DELETE_FOR_PORTION_OF') with 2024-01-01..2025-01-01 removed exactly 2024 from unit 28's physical location (9 rows -> 8, 2023 and 2025.. kept), 35 ms. So a removal function per table (or one generic) can call temporal_merge with that mode. (4) What may be removed follows the constraints: contact needs at least one value (CHECK), so emptying all its fields = removing it; activity.category_id and location.country_id are NOT NULL, so clearing them = removing the record.
+
+2026-11-12 21:25 owner design: Remove goes through the for_portion_of view as UPDATE x__for_portion_of_valid SET id = NULL, valid_from = START, valid_until = STOP WHERE id = N (PostgREST PATCH body {"id": null, "valid_from", "valid_until"}): removes the record over [START, STOP), splitting rows at the edges (temporal_merge DELETE_FOR_PORTION_OF). Rejected: a view-only marker column (must be real columns); all values NULL (a legitimate update, and contact's CHECK refuses it). Specified for the sql_saga agent in ../sql_saga/todo.md ('Next - for_portion_of view: remove a portion with SET id = NULL'), with 8 tests. Today on 1.4 SET id = NULL reports UPDATE 1 and changes nothing (tmp/611-null-id-probe2.log). StatBus pins the new sql_saga, then builds the Remove button on it; the prototype function public.remove_for_portion_of (local dev DB only) is dropped then.
 <!-- SECTION:NOTES:END -->
