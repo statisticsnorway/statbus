@@ -10,6 +10,7 @@ import {
   unfoldedRuns,
   rowSelected,
   frameMarker,
+  describeValues,
   toggleSelection,
   type TimelineSourceRow,
 } from "@/components/form/field-timeline";
@@ -418,6 +419,54 @@ describe("visibleSegments", () => {
     ).toBe(false);
     expect(rowSelected(shown[0], [0])).toBe(true);
     expect(rowSelected(shown[0], [1])).toBe(false);
+  });
+});
+
+describe("describeValues", () => {
+  // Owner 15:22: every edit form's timeline names its values in words.
+  const names = {
+    region_id: new Map([[225602, "225602 Kampala"]]),
+    country_id: new Map([[7, "United Nations"]]),
+    status_id: new Map([[1, "Active"]]),
+    unit_size_id: new Map([[3, "Medium"]]),
+    legal_form_id: new Map([[2, "AS Aksjeselskap"]]),
+    sector_id: new Map([[4, "4500 Households"]]),
+    category_id: new Map([[9, "01.1 Growing crops"]]),
+  };
+  it("names coded columns and keeps the rest as written, skipping empty ones", () => {
+    expect(
+      describeValues(
+        {
+          address_part1: "Safari Park 67",
+          address_part2: null,
+          region_id: 225602,
+          country_id: 7,
+        },
+        names
+      )
+    ).toBe("Safari Park 67, 225602 Kampala, United Nations");
+    expect(
+      describeValues(
+        {
+          status_id: 1,
+          birth_date: "2020-01-01",
+          death_date: null,
+          unit_size_id: 3,
+        },
+        names
+      )
+    ).toBe("Active, 2020-01-01, Medium");
+    expect(describeValues({ legal_form_id: 2 }, names)).toBe("AS Aksjeselskap");
+    expect(describeValues({ sector_id: 4 }, names)).toBe("4500 Households");
+    expect(describeValues({ category_id: 9 }, names)).toBe(
+      "01.1 Growing crops"
+    );
+  });
+  it("shows an unknown code as itself and an all-empty value as nothing", () => {
+    expect(describeValues({ status_id: 99 }, names)).toBe("99");
+    expect(
+      describeValues({ email_address: null, phone_number: "" }, names)
+    ).toBeNull();
   });
 });
 

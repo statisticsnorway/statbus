@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import type { TimeFrame } from "@/lib/time-frame";
 import type { EditFieldSource } from "./read-edit-range";
 import {
+  describeValues,
   fieldTimeline,
   foldableFrames,
   frameMarker,
@@ -30,6 +31,7 @@ import {
   rowSelected,
   unfoldedRuns,
   visibleSegments,
+  type ColumnNames,
   type TimelinePeriod,
   type TimelineSourceRow,
 } from "./field-timeline";
@@ -94,32 +96,57 @@ function FrameMarker({ frame }: { frame: TimeFrame }) {
 
 const formatEnd = (to: string) => (to === "infinity" ? "Present" : to);
 
-/** The period's value in words: a single column's value, or a group's non-empty parts. */
+/**
+ * The period's value in words (describeValues), with every coded column the
+ * edit forms show named from the page's lookup lists.
+ */
 function useDescribeValue() {
-  const { regions, countries, dataSources } = useDetailsPageData();
+  const {
+    regions,
+    countries,
+    dataSources,
+    status,
+    unitSizes,
+    legalForms,
+    sectors,
+    activityCategories,
+  } = useDetailsPageData();
   return useMemo(() => {
-    const regionById = new Map(
-      regions.map((r) => [r.id, `${r.code} ${r.name}`])
-    );
-    const countryById = new Map(countries.map((c) => [c.id, c.name]));
+    const byId = <T extends { id: number | null }>(
+      rows: readonly T[],
+      name: (r: T) => string
+    ) =>
+      new Map(
+        rows.flatMap((r) => (r.id == null ? [] : [[r.id, name(r)] as const]))
+      );
+    const codeName = (r: { code: string | null; name: string | null }) =>
+      [r.code, r.name].filter(Boolean).join(" ");
+    const names: ColumnNames = {
+      region_id: byId(regions, codeName),
+      country_id: byId(countries, (c) => c.name ?? ""),
+      status_id: byId(status, (s) => s.name ?? ""),
+      unit_size_id: byId(unitSizes, (u) => u.name ?? ""),
+      legal_form_id: byId(legalForms, codeName),
+      sector_id: byId(sectors, codeName),
+      category_id: byId(activityCategories, codeName),
+    };
     return {
-      value: (values: Record<string, unknown>) => {
-        const parts = Object.entries(values).flatMap(([column, v]) => {
-          if (v == null || v === "") return [];
-          if (column === "region_id")
-            return [regionById.get(v as number) ?? String(v)];
-          if (column === "country_id")
-            return [countryById.get(v as number) ?? String(v)];
-          return [String(v)];
-        });
-        return parts.length ? parts.join(", ") : null;
-      },
+      value: (values: Record<string, unknown>) => describeValues(values, names),
       source: (id: number | null) =>
         id == null
           ? null
           : (dataSources.find((d) => d.id === id)?.code ?? String(id)),
     };
-  }, [regions, countries, dataSources]);
+  }, [
+    regions,
+    countries,
+    dataSources,
+    status,
+    unitSizes,
+    legalForms,
+    sectors,
+    activityCategories,
+  ]);
 }
 
 interface FieldTimelineProps {

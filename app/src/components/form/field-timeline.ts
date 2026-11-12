@@ -337,6 +337,30 @@ export function frameMarker(tf: TimeFrame): {
   return { label: year ?? tf.name ?? "", year: null };
 }
 
+/**
+ * Names for coded columns (region_id, status_id, legal_form_id, ...), by
+ * column then id: the edit forms' lookup lists, read once per page.
+ */
+export type ColumnNames = Partial<Record<string, ReadonlyMap<number, string>>>;
+
+/**
+ * A period's value in words, for the timeline: each non-empty column in the
+ * row's column order, a coded column by its name (ColumnNames) and the rest as
+ * written, joined by commas. An id with no name shows as itself; a value with
+ * every column empty is null (the timeline says "Empty").
+ */
+export function describeValues(
+  values: Record<string, unknown>,
+  names: ColumnNames
+): string | null {
+  const parts = Object.entries(values).flatMap(([column, v]) => {
+    if (v == null || v === "") return [];
+    const named = names[column]?.get(Number(v));
+    return [named ?? String(v)];
+  });
+  return parts.length ? parts.join(", ") : null;
+}
+
 /** A run of an opened frame's values that folding would hide again, by period. */
 export interface UnfoldedRun {
   frame: string;
