@@ -26,14 +26,14 @@ export type ValidityChoice = "frame" | "dates" | "source_dates";
 
 /**
  * The panel's views, offered by the caller in this order. Simple and Advanced
- * exist today. An edit is expected to gain a Timeline view, where the user
- * picks a stretch of the field's timeline and sees what the change affects;
- * it is added here as another mode, with its body rendered by the caller.
+ * always; Timeline when the caller passes the field's timeline (an edit), where
+ * the user ticks the stretch of the field's history the change applies to.
  */
-export type TimeFramePanelMode = "simple" | "advanced";
+export type TimeFramePanelMode = "simple" | "advanced" | "timeline";
 export const TIME_FRAME_PANEL_MODES: { mode: TimeFramePanelMode; label: string; hint: string }[] = [
   { mode: "simple", label: "Simple", hint: "Choose a time frame" },
   { mode: "advanced", label: "Advanced", hint: "Choose a frame, dates or source dates" },
+  { mode: "timeline", label: "Timeline", hint: "Tick the periods of this field's history to change" },
 ];
 
 /** A frame's period, ISO dates, e.g. "2025-01-01 – 2025-12-31" or "2026-01-01 – Present". */
@@ -116,6 +116,8 @@ export interface TimeFramePanelProps {
   onCommentChange: (comment: string | null) => void;
   /** Rendered as hidden fields for a form post (the edit form): valid_from, valid_to, data_source_id, edit_comment. */
   formFields?: boolean;
+  /** The Timeline view's body (an edit's field timeline). Absent, the view is not offered. */
+  timeline?: React.ReactNode;
 }
 
 /** The Data source list's entry for no source: Radix Select reserves the empty value. */
@@ -150,9 +152,11 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
     comment,
     onCommentChange,
     formFields,
+    timeline,
   } = props;
   const groups = groupTimeFrames(timeFrames, { forMenu: false });
   const advanced = mode === "advanced";
+  const modes = TIME_FRAME_PANEL_MODES.filter((m) => m.mode !== "timeline" || timeline);
   const chosenSource = dataSources.find((d) => d.code === dataSourceCode);
 
   const frameSelect = (
@@ -205,7 +209,7 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
             className="inline-flex rounded-md border border-zinc-200 bg-zinc-100 p-0.5 text-xs"
             data-time-frame-mode-switch
           >
-            {TIME_FRAME_PANEL_MODES.map((m) => (
+            {modes.map((m) => (
               <button
                 key={m.mode}
                 type="button"
@@ -225,7 +229,9 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
           </div>
         </div>
 
-        {!advanced ? (
+        {mode === "timeline" && timeline ? (
+          timeline
+        ) : !advanced ? (
           frameSelect
         ) : (
           <RadioGroup

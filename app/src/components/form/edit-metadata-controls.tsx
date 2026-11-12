@@ -8,6 +8,8 @@ import { useDetailsPageData, useEditManager } from "@/atoms/edits";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { Separator } from "@/components/ui/separator";
 import { useChangeEditFrame } from "./use-start-edit";
+import { FieldTimeline, useFieldTimeline } from "./field-timeline-view";
+import { opensInTimeline, periodsInRange, selectionRange, toggleSelection } from "./field-timeline";
 
 interface EditMetadataControlsProps {
   fieldId: string;
@@ -17,7 +19,9 @@ interface EditMetadataControlsProps {
  * Where an edit applies and where it comes from: the Time frame panel, the
  * same as on the import pages (components/time-frame-panel.tsx). The edit
  * opens on the frame the user is looking at and covers the shown value's
- * stretch in it (useStartEdit). Advanced offers chosen Dates instead. Data
+ * stretch in it (useStartEdit). Advanced offers chosen Dates instead. Timeline
+ * shows the field's history and the edit applies to the ticked stretch of it;
+ * Edit opens there when the shown value is not the field's newest. Data
  * source and Comment are stored with the change. A save that reaches into a
  * relative or fixed frame asks first.
  */
@@ -34,6 +38,33 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   const changeEditFrame = useChangeEditFrame();
   const [mode, setMode] = useState<TimeFramePanelMode>("simple");
   const [choice, setChoice] = useState<ValidityChoice>("frame");
+
+  // The field's timeline, when the field names its rows. The edit's dates are
+  // the ticked stretch; the ticks are read back from the dates, so the frame
+  // and Advanced views and the Timeline view always agree.
+  const { periods, loaded } = useFieldTimeline(currentEdit.source);
+  const selected = periodsInRange(periods, currentEdit.validFrom, currentEdit.validTo);
+  const handleToggle = (index: number) => {
+    const range = selectionRange(periods, toggleSelection(selected, index));
+    setEditValidFrom(range?.validFrom ?? null);
+    setEditValidTo(range && range.validTo !== "infinity" ? range.validTo : null);
+  };
+
+  // Edit opens in the Timeline view when the edit's frame holds more than one
+  // value of the field (opensInTimeline); one value covering the frame opens
+  // Simple. Decided once per edit, when its dates and rows are known.
+  const openedRef = useRef(false);
+  const datesKnown = !!currentEdit.validFrom;
+  useGuardedEffect(
+    () => {
+      if (openedRef.current || !loaded || !datesKnown) return;
+      openedRef.current = true;
+      const frame = timeFrames.find((tf) => tf.ident === currentEdit.frameIdent);
+      if (opensInTimeline(periods, frame)) setMode("timeline");
+    },
+    [loaded, datesKnown],
+    "EditMetadataControls:openInTimeline"
+  );
 
   // Simple always means a frame: the frame's dates come back.
   const handleModeChange = (next: TimeFramePanelMode) => {
@@ -107,6 +138,18 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         comment={currentEdit.editComment ?? null}
         onCommentChange={setEditComment}
         formFields
+        timeline={
+          currentEdit.source && loaded && periods.length > 0 ? (
+            <div className="space-y-1" data-edit-timeline="">
+              <FieldTimeline periods={periods} selected={selected} onToggle={handleToggle} />
+              <p className="text-xs text-zinc-600" data-edit-timeline-range="">
+                {currentEdit.validFrom
+                  ? `Changes ${currentEdit.validFrom} – ${currentEdit.validTo ?? "Present"}`
+                  : "Tick the periods to change"}
+              </p>
+            </div>
+          ) : undefined
+        }
       />
     </>
   );
