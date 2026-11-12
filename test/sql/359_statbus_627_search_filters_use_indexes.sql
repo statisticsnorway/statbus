@@ -58,4 +58,51 @@ SELECT filter, pg_temp.filter_uses_index(sql) AS uses_index
 FROM search_filter
 ORDER BY filter;
 
+-- The search table sorts by a column (app/src/app/search/components/statistical-unit-table-header.tsx)
+-- in two directions, asc and desc.nullslast, always followed by unit_type, unit_id
+-- (app/src/atoms/search.ts). For a page from the end, the search reverses the order
+-- (reverseParamsForTailPage), so each order is also read backwards. A sort is served when the
+-- first page comes straight from an index in that order: the plan has no Sort step.
+CREATE FUNCTION pg_temp.sort_uses_index(p_order text) RETURNS boolean LANGUAGE plpgsql AS $$
+DECLARE
+    v_line text;
+    v_sorted boolean := false;
+    v_index boolean := false;
+BEGIN
+    FOR v_line IN EXECUTE 'EXPLAIN (COSTS OFF) SELECT unit_id FROM public.statistical_unit ORDER BY '
+                          || p_order || ' LIMIT 10' LOOP
+        IF v_line ~ 'Sort' THEN v_sorted := true; END IF;
+        IF v_line ~ 'Index (Only )?Scan' THEN v_index := true; END IF;
+    END LOOP;
+    RETURN v_index AND NOT v_sorted;
+END;
+$$;
+
+CREATE TEMP TABLE search_sort (sort_key text, expression text) ON COMMIT DROP;
+INSERT INTO search_sort VALUES
+    ('name', 'name'),
+    ('physical_region_path', 'physical_region_path'),
+    ('sector_path', 'sector_path'),
+    ('legal_form_code', 'legal_form_code'),
+    ('primary_activity_category_path', 'primary_activity_category_path'),
+    ('secondary_activity_category_path', 'secondary_activity_category_path'),
+    ('birth_date', 'birth_date'),
+    ('death_date', 'death_date'),
+    ('last_edit_at', 'last_edit_at');
+INSERT INTO search_sort
+SELECT format('stats_summary->%s->sum', code), format($e$(stats_summary->%L->'sum')$e$, code)
+FROM public.stat_definition_enabled;
+
+\echo "627.2 every search sort on statistical_unit reads an index in order, forwards and for pages from the end"
+SELECT s.sort_key, d.direction,
+       pg_temp.sort_uses_index(format(d.template, s.expression)) AS uses_index
+FROM search_sort AS s
+CROSS JOIN (VALUES
+    ('asc',                      '%s ASC, unit_type ASC, unit_id ASC'),
+    ('desc.nullslast',           '%s DESC NULLS LAST, unit_type ASC, unit_id ASC'),
+    ('asc, from the end',        '%s DESC NULLS FIRST, unit_type DESC, unit_id DESC'),
+    ('desc.nullslast, from end', '%s ASC NULLS FIRST, unit_type DESC, unit_id DESC')
+) AS d (direction, template)
+ORDER BY s.sort_key, d.direction;
+
 ROLLBACK;

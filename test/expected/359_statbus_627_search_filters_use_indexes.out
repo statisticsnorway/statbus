@@ -77,4 +77,97 @@ ORDER BY filter;
  unit_type in                      | t
 (16 rows)
 
+-- The search table sorts by a column (app/src/app/search/components/statistical-unit-table-header.tsx)
+-- in two directions, asc and desc.nullslast, always followed by unit_type, unit_id
+-- (app/src/atoms/search.ts). For a page from the end, the search reverses the order
+-- (reverseParamsForTailPage), so each order is also read backwards. A sort is served when the
+-- first page comes straight from an index in that order: the plan has no Sort step.
+CREATE FUNCTION pg_temp.sort_uses_index(p_order text) RETURNS boolean LANGUAGE plpgsql AS $$
+DECLARE
+    v_line text;
+    v_sorted boolean := false;
+    v_index boolean := false;
+BEGIN
+    FOR v_line IN EXECUTE 'EXPLAIN (COSTS OFF) SELECT unit_id FROM public.statistical_unit ORDER BY '
+                          || p_order || ' LIMIT 10' LOOP
+        IF v_line ~ 'Sort' THEN v_sorted := true; END IF;
+        IF v_line ~ 'Index (Only )?Scan' THEN v_index := true; END IF;
+    END LOOP;
+    RETURN v_index AND NOT v_sorted;
+END;
+$$;
+CREATE TEMP TABLE search_sort (sort_key text, expression text) ON COMMIT DROP;
+INSERT INTO search_sort VALUES
+    ('name', 'name'),
+    ('physical_region_path', 'physical_region_path'),
+    ('sector_path', 'sector_path'),
+    ('legal_form_code', 'legal_form_code'),
+    ('primary_activity_category_path', 'primary_activity_category_path'),
+    ('secondary_activity_category_path', 'secondary_activity_category_path'),
+    ('birth_date', 'birth_date'),
+    ('death_date', 'death_date'),
+    ('last_edit_at', 'last_edit_at');
+INSERT INTO search_sort
+SELECT format('stats_summary->%s->sum', code), format($e$(stats_summary->%L->'sum')$e$, code)
+FROM public.stat_definition_enabled;
+\echo "627.2 every search sort on statistical_unit reads an index in order, forwards and for pages from the end"
+"627.2 every search sort on statistical_unit reads an index in order, forwards and for pages from the end"
+SELECT s.sort_key, d.direction,
+       pg_temp.sort_uses_index(format(d.template, s.expression)) AS uses_index
+FROM search_sort AS s
+CROSS JOIN (VALUES
+    ('asc',                      '%s ASC, unit_type ASC, unit_id ASC'),
+    ('desc.nullslast',           '%s DESC NULLS LAST, unit_type ASC, unit_id ASC'),
+    ('asc, from the end',        '%s DESC NULLS FIRST, unit_type DESC, unit_id DESC'),
+    ('desc.nullslast, from end', '%s ASC NULLS FIRST, unit_type DESC, unit_id DESC')
+) AS d (direction, template)
+ORDER BY s.sort_key, d.direction;
+             sort_key             |        direction         | uses_index 
+----------------------------------+--------------------------+------------
+ birth_date                       | asc                      | f
+ birth_date                       | asc, from the end        | f
+ birth_date                       | desc.nullslast           | f
+ birth_date                       | desc.nullslast, from end | f
+ death_date                       | asc                      | f
+ death_date                       | asc, from the end        | f
+ death_date                       | desc.nullslast           | f
+ death_date                       | desc.nullslast, from end | f
+ last_edit_at                     | asc                      | f
+ last_edit_at                     | asc, from the end        | f
+ last_edit_at                     | desc.nullslast           | f
+ last_edit_at                     | desc.nullslast, from end | f
+ legal_form_code                  | asc                      | f
+ legal_form_code                  | asc, from the end        | f
+ legal_form_code                  | desc.nullslast           | f
+ legal_form_code                  | desc.nullslast, from end | f
+ name                             | asc                      | f
+ name                             | asc, from the end        | f
+ name                             | desc.nullslast           | f
+ name                             | desc.nullslast, from end | f
+ physical_region_path             | asc                      | f
+ physical_region_path             | asc, from the end        | f
+ physical_region_path             | desc.nullslast           | f
+ physical_region_path             | desc.nullslast, from end | f
+ primary_activity_category_path   | asc                      | f
+ primary_activity_category_path   | asc, from the end        | f
+ primary_activity_category_path   | desc.nullslast           | f
+ primary_activity_category_path   | desc.nullslast, from end | f
+ secondary_activity_category_path | asc                      | f
+ secondary_activity_category_path | asc, from the end        | f
+ secondary_activity_category_path | desc.nullslast           | f
+ secondary_activity_category_path | desc.nullslast, from end | f
+ sector_path                      | asc                      | f
+ sector_path                      | asc, from the end        | f
+ sector_path                      | desc.nullslast           | f
+ sector_path                      | desc.nullslast, from end | f
+ stats_summary->employees->sum    | asc                      | f
+ stats_summary->employees->sum    | asc, from the end        | f
+ stats_summary->employees->sum    | desc.nullslast           | f
+ stats_summary->employees->sum    | desc.nullslast, from end | f
+ stats_summary->turnover->sum     | asc                      | f
+ stats_summary->turnover->sum     | asc, from the end        | f
+ stats_summary->turnover->sum     | desc.nullslast           | f
+ stats_summary->turnover->sum     | desc.nullslast, from end | f
+(44 rows)
+
 ROLLBACK;
