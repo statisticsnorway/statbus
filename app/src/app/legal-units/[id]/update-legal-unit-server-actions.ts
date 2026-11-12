@@ -12,6 +12,7 @@ import {
   resolveSchemaByType,
 } from "@/components/form/helper-functions";
 import { describeInvalidForm } from "@/components/form/metadata-validation";
+import { capToExistence, unitExistence, type UnitRow } from "@/components/form/unit-existence";
 import { z } from "zod";
 
 export async function getEditMetadata(client: Awaited<ReturnType<typeof getServerRestClient>>) {
@@ -404,37 +405,40 @@ export async function upsertTemporalRecord({
         };
       }
     } else {
-      // Check that the parent unit exists for the requested period
+      // A new record is valid only where its unit exists. The unit's history is
+      // many rows, so its existence is their union (unitExistence); the record is
+      // stored on the part of [valid_from, valid_to] inside it (capToExistence).
+      // The temporal foreign key (e.g. contact_legal_unit_id_valid) enforces the
+      // same rule in the database.
       const parentTable = unitType;
       const { data: parentRows, error: parentError } = await client
         .from(parentTable)
-        .select("valid_from, valid_to")
+        .select("valid_from, valid_until")
         .eq("id", unitId)
-        .lte("valid_from", valid_from)
-        .gte("valid_to", valid_to);
+        .order("valid_from");
 
       if (parentError) {
         return { status: "error", message: parentError.message };
       }
 
-      if (!parentRows || parentRows.length === 0) {
-        const { data: allRows } = await client
-          .from(parentTable)
-          .select("valid_from, valid_to")
-          .eq("id", unitId)
-          .order("valid_from");
-
-        const rangeInfo = allRows?.length
-          ? ` The ${unitType.replace("_", " ")} exists for: ${allRows.map((r) => `${r.valid_from} to ${r.valid_to ?? "infinity"}`).join(", ")}.`
-          : "";
-
+      const existence = unitExistence((parentRows ?? []) as UnitRow[]);
+      const capped = capToExistence(existence, valid_from, valid_to);
+      if (!capped) {
+        const spans = existence
+          .map((s) => `${s.validFrom} – ${s.validTo === "infinity" ? "Present" : s.validTo}`)
+          .join(", ");
         return {
           status: "error",
-          message: `Cannot add ${tableName.replace("_", " ")} for the period ${valid_from} to ${valid_to}. The ${unitType.replace("_", " ")} does not exist for this period.${rangeInfo}`,
+          message: `The ${unitType.replace("_", " ")} does not exist between ${valid_from} and ${valid_to === "infinity" ? "Present" : valid_to}. It exists ${spans}.`,
         };
       }
 
-      let insertPayload = { ...payload, ...naturalKeyValues };
+      let insertPayload = {
+        ...payload,
+        ...naturalKeyValues,
+        valid_from: capped.validFrom,
+        valid_to: capped.validTo,
+      };
       let templateQuery = client.from(tableName).select("id").limit(1);
       for (const key in naturalKeyValues) {
         templateQuery = templateQuery.eq(key, naturalKeyValues[key]);
