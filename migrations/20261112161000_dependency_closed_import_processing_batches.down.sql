@@ -168,11 +168,11 @@ BEGIN
         -- (set by analyse_external_idents when action='skip'), but we defensively ensure it here
         -- to satisfy the CHECK constraint (which requires batch_seq IS NOT NULL for 'analysing' state).
         EXECUTE format($$UPDATE public.%1$I SET batch_seq = NULL, state = 'error' WHERE action IS DISTINCT FROM 'use' AND state != 'error'$$, p_data_table_name);
-
+        
         -- Re-assign batch_seq to 'use' rows, optionally updating state and priority atomically.
         EXECUTE format($$
             WITH numbered AS (
-                SELECT row_id,
+                SELECT row_id, 
                        ((row_number() OVER (ORDER BY row_id) - 1) / %2$L + 1)::INTEGER as batch_num
                 FROM public.%1$I
                 WHERE action = 'use'
@@ -187,9 +187,10 @@ BEGIN
         EXECUTE format($$
             UPDATE public.%1$I
             SET batch_seq = ((row_id - 1) / %2$L + 1)::INTEGER %3$s
+            WHERE true -- every row: the analysis phase numbers all rows
         $$, p_data_table_name, p_batch_size, v_extra_sets);
     END IF;
-
+    
     GET DIAGNOSTICS v_total_rows = ROW_COUNT;
     RETURN v_total_rows;
 END;

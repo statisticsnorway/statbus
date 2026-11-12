@@ -11,7 +11,7 @@ This is local correctness and actual-concurrency evidence, not a controlled prod
 - Runtime checkpoint: `f95da97d7f61450dc12a097cb7221cdee9ab0f81`.
 - Serial base: `v2026.11.3-rc.03`, `fc1830fe410b19007056ef0853ad9e491d7f4ad9`.
 - Retained isolated database: `import_benchmark_64469`.
-- Three forward migrations: `20261109210000` through `20261109210002` (measured as `20261108182300` through `20261108182302`; renamed to sort after the released STATBUS-598/599 migrations).
+- Three forward migrations: `20261109210000` through `20261109210002` (measured as `20261108182300` through `20261108182302`; renamed to sort after the released STATBUS-598/599 migrations, then to `20261112161000` through `20261112161002` when rebased onto master 754ec1db6 so they apply after STATBUS-604's rewrite of `admin.import_job_assign_batch_seq`, whose named-rows `WHERE true` they keep).
 - Ordinary temporal integrity checks stayed enabled. The SQL Saga deferral prototype was not adopted.
 - Independent validation completed November 8 at 22:58:36 UTC, after the benchmark wrapper exited successfully at 22:57:52 UTC.
 
