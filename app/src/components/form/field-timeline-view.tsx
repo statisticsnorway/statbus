@@ -297,16 +297,26 @@ export function FieldTimeline({
       >
         {/* A faint solid line across the timeline where one frame ends and
           the next begins, so each dot reads as belonging to the frame beside
-          it. Solid, so the dotted bracket ties below stand apart from it. */}
-        {frameCells.slice(1).map((c) => (
-          <div
-            key={`frame-rule-${c.row}`}
-            aria-hidden
-            style={{ gridColumn: "1 / -1", gridRow: c.row }}
-            className="pointer-events-none self-start border-t border-zinc-200"
-            data-timeline-frame-rule=""
-          />
-        ))}
+          it. Solid, so the dotted bracket ties below stand apart from it.
+          Where one value spans both frames, the line stops at the value: it
+          runs under the frames and the line, not through the value's text. */}
+        {frameCells.slice(1).map((c) => {
+          const valueStartsHere = [...periodRows.values()].some(
+            (at) => at.row === c.row
+          );
+          return (
+            <div
+              key={`frame-rule-${c.row}`}
+              aria-hidden
+              style={{
+                gridColumn: valueStartsHere ? "1 / -1" : `1 / ${col.value}`,
+                gridRow: c.row,
+              }}
+              className="pointer-events-none self-start border-t border-zinc-200"
+              data-timeline-frame-rule=""
+            />
+          );
+        })}
 
         {frameCells.map((c) => {
           const ident = c.frame?.ident ?? "none";
