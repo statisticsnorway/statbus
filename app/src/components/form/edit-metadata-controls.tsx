@@ -10,6 +10,9 @@ import { Separator } from "@/components/ui/separator";
 import { useChangeEditFrame } from "./use-start-edit";
 import { FieldTimeline, useFieldTimeline } from "./field-timeline-view";
 import { opensInTimeline, periodsInRange, selectionRange, toggleSelection } from "./field-timeline";
+import { TimelineSkeleton, useUnitExistence } from "./timeline-skeleton-view";
+import { skeletonPieces, skeletonSelectionRange } from "./timeline-skeleton";
+import { capToExistence } from "./unit-existence";
 
 interface EditMetadataControlsProps {
   fieldId: string;
@@ -50,6 +53,27 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
     setEditValidTo(range && range.validTo !== "infinity" ? range.validTo : null);
   };
 
+  // A record the unit does not have yet (no rows): its Timeline view is a
+  // skeleton of the frames, cut to where the unit exists (the cap). The edit's
+  // dates are the picked pieces; it starts on the Live piece, which starts
+  // where the unit does when the unit was born inside Live (STATBUS-609).
+  const existence = useUnitExistence(currentEdit.source);
+  const empty = loaded && periods.length === 0;
+  const pieces = empty && existence ? skeletonPieces(timeFrames, existence) : [];
+  const picked = pieces.flatMap((p, i) =>
+    p.available &&
+    currentEdit.validFrom &&
+    p.valid_from <= (currentEdit.validTo ?? "9999-12-31") &&
+    (p.valid_to === "infinity" || p.valid_to >= currentEdit.validFrom)
+      ? [i]
+      : []
+  );
+  const handlePick = (index: number) => {
+    const range = skeletonSelectionRange(pieces, toggleSelection(picked, index));
+    setEditValidFrom(range?.validFrom ?? null);
+    setEditValidTo(range && range.validTo !== "infinity" ? range.validTo : null);
+  };
+
   // Edit opens in the Timeline view when the edit's frame holds more than one
   // value of the field (opensInTimeline); one value covering the frame opens
   // Simple. Decided once per edit, when its dates and rows are known.
@@ -64,6 +88,20 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
     },
     [loaded, datesKnown],
     "EditMetadataControls:openInTimeline"
+  );
+
+  // A first value starts no earlier than the unit: the edit's opening dates
+  // (the frame's) are capped to the unit's existence once it is read.
+  const cappedRef = useRef(false);
+  useGuardedEffect(
+    () => {
+      if (cappedRef.current || !empty || !existence || !currentEdit.validFrom) return;
+      cappedRef.current = true;
+      const capped = capToExistence(existence, currentEdit.validFrom, currentEdit.validTo ?? null);
+      if (capped && capped.validFrom !== currentEdit.validFrom) setEditValidFrom(capped.validFrom);
+    },
+    [empty, existence, datesKnown],
+    "EditMetadataControls:capFirstValueToUnit"
   );
 
   // Simple always means a frame: the frame's dates come back.
@@ -139,7 +177,21 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         onCommentChange={setEditComment}
         formFields
         timeline={
-          currentEdit.source && loaded && periods.length > 0 ? (
+          empty && pieces.length > 0 ? (
+            <div className="space-y-1" data-edit-timeline="skeleton">
+              <TimelineSkeleton
+                pieces={pieces}
+                picked={picked}
+                onToggle={handlePick}
+                unitStart={existence?.[0]?.validFrom}
+              />
+              <p className="text-xs text-zinc-600" data-edit-timeline-range="">
+                {currentEdit.validFrom
+                  ? `Fills ${currentEdit.validFrom} – ${currentEdit.validTo ?? "Present"}`
+                  : "Tick the periods to fill"}
+              </p>
+            </div>
+          ) : currentEdit.source && loaded && periods.length > 0 ? (
             <div className="space-y-1" data-edit-timeline="">
               <FieldTimeline periods={periods} selected={selected} onToggle={handleToggle} />
               <p className="text-xs text-zinc-600" data-edit-timeline-range="">
