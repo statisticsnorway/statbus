@@ -1,6 +1,7 @@
 import { describeInvalidForm } from "@/components/form/metadata-validation";
 import { statsSchema } from "@/app/legal-units/[id]/statistical-variables/validation";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
+import { contactInfoSchema } from "@/app/legal-units/[id]/contact/validation";
 
 // A refused edit tells the user what to fix: the toast shows the field's own
 // message, and the errors carry it per field for forms that show it in place.
@@ -18,6 +19,22 @@ describe("describeInvalidForm", () => {
       status: "error",
       message: "Enter a number",
       errors: [{ path: "value_int", message: "Enter a number" }],
+    });
+  });
+
+  // The contact table holds at least one way to reach the unit
+  // ("One information must be provided"); a contact with none is removed instead.
+  it("points an emptied contact to Remove", () => {
+    const parsed = contactInfoSchema.safeParse(form({ ...period, email_address: "", phone_number: "" }));
+    expect(!parsed.success && describeInvalidForm(parsed.error)).toEqual({
+      status: "error",
+      message: "Enter at least one way to reach the unit, or use Remove to remove the contact",
+      errors: [
+        {
+          path: "email_address",
+          message: "Enter at least one way to reach the unit, or use Remove to remove the contact",
+        },
+      ],
     });
   });
 
