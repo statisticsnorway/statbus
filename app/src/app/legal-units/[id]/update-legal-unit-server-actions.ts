@@ -479,6 +479,76 @@ export async function upsertTemporalRecord({
   return { status: "success", message: `${tableName} successfully updated` };
 }
 
+/** The records a unit has over time that the edit form can remove (STATBUS-611). */
+const REMOVABLE_TABLES = ["contact", "location", "activity", "stat_for_unit"] as const;
+type RemovableTable = (typeof REMOVABLE_TABLES)[number];
+/** The row keys that pick one unit's record in a removable table (EditFieldSource.match). */
+const REMOVABLE_MATCH_KEYS = ["legal_unit_id", "establishment_id", "type", "stat_definition_id", "category_id"];
+
+export interface RemoveTemporalRecordArgs {
+  table: RemovableTable;
+  /** The record's row keys, as the form's EditFieldSource names them. */
+  match: Record<string, string | number>;
+  /** The range removed, ISO dates inclusive; validTo null is open-ended. */
+  validFrom: string;
+  validTo: string | null;
+}
+
+/**
+ * Removes a unit's record (a contact, location, activity or statistic) over
+ * [validFrom, validTo]: the edit form's Remove. Rows the range cuts through are
+ * split, so the record stays before and after it. This is the one call Remove
+ * makes, so its backend can change without the form changing:
+ * PROTOTYPE: calls public.remove_for_portion_of (tmp/611-remove-prototype.sql,
+ * local dev database only). It becomes the for_portion_of view's delete
+ * protocol, PATCH {id: null, valid_from, valid_until} (sql_saga, STATBUS-611).
+ */
+export async function removeTemporalRecord({
+  table,
+  match,
+  validFrom,
+  validTo,
+}: RemoveTemporalRecordArgs): Promise<UpdateResponse> {
+  if (!REMOVABLE_TABLES.includes(table)) {
+    return { status: "error", message: `Records of ${table} cannot be removed here` };
+  }
+  const keys = Object.keys(match);
+  if (keys.length === 0 || keys.some((k) => !REMOVABLE_MATCH_KEYS.includes(k))) {
+    return { status: "error", message: "The record to remove is not named by its unit" };
+  }
+  const logger = await createServerLogger();
+  const client = await getServerRestClient();
+  try {
+    // The table is one of REMOVABLE_TABLES, named at run time as in upsertTemporalRecord.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let idQuery = (client as any).from(table).select("id");
+    for (const [k, v] of Object.entries(match)) idQuery = idQuery.eq(k, v);
+    const { data: rows, error: idError } = await idQuery;
+    if (idError) return { status: "error", message: idError.message };
+    const ids = [...new Set((rows ?? []).map((r: { id: number }) => r.id))];
+    if (ids.length === 0) return { status: "error", message: "There is nothing to remove" };
+    for (const recordId of ids) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (client as any).rpc("remove_for_portion_of", {
+        table_name: table,
+        record_id: recordId,
+        valid_from: validFrom,
+        valid_to: validTo ?? "infinity",
+      });
+      if (error) return { status: "error", message: error.message };
+    }
+  } catch (error) {
+    logger.error(error, `failed to remove ${table}`);
+    return { status: "error", message: `Failed to remove the ${table.replace(/_/g, " ")}` };
+  }
+  const unitType = "legal_unit_id" in match ? "legal-units" : "establishments";
+  revalidatePath(`/${unitType}/[id]`, "layout");
+  return {
+    status: "success",
+    message: `${validFrom} – ${validTo ?? "Present"}`,
+  };
+}
+
 export async function setPrimaryLegalUnit(id: number) {
   "use server";
   const logger = await createServerLogger();

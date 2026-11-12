@@ -100,7 +100,7 @@ const formatEnd = (to: string) => (to === "infinity" ? "Present" : to);
  * The period's value in words (describeValues), with every coded column the
  * edit forms show named from the page's lookup lists.
  */
-function useDescribeValue() {
+export function useDescribeValue() {
   const {
     regions,
     countries,

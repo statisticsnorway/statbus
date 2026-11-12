@@ -12,6 +12,7 @@ import { EditMetadataControls } from "./edit-metadata-controls";
 import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
+import { RemoveRecordButton } from "./remove-record-button";
 
 interface EditableFieldGroupProps {
   fieldGroupId: string;
@@ -115,6 +116,7 @@ export function EditableFieldGroup({
         <div className="space-y-2">
           <EditMetadataControls fieldId={fieldGroupId} />
           <div className="flex justify-end space-x-2">
+            <RemoveRecordButton label={title} />
             <Button variant="outline" type="button" onClick={handleCancel}>
               Cancel
             </Button>
