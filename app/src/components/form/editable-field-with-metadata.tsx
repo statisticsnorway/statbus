@@ -13,6 +13,7 @@ import { EditMetadataControls } from "./edit-metadata-controls";
 import { useEditableFieldState } from "./use-editable-field-state";
 import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
+import { FieldTimelineButton } from "./field-timeline-view";
 
 interface EditableFieldWithMetadataProps {
   fieldId: string;
@@ -80,10 +81,12 @@ export const EditableFieldWithMetadata = ({
     >
       <div className="flex flex-col">
         <div className="flex items-center justify-between">
-          <Label className="flex justify-between items-center h-10">
-            <span className="text-xs uppercase text-gray-600">{label}</span>
+          <div className="flex items-center h-10">
+            <Label className="text-xs uppercase text-gray-600">{label}</Label>
+            {/* The icons sit beside the label, not in it: a label passes hover and clicks to its first button. */}
             {metadata && <MetadataTooltip metadata={metadata} />}
-          </Label>
+            {editSource && <FieldTimelineButton source={editSource} label={label} />}
+          </div>
           <div className="flex space-x-2 items-center">
             {!isEditing && (
               <EditButton

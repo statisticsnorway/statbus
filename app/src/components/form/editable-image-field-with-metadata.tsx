@@ -112,10 +112,11 @@ export const EditableImageFieldWithMetadata = ({
     >
       <div className="flex flex-col">
         <div className="flex items-center justify-between">
-          <Label className="flex justify-between items-center h-10">
-            <span className="text-xs uppercase text-gray-600">{label}</span>
+          <div className="flex items-center h-10">
+            <Label className="text-xs uppercase text-gray-600">{label}</Label>
+            {/* The (i) sits beside the label, not in it: a label passes hover and clicks to its first button. */}
             {metadata && <MetadataTooltip metadata={metadata} />}
-          </Label>
+          </div>
           {!isEditing && (
             <EditButton
               className="h-8"

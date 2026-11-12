@@ -11,6 +11,7 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { EditMetadataControls } from "./edit-metadata-controls";
 import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
+import { FieldTimelineButton } from "./field-timeline-view";
 
 interface EditableFieldGroupProps {
   fieldGroupId: string;
@@ -93,6 +94,7 @@ export function EditableFieldGroup({
         <div className="flex items-center">
           <span className="font-medium">{title}</span>
           {metadata && <MetadataTooltip metadata={metadata} />}
+          {editSource && <FieldTimelineButton source={editSource} label={title} />}
         </div>
         {!isEditing && (
           <EditButton
