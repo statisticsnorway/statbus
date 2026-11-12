@@ -50,14 +50,18 @@ function DateInput({
   value,
   onChange,
   allowInfinity,
+  bounds,
 }: {
   id: string;
   label: string;
   value: string | null;
   onChange: (date: string | null) => void;
   allowInfinity?: boolean;
+  bounds?: DateBounds;
 }) {
   const parsed = value && value !== "infinity" && !isNaN(new Date(value).getTime()) ? new Date(value) : undefined;
+  const earliest = bounds?.from ? new Date(`${bounds.from}T00:00:00`) : undefined;
+  const latest = bounds?.to && bounds.to !== "infinity" ? new Date(`${bounds.to}T00:00:00`) : undefined;
   return (
     <div className="relative min-w-0 flex-1">
       <Input
@@ -76,14 +80,25 @@ function DateInput({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0">
-          {allowInfinity && (
+          {allowInfinity && !latest && (
             <div className="border-b p-2">
               <Button type="button" variant="outline" className="w-full" onClick={() => onChange("infinity")}>
                 No end (until further notice)
               </Button>
             </div>
           )}
-          <Calendar mode="single" selected={parsed} onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : null)} />
+          <Calendar
+            mode="single"
+            selected={parsed}
+            defaultMonth={parsed ?? earliest}
+            disabled={[...(earliest ? [{ before: earliest }] : []), ...(latest ? [{ after: latest }] : [])]}
+            onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : null)}
+          />
+          {bounds?.from && (
+            <p className="border-t px-3 py-2 text-xs text-zinc-500" data-date-bounds="">
+              The unit exists {bounds.from} – {latest ? bounds.to : "Present"}
+            </p>
+          )}
         </PopoverContent>
       </Popover>
     </div>
@@ -118,6 +133,17 @@ export interface TimeFramePanelProps {
   formFields?: boolean;
   /** The Timeline view's body (an edit's field timeline). Absent, the view is not offered. */
   timeline?: React.ReactNode;
+  /**
+   * The dates a change can have (an edit of a record: where its unit exists).
+   * Advanced's date pickers offer only dates inside them. Absent, any date.
+   */
+  dateBounds?: DateBounds;
+}
+
+/** The first and last day a change can cover; to "infinity" for no end. */
+export interface DateBounds {
+  from: string;
+  to: string;
 }
 
 /** The Data source list's entry for no source: Radix Select reserves the empty value. */
@@ -153,6 +179,7 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
     onCommentChange,
     formFields,
     timeline,
+    dateBounds,
   } = props;
   const groups = groupTimeFrames(timeFrames, { forMenu: false });
   const advanced = mode === "advanced";
@@ -252,8 +279,8 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
                 Dates
               </label>
               <div className={cn("flex gap-2", choice !== "dates" && "pointer-events-none opacity-50")}>
-                <DateInput id={`${idPrefix}-valid-from`} label="From" value={validFrom} onChange={onValidFromChange} />
-                <DateInput id={`${idPrefix}-valid-to`} label="To" value={validTo} onChange={onValidToChange} allowInfinity />
+                <DateInput id={`${idPrefix}-valid-from`} label="From" value={validFrom} onChange={onValidFromChange} bounds={dateBounds} />
+                <DateInput id={`${idPrefix}-valid-to`} label="To" value={validTo} onChange={onValidToChange} allowInfinity bounds={dateBounds} />
               </div>
             </div>
             {sourceDates && (

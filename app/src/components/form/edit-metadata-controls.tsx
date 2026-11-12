@@ -176,6 +176,11 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         comment={currentEdit.editComment ?? null}
         onCommentChange={setEditComment}
         formFields
+        dateBounds={
+          existence?.length
+            ? { from: existence[0].validFrom, to: existence[existence.length - 1].validTo }
+            : undefined
+        }
         timeline={
           empty && pieces.length > 0 ? (
             <div className="space-y-1" data-edit-timeline="skeleton">
