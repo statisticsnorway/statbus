@@ -4,7 +4,7 @@ title: An API key can be recreated from the API key dialog, revoking the old one
 status: In Progress
 assignee: []
 created_date: '2026-11-11T12:40:00Z'
-updated_date: '2026-11-11T14:18:00Z'
+updated_date: '2026-11-12T02:04:00Z'
 labels:
   - app
   - auth
@@ -41,4 +41,6 @@ Owner 12:39: a Recreate (refresh) button on the show-key dialog. Recreate create
 Dialog shows the newest active key: description, Name in key (with a line that course certificates show it and a /profile link), created, valid until with days left, active count; a red warning when the profile name differs from the name in the key. Recreate key asks in an AlertDialog first. Commits eee0bc661 (recreateApiKey), 2f12f1705 (details + confirm), c0f614959 (name in key + warning), cb60a4146 (name line). Real app: tmp/617-recreate-check.json (Cancel keeps the key; confirm recreates; old token refused 400, new token 200), tmp/617-name-check.json. Owner approved the dialog in Firefox 2026-11-11 13:19. On master in 379e738d9.
 
 2026-11-11 14:05: in release candidate v2026.11.4-rc.02 (49376c40a; CI all green, ./sb release check green). Release tests held up by outside outages (Hetzner core limit, then Canonical snap store); re-run when the store answers. Remaining owner checks after the release reaches a box.
+
+2026-11-12 02:03 UTC (Rabbit): rc.02 (v2026.11.4-rc.02, 49376c40a) release run GREEN: orchestrator https://github.com/statisticsnorway/statbus/actions/runs/43131208686 (smoke, dev canary, LXD fault fleet, arc harness, verdict). Awaiting owner: ./sb release stable.
 <!-- SECTION:NOTES:END -->

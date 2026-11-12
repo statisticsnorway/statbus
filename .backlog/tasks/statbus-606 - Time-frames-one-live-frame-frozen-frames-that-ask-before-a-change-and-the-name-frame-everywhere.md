@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-10T16:55:00Z'
-updated_date: '2026-11-11T14:18:00Z'
+updated_date: '2026-11-12T02:04:00Z'
 labels:
   - ui
   - time
@@ -73,4 +73,6 @@ Night 22:18-22:52: edit form (d70088ad7) opens on Frame = selected frame; choosi
 Owner 2026-11-11 11:51: AC#7 decided as 'only the UI asks'; no 'allow changes to fixed frames' job setting (it would matter only if the database refused changes to past frames, a separate ticket). The criterion was rewritten and is now the last one. Review 11:44-11:49: upload pages show the one-line job summary (010bf6e8e), approved; edit form on FRAME REVIEW AS approved, confirmation worked, rename saved to Previous frame (2025) only. Found: the edit's Data source starts empty, so the rename stored data_source_id NULL for 2025 (was 2). Owner: default Data source and Comment to the values already there, so doing nothing preserves them, and allow clearing both. Fix next, before the merge of master.
 
 2026-11-11 14:05: in release candidate v2026.11.4-rc.02 (49376c40a; CI all green, ./sb release check green). Release tests held up by outside outages (Hetzner core limit, then Canonical snap store); re-run when the store answers. Remaining owner checks after the release reaches a box.
+
+2026-11-12 02:03 UTC (Rabbit): rc.02 (v2026.11.4-rc.02, 49376c40a) release run GREEN: orchestrator https://github.com/statisticsnorway/statbus/actions/runs/43131208686 (smoke, dev canary, LXD fault fleet, arc harness, verdict). Awaiting owner: ./sb release stable.
 <!-- SECTION:NOTES:END -->
