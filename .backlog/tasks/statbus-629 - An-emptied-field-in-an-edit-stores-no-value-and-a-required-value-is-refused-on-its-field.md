@@ -3,10 +3,10 @@ id: STATBUS-629
 title: >-
   An emptied field in an edit stores no value, and a required value is refused
   on its field
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-12T16:17:00Z'
-updated_date: '2026-11-12T16:17:00Z'
+updated_date: '2026-11-12T16:57:00Z'
 labels: []
 dependencies: []
 ordinal: 540204
@@ -42,4 +42,6 @@ Real app on 3007 (tmp/edit-pages-walk*.mjs):
 - before the fix (tmp/edit-pages-walk2.log): phone '' stored, address_part1 '' stored, birth date kept 2020-05-02, Employees stored 0;
 - after (tmp/edit-pages-walk2-green.log): phone NULL, address_part1 NULL, birth date NULL, Employees refused 'Enter a number' with 16 kept; empty name refused 'Enter a name'; all-empty contact refused by the database's rule (tmp/edit-pages-walk3.log);
 - every field, both pages: 20/20 saves in Live (tmp/edit-pages-after-live.log: only the open row changed) and 20/20 in Frame 2024, each asking first (tmp/edit-pages-after-2024.log: 2025 unchanged); identifiers change and restore 4/4; image upload and delete work.
+
+CI on master 305dbb7e9 (contains 52b1e5162, 493f11c7b): Fast Tests, Images, Harness Selftest, Push on master all success (16:57).
 <!-- SECTION:NOTES:END -->
