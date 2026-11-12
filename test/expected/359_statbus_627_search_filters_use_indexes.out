@@ -64,16 +64,16 @@ ORDER BY filter;
  external_idents->>person_ident eq | t
  external_idents->>stat_ident eq   | t
  external_idents->>tax_ident eq    | t
- last_edit_by_user_id in           | f
- legal_form_code in                | f
+ last_edit_by_user_id in           | t
+ legal_form_code in                | t
  physical_region_path cd           | t
  primary_activity_category_path cd | t
  search (fts)                      | t
  sector_path cd                    | t
- stats_summary->employees->sum gte | f
- stats_summary->turnover->sum gte  | f
- status_code in                    | f
- unit_size_code in                 | f
+ stats_summary->employees->sum gte | t
+ stats_summary->turnover->sum gte  | t
+ status_code in                    | t
+ unit_size_code in                 | t
  unit_type in                      | t
 (16 rows)
 
@@ -81,7 +81,10 @@ ORDER BY filter;
 -- in two directions, asc and desc.nullslast, always followed by unit_type, unit_id
 -- (app/src/atoms/search.ts). For a page from the end, the search reverses the order
 -- (reverseParamsForTailPage), so each order is also read backwards. A sort is served when the
--- first page comes straight from an index in that order: the plan has no Sort step.
+-- first page comes straight from an index in that order: the plan has no Sort step. The test
+-- database holds no units, where sorting nothing costs nothing, so sorting is priced out as
+-- sequential scans are above: the planner then reads an index in order whenever one exists.
+SET LOCAL enable_sort = off;
 CREATE FUNCTION pg_temp.sort_uses_index(p_order text) RETURNS boolean LANGUAGE plpgsql AS $$
 DECLARE
     v_line text;
@@ -124,50 +127,50 @@ CROSS JOIN (VALUES
 ORDER BY s.sort_key, d.direction;
              sort_key             |        direction         | uses_index 
 ----------------------------------+--------------------------+------------
- birth_date                       | asc                      | f
- birth_date                       | asc, from the end        | f
- birth_date                       | desc.nullslast           | f
- birth_date                       | desc.nullslast, from end | f
- death_date                       | asc                      | f
- death_date                       | asc, from the end        | f
- death_date                       | desc.nullslast           | f
- death_date                       | desc.nullslast, from end | f
- last_edit_at                     | asc                      | f
- last_edit_at                     | asc, from the end        | f
- last_edit_at                     | desc.nullslast           | f
- last_edit_at                     | desc.nullslast, from end | f
- legal_form_code                  | asc                      | f
- legal_form_code                  | asc, from the end        | f
- legal_form_code                  | desc.nullslast           | f
- legal_form_code                  | desc.nullslast, from end | f
- name                             | asc                      | f
- name                             | asc, from the end        | f
- name                             | desc.nullslast           | f
- name                             | desc.nullslast, from end | f
- physical_region_path             | asc                      | f
- physical_region_path             | asc, from the end        | f
- physical_region_path             | desc.nullslast           | f
- physical_region_path             | desc.nullslast, from end | f
- primary_activity_category_path   | asc                      | f
- primary_activity_category_path   | asc, from the end        | f
- primary_activity_category_path   | desc.nullslast           | f
- primary_activity_category_path   | desc.nullslast, from end | f
- secondary_activity_category_path | asc                      | f
- secondary_activity_category_path | asc, from the end        | f
- secondary_activity_category_path | desc.nullslast           | f
- secondary_activity_category_path | desc.nullslast, from end | f
- sector_path                      | asc                      | f
- sector_path                      | asc, from the end        | f
- sector_path                      | desc.nullslast           | f
- sector_path                      | desc.nullslast, from end | f
- stats_summary->employees->sum    | asc                      | f
- stats_summary->employees->sum    | asc, from the end        | f
- stats_summary->employees->sum    | desc.nullslast           | f
- stats_summary->employees->sum    | desc.nullslast, from end | f
- stats_summary->turnover->sum     | asc                      | f
- stats_summary->turnover->sum     | asc, from the end        | f
- stats_summary->turnover->sum     | desc.nullslast           | f
- stats_summary->turnover->sum     | desc.nullslast, from end | f
+ birth_date                       | asc                      | t
+ birth_date                       | asc, from the end        | t
+ birth_date                       | desc.nullslast           | t
+ birth_date                       | desc.nullslast, from end | t
+ death_date                       | asc                      | t
+ death_date                       | asc, from the end        | t
+ death_date                       | desc.nullslast           | t
+ death_date                       | desc.nullslast, from end | t
+ last_edit_at                     | asc                      | t
+ last_edit_at                     | asc, from the end        | t
+ last_edit_at                     | desc.nullslast           | t
+ last_edit_at                     | desc.nullslast, from end | t
+ legal_form_code                  | asc                      | t
+ legal_form_code                  | asc, from the end        | t
+ legal_form_code                  | desc.nullslast           | t
+ legal_form_code                  | desc.nullslast, from end | t
+ name                             | asc                      | t
+ name                             | asc, from the end        | t
+ name                             | desc.nullslast           | t
+ name                             | desc.nullslast, from end | t
+ physical_region_path             | asc                      | t
+ physical_region_path             | asc, from the end        | t
+ physical_region_path             | desc.nullslast           | t
+ physical_region_path             | desc.nullslast, from end | t
+ primary_activity_category_path   | asc                      | t
+ primary_activity_category_path   | asc, from the end        | t
+ primary_activity_category_path   | desc.nullslast           | t
+ primary_activity_category_path   | desc.nullslast, from end | t
+ secondary_activity_category_path | asc                      | t
+ secondary_activity_category_path | asc, from the end        | t
+ secondary_activity_category_path | desc.nullslast           | t
+ secondary_activity_category_path | desc.nullslast, from end | t
+ sector_path                      | asc                      | t
+ sector_path                      | asc, from the end        | t
+ sector_path                      | desc.nullslast           | t
+ sector_path                      | desc.nullslast, from end | t
+ stats_summary->employees->sum    | asc                      | t
+ stats_summary->employees->sum    | asc, from the end        | t
+ stats_summary->employees->sum    | desc.nullslast           | t
+ stats_summary->employees->sum    | desc.nullslast, from end | t
+ stats_summary->turnover->sum     | asc                      | t
+ stats_summary->turnover->sum     | asc, from the end        | t
+ stats_summary->turnover->sum     | desc.nullslast           | t
+ stats_summary->turnover->sum     | desc.nullslast, from end | t
 (44 rows)
 
 ROLLBACK;

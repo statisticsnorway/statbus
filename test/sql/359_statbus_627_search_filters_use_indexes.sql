@@ -62,7 +62,10 @@ ORDER BY filter;
 -- in two directions, asc and desc.nullslast, always followed by unit_type, unit_id
 -- (app/src/atoms/search.ts). For a page from the end, the search reverses the order
 -- (reverseParamsForTailPage), so each order is also read backwards. A sort is served when the
--- first page comes straight from an index in that order: the plan has no Sort step.
+-- first page comes straight from an index in that order: the plan has no Sort step. The test
+-- database holds no units, where sorting nothing costs nothing, so sorting is priced out as
+-- sequential scans are above: the planner then reads an index in order whenever one exists.
+SET LOCAL enable_sort = off;
 CREATE FUNCTION pg_temp.sort_uses_index(p_order text) RETURNS boolean LANGUAGE plpgsql AS $$
 DECLARE
     v_line text;

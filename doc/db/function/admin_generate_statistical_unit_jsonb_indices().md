@@ -24,15 +24,18 @@ $$, ident_type.code);
         END IF;
     END LOOP;
 
-    -- Loop over each stat_definition to create indices
+    -- Per statistic, the two indexes the search uses: it filters and sorts on the jsonb sum
+    -- (stats_summary->code->'sum', see app/src/atoms/search.ts and url-search-params.ts), so the
+    -- indexes are on that exact expression; jsonb compares numbers as numbers, where its text
+    -- would put 9 above 100. One index per sort direction, each ending in the tie-break.
     FOR stat_definition IN SELECT * FROM public.stat_definition_enabled LOOP
         EXECUTE format($$
-CREATE INDEX IF NOT EXISTS su_s_%1$s_idx ON public.statistical_unit ((stats->>%1$L));
-CREATE INDEX IF NOT EXISTS su_ss_%1$s_sum_idx ON public.statistical_unit ((stats_summary->%1$L->>'sum'));
-CREATE INDEX IF NOT EXISTS su_ss_%1$s_count_idx ON public.statistical_unit ((stats_summary->%1$L->>'count'));
+CREATE INDEX IF NOT EXISTS su_ss_%1$s_sum_asc_idx ON public.statistical_unit ((stats_summary->%1$L->'sum'), unit_type, unit_id);
+CREATE INDEX IF NOT EXISTS su_ss_%1$s_sum_desc_idx ON public.statistical_unit ((stats_summary->%1$L->'sum') DESC NULLS LAST, unit_type, unit_id);
 $$, stat_definition.code);
         RAISE NOTICE 'Created indices for stat_definition %', stat_definition.code;
     END LOOP;
+    PERFORM admin.comment_statistical_unit_indices();
 END;
 $procedure$
 ```
