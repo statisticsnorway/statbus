@@ -4,7 +4,7 @@ title: Adding a record to a unit opens and saves on the period where the unit ex
 status: To Do
 assignee: []
 created_date: '2026-11-10T21:27:00Z'
-updated_date: '2026-11-12T20:22:00Z'
+updated_date: '2026-11-12T20:38:00Z'
 labels:
   - ui
   - edit
@@ -43,4 +43,6 @@ Owner testing on Norway (v2026.11.4-rc.01, 2026-11-10 21:21), adding a physical 
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner 2026-11-12 20:21 (reviewing /legal-units/28/contact, a unit with no contact or postal rows): the empty-timeline icon ('No values recorded') is fine; the pencil opening Simple/Advanced on Live is fine. Design wish: when editing a record that belongs to a unit (contact, location, activity, statistic), show the unit's own existence as the constraint the edit lives inside. Advanced: dates before the unit starts (or after it ends) cannot be picked. Timeline: show where the unit begins (and ends), so the user sees the bound. Simple needs nothing extra. Unit 28 exists 2023-01-01 to infinity, so a first contact could start on 2023-01-01 at the earliest.
+
+2026-11-12 20:38 (Rabbit): owner screenshot 20:22 showed 'Cannot add contact ... does not exist for this period' on unit 28: the app required ONE unit row to cover the period, while sql_saga's temporal FK accepts the union of rows. Fixed on master 8c0fbe00c: unitExistence (union of rows) + capToExistence; the new record is stored on the part of the period inside the unit. RED tmp/609-first-contact-red.log (same error on repro unit 30 EDIT PAGES SPLIT), GREEN tmp/609-first-contact-green.log (2026-01-01..infinity stored), tmp/609-capped-contact-green.log (2023-06-01..2024-12-31 stored as 2024-01-01..2024-12-31), jest tmp/609-existence-{red,green}.log. Owner's design prototyped on branch statbus-628-all-forms (not pushed): skeleton Timeline for a first value (8acad4636: one piece per frame cut to the unit, unreachable frames greyed, Live picked by default, opening dates capped to the unit's start), Advanced date pickers bounded to the unit (next commit). Review on 3007: /legal-units/31/contact (born 2026-05-01), /legal-units/28/contact.
 <!-- SECTION:NOTES:END -->
