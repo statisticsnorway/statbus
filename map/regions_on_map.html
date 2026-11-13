@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StatBus Region Map</title>
+<link href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<!-- API key loaded from config.js (gitignored). Copy config.example.js to config.js and add your key. -->
+<script src="config.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; }
+  #map { width: 100%; height: 100%; }
+  #status { position: absolute; top: 10px; right: 10px; z-index: 999; background: rgba(255,255,255,0.9); padding: 8px 12px; font-family: Arial, sans-serif; font-size: 13px; border-radius: 4px; border: 1px solid #ccc; }
+  .maplibregl-popup-content { font-family: Arial, sans-serif; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="status">Loading regions...</div>
+<script>
+{
+  // ── Configuration ──────────────────────────────────────────────────
+  if (typeof API_URL === 'undefined') var API_URL = 'https://ma.statbus.org';
+  if (typeof API_KEY === 'undefined') var API_KEY = '';
+
+  const status = document.getElementById('status');
+
+  // Start map at world view — will auto-fit to data
+  const map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://tiles.openfreemap.org/styles/liberty',
+    center: [0, 30],
+    zoom: 2
+  });
+
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
+
+  map.on('load', async () => {
+    // Hide borders
+    map.getStyle().layers.forEach(layer => {
+      if (layer.type === 'line' && /boundary|border|admin/i.test(layer.id)) {
+        map.setLayoutProperty(layer.id, 'visibility', 'none');
+      }
+    });
+
+    // Fetch regions from API
+    const url = `${API_URL}/rest/region?select=path,name,level,center_latitude,center_longitude&center_latitude=not.is.null&order=path.asc`;
+    const headers = { 'Accept': 'application/json' };
+    if (API_KEY) headers['Authorization'] = `Bearer ${API_KEY}`;
+
+    let rows;
+    try {
+      const resp = await fetch(url, { headers });
+      if (!resp.ok) {
+        status.textContent = `API ${resp.status}: ${resp.statusText}`;
+        return;
+      }
+      rows = await resp.json();
+    } catch (e) {
+      status.textContent = `Fetch error: ${e.message}`;
+      return;
+    }
+
+    if (!rows.length) {
+      status.textContent = 'No regions with coordinates found.';
+      return;
+    }
+
+    // Build GeoJSON — level 1 = top-level regions, level 2+ = sub-regions
+    const minLevel = Math.min(...rows.map(r => r.level));
+    const bounds = new maplibregl.LngLatBounds();
+    const features = rows.map(r => {
+      const coords = [Number(r.center_longitude), Number(r.center_latitude)];
+      bounds.extend(coords);
+      return {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: coords },
+        properties: {
+          path: r.path,
+          name: r.name,
+          level: r.level,
+          isTopLevel: r.level === minLevel ? 1 : 0
+        }
+      };
+    });
+
+    const topCount = features.filter(f => f.properties.isTopLevel).length;
+    const subCount = features.length - topCount;
+    status.textContent = `${topCount} regions, ${subCount} sub-regions`;
+
+    // Fit map to the data
+    map.fitBounds(bounds, { padding: 40, maxZoom: 8 });
+
+    map.addSource('regions', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features }
+    });
+
+    // Sub-regions first (below)
+    map.addLayer({
+      id: 'sub-regions',
+      type: 'circle',
+      source: 'regions',
+      filter: ['==', ['get', 'isTopLevel'], 0],
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 3, 6, 6, 10, 12, 14, 18],
+        'circle-color': '#2980b9',
+        'circle-stroke-width': 1,
+        'circle-stroke-color': '#fff'
+      }
+    });
+
+    // Top-level regions on top (larger, red)
+    map.addLayer({
+      id: 'top-regions',
+      type: 'circle',
+      source: 'regions',
+      filter: ['==', ['get', 'isTopLevel'], 1],
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 5, 6, 8, 10, 12],
+        'circle-color': '#c0392b',
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#fff'
+      }
+    });
+
+    // Top-level labels
+    map.addLayer({
+      id: 'top-region-labels',
+      type: 'symbol',
+      source: 'regions',
+      filter: ['==', ['get', 'isTopLevel'], 1],
+      layout: {
+        'text-field': ['get', 'name'],
+        'text-font': ['Noto Sans Bold'],
+        'text-size': 12,
+        'text-offset': [0, -1.2],
+        'text-allow-overlap': false
+      },
+      paint: { 'text-color': '#7b241c', 'text-halo-color': '#fff', 'text-halo-width': 1.5 }
+    });
+
+    // Sub-region labels (visible at higher zoom)
+    map.addLayer({
+      id: 'sub-region-labels',
+      type: 'symbol',
+      source: 'regions',
+      filter: ['==', ['get', 'isTopLevel'], 0],
+      minzoom: 7,
+      layout: {
+        'text-field': ['get', 'name'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 11,
+        'text-offset': [0, -1],
+        'text-allow-overlap': false
+      },
+      paint: { 'text-color': '#1a5276', 'text-halo-color': '#fff', 'text-halo-width': 1 }
+    });
+
+    // Popup on click
+    ['top-regions', 'sub-regions'].forEach(layerId => {
+      map.on('click', layerId, (e) => {
+        const p = e.features[0].properties;
+        new maplibregl.Popup({ offset: 10 })
+          .setLngLat(e.features[0].geometry.coordinates)
+          .setHTML(`<b>${p.name}</b><br>Code: ${p.path}<br>Level: ${p.level}`)
+          .addTo(map);
+      });
+      map.on('mouseenter', layerId, () => map.getCanvas().style.cursor = 'pointer');
+      map.on('mouseleave', layerId, () => map.getCanvas().style.cursor = '');
+    });
+  });
+}
+</script>
+</body>
+</html>
