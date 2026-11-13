@@ -14,6 +14,7 @@ import { useEditableFieldState } from "./use-editable-field-state";
 import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
+import { RemoveRecordAction } from "./remove-record-button";
 
 interface EditableFieldWithMetadataProps {
   fieldId: string;
@@ -45,6 +46,9 @@ export const EditableFieldWithMetadata = ({
 
   const { currentEdit, exitEditMode } = useEditManager();
   const isEditing = currentEdit?.fieldId === fieldId;
+  // Remove mode (the panel's Change | Remove): the value is not changed, so the
+  // input is locked and the red Remove takes Save's place.
+  const removing = isEditing && currentEdit.removing != null;
   useGuardedEffect(
     () => {
       if (isEditing && inputRef.current) {
@@ -104,7 +108,7 @@ export const EditableFieldWithMetadata = ({
         <Input
           ref={inputRef}
           className={`font-medium disabled:opacity-80 bg-white border-zinc-300`}
-          disabled={!isEditing}
+          disabled={!isEditing || removing}
           value={currentValue}
           onChange={(e) => setCurrentValue(e.target.value)}
           name={fieldName || fieldId}
@@ -128,14 +132,18 @@ export const EditableFieldWithMetadata = ({
             >
               Cancel
             </Button>
-            <Button
-              className="h-8"
-              // disabled={!hasUnsavedChanges}
-              type="button"
-              onClick={triggerFormSubmit}
-            >
-              Save
-            </Button>
+            {removing ? (
+              <RemoveRecordAction label={label} />
+            ) : (
+              <Button
+                className="h-8"
+                // disabled={!hasUnsavedChanges}
+                type="button"
+                onClick={triggerFormSubmit}
+              >
+                Save
+              </Button>
+            )}
           </div>
         </div>
       )}

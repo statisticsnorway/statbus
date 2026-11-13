@@ -24,6 +24,7 @@ import { useEditableFieldState } from "./use-editable-field-state";
 import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
+import { RemoveRecordAction } from "./remove-record-button";
 
 interface Option {
   value: string | number;
@@ -66,6 +67,9 @@ export const EditableSelectWithMetadata = ({
   const { currentEdit, exitEditMode } = useEditManager();
 
   const isEditing = currentEdit?.fieldId === fieldId;
+  // Remove mode (the panel's Change | Remove): the value is not changed, so the
+  // choice is locked and the red Remove takes Save's place.
+  const removing = isEditing && currentEdit.removing != null;
 
   const {
     currentValue,
@@ -122,7 +126,7 @@ export const EditableSelectWithMetadata = ({
               role="combobox"
               aria-expanded={open}
               className="w-full justify-between font-medium disabled:opacity-80"
-              disabled={!isEditing}
+              disabled={!isEditing || removing}
             >
               <span className="truncate">
                 {currentOption?.label ?? `${isEditing ? placeholder : ""}`}
@@ -178,13 +182,17 @@ export const EditableSelectWithMetadata = ({
             >
               Cancel
             </Button>
-            <Button
-              className="h-8"
-              // disabled={!hasUnsavedChanges}
-              type="submit"
-            >
-              Save
-            </Button>
+            {removing ? (
+              <RemoveRecordAction label={label} />
+            ) : (
+              <Button
+                className="h-8"
+                // disabled={!hasUnsavedChanges}
+                type="submit"
+              >
+                Save
+              </Button>
+            )}
           </div>
         </div>
       )}
