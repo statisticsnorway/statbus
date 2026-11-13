@@ -3,18 +3,20 @@ id: STATBUS-591
 title: >-
   A full register import uses the machine's cores, and the power-group analysis
   scales with the relationships it reads
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-13T08:09:00Z'
+updated_date: '2026-11-13T11:07:00Z'
 labels:
   - import
   - performance
+  - concurrency-rejected
 dependencies: []
 documentation:
   - doc/performance/2026-11-combined-import-review.md
   - >-
     statbus-591-concurrency-reviewed:doc/performance/2026-11-concurrent-import-validation.md
+  - doc/performance/2026-11-concurrent-import-rejected.md
 type: enhancement
 ordinal: 499204
 ---
@@ -22,25 +24,12 @@ ordinal: 499204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-### North Star
-Import a full register faster using the machine's cores, without changing business data, temporal parent links or exact power-group membership. Jobs stay ordered because one job may depend on another. Analysis determines dependency-closed batches within each job.
+## Current disposition: concurrent import rejected, November 13, 2026
+The owner stopped pursuit of concurrent import batches after the matched full-register ABBA comparison: one worker averaged 155.1 minutes to idle and four workers 170.8 minutes. Keep import processing serial. Do not land the experimental dispatcher, batch-tail wakeup changes or four-worker default. The candidate remains off master, so no runtime revert is required.
 
-### Current mechanism and source
-Three new forward migrations, 20261108182300 through 20261108182302, support LU, formal-establishment and informal-establishment batches through the existing structured-concurrency worker. Temporal integrity checks remain enabled. Change-log entries are immediate, while shared wakeup publication occurs at the transaction tail. The installed import default is four, without manual environment overrides; holistic graph work stays serial. No SQL Saga prototype is adopted.
+The decision record doc/performance/2026-11-concurrent-import-rejected.md contains per-round minutes, immutable source identities, retained evidence and limitations. Increased batch runtimes are consistent with contention, but this run did not attribute the slowdown to a specific lock. Raw fingerprints differ, including between serial rounds, so this benchmark is not complete semantic-parity acceptance.
 
-The measured full-register source is d25fef3d805db50918a133d0ead1eb8bf57ed840, runtime f95da97d7f61450dc12a097cb7221cdee9ab0f81. The reviewed integration d6ed885ca9d3ed8d34a5eb2fe25b793cca98c38a is based on Rabbit's master6fa48382306c160aa0ae09b3a56dc9ec93b29c08. Its runtime4c0ae5253 is byte-identical; SQL374's fixture repair, CI diagnostics, serial-reference597 and all882 released migration blobs are preserved. The separate automatic-root proposal34c1087ff is not part of this runtime.
-
-### Verified acceptance, November 8 at 23:30 UTC
-The real full-file Crystal worker finished in6967.459 seconds, with three finished jobs,245 completed leaves, peakfour and2842.672 seconds of observed overlap. Exact uploaded/processed/rejected accounting, historyABC, eight reference stocks and independent accepted-edge/component/BFS/membership checks passed. The local8GiB database cannot establish a causal speedup against Norway32GiB. Explicit2026-11-07 is a benchmark control, not a validity-default decision.
-
-Root code review repaired the benchmark's false-success gate and wrong hierarchy snapshot, with original positive failures and34 passing offline tests. Four actual read-only hierarchy probes completed on the retained register. SQL375 and a separate real-COMMIT observer establish that a later failed batch rolls back while earlier successful siblings remain. Six actual-analysis serial/candidate primary-footprint lanes pass exact business-era, analysis and write-set checks with real overlapping leaves, without forcing flags. These cases do not prove arbitrary custom analyzers safe.
-
-The final clean master-based integration passed all143 PostgreSQL cases at23:29:45 UTC, including the strengthened375 and preserved374. Source manifests stayed identical. Earlier actual migration up/down/up, complete schema documentation/types, mixed/selection real workers and twelve-table serial parity also passed. Rabbit independently checked the actual footprint reports and reran the34 focused tests on the reviewed source. Details, six phase times and limits: doc/performance/2026-11-concurrent-import-validation.md.
-
-### Remaining gates and authorization
-Rabbit completed the independent exact-diff/downward-contract review and the sole clean fast-forward master landing at23:37:04 UTC. Exact master a1ba6063de60059728cb32be90e28e994705b613 passed all seven hosted workflows, including Fast42536281107 with the explicit exercised-SHA marker and136shared+094/143 successful SQL cases. Details and artifact identity are retained in the November8 at23:52 notes and the validation guide. Separate profiling follow-up STATBUS-598 remains To Do. Keep this ticket In Progress and all four criteria unchecked until actual rune acceptance and the owner's validity-policy decision are fulfilled. B2 terminal-job recovery is not implemented: duplicate safety and bounded transient retries do not provide a replay button, whole-job undo or terminal-job reset.
-
-The owner authorized LAND ONLY at21:32: no new RC, tag, release or promotion. Rabbit separately owns a directly authorized serial Norway reference import and later full recalculation, not an experimental concurrency deployment. Personal root/date/security/release reviews remain open. Preserve diagnostics and databases until cleanup is explicitly approved. Earlier dated notes retain their historical scope and do not override this current description.
+This broader ticket remains deferred (To Do), not accepted as Done: the separate serial power-group and collector improvements already landed are retained, all original acceptance criteria remain unchecked, and the validity-date policy is a separate owner decision. Concurrency eligibility, recovery and root-policy reviews are no longer gates for an active concurrency implementation. Earlier dated notes below retain the experimental history and are superseded on disposition by this decision. Diagnostics, branch SHAs and retained databases are preserved pending explicit cleanup authorization.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -187,4 +176,6 @@ Closing review for the withdrawal step: documentation updated (combined-review m
 2026-11-13 bench box ABBA (serial ee3a51dfb = 591 code with import concurrency 1; concurrent da11950e1 = same with 4), BRREG full register from empty, rebased on master 754ec1db6: round 1 serial import 160 min + recalc 20 min; round 2 concurrent 173 + 19 min; round 3 concurrent 168 + 19 min; round 4 serial running. Concurrent batches take 2.6x longer each (batch work summed 5,380 s serial vs 14,256 s concurrent, 245 batches), so 4 workers give no gain on this 8-core box. Row counts equal in every table; hashes differ (ids assigned in a different order). Logs tmp/bench/20261112/box.
 
 Round 4 serial: import 9,029 s (150 min) + recalc 1,225 s (20 min). ABBA result: serial 160 / 150 min import (mean 155), concurrent 173 / 168 min (mean 171); recalc 20 / 20 vs 19 / 19 min. Four import workers are ~15 min (10 %) slower on this 8-core box, all four rounds 0 failed tasks.
+
+Owner decision November 13, 2026 at 10:59 and 11:04 UTC: stop and discard the concurrent-import approach, and retain a durable rationale of what was tried and why it was rejected. Recorded in doc/performance/2026-11-concurrent-import-rejected.md and linked from the combined review. Serial 159.7/150.5 min, concurrent 173.3/168.3 min, no failed tasks. No claim of a diagnosed lock or completed normalized parity. No code revert or database deletion. Separate serial optimizations remain landed. Documentation verified against raw round logs and source ancestry; broader ticket deferred rather than falsely marked Done.
 <!-- SECTION:NOTES:END -->

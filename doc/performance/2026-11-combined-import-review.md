@@ -1,5 +1,7 @@
 # Combined history and import owner review (November 2026)
 
+**Current concurrency decision, November 13:** The owner rejected further import-batch concurrency after the matched full-register run averaged 155.1 minutes serial versus 170.8 minutes concurrent. Keep serial imports. The [decision record](2026-11-concurrent-import-rejected.md) states the rationale, evidence and limits. The earlier concurrency proposals below are historical, not outstanding landing gates.
+
 **Master scope (owner decision November 9, 10:16 to 10:34 UTC):** Master is the release line: the serial `v2026.11.3-rc.03` candidate plus later non-concurrency fixes. Import batch concurrency stays on branch `statbus-591-concurrency-reviewed` until it matures, and returns to master only by a separate owner-approved landing. Its November 8 landing on master (`a1ba6063d`) was withdrawn by a forward commit, without rewriting history. Its design and full-register validation documents live on that branch.
 
 **Stable release hold:** The owner authorized integration, push and a named release candidate on November 8 at 09:55, but explicitly prohibited the next stable release until their personal reviews are complete. Integration or a green RC does not constitute that approval. This checklist is for the owner to review and mark, not a record of completed review.
