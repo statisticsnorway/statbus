@@ -75,7 +75,7 @@
       <input type="checkbox" class="type-filter" value="enterprise"> <span style="color:#d63384">&#9679;</span> Enterprises
     </label>
     <label style="font-family:Arial,sans-serif;font-size:13px;cursor:pointer;">
-      <input type="checkbox" class="type-filter" value="legal_unit" checked> <span style="color:#2980b9">&#9679;</span> Legal units
+      <input type="checkbox" class="type-filter" value="legal_unit" checked> <span style="color:#1a3a5c">&#9679;</span> Legal units
     </label>
     <label style="font-family:Arial,sans-serif;font-size:13px;cursor:pointer;">
       <input type="checkbox" class="type-filter" value="establishment"> <span style="color:#27ae60">&#9679;</span> Establishments
@@ -93,7 +93,7 @@
 
     <div id="legend">
       <div><span class="dot" style="background:#d63384"></span> Enterprise</div>
-      <div><span class="dot" style="background:#2980b9"></span> Legal unit</div>
+      <div><span class="dot" style="background:#1a3a5c"></span> Legal unit</div>
       <div><span class="dot" style="background:#27ae60"></span> Establishment</div>
       <hr style="border:0;border-top:1px solid #ccc;margin:4px 0">
       <div id="totals"></div>
@@ -251,13 +251,17 @@
         radiosContainer.appendChild(label);
       });
 
-      // 3. Fetch units
+      // 3. Fetch units with coordinates
       statusBar.textContent = 'Fetching statistical units...';
       const select = 'unit_type,physical_latitude,physical_longitude,name,stats,stats_summary,physical_postplace,primary_activity_category_path';
       const rows = await apiFetch(`/rest/statistical_unit?select=${select}&physical_latitude=not.is.null&physical_longitude=not.is.null&limit=${FETCH_LIMIT}`);
 
       allData = rows.map(transformRow);
-      statusBar.textContent = `Loaded ${allData.length.toLocaleString()} units with ${statDefs.length} statistical variables`;
+      // Count by type for status message
+      const counts = {};
+      for (const r of rows) counts[r.unit_type] = (counts[r.unit_type] || 0) + 1;
+      const parts = Object.entries(counts).map(([t, n]) => `${n} ${t.replace('_', ' ')}s`);
+      statusBar.textContent = `Loaded ${parts.join(', ')} with coordinates · ${statDefs.length} stat variables`;
 
     } catch (err) {
       statusBar.textContent = `Error: ${err.message}`;
@@ -330,7 +334,7 @@
     });
 
     // ── Color ramps ────────────────────────────────────────────────
-    const blueRamp  = ['#a9cce3', '#85c1e9', '#2980b9', '#1a5276', '#0b3d61'];
+    const blueRamp  = ['#1a3a5c', '#152f4a', '#0f2840', '#0a1e33', '#061525'];
     const greenRamp = ['#a9dfbf', '#82e0aa', '#27ae60', '#1e8449', '#0b5345'];
     const pinkRamp  = ['#e8b5d4', '#e8a5d0', '#d63384', '#a0245e', '#6b1740'];
     const greyRamp  = ['#c0c0c0', '#a0a0a0', '#787878', '#505050', '#282828'];
@@ -421,7 +425,7 @@
 
     const colorByType = [
       'case',
-      ['==', ['get', 'utype'], 0], '#2980b9',
+      ['==', ['get', 'utype'], 0], '#1a3a5c',
       ['==', ['get', 'utype'], 2], '#d63384',
       '#27ae60'
     ];
@@ -438,7 +442,7 @@
       source: 'units',
       filter: ['!', ['has', 'point_count']],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 6, 16, 10],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 4, 8, 8, 12, 14, 16, 20],
         'circle-color': getColorExpr(),
         'circle-opacity': 1,
         'circle-stroke-width': 0.5,
@@ -463,7 +467,7 @@
       const p = e.features[0].properties;
       const coords = e.features[0].geometry.coordinates;
       const typeLabel = p.utype === 2 ? 'Enterprise' : p.utype === 0 ? 'Legal unit' : 'Establishment';
-      const typeColor = p.utype === 2 ? '#d63384' : p.utype === 0 ? '#2980b9' : '#27ae60';
+      const typeColor = p.utype === 2 ? '#d63384' : p.utype === 0 ? '#1a3a5c' : '#27ae60';
 
       let html = `<b>${p.name}</b><br>` +
         `<span style="color:${typeColor}">\u25CF ${typeLabel}</span><br>` +
