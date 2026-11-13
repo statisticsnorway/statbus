@@ -46,7 +46,7 @@
     });
 
     // Fetch regions from API
-    const url = `${API_URL}/rest/region_used?select=path,name,level,center_latitude,center_longitude&center_latitude=not.is.null&order=path.asc`;
+    const url = `${API_URL}/rest/region?select=path,name,level,center_latitude,center_longitude&center_latitude=not.is.null&order=path.asc`;
     const headers = { 'Accept': 'application/json' };
     if (API_KEY) headers['Authorization'] = `Bearer ${API_KEY}`;
 
