@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -25,16 +25,21 @@ import { CalendarIcon } from "lucide-react";
 export type ValidityChoice = "frame" | "dates" | "source_dates";
 
 /**
- * The panel's views, offered by the caller in this order. Simple and Advanced
- * always; Timeline when the caller passes the field's timeline (an edit), where
- * the user ticks the stretch of the field's history the change applies to.
+ * The panel's views (owner 2026-11-13). Frame: one menu of the time frames,
+ * ending with Specific dates… (and, on an import whose file dates its rows,
+ * the file's dates). Timeline, offered when the caller passes the field's
+ * timeline (an edit): the user ticks the stretch of the field's history the
+ * change applies to. Without a timeline there is one view and no switch.
  */
-export type TimeFramePanelMode = "simple" | "advanced" | "timeline";
+export type TimeFramePanelMode = "frame" | "timeline";
 export const TIME_FRAME_PANEL_MODES: { mode: TimeFramePanelMode; label: string; hint: string }[] = [
-  { mode: "simple", label: "Simple", hint: "Choose a time frame" },
-  { mode: "advanced", label: "Advanced", hint: "Choose a frame, dates or source dates" },
-  { mode: "timeline", label: "Timeline", hint: "Tick the periods of this field's history to change" },
+  { mode: "frame", label: "Frame", hint: "Choose a time frame, or specific dates" },
+  { mode: "timeline", label: "Timeline", hint: "Tick the periods of this field's history" },
 ];
+
+/** The Frame menu's entries after the frames: a choice of dates, not a frame. */
+const DATES_OPTION = "__dates__";
+const SOURCE_DATES_OPTION = "__source_dates__";
 
 /** A frame's period, ISO dates, e.g. "2025-01-01 – 2025-12-31" or "2026-01-01 – Present". */
 export function framePeriod(tf: Pick<TimeFrame, "valid_from" | "valid_to">): string {
@@ -161,10 +166,11 @@ export interface TimeFramePanelProps {
   /** The Timeline view's body (an edit's field timeline). Absent, the view is not offered. */
   timeline?: React.ReactNode;
   /**
-   * Shown on the Timeline view's own line, right-aligned: the edit's
-   * Change | Remove switch and Tick all (STATBUS-611). Absent, no such line.
+   * Shown on the panel's heading line, right-aligned before the view switch:
+   * the edit's Change | Remove switch and, removing in the Timeline, Tick all
+   * (STATBUS-611). Absent, nothing there.
    */
-  timelineControls?: React.ReactNode;
+  headerControls?: React.ReactNode;
   /**
    * Hides Data source and Comment: a removal (Remove mode) stores no values, so
    * it has none to describe (owner 2026-11-13: removal carries only the period).
@@ -172,9 +178,11 @@ export interface TimeFramePanelProps {
   hideMetadata?: boolean;
   /**
    * The dates a change can have (an edit of a record: where its unit exists).
-   * Advanced's date pickers offer only dates inside them. Absent, any date.
+   * Specific dates' pickers offer only dates inside them. Absent, any date.
    */
   dateBounds?: DateBounds;
+  /** Shown below the Frame view's menu and dates: what the chosen period does (Remove mode's summary). */
+  frameFooter?: React.ReactNode;
 }
 
 /** The first and last day a change can cover; to "infinity" for no end. */
@@ -188,10 +196,10 @@ const NO_SOURCE = "__none__";
 
 /**
  * Where a change applies and where it comes from, the same for an edit and
- * an import. Simple: one Time frame. Advanced: Frame, Dates, or Source dates
- * (imports), in one radio group with each choice's inputs on its own row.
- * Below, Data source and Comment. The switch beside the heading moves between
- * the two; Simple always means a frame.
+ * an import. The Frame view is one menu: a time frame, or Specific dates
+ * (From and To appear below it), or on an import the file's own dates. The
+ * Timeline view (an edit) ticks stretches of the field's history instead.
+ * Below, Data source and Comment.
  */
 export function TimeFramePanel(props: TimeFramePanelProps) {
   const {
@@ -216,21 +224,32 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
     onCommentChange,
     formFields,
     timeline,
-    timelineControls,
+    headerControls,
     hideMetadata,
     dateBounds,
+    frameFooter,
   } = props;
   const groups = groupTimeFrames(timeFrames, { forMenu: false });
-  const advanced = mode === "advanced";
-  const modes = TIME_FRAME_PANEL_MODES.filter((m) => m.mode !== "timeline" || timeline);
+  const modes = timeline ? TIME_FRAME_PANEL_MODES : [];
   const chosenSource = dataSources.find((d) => d.code === dataSourceCode);
+  const menuValue =
+    choice === "dates" ? DATES_OPTION : choice === "source_dates" ? SOURCE_DATES_OPTION : (frameIdent ?? "");
+  const onMenuChange = (value: string) => {
+    if (value === DATES_OPTION) onChoiceChange("dates");
+    else if (value === SOURCE_DATES_OPTION) onChoiceChange("source_dates");
+    else {
+      if (choice !== "frame") onChoiceChange("frame");
+      onFrameChange(value);
+    }
+  };
 
-  const frameSelect = (
-    <Select value={frameIdent ?? ""} onValueChange={onFrameChange} disabled={advanced && choice !== "frame"}>
+  const frameMenu = (
+    <Select value={menuValue} onValueChange={onMenuChange}>
       <SelectTrigger
         id={`${idPrefix}-frame`}
         className="h-9 w-full min-w-0 justify-between border-zinc-300 bg-white"
-        data-frame-ident={frameIdent ?? undefined}
+        data-frame-ident={choice === "frame" ? (frameIdent ?? undefined) : undefined}
+        data-validity-choice={choice}
       >
         <span className="flex min-w-0 items-center gap-2">
           <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
@@ -250,6 +269,13 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
             ))}
           </SelectGroup>
         ))}
+        <SelectSeparator />
+        <SelectItem value={DATES_OPTION}>Specific dates…</SelectItem>
+        {sourceDates && (
+          <SelectItem value={SOURCE_DATES_OPTION}>
+            {sourceDates.label} <span className="text-zinc-500">(dates in the file)</span>
+          </SelectItem>
+        )}
       </SelectContent>
     </Select>
   );
@@ -265,85 +291,61 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
         </>
       )}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <Label htmlFor={`${idPrefix}-frame`} className={headingClass}>
             Time frame
           </Label>
-          <div
-            role="radiogroup"
-            aria-label="Time frame view"
-            className="inline-flex rounded-md border border-zinc-200 bg-zinc-100 p-0.5 text-xs"
-            data-time-frame-mode-switch
-          >
-            {modes.map((m) => (
-              <button
-                key={m.mode}
-                type="button"
-                role="radio"
-                aria-checked={mode === m.mode}
-                title={m.hint}
-                data-time-frame-mode={m.mode}
-                onClick={() => mode !== m.mode && onModeChange(m.mode)}
-                className={cn(
-                  "rounded px-2 py-0.5 text-zinc-600 transition-colors",
-                  mode === m.mode ? "bg-white font-medium text-zinc-900 shadow-sm" : "hover:text-zinc-900"
-                )}
+          <div className="flex items-center gap-3" data-time-frame-controls="">
+            {headerControls}
+            {modes.length > 0 && (
+              <div
+                role="radiogroup"
+                aria-label="Time frame view"
+                className="inline-flex rounded-md border border-zinc-200 bg-zinc-100 p-0.5 text-xs"
+                data-time-frame-mode-switch
               >
-                {m.label}
-              </button>
-            ))}
+                {modes.map((m) => (
+                  <button
+                    key={m.mode}
+                    type="button"
+                    role="radio"
+                    aria-checked={mode === m.mode}
+                    title={m.hint}
+                    data-time-frame-mode={m.mode}
+                    onClick={() => mode !== m.mode && onModeChange(m.mode)}
+                    className={cn(
+                      "rounded px-2 py-0.5 text-zinc-600 transition-colors",
+                      mode === m.mode ? "bg-white font-medium text-zinc-900 shadow-sm" : "hover:text-zinc-900"
+                    )}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {mode === "timeline" && timeline ? (
-          <div className="space-y-1">
-            {timelineControls && (
-              <div className="flex items-center justify-end gap-3" data-timeline-controls="">
-                {timelineControls}
-              </div>
-            )}
-            {timeline}
-          </div>
-        ) : !advanced ? (
-          frameSelect
+          timeline
         ) : (
-          <RadioGroup
-            value={choice}
-            onValueChange={(v) => onChoiceChange(v as ValidityChoice)}
-            className="gap-1.5"
-          >
-            <div className="grid grid-cols-[7.5rem_1fr] items-center gap-2" data-validity-choice="frame">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <RadioGroupItem value="frame" id={`${idPrefix}-choice-frame`} />
-                Frame
-              </label>
-              {frameSelect}
-            </div>
-            <div className="grid grid-cols-[7.5rem_1fr] items-center gap-2" data-validity-choice="dates">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <RadioGroupItem value="dates" id={`${idPrefix}-choice-dates`} />
-                Dates
-              </label>
-              <div className={cn("flex gap-2", choice !== "dates" && "pointer-events-none opacity-50")}>
+          <div className="space-y-2">
+            {frameMenu}
+            {choice === "dates" && (
+              <div className="flex gap-2" data-specific-dates="">
                 <DateInput id={`${idPrefix}-valid-from`} label="From" value={validFrom} onChange={onValidFromChange} bounds={dateBounds} />
                 <DateInput id={`${idPrefix}-valid-to`} label="To" value={validTo} onChange={onValidToChange} allowInfinity bounds={dateBounds} />
               </div>
-            </div>
-            {sourceDates && (
-              <div className="grid grid-cols-[7.5rem_1fr] items-center gap-2" data-validity-choice="source_dates">
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <RadioGroupItem value="source_dates" id={`${idPrefix}-choice-source-dates`} />
-                  Source dates
-                </label>
-                <p className={cn("text-xs text-zinc-600", choice !== "source_dates" && "opacity-50")}>
-                  {sourceDates.description}
-                </p>
-              </div>
             )}
-          </RadioGroup>
+            {choice === "source_dates" && sourceDates && (
+              <p className="text-xs text-zinc-600" data-source-dates="">
+                {sourceDates.description}
+              </p>
+            )}
+            {frameFooter}
+          </div>
         )}
       </div>
-
       {!hideMetadata && (
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,18rem)_1fr]">
         <div className="space-y-1.5">

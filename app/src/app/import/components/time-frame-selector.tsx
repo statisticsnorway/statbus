@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { useAtom } from "jotai";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { importValidityModeAtom, useImportManager } from "@/atoms/import";
+import { useImportManager } from "@/atoms/import";
 import { useDetailsPageData } from "@/atoms/edits";
 import { Spinner } from "@/components/ui/spinner";
-import { TimeFramePanel, type TimeFramePanelMode, type ValidityChoice } from "@/components/time-frame-panel";
+import { TimeFramePanel, type ValidityChoice } from "@/components/time-frame-panel";
 
 interface ImportTimeFrameSelectorProps {
   unitType: "legal-units" | "establishments" | "establishments-without-legal-unit" | "legal-relationships";
@@ -14,10 +13,11 @@ interface ImportTimeFrameSelectorProps {
 
 /**
  * Where an import's rows apply and where they come from (TimeFramePanel, the
- * same panel as the edit form). Simple: one Time frame. Advanced: Frame,
- * Dates or Source dates. Frame and Dates use the page's job_provided
- * definition; Source dates its source_columns definition. Data source and
- * Comment go onto the job (default_data_source_code, edit_comment).
+ * same panel as the edit form): its Frame menu offers a time frame, Specific
+ * dates, or the file's own dates. Frame and Specific dates use the page's
+ * job_provided definition; the file's dates its source_columns definition.
+ * Data source and Comment go onto the job (default_data_source_code,
+ * edit_comment).
  */
 export function ImportTimeFrameSelector({ unitType }: ImportTimeFrameSelectorProps) {
   const {
@@ -32,7 +32,6 @@ export function ImportTimeFrameSelector({ unitType }: ImportTimeFrameSelectorPro
     setEditComment,
   } = useImportManager();
   const { dataSources } = useDetailsPageData();
-  const [mode, setMode] = useAtom(importValidityModeAtom);
 
   const [isClient, setIsClient] = useState(false);
   useGuardedEffect(() => {
@@ -59,12 +58,6 @@ export function ImportTimeFrameSelector({ unitType }: ImportTimeFrameSelectorPro
     }
   };
 
-  // Simple always means a frame; dates typed in Advanced stay for when it opens again.
-  const handleModeChange = (next: TimeFramePanelMode) => {
-    setMode(next);
-    if (next === "simple") handleChoiceChange("frame");
-  };
-
   // The definition's own source, shown until the user picks another.
   const definitionSource = dataSources.find((d) => d.id === selectedDefinition?.data_source_id);
 
@@ -80,8 +73,8 @@ export function ImportTimeFrameSelector({ unitType }: ImportTimeFrameSelectorPro
     <TimeFramePanel
       idPrefix={`import-${unitType}`}
       timeFrames={availableTimeFrames}
-      mode={mode}
-      onModeChange={handleModeChange}
+      mode="frame"
+      onModeChange={() => {}}
       choice={choice}
       onChoiceChange={handleChoiceChange}
       frameIdent={selectedTimeFrame?.ident ?? null}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useFixedFrameConfirmation } from "@/components/fixed-frame-confirmation";
 import {
@@ -18,7 +18,7 @@ import { opensInTimeline, periodsInRange, selectionRange, toggleSelection } from
 import { TimelineSkeleton, useUnitExistence } from "./timeline-skeleton-view";
 import { skeletonPieces, skeletonSelectionRange } from "./timeline-skeleton";
 import { capToExistence } from "./unit-existence";
-import { isRemovable, RemovalTimeline, TickAllPieces } from "./remove-record-button";
+import { FrameRemovalSummary, isRemovable, RemovalTimeline, TickAllPieces } from "./remove-record-button";
 import { cn } from "@/lib/utils";
 
 interface EditMetadataControlsProps {
@@ -29,10 +29,11 @@ interface EditMetadataControlsProps {
  * Where an edit applies and where it comes from: the Time frame panel, the
  * same as on the import pages (components/time-frame-panel.tsx). The edit
  * opens on the frame the user is looking at and covers the shown value's
- * stretch in it (useStartEdit). Advanced offers chosen Dates instead. Timeline
- * shows the field's history and the edit applies to the ticked stretch of it;
- * Edit opens there when the shown value is not the field's newest. Data
- * source and Comment are stored with the change. A save that reaches into a
+ * stretch in it (useStartEdit); the Frame menu also offers Specific dates.
+ * Timeline shows the field's history and the edit applies to the ticked
+ * stretch of it; Edit opens there when the shown value is not the field's
+ * newest. Change | Remove (a record the unit has) works in both views. Data
+ * source and Comment are stored with a change. A save that reaches into a
  * relative or fixed frame asks first.
  */
 export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
@@ -44,11 +45,14 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
     setEditValidFrom,
     setEditValidTo,
     setEditRemoving,
+    setEditView,
+    setEditValidityChoice,
   } = useEditManager();
   const { timeFrames } = useTimeFrame();
   const changeEditFrame = useChangeEditFrame();
-  const [mode, setMode] = useState<TimeFramePanelMode>("simple");
-  const [choice, setChoice] = useState<ValidityChoice>("frame");
+  // The view and the dating choice live with the edit (Remove follows them).
+  const mode: TimeFramePanelMode = currentEdit.view ?? "frame";
+  const choice: ValidityChoice = currentEdit.validityChoice ?? "frame";
 
   // The field's timeline, when the field names its rows. The edit's dates are
   // the ticked stretch; the ticks are read back from the dates, so the frame
@@ -84,7 +88,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
 
   // Edit opens in the Timeline view when the edit's frame holds more than one
   // value of the field (opensInTimeline); one value covering the frame opens
-  // Simple. Decided once per edit, when its dates and rows are known.
+  // the Frame view. Decided once per edit, when its dates and rows are known.
   const openedRef = useRef(false);
   const datesKnown = !!currentEdit.validFrom;
   useGuardedEffect(
@@ -92,7 +96,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
       if (openedRef.current || !loaded || !datesKnown) return;
       openedRef.current = true;
       const frame = timeFrames.find((tf) => tf.ident === currentEdit.frameIdent);
-      if (opensInTimeline(periods, frame)) setMode("timeline");
+      if (opensInTimeline(periods, frame)) setEditView("timeline");
     },
     [loaded, datesKnown],
     "EditMetadataControls:openInTimeline"
@@ -112,20 +116,16 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
     "EditMetadataControls:capFirstValueToUnit"
   );
 
-  // Simple always means a frame: the frame's dates come back.
-  // Leaving the Timeline view leaves Remove mode: the other views change values.
-  const handleModeChange = (next: TimeFramePanelMode) => {
-    setMode(next);
-    if (next !== "timeline" && currentEdit.removing) setEditRemoving(null);
-    if (next === "simple") handleChoiceChange("frame");
-  };
+  // Changing view keeps Change or Remove; Remove's ticks start over.
+  const handleModeChange = (next: TimeFramePanelMode) => setEditView(next);
   const removing = currentEdit.removing != null;
   const canRemove = isRemovable(currentEdit.source) && loaded && periods.length > 0;
-  // Change | Remove, on the Timeline view's own line (owner 2026-11-13): Remove
-  // turns the timeline into pieces per frame to tick for removal.
+  // Change | Remove, on the panel's heading line (owner 2026-11-13), for both
+  // views: in the Frame view Remove takes out the chosen frame or dates; in
+  // the Timeline the timeline splits into pieces per frame to tick.
   const changeRemoveSwitch = canRemove ? (
     <>
-      {removing && <TickAllPieces />}
+      {removing && mode === "timeline" && <TickAllPieces />}
       <div
         role="radiogroup"
         aria-label="Change or remove"
@@ -159,8 +159,10 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
       </div>
     </>
   ) : undefined;
+  // Back to a frame: the frame's dates come back.
   const handleChoiceChange = (next: ValidityChoice) => {
-    setChoice(next);
+    if (next === "source_dates") return;
+    setEditValidityChoice(next);
     if (next === "frame" && currentEdit.frameIdent) void changeEditFrame(currentEdit.frameIdent);
   };
 
@@ -241,8 +243,9 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         onCommentChange={setEditComment}
         formFields
         dateBounds={dateBounds}
-        timelineControls={changeRemoveSwitch}
+        headerControls={changeRemoveSwitch}
         hideMetadata={removing}
+        frameFooter={removing ? <FrameRemovalSummary /> : undefined}
         timeline={
           removing ? (
             <RemovalTimeline />

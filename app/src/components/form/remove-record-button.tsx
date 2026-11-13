@@ -26,7 +26,7 @@ import {
   frameSegments,
   type TimelinePeriod,
 } from "./field-timeline";
-import { removalRuns, type RemovalRun } from "./removal";
+import { removalRuns, removalSummary, type RemovalPiece, type RemovalRun } from "./removal";
 import type { EditFieldSource } from "./read-edit-range";
 
 /** The tables whose rows are records a unit has, which Remove can take away (STATBUS-611). */
@@ -171,6 +171,82 @@ export function TickAllPieces() {
 }
 
 /**
+ * What Remove mode would remove, in either view. Timeline: the ticked pieces,
+ * each unbroken run removed on its own. Frame: the edit's period (the chosen
+ * frame, or the specific dates) as one run, with the parts of the record's
+ * values inside it (removalSummary). "all" when nothing would stay.
+ */
+export function useRemoval(source: EditFieldSource | undefined) {
+  const { currentEdit } = useEditManager();
+  const { timeFrames } = useTimeFrame();
+  const { periods } = useFieldTimeline(source);
+  const { pieces } = useRemovalPieces(source);
+  if (currentEdit.view === "timeline") {
+    const ticked = currentEdit.removing ?? [];
+    const removed = [...ticked]
+      .sort((a, b) => a - b)
+      .map((i) => pieces[i])
+      .filter(Boolean);
+    return {
+      runs: removalRuns(pieces, ticked),
+      removed,
+      kept: [] as RemovalPiece[],
+      all: pieces.length > 0 && ticked.length === pieces.length,
+    };
+  }
+  // Frame: the frame's own period; Specific dates: the dates typed.
+  const frame =
+    currentEdit.validityChoice !== "dates"
+      ? timeFrames.find((tf) => tf.ident === currentEdit.frameIdent)
+      : undefined;
+  const from = frame?.valid_from ?? currentEdit.validFrom;
+  const to = frame ? (frame.valid_to === "infinity" ? null : frame.valid_to) : currentEdit.validTo;
+  if (!from) return { runs: [], removed: [], kept: [] as RemovalPiece[], all: false };
+  const { removed, kept } = removalSummary(periods, from, to);
+  return {
+    runs: removed.length > 0 ? [{ validFrom: from, validTo: to ?? null }] : [],
+    removed,
+    kept,
+    all: removed.length > 0 && kept.length === 0,
+  };
+}
+
+/**
+ * Remove mode in the Frame view, below the menu: the parts of the record the
+ * chosen period removes, struck through in red, and what stays.
+ */
+export function FrameRemovalSummary() {
+  const { currentEdit } = useEditManager();
+  const describe = useDescribeValue();
+  const { removed, kept } = useRemoval(currentEdit.source);
+  if (removed.length === 0)
+    return (
+      <p className="text-sm text-zinc-500" data-frame-removal="">
+        Nothing is recorded in this period.
+      </p>
+    );
+  return (
+    <div className="space-y-1 text-sm" data-frame-removal="">
+      {removed.map((p) => (
+        <div key={p.valid_from} className="rounded bg-red-50 px-2 py-1" data-frame-removal-removed="">
+          <span className="block break-words font-medium text-red-700 line-through">
+            {describe.value(p.values) ?? "Empty"}
+          </span>
+          <span className="block text-xs tabular-nums text-red-700">
+            {p.valid_from} – {formatEnd(p.valid_to)}
+          </span>
+        </div>
+      ))}
+      {kept.length > 0 && (
+        <p className="text-xs text-zinc-600" data-frame-removal-kept="">
+          Stays: {kept.map((p) => `${p.valid_from} – ${formatEnd(p.valid_to)}`).join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * The form's action in Remove mode, in Save's place: a red "Remove …" naming
  * the ticked stretches ("Remove all" when every piece is ticked). It asks
  * first: the dialog lists each stretch with its value and the past frames it
@@ -184,13 +260,10 @@ export function RemoveRecordAction({ label }: { label: string }) {
   const { toast } = useToast();
   const describe = useDescribeValue();
   const source = currentEdit.source;
-  const { pieces } = useRemovalPieces(source);
+  const { runs, removed: removedPieces, all } = useRemoval(source);
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   if (!isRemovable(source)) return null;
-  const ticked = currentEdit.removing ?? [];
-  const runs = removalRuns(pieces, ticked);
-  const all = pieces.length > 0 && ticked.length === pieces.length;
   const pastFrames = [
     ...new Map(
       runs
@@ -200,15 +273,17 @@ export function RemoveRecordAction({ label }: { label: string }) {
         .map((f) => [f.ident, f])
     ).values(),
   ];
-  const removedPieces = [...ticked]
-    .sort((a, b) => a - b)
-    .map((i) => pieces[i])
-    .filter(Boolean);
+  const frameName =
+    currentEdit.view !== "timeline" && currentEdit.validityChoice !== "dates"
+      ? timeFrames.find((tf) => tf.ident === currentEdit.frameIdent)?.name
+      : undefined;
   const caption = all
     ? "Remove all"
     : runs.length === 0
       ? "Remove"
-      : `Remove ${runs.map(runLabel).join(", ")}`;
+      : frameName
+        ? `Remove ${frameName}`
+        : `Remove ${runs.map(runLabel).join(", ")}`;
 
   const confirm = () => {
     startTransition(async () => {

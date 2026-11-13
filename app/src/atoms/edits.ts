@@ -28,6 +28,14 @@ export interface EditTarget {
    * field's pieces per frame. Absent or null: the edit changes values (Save).
    */
   removing?: number[] | null;
+  /**
+   * The Time frame panel's view: "frame" (a frame or specific dates) or
+   * "timeline" (ticked stretches). Absent: frame. Change and Remove both
+   * follow it, so it lives with the edit, not in the panel.
+   */
+  view?: "frame" | "timeline";
+  /** In the Frame view: dated by the frame (default) or by specific dates. */
+  validityChoice?: "frame" | "dates";
 }
 
 export const initialEditAtom: EditTarget = {
@@ -105,6 +113,25 @@ export const setEditRemovingAtom = atom(
   }
 );
 
+/** Sets the panel's view; Remove mode stays on, with no pieces ticked in the Timeline. */
+export const setEditViewAtom = atom(
+  null,
+  (get, set, view: "frame" | "timeline") => {
+    set(currentEditAtom, (prev) => ({
+      ...prev,
+      view,
+      removing: prev.removing != null ? [] : prev.removing,
+    }));
+  }
+);
+
+export const setEditValidityChoiceAtom = atom(
+  null,
+  (get, set, validityChoice: "frame" | "dates") => {
+    set(currentEditAtom, (prev) => ({ ...prev, validityChoice }));
+  }
+);
+
 export const setEditCommentAtom = atom(
   null,
   (get, set, comment: string | null) => {
@@ -122,6 +149,8 @@ export const useEditManager = () => {
   const doSetDataSourceId = useSetAtom(setEditDataSourceIdAtom);
   const doSetEditComment = useSetAtom(setEditCommentAtom);
   const setEditRemoving = useSetAtom(setEditRemovingAtom);
+  const setEditView = useSetAtom(setEditViewAtom);
+  const setEditValidityChoice = useSetAtom(setEditValidityChoiceAtom);
   const setEditTarget = useCallback(
     (fieldId: string | null, options?: EditTargetOptions) => {
       doSetEditTarget(fieldId, options);
@@ -166,6 +195,8 @@ export const useEditManager = () => {
     setEditDataSourceId,
     setEditComment,
     setEditRemoving,
+    setEditView,
+    setEditValidityChoice,
   };
 };
 
