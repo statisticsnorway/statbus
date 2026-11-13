@@ -5,7 +5,7 @@ status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-10T22:31:00Z'
-updated_date: '2026-11-10T23:11:00Z'
+updated_date: '2026-11-13T12:06:00Z'
 labels:
   - bug
   - app
@@ -47,4 +47,6 @@ Diagnosis 2026-11-10: DB side publishes total/completed/step correctly. Measured
 Live check on this checkout's dev server (port 3000, statbus_local), 46 pipeline_progress notifications 130 ms apart via pg_notify, SSE /api/sse/worker_status read with curl, server restarted per variant (tmp/605/progress-live.sh, dev-restart.sh): master listener delivered 1 event (completed 46, after the stream stopped); fixed listener delivered 12 (4, 8, ... 44, 46). Logs tmp/605/progress-live-{master,fixed}.log. tsc and eslint clean.
 
 On master 8c4f3c704 (Rabbit fast-forward). CI at 8c4f3c704 all completed/success: Fast Tests 42917418020, Go Test 42916708675, app build & lint 42916708666, Images 42916708804, Harness Selftest 42916708812, Push on master 42916708349.
+
+Browser acceptance 2026-11-13 11:42-12:06 UTC (owner request, his Firefox): import_benchmark_64469 (full register, 3,118,352 statistical units) migrated to master a2a176e3d and served by the local https dev stack (https://local.statbus.org:3011, logged in as test.admin). Full recalculation through the real worker, 451 refresh batches, 973 tasks, 0 failed, 11:43:03-12:05:16 (22 min). Navbar Statistical Units fill read from the DOM: 2% at 6/451 batches, 4% at 43/451, 30% at 217/451; SSE pipeline_progress events carried completed/total live (e.g. 8/451); back to idle (no fill) after completion. Local stack restored to statbus_local afterwards. Logs tmp/605/navbar-*.
 <!-- SECTION:NOTES:END -->

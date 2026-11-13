@@ -3,10 +3,10 @@ id: STATBUS-626
 title: >-
   A small edit refreshes only the facets it changed, so a three-unit edit is not
   held up by a whole-register facet merge
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-12T00:59:00Z'
-updated_date: '2026-11-13T10:56:00Z'
+updated_date: '2026-11-13T11:49:00Z'
 labels:
   - performance
   - db
