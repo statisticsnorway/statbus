@@ -6,6 +6,7 @@ import { StatisticalUnitCountCard } from "@/app/dashboard/statistical-unit-count
 import { FallBackCard } from "@/app/dashboard/fallBack-card";
 import { RegionCard } from "@/app/dashboard/region-card";
 import { MissingRegionCard } from "@/app/dashboard/missing-region-card";
+import { MissingPhysicalLocationCard } from "@/app/dashboard/missing-physical-location-card";
 import { MissingActivityCategoryCard } from "@/app/dashboard/missing-activity-category-card";
 import { CustomActivityCategoryCard } from "@/app/dashboard/custom-activity-category-card";
 import { ActivityCategoryCard } from "@/app/dashboard/activity-category-card";
@@ -96,6 +97,14 @@ export default function Dashboard() {
             fallback={<FallBackCard title="Units Missing Activity Category" />}
           >
             <MissingActivityCategoryCard />
+          </Suspense>
+        </Link>
+
+        <Link href="/search?unit_type=legal_unit,establishment&physical_location=missing">
+          <Suspense
+            fallback={<FallBackCard title="Units Missing Physical Location" />}
+          >
+            <MissingPhysicalLocationCard />
           </Suspense>
         </Link>
 

@@ -19,6 +19,7 @@ import {
   sectorDeriveStateUpdateFromSearchParams,
   statusDeriveStateUpdateFromSearchParams,
   domesticDeriveStateUpdateFromSearchParams,
+  physicalLocationDeriveStateUpdateFromSearchParams,
   lastEditByUserDeriveStateUpdateFromSearchParams,
   statisticalVariablesDeriveStateUpdateFromSearchParams,
   unitSizeDeriveStateUpdateFromSearchParams,
@@ -56,6 +57,8 @@ const deriveStateFromUrl = (
   const statusAction = statusDeriveStateUpdateFromSearchParams(urlSearchParams);
   const domesticAction =
     domesticDeriveStateUpdateFromSearchParams(urlSearchParams);
+  const physicalLocationAction =
+    physicalLocationDeriveStateUpdateFromSearchParams(urlSearchParams);
   const lastEditByUserAction =
     lastEditByUserDeriveStateUpdateFromSearchParams(urlSearchParams);
   const unitSizeAction =
@@ -79,6 +82,7 @@ const deriveStateFromUrl = (
     activityCategoryAction,
     statusAction,
     domesticAction,
+    physicalLocationAction,
     lastEditByUserAction,
     unitSizeAction,
     dataSourceAction,

@@ -193,6 +193,33 @@ export function statusDeriveStateUpdateFromValues(
 }                      
 export const DOMESTIC = "domestic";
 
+/**
+ * Whether a unit has a physical location (STATBUS-625): "missing" or
+ * "present". A location's country is required, so a unit has one exactly when
+ * statistical_unit.physical_country_id is set. The data-quality report's
+ * Units Missing Physical Location card links here.
+ */
+export const PHYSICAL_LOCATION = "physical_location";
+
+export function physicalLocationDeriveStateUpdateFromSearchParams(
+  urlSearchParams: URLSearchParams
+): SearchAction {
+  return physicalLocationDeriveStateUpdateFromValues(urlSearchParams.get(PHYSICAL_LOCATION));
+}
+
+export function physicalLocationDeriveStateUpdateFromValues(value: string | null): SearchAction {
+  return {
+    type: "set_query",
+    payload: {
+      app_param_name: PHYSICAL_LOCATION,
+      api_param_name: "physical_country_id",
+      api_param_value:
+        value === "missing" ? "is.null" : value === "present" ? "not.is.null" : null,
+      app_param_values: value === "missing" || value === "present" ? [value] : [],
+    },
+  } as SearchAction;
+}
+
 export function domesticDeriveStateUpdateFromSearchParams(
   urlSearchParams: URLSearchParams
 ): SearchAction {

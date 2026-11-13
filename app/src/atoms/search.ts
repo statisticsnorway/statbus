@@ -29,6 +29,7 @@ import {
   activityCategoryDeriveStateUpdateFromValues,
   statusDeriveStateUpdateFromValues,
   domesticDeriveStateUpdateFromValues,
+  physicalLocationDeriveStateUpdateFromValues,
   lastEditByUserDeriveStateUpdateFromValues,
   unitSizeDeriveStateUpdateFromValues,
   dataSourceDeriveStateUpdateFromValues,
@@ -46,6 +47,7 @@ import {
   UNIT_SIZE,
   DATA_SOURCE,
   DOMESTIC,
+  PHYSICAL_LOCATION,
 } from "../app/search/filters/url-search-params";
 
 import { selectedTimeFrameAtom, searchStateInitializedAtom } from './app'
@@ -972,6 +974,15 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
           domesticDeriveStateUpdateFromValues(domesticValue);
         if (domesticAction.type === "set_query")
           actionPayloadPart = domesticAction.payload;
+        break;
+      case PHYSICAL_LOCATION:
+        const physicalLocationAction = physicalLocationDeriveStateUpdateFromValues(
+          Array.isArray(appParamValue) && appParamValue.length > 0
+            ? (appParamValue[0] as string | null)
+            : null
+        );
+        if (physicalLocationAction.type === "set_query")
+          actionPayloadPart = physicalLocationAction.payload;
         break;
       case LEGAL_FORM:
         const ensuredLegalFormValues = Array.isArray(appParamValue)
