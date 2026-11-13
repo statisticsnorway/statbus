@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-11T11:57:00Z'
-updated_date: '2026-11-12T01:00:00Z'
+updated_date: '2026-11-13T16:51:00Z'
 labels:
   - performance
   - ops
@@ -34,10 +34,10 @@ Closing review: ops/bench-box.sh documents itself in its usage text, linked from
 <!-- AC:BEGIN -->
 - [x] #1 A base, candidate, candidate, base run of rc.01 (4a66d259) against master reports wall time per load and identical fingerprints, recorded in this ticket
 - [x] #2 After down, hcloud lists no bench box
-- [ ] #3 A round takes all code from the commit under test, checked by the round log: it records the commit's sb version (./sb --version), the image tag of each running container (docker compose images), and the seed's newest migration, all naming that commit
+- [x] #3 A round takes all code from the commit under test, checked by the round log: it records the commit's sb version (./sb --version), the image tag of each running container (docker compose images), and the seed's newest migration, all naming that commit
 - [ ] #4 ops/bench-box.sh without arguments prints its usage and exits 2; up, status, ssh, data, run, results and down each exit 0 against a real box, and run leaves a round log and fingerprint per round in tmp/bench/
 - [x] #5 [Owner] Each workaround in Implementation Notes gets a decision, recorded here: keep it in bench-box, or fix it in setup or the scripts as its own change
-- [ ] #6 Each round runs the worker as a one-off container of the commit's statbus-worker image (docker compose run worker ... --stop-when-idle), with no Crystal or Go on the box: the round log names the worker image tag and every import job finished
+- [x] #6 Each round runs the worker as a one-off container of the commit's statbus-worker image (docker compose run worker ... --stop-when-idle), with no Crystal or Go on the box: the round log names the worker image tag and every import job finished
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -63,4 +63,6 @@ Bench series 2026-11-11 on ccx33 (8 dedicated cores), rune dump no_20261110_1619
 Change-run fingerprints are not comparable in this run: the rename text carried the per-commit label (fixed in 409138e65). Results in tmp/bench/20261111-series/. Box deleted 19:18.
 
 Night 2026-11-11 (box 20:42-00:52, results tmp/bench/20261111-evening): restore needs rune's UPGRADE_CHANNEL (fixed 2e63132be); refuse guards matched their own ssh command (fixed 55bfff367). Index probe at 50 %: all 40 indexes 901/776 s, without the 14 never scanned 705/746 s, without only the 10 unusable 728 s, identical tables (-> STATBUS-627). Series d6978425d vs 2e63132be: see STATBUS-623. 3-unit edit timeline: work ~6 s, statistical_unit_facet_reduce alone 11-16 s (-> STATBUS-626).
+
+2026-11-13 AC3/AC6 checked against the real bench-box round logs of run 20261112T193846Z (tmp/bench/20261112/box/20261112T193846Z/round-*.log): each starts 'commit ee3a51dfb...' / 'commit da11950e1...' and 'sb sb version ee3a51df (commit ee3a51df)'; docker compose images lists statbus-db/statbus-proxy at the commit tag; 'seed migration 20261112161001' (the last migration in that commit's tree); the worker ran as 'docker compose run --rm -T --no-deps worker ... --stop-when-idle' from statbus-worker:<commit> (pulled in the log); every import job 'finished' (1,134,475 / 823,767 / 29,504 rows). AC4: ops/bench-box.sh with no arguments exits 2 with usage (checked 16:51); up/status/ssh/run/results/down ran against real boxes on 2026-11-11 and -12 (series logs), but not one scripted pass of each subcommand: left open.
 <!-- SECTION:NOTES:END -->
