@@ -1,10 +1,10 @@
 ---
 id: STATBUS-611
 title: Records added to a unit can be removed from the edit form
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-10T21:29:00Z'
-updated_date: '2026-11-12T22:10:00Z'
+updated_date: '2026-11-13T12:12:00Z'
 labels:
   - ui
   - edit
@@ -52,4 +52,10 @@ Owner 2026-11-10 21:30: other single-value fields already turn Save into a delet
 2026-11-12 21:25 owner design: Remove goes through the for_portion_of view as UPDATE x__for_portion_of_valid SET id = NULL, valid_from = START, valid_until = STOP WHERE id = N (PostgREST PATCH body {"id": null, "valid_from", "valid_until"}): removes the record over [START, STOP), splitting rows at the edges (temporal_merge DELETE_FOR_PORTION_OF). Rejected: a view-only marker column (must be real columns); all values NULL (a legitimate update, and contact's CHECK refuses it). Specified for the sql_saga agent in ../sql_saga/todo.md ('Next - for_portion_of view: remove a portion with SET id = NULL'), with 8 tests. Today on 1.4 SET id = NULL reports UPDATE 1 and changes nothing (tmp/611-null-id-probe2.log). StatBus pins the new sql_saga, then builds the Remove button on it; the prototype function public.remove_for_portion_of (local dev DB only) is dropped then.
 
 2026-11-12 22:10 UI prototype for the owner's morning review (branch statbus-628-all-forms, NOT pushed: cf4aa4967 emptied contact refused pointing to Remove; 5334201cd Remove beside Save). Remove names the panel's stretch, always asks (dialog: Removed / Kept / past frames), calls one server action removeTemporalRecord. Backend tonight: local-only public.remove_for_portion_of (tmp/611-remove-prototype.sql); swaps to the for_portion_of view's SET id = NULL protocol when sql_saga ships it. Evidence: jest removal RED/GREEN tmp/611-removal-{red,green}.log, contact tmp/611-contact-empty-{red,green}.log, jest 348 / tsc 0 / lint 0; real app tmp/611-remove-check.log (LU 29 postal 2025 removed, 2024 and 2026- kept, restored after) and tmp/611-remove-check2.log (Timeline ticks, nothing-to-remove disabled, establishment). Review note tmp/611-remove-prototype.md. Open: Remove on statistical variables (owner thinking).
+
+2026-11-13 Remove design settled with the owner and sql_saga 1.5 adopted (Rabbit).
+- Owner design 10:55-11:32: Change | Remove on the Time frame panel's heading, working in both views. Simple/Advanced replaced by Frame | Timeline (the Frame menu ends with Specific dates). Frame view: Remove takes out the chosen frame (its own period) or the specific dates; the parts removed are shown struck through in red with what stays. Timeline view: the timeline splits into one piece per frame; ticked pieces turn red; gaps allowed, each unbroken run is one removal; Tick all / Remove all. Fields are locked, Data source and Comment hidden (a removal carries only identity and period), the red Remove takes Save's place and asks first, naming the past frames it reaches. Owner tried it 11:13 ('works very well') and removed all of LU 29's postal rows.
+- On master: test 405 (245ae853d, RED on 1.4 tmp/611-405-red-result.out), sql_saga v1.5 pin (e99e09295; the migrate runner's extension step updates 1.4 databases directly, no migration), 405 expected from 1.5 (936098260; generated on a seed copy updated 1.4->1.5 with ALTER EXTENSION + check_integrity, tmp/test-611-405-green-saga15-regress.out), restore pin row for 1.5 (ab4f4e845; Go Test caught the missing row). CI on 936098260: Fast Tests success (incl. 405), Images success.
+- On branch statbus-628-all-forms (not pushed; owner reviews every edit form first, plan tmp/edit-forms-review-plan.md): Remove mode UI, removeTemporalRecord as PATCH of x__for_portion_of_valid {id: null, valid_from, valid_until} per run (removalPatch, jest RED/GREEN tmp/611-patch-{red,green}.log), Frame | Timeline (tmp/frame-view-check.log), Remove on statistics and activities (tmp/remove-single-check.log).
+- Open for the owner: may the primary activity be removed (Q2)? The local dev database still runs sql_saga 1.4, so 3007 still removes through the local-only prototype function until it moves to the 1.5 image.
 <!-- SECTION:NOTES:END -->
