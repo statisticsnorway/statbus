@@ -12,6 +12,7 @@ import { useStatisticalUnitDetails } from "@/components/statistical-unit-details
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { EditableFieldGroup } from "@/components/form/editable-field-group";
 import { useDetailsPageData } from "@/atoms/edits";
+import { countryOptions } from "@/components/form/country-options";
 import { SelectFormField } from "@/components/form/select-form-field";
 import { useClientReady } from "@/hooks/use-client-ready";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
@@ -30,7 +31,7 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
     null
   );
   const isClient = useClientReady();
-  const { countries } = useDetailsPageData();
+  const { countries, domesticCountryId } = useDetailsPageData();
   const { data, isLoading, error, revalidate } = useStatisticalUnitDetails(
     id,
     "legal_unit"
@@ -55,10 +56,7 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
   const postalLocation = legalUnit?.location?.find(
     (loc) => loc.type === "postal"
   );
-  const countriesOptions = countries.map((country) => ({
-    value: country.id,
-    label: `${country.name}`,
-  }));
+  const countriesOptions = countryOptions(countries, domesticCountryId);
   return (
     <div className="space-y-2">
       <div>

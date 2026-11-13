@@ -16,6 +16,7 @@ import {
 } from "../update-establishment-server-actions";
 import { updateLocation } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { useDetailsPageData } from "@/atoms/edits";
+import { countryOptions } from "@/components/form/country-options";
 import { useSWRConfig } from "swr";
 import { EditableFieldWithMetadata } from "@/components/form/editable-field-with-metadata";
 import { SelectFormField } from "@/components/form/select-form-field";
@@ -40,7 +41,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   );
 
   const { externalIdentTypes } = useBaseData();
-  const { regions, countries } = useDetailsPageData();
+  const { regions, countries, domesticCountryId } = useDetailsPageData();
 
   const { data, isLoading, revalidate, error } = useStatisticalUnitDetails(
     id,
@@ -76,10 +77,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     value: region.id,
     label: `${region.code} ${region.name}`,
   }));
-  const countriesOptions = countries.map((country) => ({
-    value: country.id,
-    label: `${country.name}`,
-  }));
+  const countriesOptions = countryOptions(countries, domesticCountryId);
 
   return (
     <div className="space-y-2">

@@ -173,6 +173,8 @@ export interface DetailsPageData {
   dataSources: Tables<"data_source_enabled">[];
   regions: Tables<"region">[];
   countries: Tables<"country">[];
+  /** settings.country_id: the installation's own country, listed first. */
+  domesticCountryId: number | null;
   status: Tables<"status">[];
   activityCategories: Tables<"activity_category_enabled">[];
   legalForms: Tables<"legal_form_enabled">[];
@@ -183,6 +185,7 @@ const initialDetailsPageData: DetailsPageData = {
   dataSources: [],
   regions: [],
   countries: [],
+  domesticCountryId: null,
   status: [],
   activityCategories: [],
   legalForms: [],
@@ -209,6 +212,7 @@ const detailsPageDataPromiseAtom = atomWithRefresh<Promise<DetailsPageData>>(
         legalFormsResult,
         sectorsResult,
         unitSizesResult,
+        settingsResult,
       ] = await Promise.all([
         client.from("data_source_enabled").select(),
         client.from("region").select(),
@@ -218,12 +222,14 @@ const detailsPageDataPromiseAtom = atomWithRefresh<Promise<DetailsPageData>>(
         client.from("legal_form_enabled").select(),
         client.from("sector_enabled").select(),
         client.from("unit_size_enabled").select(),
+        client.from("settings").select("country_id").limit(1),
       ]);
       // TODO: Add error handling for each result
       return {
         dataSources: dataSourcesResult.data || [],
         regions: regionsResult.data || [],
         countries: countriesResult.data || [],
+        domesticCountryId: settingsResult.data?.[0]?.country_id ?? null,
         status: statusResult.data || [],
         activityCategories: activityCategoriesResult.data || [],
         legalForms: legalFormsResult.data || [],

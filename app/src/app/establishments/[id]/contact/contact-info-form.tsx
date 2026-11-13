@@ -8,6 +8,7 @@ import {
 } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { useActionState, useEffect } from "react";
 import { useDetailsPageData } from "@/atoms/edits";
+import { countryOptions } from "@/components/form/country-options";
 import { EditableFieldGroup } from "@/components/form/editable-field-group";
 import { SelectFormField } from "@/components/form/select-form-field";
 import {
@@ -28,7 +29,7 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
     id,
     "establishment"
   );
-  const { countries } = useDetailsPageData();
+  const { countries, domesticCountryId } = useDetailsPageData();
   useEffect(() => {
     if (
       locationState?.status === "success" ||
@@ -44,10 +45,7 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
   const postalLocation = establishment?.location?.find(
     (loc) => loc.type === "postal"
   );
-  const countriesOptions = countries.map((country) => ({
-    value: country.id,
-    label: `${country.name}`,
-  }));
+  const countriesOptions = countryOptions(countries, domesticCountryId);
   return (
     <div className="space-y-2">
       <div className="flex flex-col gap-4">
