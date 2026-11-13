@@ -3,11 +3,11 @@ id: STATBUS-627
 title: >-
   statistical_unit drops the ten indexes no query can use, so recalculation
   writes changes faster
-status: In Progress
+status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-12T00:59:00Z'
-updated_date: '2026-11-13T10:43:00Z'
+updated_date: '2026-11-13T10:47:00Z'
 labels:
   - performance
   - db
@@ -32,7 +32,7 @@ Closing review: index definitions' comments record why each remaining index exis
 <!-- AC:BEGIN -->
 - [x] #1 [Owner] decides which of the ten indexes to drop; the decision is recorded in Implementation Notes, and each chosen index becomes a DROP in the migration
 - [x] #2 A migration drops the chosen indexes and its down migration recreates them exactly, with doc/db regenerated
-- [ ] #3 Bench box: a 50 % change before and after, identical tables; wall and flush numbers recorded in Implementation Notes
+- [x] #3 Bench box: a 50 % change before and after, identical tables; wall and flush numbers recorded in Implementation Notes
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -58,4 +58,6 @@ Bench 2026-11-12 on rune dump no_20261111_221558 (box, base 90c734271 vs 754ec1d
 Drop-and-rebuild prototype (tmp/627/proto-flush-rebuild.sql: flush drops the search indexes when staging > 20 % of statistical_unit, rebuilds them before commit), same dump and memory, fingerprints identical at every step: 50% change 9.8 + 10.2 min (589 / 614 s) vs 11.0 + 12.3 min with 627 as is and 9.6 + 10.5 min before 627; 3-unit edit 22 s. Costs: (1) the flush holds an exclusive lock on statistical_unit for its whole length, 6.0-6.3 min on a 50% change, so search waits instead of running; (2) a full recalculation stages every row, unchanged ones too, so the prototype rebuilt needlessly: 9.9 min vs 7.5 min. A real version would count changed rows, not staged rows. Not proposed for code until the owner weighs the blocked-search window.
 
 Turnover check (rune, read-only): stat_definition turnover enabled = false, 0 units carry it, so the search page does not offer the turnover sort or filter on rune; the 0.6-3.7 s probe numbers measured a column rune does not use. With turnover enabled, admin.generate_statistical_unit_jsonb_indices builds su_ss_turnover_sum_asc_idx/_desc_idx as for employees. Nothing to fix.
+
+Owner 2026-11-13 10:46: release 627 as it is. Hold lifted.
 <!-- SECTION:NOTES:END -->
