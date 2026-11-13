@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-13T11:07:00Z'
+updated_date: '2026-11-13T11:16:00Z'
 labels:
   - import
   - performance
@@ -178,4 +178,6 @@ Closing review for the withdrawal step: documentation updated (combined-review m
 Round 4 serial: import 9,029 s (150 min) + recalc 1,225 s (20 min). ABBA result: serial 160 / 150 min import (mean 155), concurrent 173 / 168 min (mean 171); recalc 20 / 20 vs 19 / 19 min. Four import workers are ~15 min (10 %) slower on this 8-core box, all four rounds 0 failed tasks.
 
 Owner decision November 13, 2026 at 10:59 and 11:04 UTC: stop and discard the concurrent-import approach, and retain a durable rationale of what was tried and why it was rejected. Recorded in doc/performance/2026-11-concurrent-import-rejected.md and linked from the combined review. Serial 159.7/150.5 min, concurrent 173.3/168.3 min, no failed tasks. No claim of a diagnosed lock or completed normalized parity. No code revert or database deletion. Separate serial optimizations remain landed. Documentation verified against raw round logs and source ancestry; broader ticket deferred rather than falsely marked Done.
+
+Cleanup November 13, 2026 11:16 UTC, owner-authorized: dropped all 146 statbus_591_* scratch databases (143 inventoried plus three empty 591 bench templates, about 24.5 GB). Zero remained afterwards and none had sessions. Kept import_benchmark_97846 (serial result), import_benchmark_12794 (concurrent result) and import_benchmark_64469 (full register used by 598/599/605/612-615). Lists and logs: tmp/cleanup-591/.
 <!-- SECTION:NOTES:END -->
