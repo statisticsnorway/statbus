@@ -21,6 +21,7 @@ import { EditableFieldGroup } from "@/components/form/editable-field-group";
 import { SelectFormField } from "@/components/form/select-form-field";
 import { useDetailsPageData } from "@/atoms/edits";
 import { countryOptions } from "@/components/form/country-options";
+import { codeListOptions } from "@/components/form/code-list-options";
 import { useSWRConfig } from "swr";
 import { EditableImageFieldWithMetadata } from "@/components/form/editable-image-field-with-metadata";
 import { useClientReady } from "@/hooks/use-client-ready";
@@ -78,10 +79,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     (loc) => loc.type === "physical"
   );
 
-  const regionOptions = regions.map((region) => ({
-    value: region.id,
-    label: `${region.code} ${region.name}`,
-  }));
+  const regionOptions = codeListOptions(regions, { optional: true });
   const countriesOptions = countryOptions(countries, domesticCountryId);
 
   return (

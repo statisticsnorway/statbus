@@ -5,6 +5,7 @@ import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { useActionState, useEffect } from "react";
 import { updateEstablishment } from "../update-establishment-server-actions";
 import { useDetailsPageData } from "@/atoms/edits";
+import { codeListOptions } from "@/components/form/code-list-options";
 import { EditableFieldGroup } from "@/components/form/editable-field-group";
 import { SelectFormField } from "@/components/form/select-form-field";
 import { DEMOGRAPHIC_COLUMNS } from "@/components/form/read-edit-range";
@@ -32,10 +33,7 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
     value: s.id,
     label: `${s.name}`,
   }));
-  const unitSizeOptions = unitSizes.map((unitSize) => ({
-    value: unitSize.id!,
-    label: `${unitSize.name}`,
-  }));
+  const unitSizeOptions = codeListOptions(unitSizes, { optional: true, showCode: false });
   return (
     <EditableFieldGroup
       key={establishment?.id}

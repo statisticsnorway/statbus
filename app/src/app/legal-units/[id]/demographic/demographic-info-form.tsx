@@ -8,6 +8,7 @@ import { updateLegalUnit } from "../update-legal-unit-server-actions";
 import { useDetailsPageData } from "@/atoms/edits";
 import { SelectFormField } from "@/components/form/select-form-field";
 import { DEMOGRAPHIC_COLUMNS } from "@/components/form/read-edit-range";
+import { codeListOptions } from "@/components/form/code-list-options";
 
 export default function DemographicInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
@@ -32,10 +33,7 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
     value: s.id,
     label: `${s.name}`,
   }));
-  const unitSizeOptions = unitSizes.map((unitSize) => ({
-    value: unitSize.id!,
-    label: `${unitSize.name}`,
-  }));
+  const unitSizeOptions = codeListOptions(unitSizes, { optional: true, showCode: false });
 
   return (
     <EditableFieldGroup

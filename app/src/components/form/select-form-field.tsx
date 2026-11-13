@@ -24,6 +24,8 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 interface Option {
   value: number | string;
   label: string;
+  /** A heading in the list (a code list row without a code): shown, not chosen. */
+  disabled?: boolean;
 }
 
 interface SelectFormFieldProps {
@@ -94,6 +96,7 @@ export function SelectFormField({
                   <CommandItem
                     key={option.value}
                     value={option.label}
+                    disabled={option.disabled}
                     onSelect={() => {
                       setSelectedValue(option.value);
                       setOpen(false);

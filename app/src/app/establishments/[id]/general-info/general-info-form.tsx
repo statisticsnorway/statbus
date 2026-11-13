@@ -17,6 +17,7 @@ import {
 import { updateLocation } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { useDetailsPageData } from "@/atoms/edits";
 import { countryOptions } from "@/components/form/country-options";
+import { codeListOptions } from "@/components/form/code-list-options";
 import { useSWRConfig } from "swr";
 import { EditableFieldWithMetadata } from "@/components/form/editable-field-with-metadata";
 import { SelectFormField } from "@/components/form/select-form-field";
@@ -73,10 +74,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const physicalLocation = establishment?.location?.find(
     (loc) => loc.type === "physical"
   );
-  const regionOptions = regions.map((region) => ({
-    value: region.id,
-    label: `${region.code} ${region.name}`,
-  }));
+  const regionOptions = codeListOptions(regions, { optional: true });
   const countriesOptions = countryOptions(countries, domesticCountryId);
 
   return (

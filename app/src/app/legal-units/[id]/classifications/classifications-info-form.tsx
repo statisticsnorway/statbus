@@ -8,6 +8,7 @@ import {
 } from "../update-legal-unit-server-actions";
 import { useDetailsPageData } from "@/atoms/edits";
 import { EditableSelectWithMetadata } from "@/components/form/editable-field-with-select";
+import { codeListOptions } from "@/components/form/code-list-options";
 
 export default function ClassificationsInfoForm({
   id,
@@ -74,14 +75,8 @@ export default function ClassificationsInfoForm({
       disabled: parentPaths.has(activityCategory.path),
     };
   });
-  const legalFormOptions = legalForms.map((legalForm) => ({
-    value: legalForm.id!,
-    label: `${legalForm.code} ${legalForm.name}`,
-  }));
-  const sectorOptions = sectors.map((sector) => ({
-    value: sector.id!,
-    label: `${sector.code} ${sector.name}`,
-  }));
+  const legalFormOptions = codeListOptions(legalForms, { optional: true });
+  const sectorOptions = codeListOptions(sectors, { optional: true });
 
   return (
     <div>
