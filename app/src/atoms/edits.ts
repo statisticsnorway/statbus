@@ -25,7 +25,10 @@ export interface EditTarget {
   shownValue?: unknown;
   /**
    * Remove mode (STATBUS-611): the ticked timeline pieces, by index into the
-   * field's pieces per frame. Absent or null: the edit changes values (Save).
+   * field's pieces per frame. Entering the Timeline in Remove mode ticks the
+   * pieces inside the Frame view's frame or dates; going back to the Frame
+   * view drops the ticks (owner 2026-11-13). Absent or null: the edit changes
+   * values (Save).
    */
   removing?: number[] | null;
   /**
@@ -113,14 +116,18 @@ export const setEditRemovingAtom = atom(
   }
 );
 
-/** Sets the panel's view; Remove mode stays on, with no pieces ticked in the Timeline. */
+/**
+ * Sets the panel's view. In Remove mode the ticks are given by the caller: the
+ * Timeline starts from the Frame view's period (piecesInPeriod); the Frame
+ * view drops them and shows its own frame or dates again.
+ */
 export const setEditViewAtom = atom(
   null,
-  (get, set, view: "frame" | "timeline") => {
+  (get, set, view: "frame" | "timeline", removing?: number[]) => {
     set(currentEditAtom, (prev) => ({
       ...prev,
       view,
-      removing: prev.removing != null ? [] : prev.removing,
+      removing: prev.removing != null ? (removing ?? []) : prev.removing,
     }));
   }
 );

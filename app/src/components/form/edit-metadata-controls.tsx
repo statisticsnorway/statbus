@@ -18,7 +18,15 @@ import { opensInTimeline, periodsInRange, selectionRange, toggleSelection } from
 import { TimelineSkeleton, useUnitExistence } from "./timeline-skeleton-view";
 import { skeletonPieces, skeletonSelectionRange } from "./timeline-skeleton";
 import { capToExistence } from "./unit-existence";
-import { FrameRemovalSummary, isRemovable, RemovalTimeline, TickAllPieces } from "./remove-record-button";
+import {
+  FrameRemovalSummary,
+  isRemovable,
+  RemovalTimeline,
+  TickAllPieces,
+  useFrameRemovalPeriod,
+  useRemovalPieces,
+} from "./remove-record-button";
+import { piecesInPeriod } from "./removal";
 import { cn } from "@/lib/utils";
 
 interface EditMetadataControlsProps {
@@ -116,8 +124,19 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
     "EditMetadataControls:capFirstValueToUnit"
   );
 
-  // Changing view keeps Change or Remove; Remove's ticks start over.
-  const handleModeChange = (next: TimeFramePanelMode) => setEditView(next);
+  // Changing view keeps Change or Remove (owner 2026-11-13). Removing, the
+  // Timeline starts with the pieces inside the Frame view's frame or dates
+  // ticked; back in the Frame view the ticks are dropped and its own frame or
+  // dates show again.
+  const { pieces: removalPieces } = useRemovalPieces(currentEdit.source);
+  const frameRemoval = useFrameRemovalPeriod();
+  const handleModeChange = (next: TimeFramePanelMode) =>
+    setEditView(
+      next,
+      next === "timeline" && frameRemoval.validFrom
+        ? piecesInPeriod(removalPieces, frameRemoval.validFrom, frameRemoval.validTo)
+        : undefined
+    );
   const removing = currentEdit.removing != null;
   const canRemove = isRemovable(currentEdit.source) && loaded && periods.length > 0;
   // Change | Remove, on the panel's heading line (owner 2026-11-13), for both
@@ -144,7 +163,16 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
               role="radio"
               aria-checked={on}
               data-change-remove={value}
-              onClick={() => !on && setEditRemoving(value === "remove" ? [] : null)}
+              onClick={() =>
+                !on &&
+                setEditRemoving(
+                  value === "remove"
+                    ? mode === "timeline" && frameRemoval.validFrom
+                      ? piecesInPeriod(removalPieces, frameRemoval.validFrom, frameRemoval.validTo)
+                      : []
+                    : null
+                )
+              }
               className={cn(
                 "rounded px-2 py-0.5 text-zinc-600 transition-colors",
                 on && value === "remove" && "bg-red-700 font-medium text-white shadow-sm",

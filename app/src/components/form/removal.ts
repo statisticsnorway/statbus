@@ -105,3 +105,20 @@ export function removalPatch(run: RemovalRun): {
     valid_until: run.validTo === null ? INFINITY : shiftDay(run.validTo, 1),
   };
 }
+
+/**
+ * Remove mode's Timeline starts from the Frame view's choice (owner
+ * 2026-11-13): the pieces (one per frame) lying wholly inside [validFrom,
+ * validTo] are ticked; a piece the dates only cut through is not, since a
+ * piece is removed whole. validTo null is open-ended.
+ */
+export function piecesInPeriod(
+  pieces: readonly { valid_from: string; valid_to: string }[],
+  validFrom: string,
+  validTo: string | null
+): number[] {
+  const end = validTo ?? INFINITY;
+  return pieces.flatMap((p, i) =>
+    p.valid_from >= validFrom && !before(end, p.valid_to) ? [i] : []
+  );
+}

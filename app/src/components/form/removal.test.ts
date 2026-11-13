@@ -1,4 +1,4 @@
-import { removalPatch, removalRuns, removalSummary } from "./removal";
+import { piecesInPeriod, removalPatch, removalRuns, removalSummary } from "./removal";
 import type { TimelinePeriod } from "./field-timeline";
 
 // Remove mode ticks pieces of the timeline, one per frame; each unbroken run of
@@ -109,5 +109,28 @@ describe("removalPatch", () => {
       valid_from: "2026-01-01",
       valid_until: "infinity",
     });
+  });
+});
+
+// Remove mode's Timeline starts from the Frame view's choice (owner 2026-11-13):
+// the frame or dates chosen there tick the pieces inside them.
+const framePieces = [
+  { valid_from: "2024-01-01", valid_to: "2024-12-31" },
+  { valid_from: "2025-01-01", valid_to: "2025-12-31" },
+  { valid_from: "2026-01-01", valid_to: "infinity" },
+];
+
+describe("piecesInPeriod", () => {
+  it("ticks the pieces inside a frame's period", () => {
+    expect(piecesInPeriod(framePieces, "2025-01-01", "2025-12-31")).toEqual([1]);
+    expect(piecesInPeriod(framePieces, "2026-01-01", null)).toEqual([2]);
+  });
+
+  it("ticks every piece inside dates spanning several frames", () => {
+    expect(piecesInPeriod(framePieces, "2024-01-01", "2025-12-31")).toEqual([0, 1]);
+  });
+
+  it("leaves a piece the dates cut through unticked", () => {
+    expect(piecesInPeriod(framePieces, "2025-06-01", null)).toEqual([2]);
   });
 });

@@ -176,11 +176,27 @@ export function TickAllPieces() {
  * frame, or the specific dates) as one run, with the parts of the record's
  * values inside it (removalSummary). "all" when nothing would stay.
  */
-export function useRemoval(source: EditFieldSource | undefined) {
+/**
+ * The period Remove takes out in the Frame view: the chosen frame's own
+ * period, or the specific dates typed. validTo null is open-ended.
+ */
+export function useFrameRemovalPeriod(): { validFrom: string | null; validTo: string | null } {
   const { currentEdit } = useEditManager();
   const { timeFrames } = useTimeFrame();
+  const frame =
+    currentEdit.validityChoice !== "dates"
+      ? timeFrames.find((tf) => tf.ident === currentEdit.frameIdent)
+      : undefined;
+  if (frame)
+    return { validFrom: frame.valid_from, validTo: frame.valid_to === "infinity" ? null : frame.valid_to };
+  return { validFrom: currentEdit.validFrom ?? null, validTo: currentEdit.validTo ?? null };
+}
+
+export function useRemoval(source: EditFieldSource | undefined) {
+  const { currentEdit } = useEditManager();
   const { periods } = useFieldTimeline(source);
   const { pieces } = useRemovalPieces(source);
+  const { validFrom: from, validTo: to } = useFrameRemovalPeriod();
   if (currentEdit.view === "timeline") {
     const ticked = currentEdit.removing ?? [];
     const removed = [...ticked]
@@ -195,12 +211,6 @@ export function useRemoval(source: EditFieldSource | undefined) {
     };
   }
   // Frame: the frame's own period; Specific dates: the dates typed.
-  const frame =
-    currentEdit.validityChoice !== "dates"
-      ? timeFrames.find((tf) => tf.ident === currentEdit.frameIdent)
-      : undefined;
-  const from = frame?.valid_from ?? currentEdit.validFrom;
-  const to = frame ? (frame.valid_to === "infinity" ? null : frame.valid_to) : currentEdit.validTo;
   if (!from) return { runs: [], removed: [], kept: [] as RemovalPiece[], all: false };
   const { removed, kept } = removalSummary(periods, from, to);
   return {
