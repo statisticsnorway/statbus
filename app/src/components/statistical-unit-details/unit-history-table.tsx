@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useMemo } from "react";
 import { UnitHistoryExportButton } from "./unit-history-export-button";
+import { changedCells } from "./history-changes";
 
 type CodeName = { code: string | null; name: string } | null;
 
@@ -32,6 +33,11 @@ type Column = {
   header: string;
   cellClassName?: string;
   render: (unit: UnitHistory) => React.ReactNode;
+  /**
+   * The value a cell is compared on with the row above (see changedCells).
+   * Columns without one (the row's own date and edit) always show in full.
+   */
+  compare?: (unit: UnitHistory) => unknown;
 };
 
 export default function UnitHistoryTable({
@@ -52,31 +58,48 @@ export default function UnitHistoryTable({
   const columns = useMemo<Column[]>(
     () => [
       { header: "Valid from", render: (u) => u.valid_from },
-      { header: "Name", render: (u) => u.name },
+      { header: "Name", render: (u) => u.name, compare: (u) => u.name },
       {
         header: "Primary Activity",
         render: (u) => <CodeNameCell item={u.primary_activity_category} />,
+        compare: (u) => u.primary_activity_category,
       },
       {
         header: "Region",
         render: (u) => <CodeNameCell item={u.physical_region} />,
+        compare: (u) => u.physical_region,
       },
-      { header: "Status", render: (u) => u.status?.name },
+      {
+        header: "Status",
+        render: (u) => u.status?.name,
+        compare: (u) => u.status,
+      },
       ...statDefinitions.map(
         (sd): Column => ({
           header: sd.name ?? "",
           render: (u) => u.stats?.[sd.code!]?.value,
+          compare: (u) => u.stats?.[sd.code!]?.value,
         })
       ),
-      { header: "Unit size", render: (u) => u.unit_size_code },
+      {
+        header: "Unit size",
+        render: (u) => u.unit_size_code,
+        compare: (u) => u.unit_size_code,
+      },
       {
         header: "Secondary Activity",
         render: (u) => <CodeNameCell item={u.secondary_activity_category} />,
+        compare: (u) => u.secondary_activity_category,
       },
-      { header: "Sector", render: (u) => <CodeNameCell item={u.sector} /> },
+      {
+        header: "Sector",
+        render: (u) => <CodeNameCell item={u.sector} />,
+        compare: (u) => u.sector,
+      },
       {
         header: "Legal Form",
         render: (u) => <CodeNameCell item={u.legal_form} />,
+        compare: (u) => u.legal_form,
       },
       {
         header: "Physical Address",
@@ -99,6 +122,14 @@ export default function UnitHistoryTable({
             />
           </>
         ),
+        compare: (u) => [
+          u.physical_address_part1,
+          u.physical_address_part2,
+          u.physical_address_part3,
+          u.physical_postcode,
+          u.physical_postplace,
+          u.physical_country_iso_2,
+        ],
       },
       {
         header: "Coordinates",
@@ -109,6 +140,11 @@ export default function UnitHistoryTable({
             alt={u.physical_altitude}
           />
         ),
+        compare: (u) => [
+          u.physical_latitude,
+          u.physical_longitude,
+          u.physical_altitude,
+        ],
       },
       {
         header: "Postal Address",
@@ -131,16 +167,49 @@ export default function UnitHistoryTable({
             />
           </>
         ),
+        compare: (u) => [
+          u.postal_address_part1,
+          u.postal_address_part2,
+          u.postal_address_part3,
+          u.postal_postcode,
+          u.postal_postplace,
+          u.postal_country_iso_2,
+        ],
       },
-      { header: "Email address", render: (u) => u.email_address },
-      { header: "Web address", render: (u) => u.web_address },
-      { header: "Phone number", render: (u) => u.phone_number },
-      { header: "Landline", render: (u) => u.landline },
-      { header: "Mobile number", render: (u) => u.mobile_number },
-      { header: "Fax number", render: (u) => u.fax_number },
+      {
+        header: "Email address",
+        render: (u) => u.email_address,
+        compare: (u) => u.email_address,
+      },
+      {
+        header: "Web address",
+        render: (u) => u.web_address,
+        compare: (u) => u.web_address,
+      },
+      {
+        header: "Phone number",
+        render: (u) => u.phone_number,
+        compare: (u) => u.phone_number,
+      },
+      {
+        header: "Landline",
+        render: (u) => u.landline,
+        compare: (u) => u.landline,
+      },
+      {
+        header: "Mobile number",
+        render: (u) => u.mobile_number,
+        compare: (u) => u.mobile_number,
+      },
+      {
+        header: "Fax number",
+        render: (u) => u.fax_number,
+        compare: (u) => u.fax_number,
+      },
       {
         header: "Data source",
         render: (u) => u.data_source_codes?.join(", "),
+        compare: (u) => u.data_source_codes,
       },
       {
         header: "Last edit",
@@ -162,6 +231,16 @@ export default function UnitHistoryTable({
     [statDefinitions, usersById]
   );
 
+  // Cells repeating the row above are dimmed, so each row shows what changed (owner 2026-11-13).
+  const changed = useMemo(
+    () =>
+      changedCells(
+        unitHistory ?? [],
+        columns.map((col) => col.compare)
+      ),
+    [unitHistory, columns]
+  );
+
   if (!unitHistory) return null;
 
   return (
@@ -178,7 +257,7 @@ export default function UnitHistoryTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {unitHistory.map((unit) => (
+          {unitHistory.map((unit, row) => (
             <TableRow
               className={unit.used_for_counting ? "" : "italic text-gray-500"}
               key={unit.valid_from}
@@ -186,7 +265,11 @@ export default function UnitHistoryTable({
               {columns.map((col, i) => (
                 <TableCell
                   key={`${col.header}-${i}`}
-                  className={col.cellClassName}
+                  className={cn(
+                    col.cellClassName,
+                    !changed[row][i] && "opacity-35"
+                  )}
+                  data-changed={changed[row][i] ? "" : undefined}
                 >
                   {col.render(unit)}
                 </TableCell>
