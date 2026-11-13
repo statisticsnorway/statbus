@@ -87,3 +87,21 @@ export function removalRuns(
   }
   return runs.map((r) => ({ validFrom: r.validFrom, validTo: r.validTo === INFINITY ? null : r.validTo }));
 }
+
+/**
+ * The PostgREST body that removes one run through a record's for_portion_of
+ * view: sql_saga 1.5's delete protocol, UPDATE ... SET id = NULL, valid_from,
+ * valid_until (STATBUS-611). valid_until is exclusive, so a closed run ends
+ * the day after its last day; an open-ended run ends at infinity.
+ */
+export function removalPatch(run: RemovalRun): {
+  id: null;
+  valid_from: string;
+  valid_until: string;
+} {
+  return {
+    id: null,
+    valid_from: run.validFrom,
+    valid_until: run.validTo === null ? INFINITY : shiftDay(run.validTo, 1),
+  };
+}

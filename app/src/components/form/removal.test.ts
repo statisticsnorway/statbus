@@ -1,4 +1,4 @@
-import { removalRuns, removalSummary } from "./removal";
+import { removalPatch, removalRuns, removalSummary } from "./removal";
 import type { TimelinePeriod } from "./field-timeline";
 
 // Remove mode ticks pieces of the timeline, one per frame; each unbroken run of
@@ -87,6 +87,27 @@ describe("removalSummary", () => {
     expect(removalSummary([period("2026-01-01", "infinity", "PO Box 200")], "2024-01-01", "2025-12-31")).toEqual({
       removed: [],
       kept: [{ valid_from: "2026-01-01", valid_to: "infinity", values: { address_part1: "PO Box 200" } }],
+    });
+  });
+});
+
+// sql_saga 1.5's delete protocol on the for_portion_of view (STATBUS-611):
+// PATCH ?id=eq.N {"id": null, "valid_from": S, "valid_until": E}, with E
+// exclusive; a run's validTo is inclusive and null when open-ended.
+describe("removalPatch", () => {
+  it("ends the removal the day after a closed run's last day", () => {
+    expect(removalPatch({ validFrom: "2024-01-01", validTo: "2024-12-31" })).toEqual({
+      id: null,
+      valid_from: "2024-01-01",
+      valid_until: "2025-01-01",
+    });
+  });
+
+  it("removes an open-ended run up to infinity", () => {
+    expect(removalPatch({ validFrom: "2026-01-01", validTo: null })).toEqual({
+      id: null,
+      valid_from: "2026-01-01",
+      valid_until: "infinity",
     });
   });
 });

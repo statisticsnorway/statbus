@@ -14,6 +14,7 @@ import {
 } from "@/components/form/helper-functions";
 import { describeInvalidForm, type EditSchema } from "@/components/form/metadata-validation";
 import { capToExistence, unitExistence, type UnitRow } from "@/components/form/unit-existence";
+import { removalPatch } from "@/components/form/removal";
 
 export async function getEditMetadata(client: Awaited<ReturnType<typeof getServerRestClient>>) {
   const { data } = await client.rpc("auth_status", {}, { get: true });
@@ -498,10 +499,9 @@ export interface RemoveTemporalRecordArgs {
  * each of the given stretches (the Timeline's Remove mode, STATBUS-611). Rows a
  * stretch cuts through are split, so the record stays outside it. All stretches
  * are removed in one request each, in time order; the first refusal stops. This
- * is the one call Remove makes, so its backend can change without the form:
- * PROTOTYPE: calls public.remove_for_portion_of (tmp/611-remove-prototype.sql,
- * local dev database only). It becomes the for_portion_of view's delete
- * protocol, PATCH {id: null, valid_from, valid_until} (sql_saga, STATBUS-611).
+ * is the one call Remove makes: a PATCH of the record's for_portion_of view,
+ * {id: null, valid_from, valid_until} (sql_saga 1.5's delete protocol,
+ * removalPatch).
  */
 export async function removeTemporalRecord({
   table,
@@ -530,12 +530,10 @@ export async function removeTemporalRecord({
     for (const recordId of ids) {
       for (const run of runs) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (client as any).rpc("remove_for_portion_of", {
-          table_name: table,
-          record_id: recordId,
-          valid_from: run.validFrom,
-          valid_to: run.validTo ?? "infinity",
-        });
+        const { error } = await (client as any)
+          .from(`${table}__for_portion_of_valid`)
+          .update(removalPatch(run))
+          .eq("id", recordId);
         if (error) return { status: "error", message: error.message };
       }
     }
