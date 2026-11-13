@@ -122,3 +122,29 @@ export function piecesInPeriod(
     p.valid_from >= validFrom && !before(end, p.valid_to) ? [i] : []
   );
 }
+
+/**
+ * The words on Remove's red button and dialog title: what goes, then where
+ * from (owner 2026-11-13). The record is the field group's own name, e.g.
+ * "contact"; the scope is the chosen frame, the one stretch of dates, a count
+ * of periods when the ticks leave gaps, or "entirely" when nothing stays.
+ */
+export function removalCaption({
+  record,
+  frameName,
+  runs,
+  all,
+}: {
+  record: string;
+  frameName?: string | null;
+  runs: readonly RemovalRun[];
+  all: boolean;
+}): { action: string; scope: string | null } {
+  const action = `Remove ${record}`;
+  if (runs.length === 0) return { action, scope: null };
+  if (all) return { action, scope: "entirely" };
+  if (frameName) return { action, scope: `from ${frameName}` };
+  if (runs.length > 1) return { action, scope: `for ${runs.length} periods` };
+  const [run] = runs;
+  return { action, scope: `for ${run.validFrom} – ${run.validTo ?? "Present"}` };
+}

@@ -1,4 +1,4 @@
-import { piecesInPeriod, removalPatch, removalRuns, removalSummary } from "./removal";
+import { piecesInPeriod, removalCaption, removalPatch, removalRuns, removalSummary } from "./removal";
 import type { TimelinePeriod } from "./field-timeline";
 
 // Remove mode ticks pieces of the timeline, one per frame; each unbroken run of
@@ -132,5 +132,44 @@ describe("piecesInPeriod", () => {
 
   it("leaves a piece the dates cut through unticked", () => {
     expect(piecesInPeriod(framePieces, "2025-06-01", null)).toEqual([2]);
+  });
+});
+
+// The red button and the dialog title name what goes, then where from (owner
+// 2026-11-13: "Remove Live frame (2026)" read as removing the frame itself).
+describe("removalCaption", () => {
+  it("removes the record from a chosen frame", () => {
+    expect(
+      removalCaption({ record: "contact", frameName: "Live frame (2026)", runs: [{ validFrom: "2026-01-01", validTo: null }], all: false })
+    ).toEqual({ action: "Remove contact", scope: "from Live frame (2026)" });
+  });
+
+  it("removes the record for one stretch of dates", () => {
+    expect(
+      removalCaption({ record: "postal location", runs: [{ validFrom: "2025-01-01", validTo: "2025-12-31" }], all: false })
+    ).toEqual({ action: "Remove postal location", scope: "for 2025-01-01 – 2025-12-31" });
+  });
+
+  it("counts the periods when the ticks leave a gap", () => {
+    expect(
+      removalCaption({
+        record: "employees",
+        runs: [
+          { validFrom: "2024-01-01", validTo: "2024-12-31" },
+          { validFrom: "2026-01-01", validTo: null },
+        ],
+        all: false,
+      })
+    ).toEqual({ action: "Remove employees", scope: "for 2 periods" });
+  });
+
+  it("says entirely when nothing stays", () => {
+    expect(
+      removalCaption({ record: "contact", frameName: "Live frame (2026)", runs: [{ validFrom: "2024-01-01", validTo: null }], all: true })
+    ).toEqual({ action: "Remove contact", scope: "entirely" });
+  });
+
+  it("has no scope while nothing is chosen", () => {
+    expect(removalCaption({ record: "contact", runs: [], all: false })).toEqual({ action: "Remove contact", scope: null });
   });
 });

@@ -26,7 +26,7 @@ import {
   frameSegments,
   type TimelinePeriod,
 } from "./field-timeline";
-import { removalRuns, removalSummary, type RemovalPiece, type RemovalRun } from "./removal";
+import { removalCaption, removalRuns, removalSummary, type RemovalPiece } from "./removal";
 import type { EditFieldSource } from "./read-edit-range";
 
 /** The tables whose rows are records a unit has, which Remove can take away (STATBUS-611). */
@@ -42,7 +42,6 @@ export function isRemovable(
 
 const formatEnd = (to: string | null | undefined) =>
   !to || to === "infinity" ? "Present" : to;
-const runLabel = (r: RemovalRun) => `${r.validFrom} – ${formatEnd(r.validTo)}`;
 
 /**
  * The pieces Remove mode offers: the field's timeline split at every frame
@@ -287,13 +286,12 @@ export function RemoveRecordAction({ label }: { label: string }) {
     currentEdit.view !== "timeline" && currentEdit.validityChoice !== "dates"
       ? timeFrames.find((tf) => tf.ident === currentEdit.frameIdent)?.name
       : undefined;
-  const caption = all
-    ? "Remove all"
-    : runs.length === 0
-      ? "Remove"
-      : frameName
-        ? `Remove ${frameName}`
-        : `Remove ${runs.map(runLabel).join(", ")}`;
+  const { action, scope } = removalCaption({
+    record: label.toLowerCase(),
+    frameName,
+    runs,
+    all,
+  });
 
   const confirm = () => {
     startTransition(async () => {
@@ -324,14 +322,16 @@ export function RemoveRecordAction({ label }: { label: string }) {
 
   return (
     <>
+      {/* What goes, then where from; the scope takes a second line (owner 2026-11-13). */}
       <Button
         type="button"
-        className="bg-red-700 text-white hover:bg-red-800"
+        className="h-auto flex-col items-end gap-0 bg-red-700 py-1.5 text-white hover:bg-red-800"
         disabled={runs.length === 0 || pending}
         onClick={() => setOpen(true)}
         data-remove-record=""
       >
-        {caption}
+        <span className="leading-tight">{action}</span>
+        {scope && <span className="text-xs font-normal leading-tight opacity-90">{scope}</span>}
       </Button>
       {open && (
         <AlertDialog
@@ -341,9 +341,7 @@ export function RemoveRecordAction({ label }: { label: string }) {
           <AlertDialogContent data-remove-confirmation="">
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {all
-                  ? `Remove the ${label.toLowerCase()} completely?`
-                  : `Remove from ${label.toLowerCase()}?`}
+                {action} {scope}?
               </AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div className="space-y-3 text-sm">
