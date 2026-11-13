@@ -3,7 +3,7 @@
 import { useEditManager } from "@/atoms/edits";
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { SubmissionFeedbackDebugInfo } from "./submission-feedback-debug-info";
 import { useStartEdit } from "./use-start-edit";
 import type { EditFieldSource } from "./read-edit-range";
@@ -11,8 +11,19 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { EditMetadataControls } from "./edit-metadata-controls";
 import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
-import { FieldTimelineButton } from "./field-timeline-view";
+import { FieldTimelineButton, useFieldTimeline } from "./field-timeline-view";
 import { RemoveRecordAction } from "./remove-record-button";
+import { periodsInRange } from "./field-timeline";
+import { editStartValues } from "./edit-values";
+
+/**
+ * A field's value in the form: while editing, the ticked stretch's own value
+ * for the column (editStartValues); otherwise the value shown on the page.
+ */
+export type FieldValueOf = (
+  column: string,
+  shown: string | number | null | undefined
+) => string | number | null | undefined;
 
 interface EditableFieldGroupProps {
   fieldGroupId: string;
@@ -24,7 +35,10 @@ interface EditableFieldGroupProps {
   editSource?: EditFieldSource;
   /** The group's shown values by column, compared with editSource's rows. */
   shownValues?: object;
-  children: (props: { isEditing: boolean }) => React.ReactNode;
+  children: (props: {
+    isEditing: boolean;
+    valueOf: FieldValueOf;
+  }) => React.ReactNode;
   hiddenFields?: Record<string, string | number>;
 }
 
@@ -43,9 +57,35 @@ export function EditableFieldGroup({
   const formRef = useRef<HTMLFormElement>(null);
   const [formKey, setFormKey] = useState(0);
 
-  const { currentEdit, exitEditMode } = useEditManager();
+  const { currentEdit, exitEditMode, setEditDataSourceId } = useEditManager();
 
   const isEditing = currentEdit?.fieldId === fieldGroupId;
+
+  // The edit writes every field over the ticked stretch, so the fields start
+  // from that stretch's own values and data source, not the page's (Live's).
+  // A field the user leaves alone then keeps its value (owner 2026-11-13).
+  const { periods } = useFieldTimeline(isEditing ? editSource : undefined);
+  const ticked = isEditing
+    ? periodsInRange(periods, currentEdit.validFrom, currentEdit.validTo)
+    : [];
+  const tickedKey = ticked.join(",");
+  const start = useMemo(
+    () => editStartValues(periods, ticked),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [periods, tickedKey]
+  );
+  const valueOf: FieldValueOf = (column, shown) =>
+    isEditing && start && column in start.values
+      ? (start.values[column] as string | number | null)
+      : shown;
+  useGuardedEffect(
+    () => {
+      if (isEditing && start)
+        setEditDataSourceId(start.dataSourceId?.toString() ?? null);
+    },
+    [isEditing, tickedKey, start],
+    "EditableFieldGroup:dataSourceFromTicked"
+  );
   // Remove mode (the Timeline's Change | Remove switch): the fields are not
   // changed, so they are greyed, and the red Remove takes Save's place.
   const removing = isEditing && currentEdit.removing != null;
@@ -98,14 +138,18 @@ export function EditableFieldGroup({
         <div className="flex items-center">
           <span className="font-medium">{title}</span>
           {metadata && <MetadataTooltip metadata={metadata} />}
-          {editSource && <FieldTimelineButton source={editSource} label={title} />}
+          {editSource && (
+            <FieldTimelineButton source={editSource} label={title} />
+          )}
         </div>
         {!isEditing && (
           <EditButton
             variant="ghost"
             size="icon"
             type="button"
-            onClick={() => startEdit(fieldGroupId, editSource, shownValues, metadata)}
+            onClick={() =>
+              startEdit(fieldGroupId, editSource, shownValues, metadata)
+            }
             className="h-8 w-8"
           >
             <Pencil className="h-4 w-4 text-zinc-700" />
@@ -113,9 +157,25 @@ export function EditableFieldGroup({
         )}
       </div>
 
-      <fieldset disabled={removing} className={removing ? "opacity-50" : undefined}>
-        {children({ isEditing })}
+      <fieldset
+        disabled={removing}
+        className={removing ? "opacity-50" : undefined}
+      >
+        {children({ isEditing, valueOf })}
       </fieldset>
+
+      {isEditing && !removing && start && start.differing.length > 0 && (
+        <p
+          className="text-sm text-amber-800"
+          data-edit-differing={start.differing.join(",")}
+        >
+          The ticked periods hold different values for{" "}
+          {start.differing.map((c) => c.replace(/_/g, " ")).join(", ")}. Saving
+          gives
+          {start.differing.length > 1 ? " each" : " it"} the value shown over
+          the whole stretch.
+        </p>
+      )}
 
       {isEditing && (
         <div className="space-y-2">
@@ -124,7 +184,11 @@ export function EditableFieldGroup({
             <Button variant="outline" type="button" onClick={handleCancel}>
               Cancel
             </Button>
-            {removing ? <RemoveRecordAction label={title} /> : <Button type="submit">Save</Button>}
+            {removing ? (
+              <RemoveRecordAction label={title} />
+            ) : (
+              <Button type="submit">Save</Button>
+            )}
           </div>
         </div>
       )}

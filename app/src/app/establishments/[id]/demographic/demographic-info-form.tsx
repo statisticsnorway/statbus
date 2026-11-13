@@ -49,12 +49,12 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
       }}
       shownValues={establishment ?? undefined}
     >
-      {({ isEditing }) => (
+      {({ isEditing, valueOf }) => (
         <div className="space-y-4">
           <SelectFormField
             label="Status"
             name="status_id"
-            value={establishment?.status?.id}
+            value={valueOf("status_id", establishment?.status?.id)}
             options={statusOptions}
             readonly={!isEditing}
             placeholder="Select a status"
@@ -62,21 +62,21 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
           <FormField
             label="Birth date"
             name="birth_date"
-            value={establishment?.birth_date}
+            value={valueOf("birth_date", establishment?.birth_date)}
             response={null}
             readonly={!isEditing}
           />
           <FormField
             label="Death date"
             name="death_date"
-            value={establishment?.death_date}
+            value={valueOf("death_date", establishment?.death_date)}
             response={null}
             readonly={!isEditing}
           />
           <SelectFormField
             label="Unit size"
             name="unit_size_id"
-            value={establishment?.unit_size_id}
+            value={valueOf("unit_size_id", establishment?.unit_size_id)}
             options={unitSizeOptions}
             readonly={!isEditing}
             placeholder="Select a unit size"
