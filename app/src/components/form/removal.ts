@@ -55,3 +55,35 @@ export function removalSummary(
   const order = (a: RemovalPiece, b: RemovalPiece) => (a.valid_from < b.valid_from ? -1 : 1);
   return { removed, kept: kept.sort(order) };
 }
+
+/** A stretch to remove: ISO dates inclusive, validTo null for open-ended. */
+export interface RemovalRun {
+  validFrom: string;
+  validTo: string | null;
+}
+
+/**
+ * The stretches Remove mode removes: the ticked pieces (one per frame, in time
+ * order) joined where one ends the day before the next begins. A gap between
+ * ticked pieces keeps them as separate stretches, so the removal leaves the
+ * unticked time in between (owner 2026-11-13).
+ */
+export function removalRuns(
+  pieces: readonly { valid_from: string; valid_to: string }[],
+  ticked: readonly number[]
+): RemovalRun[] {
+  const chosen = [...new Set(ticked)]
+    .map((i) => pieces[i])
+    .filter(Boolean)
+    .sort((a, b) => (a.valid_from < b.valid_from ? -1 : 1));
+  const runs: { validFrom: string; validTo: string }[] = [];
+  for (const p of chosen) {
+    const last = runs[runs.length - 1];
+    if (last && last.validTo !== INFINITY && shiftDay(last.validTo, 1) === p.valid_from) {
+      last.validTo = p.valid_to;
+    } else {
+      runs.push({ validFrom: p.valid_from, validTo: p.valid_to });
+    }
+  }
+  return runs.map((r) => ({ validFrom: r.validFrom, validTo: r.validTo === INFINITY ? null : r.validTo }));
+}

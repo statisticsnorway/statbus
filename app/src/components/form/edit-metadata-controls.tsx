@@ -18,6 +18,8 @@ import { opensInTimeline, periodsInRange, selectionRange, toggleSelection } from
 import { TimelineSkeleton, useUnitExistence } from "./timeline-skeleton-view";
 import { skeletonPieces, skeletonSelectionRange } from "./timeline-skeleton";
 import { capToExistence } from "./unit-existence";
+import { isRemovable, RemovalTimeline, TickAllPieces } from "./remove-record-button";
+import { cn } from "@/lib/utils";
 
 interface EditMetadataControlsProps {
   fieldId: string;
@@ -41,6 +43,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
     setEditComment,
     setEditValidFrom,
     setEditValidTo,
+    setEditRemoving,
   } = useEditManager();
   const { timeFrames } = useTimeFrame();
   const changeEditFrame = useChangeEditFrame();
@@ -110,10 +113,52 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   );
 
   // Simple always means a frame: the frame's dates come back.
+  // Leaving the Timeline view leaves Remove mode: the other views change values.
   const handleModeChange = (next: TimeFramePanelMode) => {
     setMode(next);
+    if (next !== "timeline" && currentEdit.removing) setEditRemoving(null);
     if (next === "simple") handleChoiceChange("frame");
   };
+  const removing = currentEdit.removing != null;
+  const canRemove = isRemovable(currentEdit.source) && loaded && periods.length > 0;
+  // Change | Remove, on the Timeline view's own line (owner 2026-11-13): Remove
+  // turns the timeline into pieces per frame to tick for removal.
+  const changeRemoveSwitch = canRemove ? (
+    <>
+      {removing && <TickAllPieces />}
+      <div
+        role="radiogroup"
+        aria-label="Change or remove"
+        className="inline-flex rounded-md border border-zinc-200 bg-zinc-100 p-0.5 text-xs"
+        data-change-remove-switch=""
+      >
+        {([
+          ["change", "Change"],
+          ["remove", "Remove"],
+        ] as const).map(([value, label]) => {
+          const on = (value === "remove") === removing;
+          return (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-change-remove={value}
+              onClick={() => !on && setEditRemoving(value === "remove" ? [] : null)}
+              className={cn(
+                "rounded px-2 py-0.5 text-zinc-600 transition-colors",
+                on && value === "remove" && "bg-red-700 font-medium text-white shadow-sm",
+                on && value === "change" && "bg-white font-medium text-zinc-900 shadow-sm",
+                !on && "hover:text-zinc-900"
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  ) : undefined;
   const handleChoiceChange = (next: ValidityChoice) => {
     setChoice(next);
     if (next === "frame" && currentEdit.frameIdent) void changeEditFrame(currentEdit.frameIdent);
@@ -196,8 +241,12 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         onCommentChange={setEditComment}
         formFields
         dateBounds={dateBounds}
+        timelineControls={changeRemoveSwitch}
+        hideMetadata={removing}
         timeline={
-          empty && pieces.length > 0 ? (
+          removing ? (
+            <RemovalTimeline />
+          ) : empty && pieces.length > 0 ? (
             <div className="space-y-1" data-edit-timeline="skeleton">
               <TimelineSkeleton
                 pieces={pieces}

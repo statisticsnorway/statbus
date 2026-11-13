@@ -1,5 +1,41 @@
-import { removalSummary } from "./removal";
+import { removalRuns, removalSummary } from "./removal";
 import type { TimelinePeriod } from "./field-timeline";
+
+// Remove mode ticks pieces of the timeline, one per frame; each unbroken run of
+// ticked pieces is one stretch to remove (owner 2026-11-13: gaps are allowed).
+const pieces = [
+  { valid_from: "2024-01-01", valid_to: "2024-12-31" },
+  { valid_from: "2025-01-01", valid_to: "2025-12-31" },
+  { valid_from: "2026-01-01", valid_to: "infinity" },
+];
+
+describe("removalRuns", () => {
+  it("joins neighbouring ticked pieces into one stretch", () => {
+    expect(removalRuns(pieces, [0, 1])).toEqual([{ validFrom: "2024-01-01", validTo: "2025-12-31" }]);
+  });
+
+  it("keeps a gap: each unbroken run is its own stretch, oldest first", () => {
+    expect(removalRuns(pieces, [2, 0])).toEqual([
+      { validFrom: "2024-01-01", validTo: "2024-12-31" },
+      { validFrom: "2026-01-01", validTo: null },
+    ]);
+  });
+
+  it("splits a run where the pieces are not adjacent in time", () => {
+    const apart = [
+      { valid_from: "2024-01-01", valid_to: "2024-06-30" },
+      { valid_from: "2025-01-01", valid_to: "2025-12-31" },
+    ];
+    expect(removalRuns(apart, [0, 1])).toEqual([
+      { validFrom: "2024-01-01", validTo: "2024-06-30" },
+      { validFrom: "2025-01-01", validTo: "2025-12-31" },
+    ]);
+  });
+
+  it("is empty when nothing is ticked", () => {
+    expect(removalRuns(pieces, [])).toEqual([]);
+  });
+});
 
 const period = (valid_from: string, valid_to: string, address: string): TimelinePeriod => ({
   valid_from,

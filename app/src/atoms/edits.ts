@@ -23,6 +23,11 @@ export interface EditTarget {
   editComment?: string | null;
   source?: import("@/components/form/read-edit-range").EditFieldSource;
   shownValue?: unknown;
+  /**
+   * Remove mode (STATBUS-611): the ticked timeline pieces, by index into the
+   * field's pieces per frame. Absent or null: the edit changes values (Save).
+   */
+  removing?: number[] | null;
 }
 
 export const initialEditAtom: EditTarget = {
@@ -92,6 +97,14 @@ export const setEditDataSourceIdAtom = atom(
   }
 );
 
+/** Turns Remove mode on (no pieces ticked), sets its ticks, or turns it off (null). */
+export const setEditRemovingAtom = atom(
+  null,
+  (get, set, removing: number[] | null) => {
+    set(currentEditAtom, (prev) => ({ ...prev, removing }));
+  }
+);
+
 export const setEditCommentAtom = atom(
   null,
   (get, set, comment: string | null) => {
@@ -108,6 +121,7 @@ export const useEditManager = () => {
   const doSetValidTo = useSetAtom(setEditValidToDateAtom);
   const doSetDataSourceId = useSetAtom(setEditDataSourceIdAtom);
   const doSetEditComment = useSetAtom(setEditCommentAtom);
+  const setEditRemoving = useSetAtom(setEditRemovingAtom);
   const setEditTarget = useCallback(
     (fieldId: string | null, options?: EditTargetOptions) => {
       doSetEditTarget(fieldId, options);
@@ -151,6 +165,7 @@ export const useEditManager = () => {
     setEditValidTo,
     setEditDataSourceId,
     setEditComment,
+    setEditRemoving,
   };
 };
 

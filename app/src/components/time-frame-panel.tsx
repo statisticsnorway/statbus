@@ -161,6 +161,16 @@ export interface TimeFramePanelProps {
   /** The Timeline view's body (an edit's field timeline). Absent, the view is not offered. */
   timeline?: React.ReactNode;
   /**
+   * Shown on the Timeline view's own line, right-aligned: the edit's
+   * Change | Remove switch and Tick all (STATBUS-611). Absent, no such line.
+   */
+  timelineControls?: React.ReactNode;
+  /**
+   * Hides Data source and Comment: a removal (Remove mode) stores no values, so
+   * it has none to describe (owner 2026-11-13: removal carries only the period).
+   */
+  hideMetadata?: boolean;
+  /**
    * The dates a change can have (an edit of a record: where its unit exists).
    * Advanced's date pickers offer only dates inside them. Absent, any date.
    */
@@ -206,6 +216,8 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
     onCommentChange,
     formFields,
     timeline,
+    timelineControls,
+    hideMetadata,
     dateBounds,
   } = props;
   const groups = groupTimeFrames(timeFrames, { forMenu: false });
@@ -284,7 +296,14 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
         </div>
 
         {mode === "timeline" && timeline ? (
-          timeline
+          <div className="space-y-1">
+            {timelineControls && (
+              <div className="flex items-center justify-end gap-3" data-timeline-controls="">
+                {timelineControls}
+              </div>
+            )}
+            {timeline}
+          </div>
         ) : !advanced ? (
           frameSelect
         ) : (
@@ -325,6 +344,7 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
         )}
       </div>
 
+      {!hideMetadata && (
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,18rem)_1fr]">
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-datasource`} className={headingClass}>
@@ -372,6 +392,7 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
           />
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useSWRConfig } from "swr";
 import {
   AlertDialog,
@@ -13,13 +13,20 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useEditManager } from "@/atoms/edits";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { framesNeedingConfirmation } from "@/lib/time-frame";
 import { removeTemporalRecord } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { useDescribeValue, useFieldTimeline } from "./field-timeline-view";
-import { removalSummary, type RemovalPiece } from "./removal";
+import {
+  frameMarker,
+  frameSegments,
+  type TimelinePeriod,
+} from "./field-timeline";
+import { removalRuns, type RemovalRun } from "./removal";
 import type { EditFieldSource } from "./read-edit-range";
 
 /** The tables whose rows are records a unit has, which Remove can take away (STATBUS-611). */
@@ -27,54 +34,188 @@ const REMOVABLE = ["contact", "location", "activity", "stat_for_unit"] as const;
 type Removable = (typeof REMOVABLE)[number];
 
 /** Whether the field is a record the unit has (a contact, a location), not a field of the unit itself. */
-export function isRemovable(source: EditFieldSource | undefined): source is EditFieldSource & { table: Removable } {
+export function isRemovable(
+  source: EditFieldSource | undefined
+): source is EditFieldSource & { table: Removable } {
   return !!source && (REMOVABLE as readonly string[]).includes(source.table);
 }
 
-const formatEnd = (to: string | null | undefined) => (!to || to === "infinity" ? "Present" : to);
+const formatEnd = (to: string | null | undefined) =>
+  !to || to === "infinity" ? "Present" : to;
+const runLabel = (r: RemovalRun) => `${r.validFrom} – ${formatEnd(r.validTo)}`;
 
 /**
- * Remove, beside Save in an edit of a record the unit has: takes the record
- * away over the edit's dates, the same stretch Save would change (the frame,
- * the ticked periods, or Advanced's dates). The button names the stretch.
- * It always asks first: the dialog lists what is removed and what stays
- * (removalSummary), and names the past frames the removal reaches into.
- * Confirm removes through removeTemporalRecord, closes the edit and re-reads
- * the page and the timeline.
+ * The pieces Remove mode offers: the field's timeline split at every frame
+ * boundary (frameSegments), so each frame's part of a value can be removed on
+ * its own, oldest first, each with its value.
  */
-export function RemoveRecordButton({ label }: { label: string }) {
+export function useRemovalPieces(source: EditFieldSource | undefined) {
+  const { periods, loaded } = useFieldTimeline(source);
+  const { timeFrames } = useTimeFrame();
+  const pieces = useMemo(
+    () =>
+      frameSegments(periods, timeFrames).map((s) => ({
+        valid_from: s.valid_from,
+        valid_to: s.valid_to,
+        frame: s.frame,
+        values: (periods[s.period] as TimelinePeriod).values,
+      })),
+    [periods, timeFrames]
+  );
+  return { pieces, loaded };
+}
+
+/**
+ * The Timeline view in Remove mode: one row per piece (a value's part in one
+ * frame), ticked to remove. A ticked piece turns red and its value is struck
+ * through. Gaps are allowed: each unbroken run of ticked pieces is removed on
+ * its own (removalRuns), so the time between them stays.
+ */
+export function RemovalTimeline() {
+  const { currentEdit, setEditRemoving } = useEditManager();
+  const describe = useDescribeValue();
+  const { pieces, loaded } = useRemovalPieces(currentEdit.source);
+  const ticked = currentEdit.removing ?? [];
+  if (!loaded)
+    return <p className="text-sm text-zinc-500">Reading the timeline…</p>;
+  if (pieces.length === 0)
+    return (
+      <p className="text-sm text-zinc-500">Nothing is recorded to remove.</p>
+    );
+  const toggle = (i: number) =>
+    setEditRemoving(
+      ticked.includes(i) ? ticked.filter((x) => x !== i) : [...ticked, i]
+    );
+  return (
+    <div className="space-y-0.5" data-removal-timeline="">
+      {pieces.map((p, i) => {
+        const on = ticked.includes(i);
+        const marker = p.frame ? frameMarker(p.frame) : null;
+        const value = describe.value(p.values);
+        return (
+          <label
+            key={p.valid_from}
+            className={cn(
+              "grid cursor-pointer grid-cols-[4.5rem_1rem_1fr] items-start gap-2 rounded px-1 py-1 text-sm",
+              on ? "bg-red-50" : "hover:bg-zinc-50"
+            )}
+            data-removal-piece={p.valid_from}
+            data-ticked={on || undefined}
+          >
+            <span className="pt-0.5 text-xs leading-tight text-zinc-500">
+              {marker ? (
+                <>
+                  <span className="block">{marker.label}</span>
+                  {marker.year && (
+                    <span className="tabular-nums">{marker.year}</span>
+                  )}
+                </>
+              ) : (
+                "Before frames"
+              )}
+            </span>
+            <Checkbox
+              checked={on}
+              onCheckedChange={() => toggle(i)}
+              className={cn(
+                "mt-0.5",
+                on && "border-red-700 data-[state=checked]:bg-red-700"
+              )}
+              aria-label={`Remove ${p.valid_from} – ${formatEnd(p.valid_to)}`}
+            />
+            <span className="min-w-0">
+              <span
+                className={cn(
+                  "block break-words font-medium",
+                  on && "text-red-700 line-through",
+                  !value && "italic text-zinc-400"
+                )}
+              >
+                {value ?? "Empty"}
+              </span>
+              <span
+                className={cn(
+                  "block text-xs tabular-nums",
+                  on ? "text-red-700" : "text-zinc-500"
+                )}
+              >
+                {p.valid_from} – {formatEnd(p.valid_to)}
+              </span>
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Tick all, beside the Change | Remove switch in Remove mode: ticks every
+ * piece, so the record is removed completely ("Remove all"), or clears the ticks.
+ */
+export function TickAllPieces() {
+  const { currentEdit, setEditRemoving } = useEditManager();
+  const { pieces } = useRemovalPieces(currentEdit.source);
+  const ticked = currentEdit.removing ?? [];
+  const all = pieces.length > 0 && ticked.length === pieces.length;
+  return (
+    <button
+      type="button"
+      onClick={() => setEditRemoving(all ? [] : pieces.map((_, i) => i))}
+      className="text-xs text-red-700 underline-offset-2 hover:underline"
+      data-removal-tick-all={all ? "clear" : "all"}
+    >
+      {all ? "Untick all" : "Tick all"}
+    </button>
+  );
+}
+
+/**
+ * The form's action in Remove mode, in Save's place: a red "Remove …" naming
+ * the ticked stretches ("Remove all" when every piece is ticked). It asks
+ * first: the dialog lists each stretch with its value and the past frames it
+ * reaches into. Confirm removes them (removeTemporalRecord), closes the edit
+ * and re-reads the page and the timeline.
+ */
+export function RemoveRecordAction({ label }: { label: string }) {
   const { currentEdit, exitEditMode } = useEditManager();
   const { timeFrames } = useTimeFrame();
   const { mutate } = useSWRConfig();
   const { toast } = useToast();
   const describe = useDescribeValue();
   const source = currentEdit.source;
-  const { periods, loaded } = useFieldTimeline(source);
+  const { pieces } = useRemovalPieces(source);
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-
   if (!isRemovable(source)) return null;
-  const validFrom = currentEdit.validFrom ?? null;
-  const validTo = currentEdit.validTo ?? null;
-  const summary = validFrom && loaded ? removalSummary(periods, validFrom, validTo) : null;
-  // Nothing recorded in the stretch: there is nothing to remove.
-  const disabled = !summary || summary.removed.length === 0 || pending;
-  const pastFrames = framesNeedingConfirmation(timeFrames, validFrom, validTo);
-
-  const piece = (p: RemovalPiece) => (
-    <li key={`${p.valid_from}`} className="tabular-nums">
-      {p.valid_from} – {formatEnd(p.valid_to)}: {describe.value(p.values) ?? "Empty"}
-    </li>
-  );
+  const ticked = currentEdit.removing ?? [];
+  const runs = removalRuns(pieces, ticked);
+  const all = pieces.length > 0 && ticked.length === pieces.length;
+  const pastFrames = [
+    ...new Map(
+      runs
+        .flatMap((r) =>
+          framesNeedingConfirmation(timeFrames, r.validFrom, r.validTo)
+        )
+        .map((f) => [f.ident, f])
+    ).values(),
+  ];
+  const removedPieces = [...ticked]
+    .sort((a, b) => a - b)
+    .map((i) => pieces[i])
+    .filter(Boolean);
+  const caption = all
+    ? "Remove all"
+    : runs.length === 0
+      ? "Remove"
+      : `Remove ${runs.map(runLabel).join(", ")}`;
 
   const confirm = () => {
-    if (!validFrom) return;
     startTransition(async () => {
       const result = await removeTemporalRecord({
         table: source.table,
         match: source.match,
-        validFrom,
-        validTo,
+        runs,
       });
       setOpen(false);
       toast({
@@ -87,7 +228,10 @@ export function RemoveRecordButton({ label }: { label: string }) {
       });
       if (result?.status === "success") {
         // The page's details and every timeline read again (SWR array keys).
-        await mutate((key) => Array.isArray(key) && ["details", "field-timeline"].includes(key[0]));
+        await mutate(
+          (key) =>
+            Array.isArray(key) && ["details", "field-timeline"].includes(key[0])
+        );
         exitEditMode();
       }
     });
@@ -97,41 +241,41 @@ export function RemoveRecordButton({ label }: { label: string }) {
     <>
       <Button
         type="button"
-        variant="outline"
-        className="mr-auto border-red-700 text-red-700 hover:bg-red-50 hover:text-red-800"
-        disabled={disabled}
+        className="bg-red-700 text-white hover:bg-red-800"
+        disabled={runs.length === 0 || pending}
         onClick={() => setOpen(true)}
         data-remove-record=""
-        title={disabled && !pending ? "Nothing is recorded in this stretch" : undefined}
       >
-        Remove {validFrom ?? ""} – {formatEnd(validTo)}
+        {caption}
       </Button>
-      {open && summary && (
-        <AlertDialog open onOpenChange={(o) => !o && !pending && setOpen(false)}>
+      {open && (
+        <AlertDialog
+          open
+          onOpenChange={(o) => !o && !pending && setOpen(false)}
+        >
           <AlertDialogContent data-remove-confirmation="">
             <AlertDialogHeader>
-              <AlertDialogTitle>Remove {label.toLowerCase()}?</AlertDialogTitle>
+              <AlertDialogTitle>
+                {all
+                  ? `Remove the ${label.toLowerCase()} completely?`
+                  : `Remove from ${label.toLowerCase()}?`}
+              </AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div className="space-y-3 text-sm">
-                  <div>
-                    <p className="font-medium text-zinc-900">Removed</p>
-                    <ul className="list-disc pl-5" data-remove-removed="">
-                      {summary.removed.map(piece)}
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="font-medium text-zinc-900">Kept</p>
-                    {summary.kept.length > 0 ? (
-                      <ul className="list-disc pl-5" data-remove-kept="">
-                        {summary.kept.map(piece)}
-                      </ul>
-                    ) : (
-                      <p data-remove-kept="">Nothing: the {label.toLowerCase()} is removed completely.</p>
-                    )}
-                  </div>
+                  <ul className="list-disc pl-5" data-remove-removed="">
+                    {removedPieces.map((p) => (
+                      <li key={p.valid_from} className="tabular-nums">
+                        {p.valid_from} – {formatEnd(p.valid_to)}:{" "}
+                        {describe.value(p.values) ?? "Empty"}
+                      </li>
+                    ))}
+                  </ul>
                   {pastFrames.length > 0 && (
                     <div data-remove-past-frames="">
-                      <p>This reaches into {pastFrames.map((f) => f.name).join(", ")}.</p>
+                      <p>
+                        This reaches into{" "}
+                        {pastFrames.map((f) => f.name).join(", ")}.
+                      </p>
                       <p>Reports and figures for these years will change.</p>
                     </div>
                   )}

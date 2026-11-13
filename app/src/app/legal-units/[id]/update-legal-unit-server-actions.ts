@@ -489,16 +489,16 @@ export interface RemoveTemporalRecordArgs {
   table: RemovableTable;
   /** The record's row keys, as the form's EditFieldSource names them. */
   match: Record<string, string | number>;
-  /** The range removed, ISO dates inclusive; validTo null is open-ended. */
-  validFrom: string;
-  validTo: string | null;
+  /** The stretches removed, ISO dates inclusive; validTo null is open-ended. */
+  runs: { validFrom: string; validTo: string | null }[];
 }
 
 /**
  * Removes a unit's record (a contact, location, activity or statistic) over
- * [validFrom, validTo]: the edit form's Remove. Rows the range cuts through are
- * split, so the record stays before and after it. This is the one call Remove
- * makes, so its backend can change without the form changing:
+ * each of the given stretches (the Timeline's Remove mode, STATBUS-611). Rows a
+ * stretch cuts through are split, so the record stays outside it. All stretches
+ * are removed in one request each, in time order; the first refusal stops. This
+ * is the one call Remove makes, so its backend can change without the form:
  * PROTOTYPE: calls public.remove_for_portion_of (tmp/611-remove-prototype.sql,
  * local dev database only). It becomes the for_portion_of view's delete
  * protocol, PATCH {id: null, valid_from, valid_until} (sql_saga, STATBUS-611).
@@ -506,8 +506,7 @@ export interface RemoveTemporalRecordArgs {
 export async function removeTemporalRecord({
   table,
   match,
-  validFrom,
-  validTo,
+  runs,
 }: RemoveTemporalRecordArgs): Promise<UpdateResponse> {
   if (!REMOVABLE_TABLES.includes(table)) {
     return { status: "error", message: `Records of ${table} cannot be removed here` };
@@ -527,15 +526,18 @@ export async function removeTemporalRecord({
     if (idError) return { status: "error", message: idError.message };
     const ids = [...new Set((rows ?? []).map((r: { id: number }) => r.id))];
     if (ids.length === 0) return { status: "error", message: "There is nothing to remove" };
+    if (runs.length === 0) return { status: "error", message: "Tick the periods to remove" };
     for (const recordId of ids) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (client as any).rpc("remove_for_portion_of", {
-        table_name: table,
-        record_id: recordId,
-        valid_from: validFrom,
-        valid_to: validTo ?? "infinity",
-      });
-      if (error) return { status: "error", message: error.message };
+      for (const run of runs) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (client as any).rpc("remove_for_portion_of", {
+          table_name: table,
+          record_id: recordId,
+          valid_from: run.validFrom,
+          valid_to: run.validTo ?? "infinity",
+        });
+        if (error) return { status: "error", message: error.message };
+      }
     }
   } catch (error) {
     logger.error(error, `failed to remove ${table}`);
@@ -545,7 +547,7 @@ export async function removeTemporalRecord({
   revalidatePath(`/${unitType}/[id]`, "layout");
   return {
     status: "success",
-    message: `${validFrom} – ${validTo ?? "Present"}`,
+    message: runs.map((r) => `${r.validFrom} – ${r.validTo ?? "Present"}`).join(", "),
   };
 }
 

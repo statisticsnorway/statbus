@@ -12,7 +12,7 @@ import { EditMetadataControls } from "./edit-metadata-controls";
 import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
-import { RemoveRecordButton } from "./remove-record-button";
+import { RemoveRecordAction } from "./remove-record-button";
 
 interface EditableFieldGroupProps {
   fieldGroupId: string;
@@ -46,6 +46,9 @@ export function EditableFieldGroup({
   const { currentEdit, exitEditMode } = useEditManager();
 
   const isEditing = currentEdit?.fieldId === fieldGroupId;
+  // Remove mode (the Timeline's Change | Remove switch): the fields are not
+  // changed, so they are greyed, and the red Remove takes Save's place.
+  const removing = isEditing && currentEdit.removing != null;
   const wasEditing = useRef(isEditing);
   const isExitingOnSuccess = useRef(false);
 
@@ -110,17 +113,18 @@ export function EditableFieldGroup({
         )}
       </div>
 
-      {children({ isEditing })}
+      <fieldset disabled={removing} className={removing ? "opacity-50" : undefined}>
+        {children({ isEditing })}
+      </fieldset>
 
       {isEditing && (
         <div className="space-y-2">
           <EditMetadataControls fieldId={fieldGroupId} />
           <div className="flex justify-end space-x-2">
-            <RemoveRecordButton label={title} />
             <Button variant="outline" type="button" onClick={handleCancel}>
               Cancel
             </Button>
-            <Button type="submit">Save</Button>
+            {removing ? <RemoveRecordAction label={title} /> : <Button type="submit">Save</Button>}
           </div>
         </div>
       )}
