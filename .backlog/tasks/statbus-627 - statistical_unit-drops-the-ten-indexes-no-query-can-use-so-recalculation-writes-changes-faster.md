@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-12T00:59:00Z'
-updated_date: '2026-11-12T16:14:00Z'
+updated_date: '2026-11-13T10:42:00Z'
 labels:
   - performance
   - db
@@ -48,4 +48,12 @@ Branch statbus-627-search-indexes (754ec1db6, on master 90c734271):
 Remaining: bench (AC3, net recalculation cost with the sort indexes + UI query times).
 
 g9 id-column indexes kept (owner decision). Readers found: country_used_def reads physical_country_id, legal_form_used_def reads legal_form_id (both recomputed after every recalculation). sector_id, physical_region_id, primary/secondary_activity_category_id have no reader in the db functions/views or app; rune's scans of them come from outside (REST API clients filtering ?<col>=eq.). Their comment ('Derive pipeline and reports join statistical_unit to its classification by id') stays until a later index migration names the API use.
+
+Bench 2026-11-12 on rune dump no_20261111_221558 (box, base 90c734271 vs 754ec1db6, fingerprints identical at every step): full 804 (base warm) / 674 s; n3 27 / 27 s; 50% 1,022 + 1,135 s vs 1,889 + 1,847 s (flush 609 / 698 vs 1,508 s). statistical_unit indexes 4,433 MB (36) -> 8,359 MB (43). First page: every sort 0.6-4.5 s -> <1 ms; unit_size filter 3.3 s -> 0.6 ms; other filters unchanged (<10 ms); data_source and turnover >30 s both (no turnover index on rune; separate issue). Held out of the next RC (Rabbit) until the owner chooses: keep both directions, one direction per column, or fewer columns. Logs tmp/bench/20261112.
+
+20:47 follow-ups queued on the box after the 591 run: (1) re-measure at rune's memory share (box was a 4G dev slot, rune 32G; b0453cba7); (2) prototype: for a flush larger than 20 % of statistical_unit, drop the search indexes before the write and rebuild them after (local smoke: identical fingerprint, all 47 indexes and comments back). Owner review before code.
+
+2026-11-13 re-measure at rune's memory share (DB_MEM_LIMIT 15G, shared_buffers 3.8 GB; the earlier run was a 4G dev slot), same dump, fingerprints identical at every step: full recalc 7.6 / 7.5 min; 3-unit edit 21 / 21 s; 50% change 9.6 + 10.5 min before vs 11.0 + 12.3 min with 627 (+1.4 min per 50% change; at 4G it was +13 min). First page: every sort 0.4-0.8 s before -> under 1 ms; unit size filter 0.6 s -> 0.5 ms; data source filter >30 s -> 3 s. Turnover sort/filter 0.6-3.7 s both (no turnover index on rune). Logs tmp/bench/20261112/series-627-mem + mem-ui-probe-*.
+
+Drop-and-rebuild prototype (tmp/627/proto-flush-rebuild.sql: flush drops the search indexes when staging > 20 % of statistical_unit, rebuilds them before commit), same dump and memory, fingerprints identical at every step: 50% change 9.8 + 10.2 min (589 / 614 s) vs 11.0 + 12.3 min with 627 as is and 9.6 + 10.5 min before 627; 3-unit edit 22 s. Costs: (1) the flush holds an exclusive lock on statistical_unit for its whole length, 6.0-6.3 min on a 50% change, so search waits instead of running; (2) a full recalculation stages every row, unchanged ones too, so the prototype rebuilt needlessly: 9.9 min vs 7.5 min. A real version would count changed rows, not staged rows. Not proposed for code until the owner weighs the blocked-search window.
 <!-- SECTION:NOTES:END -->
