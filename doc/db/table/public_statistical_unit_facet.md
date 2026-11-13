@@ -16,6 +16,7 @@
  stats_summary                  | jsonb                 |           |          |         | extended |             |              | 
 Indexes:
     "statistical_unit_facet_key" UNIQUE, btree (valid_from, valid_to, valid_until, unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id) NULLS NOT DISTINCT
+    "statistical_unit_facet_key_idx" btree (valid_from, valid_to, COALESCE(valid_until, 'infinity'::date), unit_type, COALESCE(physical_region_path::text, ''::text), COALESCE(primary_activity_category_path::text, ''::text), COALESCE(sector_path::text, ''::text), COALESCE(legal_form_id, '-1'::integer), COALESCE(physical_country_id, '-1'::integer), COALESCE(status_id, '-1'::integer))
     "statistical_unit_facet_legal_form_id_btree" btree (legal_form_id)
     "statistical_unit_facet_physical_country_id_btree" btree (physical_country_id)
     "statistical_unit_facet_physical_region_path_btree" btree (physical_region_path)

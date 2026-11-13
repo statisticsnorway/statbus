@@ -13,7 +13,6 @@ DECLARE
     v_partition_count_target integer;
     v_hash_partition_size integer;
     v_hash_partition int4range;
-    v_ranges int4multirange;
     v_left_keys bigint := 0;
 BEGIN
     v_partition_count_target := public.get_partition_count_target();
@@ -41,23 +40,27 @@ BEGIN
     END IF;
 
     IF v_dirty_hash_slots IS NOT NULL THEN
-        -- The ranges the children rewrite, and the facet keys staged there before they do: the
-        -- facets the units may leave (worker.statistical_unit_facet_state, recount_keys).
-        SELECT range_agg(int4range(r.range_from, LEAST(r.range_from + v_hash_partition_size, 16384)))
-          INTO v_ranges
-          FROM (SELECT DISTINCT (d.slot / v_hash_partition_size) * v_hash_partition_size AS range_from
-                  FROM unnest(v_dirty_hash_slots) AS d(slot)) AS r;
-        INSERT INTO worker.statistical_unit_facet_recount_keys
-        SELECT DISTINCT s.valid_from, s.valid_to, s.valid_until, s.unit_type,
-               s.physical_region_path, s.primary_activity_category_path,
-               s.sector_path, s.legal_form_id, s.physical_country_id, s.status_id
-          FROM public.statistical_unit_facet_staging AS s
-          JOIN unnest(v_ranges) AS r(hash_range)
-            ON lower(r.hash_range) <= s.hash_slot AND s.hash_slot < upper(r.hash_range);
-        GET DIAGNOSTICS v_left_keys := ROW_COUNT;
-        UPDATE worker.statistical_unit_facet_state
-           SET recount_ranges = recount_ranges + v_ranges
-         WHERE NOT recount_all;
+        IF cardinality(v_dirty_hash_slots) > 16384 / 16 THEN
+            -- A large change: its dirty slots' keys cover most facets, and one pass over all
+            -- staging recounts them faster than a lookup per key (worker.statistical_unit_facet_reduce).
+            UPDATE worker.statistical_unit_facet_state
+               SET recount_all = true, recount_slots = '{}'
+             WHERE NOT recount_all OR recount_slots <> '{}';
+            DELETE FROM worker.statistical_unit_facet_recount_keys WHERE true; -- every row: every facet is recounted
+        ELSE
+            -- The dirty slots, and the facet keys staged in them before the children rewrite them:
+            -- the facets the changed units may leave (worker.statistical_unit_facet_state, recount_keys).
+            INSERT INTO worker.statistical_unit_facet_recount_keys
+            SELECT DISTINCT s.valid_from, s.valid_to, s.valid_until, s.unit_type,
+                   s.physical_region_path, s.primary_activity_category_path,
+                   s.sector_path, s.legal_form_id, s.physical_country_id, s.status_id
+              FROM public.statistical_unit_facet_staging AS s
+             WHERE s.hash_slot = ANY (v_dirty_hash_slots);
+            GET DIAGNOSTICS v_left_keys := ROW_COUNT;
+            UPDATE worker.statistical_unit_facet_state
+               SET recount_slots = ARRAY(SELECT DISTINCT unnest(recount_slots || v_dirty_hash_slots) ORDER BY 1)
+             WHERE NOT recount_all;
+        END IF;
 
         -- One child per partition range holding a dirty slot, the same ranges
         -- as the full rebuild (STATBUS-543).
@@ -82,8 +85,8 @@ BEGIN
     ELSE
         -- All staging is rewritten, so every facet is recounted.
         UPDATE worker.statistical_unit_facet_state
-           SET recount_all = true, recount_ranges = '{}'
-         WHERE NOT recount_all OR recount_ranges <> '{}';
+           SET recount_all = true, recount_slots = '{}'
+         WHERE NOT recount_all OR recount_slots <> '{}';
         DELETE FROM worker.statistical_unit_facet_recount_keys WHERE true; -- every row: every facet is recounted
         FOR v_hash_partition IN
             SELECT DISTINCT int4range(

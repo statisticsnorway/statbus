@@ -9,10 +9,26 @@ DECLARE
     v_row_count bigint;
     v_keys bigint;
     v_deleted bigint;
+    v_indexscan text;
+    v_bitmapscan text;
 BEGIN
     SELECT * INTO v_state FROM worker.statistical_unit_facet_state FOR UPDATE;
 
+    -- A large change touches most facets; then one pass over all staging is cheaper than a
+    -- lookup per key (Norway register, 50 % of units: scoped 67 s over every key, global 16-20 s).
+    -- At a sixteenth of the slots the keys already cover most facets, so the global MERGE is used.
+    IF NOT v_state.recount_all AND cardinality(v_state.recount_slots) > 16384 / 16 THEN
+        v_state.recount_all := true;
+    END IF;
+
     IF v_state.recount_all THEN
+        -- Every staging row is read, so a hash aggregate over a sequential scan is the plan: walking
+        -- the key indexes made for the scoped recount instead took 20-38 s against 15-16 s on the
+        -- Norway register. Restored after the MERGE, as the worker may run more in this transaction.
+        v_indexscan := current_setting('enable_indexscan');
+        v_bitmapscan := current_setting('enable_bitmapscan');
+        PERFORM set_config('enable_indexscan', 'off', true);
+        PERFORM set_config('enable_bitmapscan', 'off', true);
         MERGE INTO public.statistical_unit_facet AS target
         USING (
             SELECT s.valid_from, s.valid_to, s.valid_until, s.unit_type,
@@ -50,11 +66,13 @@ BEGIN
                          source.count, source.stats_summary)
         WHEN NOT MATCHED BY SOURCE THEN DELETE;
         GET DIAGNOSTICS v_row_count := ROW_COUNT;
+        PERFORM set_config('enable_indexscan', v_indexscan, true);
+        PERFORM set_config('enable_bitmapscan', v_bitmapscan, true);
 
         p_info := jsonb_build_object('mode', 'global', 'rows_merged', v_row_count);
     ELSE
         -- The facets the cycles since the last committed reduce can have changed: the keys their
-        -- units left (recorded before the rewrite) and the keys now staged in the rewritten ranges.
+        -- units left (recorded before the rewrite) and the keys now staged in their dirty slots.
         IF to_regclass('pg_temp.facet_keys') IS NOT NULL THEN DROP TABLE facet_keys; END IF;
         CREATE TEMP TABLE facet_keys ON COMMIT DROP AS
         SELECT k.valid_from, k.valid_to, k.valid_until, k.unit_type,
@@ -68,8 +86,7 @@ BEGIN
                COALESCE(s.sector_path::text, ''), COALESCE(s.legal_form_id, -1),
                COALESCE(s.physical_country_id, -1), COALESCE(s.status_id, -1)
           FROM public.statistical_unit_facet_staging AS s
-          JOIN unnest(v_state.recount_ranges) AS r(hash_range)
-            ON lower(r.hash_range) <= s.hash_slot AND s.hash_slot < upper(r.hash_range);
+         WHERE s.hash_slot = ANY (v_state.recount_slots);
         GET DIAGNOSTICS v_keys := ROW_COUNT;
         ANALYZE facet_keys;
 
@@ -149,8 +166,8 @@ BEGIN
 
     -- Recounted: what the derives recorded is settled in this transaction.
     UPDATE worker.statistical_unit_facet_state
-       SET recount_all = false, recount_ranges = '{}'
-     WHERE recount_all OR recount_ranges <> '{}';
+       SET recount_all = false, recount_slots = '{}'
+     WHERE recount_all OR recount_slots <> '{}';
     DELETE FROM worker.statistical_unit_facet_recount_keys WHERE true; -- every row: each was recounted above
 END;
 $procedure$

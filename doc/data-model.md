@@ -189,7 +189,7 @@ Enumerated types used across the schema, with their possible values.
 - `statistical_unit_facet(unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, valid_from, valid_to, valid_until, count, stats_summary)` (temporal) — **derived**
   - Enums: `unit_type` (`public.statistical_unit_type`).
 - `statistical_unit_facet_dirty_hash_slots(dirty_hash_slot)` — **derived**
-- `statistical_unit_facet_state(recount_all, recount_ranges)` — **infrastructure**
+- `statistical_unit_facet_state(recount_all, recount_slots)` — **infrastructure**
 - `statistical_unit_facet_recount_keys(unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, valid_from, valid_to, valid_until)` (temporal) — **infrastructure**
   - Enums: `unit_type` (`public.statistical_unit_type`).
 

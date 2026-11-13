@@ -2,14 +2,18 @@
 --
 -- worker.statistical_unit_facet_reduce merged public.statistical_unit_facet from the aggregate of
 -- all of public.statistical_unit_facet_staging after every cycle, so a three-unit edit regrouped
--- three million staging rows (11-16 s of an 18-24 s edit on the Norway register). A partial cycle
--- rewrites staging only in the hash ranges its units are in, so only the facet keys staged in
--- those ranges can change: the keys there before the rewrite (where the units' counts leave) and
--- after it (where they arrive). The reduce now recounts just those keys.
+-- three million staging rows (11-16 s of an 18-24 s edit on the Norway register). A unit's staging
+-- rows sit in its own hash slot, and a partial cycle marks the slots of the units it changed dirty
+-- (public.statistical_unit_facet_dirty_hash_slots), so only the facet keys staged in those slots
+-- can change: the keys there before the rewrite (where the units' counts leave) and after it
+-- (where they arrive). The reduce now recounts just those keys. The children rewrite whole
+-- 64-slot ranges, but the other slots of a range hold unchanged units and the same rows again;
+-- recounting the keys of whole ranges took 49,406 keys for a three-unit edit, its nine dirty
+-- slots hold 1,561.
 --
--- What the reduce must recount is kept until a reduce commits: the rewritten ranges and whether
--- every facet must be recounted (worker.statistical_unit_facet_state), and the keys staged there
--- before the rewrite (worker.statistical_unit_facet_recount_keys). A derive only adds to them.
+-- What the reduce must recount is kept until a reduce commits: the dirty slots and whether every
+-- facet must be recounted (worker.statistical_unit_facet_state), and the keys staged in those
+-- slots before the rewrite (worker.statistical_unit_facet_recount_keys). A derive only adds to them.
 -- The scoped reduce of April 2026 (20260422000000) emptied its before-snapshot at every derive,
 -- so a cycle whose reduce failed lost the facets its units had left, and they stayed counted
 -- (20260429233218 collapsed the reduce to a whole-table MERGE).
@@ -17,7 +21,7 @@ BEGIN;
 
 CREATE TABLE worker.statistical_unit_facet_state (
     recount_all boolean NOT NULL DEFAULT true,
-    recount_ranges int4multirange NOT NULL DEFAULT '{}'
+    recount_slots integer[] NOT NULL DEFAULT '{}'
 );
 CREATE UNIQUE INDEX statistical_unit_facet_state_single_row ON worker.statistical_unit_facet_state ((true));
 -- recount_all starts true: the first reduce after this migration recounts every facet, as before.
@@ -26,8 +30,8 @@ COMMENT ON TABLE worker.statistical_unit_facet_state IS
 'One row: what worker.statistical_unit_facet_reduce must recount, set by worker.derive_statistical_unit_facet and reset by the reduce that recounts it, in the reduce''s transaction. A derive only adds to it, so the work of a cycle whose reduce did not commit is done by the next reduce.';
 COMMENT ON COLUMN worker.statistical_unit_facet_state.recount_all IS
 'Every facet must be recounted: a derive rewrote all of public.statistical_unit_facet_staging (a full recalculation, or staging found empty), and no reduce has committed since.';
-COMMENT ON COLUMN worker.statistical_unit_facet_state.recount_ranges IS
-'Hash-slot ranges partial derives rewrote since the last reduce committed. The facet keys staged in them now are the facets their units entered; worker.statistical_unit_facet_recount_keys holds the ones they left.';
+COMMENT ON COLUMN worker.statistical_unit_facet_state.recount_slots IS
+'Dirty hash slots of the partial derives since the last reduce committed: the slots of the units those cycles changed. The facet keys staged in them now are the facets the units entered; worker.statistical_unit_facet_recount_keys holds the ones they left.';
 
 CREATE UNLOGGED TABLE worker.statistical_unit_facet_recount_keys (
     valid_from date NOT NULL,
@@ -42,7 +46,7 @@ CREATE UNLOGGED TABLE worker.statistical_unit_facet_recount_keys (
     status_id integer
 );
 COMMENT ON TABLE worker.statistical_unit_facet_recount_keys IS
-'Facet keys staged in the hash ranges a partial derive rewrites, recorded by worker.derive_statistical_unit_facet before its children rewrite them: the facets the units may leave. worker.statistical_unit_facet_reduce recounts them and empties the table in its transaction. UNLOGGED like the staging it describes: after a crash staging is empty too, and the next derive rewrites all of it (worker.statistical_unit_facet_state.recount_all).';
+'Facet keys staged in the dirty hash slots of a partial derive, recorded by worker.derive_statistical_unit_facet before its children rewrite them: the facets the changed units may leave. worker.statistical_unit_facet_reduce recounts them and empties the table in its transaction. UNLOGGED like the staging it describes: after a crash staging is empty too, and the next derive rewrites all of it (worker.statistical_unit_facet_state.recount_all).';
 
 -- The reduce recounts a key from every staging row that has it, in any hash slot. The key columns
 -- are matched as the facet table's unique key matches them (NULLS NOT DISTINCT), through the
@@ -54,6 +58,15 @@ CREATE INDEX statistical_unit_facet_staging_key_idx ON public.statistical_unit_f
      (COALESCE(physical_country_id, -1)), (COALESCE(status_id, -1)));
 COMMENT ON INDEX public.statistical_unit_facet_staging_key_idx IS
 'Finds every staging row of a facet key, in any hash slot, for the recount in worker.statistical_unit_facet_reduce. The expressions are the ones that procedure joins on.';
+
+-- The scoped reduce finds the stored facet of each recounted key, in its MERGE and its DELETE.
+CREATE INDEX statistical_unit_facet_key_idx ON public.statistical_unit_facet
+    (valid_from, valid_to, (COALESCE(valid_until, 'infinity'::date)), unit_type,
+     (COALESCE(physical_region_path::text, '')), (COALESCE(primary_activity_category_path::text, '')),
+     (COALESCE(sector_path::text, '')), (COALESCE(legal_form_id, -1)),
+     (COALESCE(physical_country_id, -1)), (COALESCE(status_id, -1)));
+COMMENT ON INDEX public.statistical_unit_facet_key_idx IS
+'Finds the stored facet of a key for the scoped recount in worker.statistical_unit_facet_reduce (its MERGE and DELETE). The expressions are the ones that procedure matches on.';
 
 CREATE OR REPLACE PROCEDURE worker.derive_statistical_unit_facet(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
@@ -69,7 +82,6 @@ DECLARE
     v_partition_count_target integer;
     v_hash_partition_size integer;
     v_hash_partition int4range;
-    v_ranges int4multirange;
     v_left_keys bigint := 0;
 BEGIN
     v_partition_count_target := public.get_partition_count_target();
@@ -97,23 +109,27 @@ BEGIN
     END IF;
 
     IF v_dirty_hash_slots IS NOT NULL THEN
-        -- The ranges the children rewrite, and the facet keys staged there before they do: the
-        -- facets the units may leave (worker.statistical_unit_facet_state, recount_keys).
-        SELECT range_agg(int4range(r.range_from, LEAST(r.range_from + v_hash_partition_size, 16384)))
-          INTO v_ranges
-          FROM (SELECT DISTINCT (d.slot / v_hash_partition_size) * v_hash_partition_size AS range_from
-                  FROM unnest(v_dirty_hash_slots) AS d(slot)) AS r;
-        INSERT INTO worker.statistical_unit_facet_recount_keys
-        SELECT DISTINCT s.valid_from, s.valid_to, s.valid_until, s.unit_type,
-               s.physical_region_path, s.primary_activity_category_path,
-               s.sector_path, s.legal_form_id, s.physical_country_id, s.status_id
-          FROM public.statistical_unit_facet_staging AS s
-          JOIN unnest(v_ranges) AS r(hash_range)
-            ON lower(r.hash_range) <= s.hash_slot AND s.hash_slot < upper(r.hash_range);
-        GET DIAGNOSTICS v_left_keys := ROW_COUNT;
-        UPDATE worker.statistical_unit_facet_state
-           SET recount_ranges = recount_ranges + v_ranges
-         WHERE NOT recount_all;
+        IF cardinality(v_dirty_hash_slots) > 16384 / 16 THEN
+            -- A large change: its dirty slots' keys cover most facets, and one pass over all
+            -- staging recounts them faster than a lookup per key (worker.statistical_unit_facet_reduce).
+            UPDATE worker.statistical_unit_facet_state
+               SET recount_all = true, recount_slots = '{}'
+             WHERE NOT recount_all OR recount_slots <> '{}';
+            DELETE FROM worker.statistical_unit_facet_recount_keys WHERE true; -- every row: every facet is recounted
+        ELSE
+            -- The dirty slots, and the facet keys staged in them before the children rewrite them:
+            -- the facets the changed units may leave (worker.statistical_unit_facet_state, recount_keys).
+            INSERT INTO worker.statistical_unit_facet_recount_keys
+            SELECT DISTINCT s.valid_from, s.valid_to, s.valid_until, s.unit_type,
+                   s.physical_region_path, s.primary_activity_category_path,
+                   s.sector_path, s.legal_form_id, s.physical_country_id, s.status_id
+              FROM public.statistical_unit_facet_staging AS s
+             WHERE s.hash_slot = ANY (v_dirty_hash_slots);
+            GET DIAGNOSTICS v_left_keys := ROW_COUNT;
+            UPDATE worker.statistical_unit_facet_state
+               SET recount_slots = ARRAY(SELECT DISTINCT unnest(recount_slots || v_dirty_hash_slots) ORDER BY 1)
+             WHERE NOT recount_all;
+        END IF;
 
         -- One child per partition range holding a dirty slot, the same ranges
         -- as the full rebuild (STATBUS-543).
@@ -138,8 +154,8 @@ BEGIN
     ELSE
         -- All staging is rewritten, so every facet is recounted.
         UPDATE worker.statistical_unit_facet_state
-           SET recount_all = true, recount_ranges = '{}'
-         WHERE NOT recount_all OR recount_ranges <> '{}';
+           SET recount_all = true, recount_slots = '{}'
+         WHERE NOT recount_all OR recount_slots <> '{}';
         DELETE FROM worker.statistical_unit_facet_recount_keys WHERE true; -- every row: every facet is recounted
         FOR v_hash_partition IN
             SELECT DISTINCT int4range(
@@ -167,7 +183,7 @@ END;
 $procedure$;
 
 COMMENT ON PROCEDURE worker.derive_statistical_unit_facet(jsonb, jsonb) IS
-'Rewrites public.statistical_unit_facet_staging: every hash range on a full recalculation (or when staging is empty), else the ranges holding a dirty slot, one derive_statistical_unit_facet_partition child per range. It records for worker.statistical_unit_facet_reduce what to recount: all facets, or the rewritten ranges together with the keys staged there before the rewrite (worker.statistical_unit_facet_state, worker.statistical_unit_facet_recount_keys).';
+'Rewrites public.statistical_unit_facet_staging: every hash range on a full recalculation (or when staging is empty), else the ranges holding a dirty slot, one derive_statistical_unit_facet_partition child per range. It records for worker.statistical_unit_facet_reduce what to recount: all facets, or the dirty slots together with the keys staged in them before the rewrite (worker.statistical_unit_facet_state, worker.statistical_unit_facet_recount_keys).';
 
 CREATE OR REPLACE PROCEDURE worker.statistical_unit_facet_reduce(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
@@ -179,10 +195,26 @@ DECLARE
     v_row_count bigint;
     v_keys bigint;
     v_deleted bigint;
+    v_indexscan text;
+    v_bitmapscan text;
 BEGIN
     SELECT * INTO v_state FROM worker.statistical_unit_facet_state FOR UPDATE;
 
+    -- A large change touches most facets; then one pass over all staging is cheaper than a
+    -- lookup per key (Norway register, 50 % of units: scoped 67 s over every key, global 16-20 s).
+    -- At a sixteenth of the slots the keys already cover most facets, so the global MERGE is used.
+    IF NOT v_state.recount_all AND cardinality(v_state.recount_slots) > 16384 / 16 THEN
+        v_state.recount_all := true;
+    END IF;
+
     IF v_state.recount_all THEN
+        -- Every staging row is read, so a hash aggregate over a sequential scan is the plan: walking
+        -- the key indexes made for the scoped recount instead took 20-38 s against 15-16 s on the
+        -- Norway register. Restored after the MERGE, as the worker may run more in this transaction.
+        v_indexscan := current_setting('enable_indexscan');
+        v_bitmapscan := current_setting('enable_bitmapscan');
+        PERFORM set_config('enable_indexscan', 'off', true);
+        PERFORM set_config('enable_bitmapscan', 'off', true);
         MERGE INTO public.statistical_unit_facet AS target
         USING (
             SELECT s.valid_from, s.valid_to, s.valid_until, s.unit_type,
@@ -220,11 +252,13 @@ BEGIN
                          source.count, source.stats_summary)
         WHEN NOT MATCHED BY SOURCE THEN DELETE;
         GET DIAGNOSTICS v_row_count := ROW_COUNT;
+        PERFORM set_config('enable_indexscan', v_indexscan, true);
+        PERFORM set_config('enable_bitmapscan', v_bitmapscan, true);
 
         p_info := jsonb_build_object('mode', 'global', 'rows_merged', v_row_count);
     ELSE
         -- The facets the cycles since the last committed reduce can have changed: the keys their
-        -- units left (recorded before the rewrite) and the keys now staged in the rewritten ranges.
+        -- units left (recorded before the rewrite) and the keys now staged in their dirty slots.
         IF to_regclass('pg_temp.facet_keys') IS NOT NULL THEN DROP TABLE facet_keys; END IF;
         CREATE TEMP TABLE facet_keys ON COMMIT DROP AS
         SELECT k.valid_from, k.valid_to, k.valid_until, k.unit_type,
@@ -238,8 +272,7 @@ BEGIN
                COALESCE(s.sector_path::text, ''), COALESCE(s.legal_form_id, -1),
                COALESCE(s.physical_country_id, -1), COALESCE(s.status_id, -1)
           FROM public.statistical_unit_facet_staging AS s
-          JOIN unnest(v_state.recount_ranges) AS r(hash_range)
-            ON lower(r.hash_range) <= s.hash_slot AND s.hash_slot < upper(r.hash_range);
+         WHERE s.hash_slot = ANY (v_state.recount_slots);
         GET DIAGNOSTICS v_keys := ROW_COUNT;
         ANALYZE facet_keys;
 
@@ -319,13 +352,13 @@ BEGIN
 
     -- Recounted: what the derives recorded is settled in this transaction.
     UPDATE worker.statistical_unit_facet_state
-       SET recount_all = false, recount_ranges = '{}'
-     WHERE recount_all OR recount_ranges <> '{}';
+       SET recount_all = false, recount_slots = '{}'
+     WHERE recount_all OR recount_slots <> '{}';
     DELETE FROM worker.statistical_unit_facet_recount_keys WHERE true; -- every row: each was recounted above
 END;
 $procedure$;
 
 COMMENT ON PROCEDURE worker.statistical_unit_facet_reduce(jsonb, jsonb) IS
-'Keeps public.statistical_unit_facet equal to the facet counts over public.statistical_unit_facet_staging, recounting what worker.statistical_unit_facet_state records. After a full rewrite of staging it merges the whole staging aggregate (mode global). Otherwise it recounts only the keys the cycles since the last committed reduce can have changed: worker.statistical_unit_facet_recount_keys (the facets their units left) together with the keys now staged in the rewritten ranges (the facets they entered); a recounted key with no staging row is deleted (mode scoped). An edit moves a unit''s count out of some facets and into others, so both sides are needed.';
+'Keeps public.statistical_unit_facet equal to the facet counts over public.statistical_unit_facet_staging, recounting what worker.statistical_unit_facet_state records. After a full rewrite of staging it merges the whole staging aggregate (mode global). Otherwise it recounts only the keys the cycles since the last committed reduce can have changed: worker.statistical_unit_facet_recount_keys (the facets their units left) together with the keys now staged in their dirty slots (the facets they entered); a recounted key with no staging row is deleted (mode scoped). An edit moves a unit''s count out of some facets and into others, so both sides are needed.';
 
 END;

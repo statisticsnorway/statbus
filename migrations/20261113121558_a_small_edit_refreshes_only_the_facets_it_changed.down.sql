@@ -152,6 +152,7 @@ $procedure$
 
 COMMENT ON PROCEDURE worker.derive_statistical_unit_facet(jsonb, jsonb) IS NULL;
 COMMENT ON PROCEDURE worker.statistical_unit_facet_reduce(jsonb, jsonb) IS NULL;
+DROP INDEX public.statistical_unit_facet_key_idx;
 DROP INDEX public.statistical_unit_facet_staging_key_idx;
 DROP TABLE worker.statistical_unit_facet_recount_keys;
 DROP TABLE worker.statistical_unit_facet_state;

@@ -21,4 +21,4 @@ Access method: heap
 
 ```
 
-**Comment:** Facet keys staged in the hash ranges a partial derive rewrites, recorded by worker.derive_statistical_unit_facet before its children rewrite them: the facets the units may leave. worker.statistical_unit_facet_reduce recounts them and empties the table in its transaction. UNLOGGED like the staging it describes: after a crash staging is empty too, and the next derive rewrites all of it (worker.statistical_unit_facet_state.recount_all).
+**Comment:** Facet keys staged in the dirty hash slots of a partial derive, recorded by worker.derive_statistical_unit_facet before its children rewrite them: the facets the changed units may leave. worker.statistical_unit_facet_reduce recounts them and empties the table in its transaction. UNLOGGED like the staging it describes: after a crash staging is empty too, and the next derive rewrites all of it (worker.statistical_unit_facet_state.recount_all).

@@ -1589,7 +1589,7 @@ erDiagram
 	}
 	worker_statistical_unit_facet_state["worker.statistical_unit_facet_state"] {
 		boolean recount_all
-		int4multirange recount_ranges
+		integer[] recount_slots
 	}
 	worker_tasks["worker.tasks"] {
 		bigint id
