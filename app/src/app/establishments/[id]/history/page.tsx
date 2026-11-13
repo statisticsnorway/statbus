@@ -31,13 +31,16 @@ export default async function EstablishmentHistoryPage(props: {
     throw new Error(highchartsError?.message || unitHistoryError?.message);
   }
 
-  if (historyHighcharts.series.length === 0 || unitHistory?.length === 0) {
+  // A unit always has history rows; the chart needs statistical variables, which a unit may lack.
+  if (!unitHistory?.length) {
     notFound();
   }
 
   return (
     <DetailsPage title="History" subtitle="Statistical history for the unit">
-      <HistoryChart historyHighcharts={historyHighcharts} />
+      {historyHighcharts.series.length > 0 && (
+        <HistoryChart historyHighcharts={historyHighcharts} />
+      )}
       <UnitHistoryTable
         unitHistory={unitHistory}
         unitId={parseInt(id, 10)}
