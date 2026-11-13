@@ -84,15 +84,15 @@ func TestDumpSqlSagaVersion(t *testing.T) {
 			want: "1.4",
 		},
 		{
-			// Created on an image pinned at sql_saga 1.5: no receipt, ledger
-			// reaches the first migration of the release that ships 1.5.
-			name: "ledger at the 1.5-era release without a sql_saga receipt is 1.5",
+			// Created on an image pinned at sql_saga 1.6: no receipt, ledger
+			// reaches the first migration of the release that ships 1.6.
+			name: "ledger at the 1.6-era release without a sql_saga receipt is 1.6",
 			audit: auditCopy +
 				"1\tjsonb_stats\t\\N\t3.1.0\t2026-11-20\n\\.\n",
 			migration: migrationCopy +
 				"900\t20261027221500\ty.up.sql\ty\t2026-11-20\n" +
 				"950\t20261111192819\tz.up.sql\tz\t2026-11-20\n\\.\n",
-			want: "1.5",
+			want: "1.6",
 		},
 	}
 	for _, c := range cases {
