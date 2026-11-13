@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-11-12T00:59:00Z'
-updated_date: '2026-11-13T10:42:00Z'
+updated_date: '2026-11-13T10:43:00Z'
 labels:
   - performance
   - db
@@ -56,4 +56,6 @@ Bench 2026-11-12 on rune dump no_20261111_221558 (box, base 90c734271 vs 754ec1d
 2026-11-13 re-measure at rune's memory share (DB_MEM_LIMIT 15G, shared_buffers 3.8 GB; the earlier run was a 4G dev slot), same dump, fingerprints identical at every step: full recalc 7.6 / 7.5 min; 3-unit edit 21 / 21 s; 50% change 9.6 + 10.5 min before vs 11.0 + 12.3 min with 627 (+1.4 min per 50% change; at 4G it was +13 min). First page: every sort 0.4-0.8 s before -> under 1 ms; unit size filter 0.6 s -> 0.5 ms; data source filter >30 s -> 3 s. Turnover sort/filter 0.6-3.7 s both (no turnover index on rune). Logs tmp/bench/20261112/series-627-mem + mem-ui-probe-*.
 
 Drop-and-rebuild prototype (tmp/627/proto-flush-rebuild.sql: flush drops the search indexes when staging > 20 % of statistical_unit, rebuilds them before commit), same dump and memory, fingerprints identical at every step: 50% change 9.8 + 10.2 min (589 / 614 s) vs 11.0 + 12.3 min with 627 as is and 9.6 + 10.5 min before 627; 3-unit edit 22 s. Costs: (1) the flush holds an exclusive lock on statistical_unit for its whole length, 6.0-6.3 min on a 50% change, so search waits instead of running; (2) a full recalculation stages every row, unchanged ones too, so the prototype rebuilt needlessly: 9.9 min vs 7.5 min. A real version would count changed rows, not staged rows. Not proposed for code until the owner weighs the blocked-search window.
+
+Turnover check (rune, read-only): stat_definition turnover enabled = false, 0 units carry it, so the search page does not offer the turnover sort or filter on rune; the 0.6-3.7 s probe numbers measured a column rune does not use. With turnover enabled, admin.generate_statistical_unit_jsonb_indices builds su_ss_turnover_sum_asc_idx/_desc_idx as for employees. Nothing to fix.
 <!-- SECTION:NOTES:END -->
