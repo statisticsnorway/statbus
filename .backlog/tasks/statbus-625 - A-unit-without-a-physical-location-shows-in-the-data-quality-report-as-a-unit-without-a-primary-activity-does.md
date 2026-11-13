@@ -3,9 +3,10 @@ id: STATBUS-625
 title: >-
   A unit without a physical location shows in the data-quality report, as a unit
   without a primary activity does
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-13T13:52:00Z'
+updated_date: '2026-11-13T14:04:00Z'
 labels:
   - data-quality
 dependencies: []
@@ -23,7 +24,13 @@ Today the dashboard's Data quality section has Units Missing Region and Units Mi
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The Data quality section has a Units Missing Physical Location card counting legal units and establishments existing at the selected frame's date with no physical location
-- [ ] #2 The card links to the Statistical Units search listing exactly those units
-- [ ] #3 A unit whose physical location is removed for part of its life is counted in the frames covering that part, and not in the others (test on a local unit)
+- [x] #1 The Data quality section has a Units Missing Physical Location card counting legal units and establishments existing at the selected frame's date with no physical location
+- [x] #2 The card links to the Statistical Units search listing exactly those units
+- [x] #3 A unit whose physical location is removed for part of its life is counted in the frames covering that part, and not in the others (test on a local unit)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-13 (Rabbit, branch statbus-628-all-forms, not pushed yet): 09c52b2a1 adds the Units Missing Physical Location card to Data quality (legal units and establishments existing at the frame's date with no physical_country_id) and the search filter physical_location=missing|present it links to (RED/GREEN tmp/625-filter-{red,green}.log). AC#3 on the real app (tmp/625-partial-check.log, tmp/625-live-exact.log): EDIT PAGES SPLIT's physical location removed for 2025 through the form (Frame view, Previous frame); Previous frame (2025) counts 1 and its search lists the unit; Live frame (2026) counts 0 (the card's estimate first showed ~1, the exact count 0). Location restored with tmp/625-restore-lu30.sql.
+<!-- SECTION:NOTES:END -->
