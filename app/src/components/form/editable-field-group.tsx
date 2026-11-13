@@ -3,7 +3,7 @@
 import { useEditManager } from "@/atoms/edits";
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { SubmissionFeedbackDebugInfo } from "./submission-feedback-debug-info";
 import { useStartEdit } from "./use-start-edit";
 import type { EditFieldSource } from "./read-edit-range";
@@ -11,10 +11,9 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { EditMetadataControls } from "./edit-metadata-controls";
 import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
-import { FieldTimelineButton, useFieldTimeline } from "./field-timeline-view";
+import { FieldTimelineButton } from "./field-timeline-view";
 import { RemoveRecordAction } from "./remove-record-button";
-import { periodsInRange } from "./field-timeline";
-import { editStartValues } from "./edit-values";
+import { useEditStartValues } from "./use-edit-start-values";
 
 /**
  * A field's value in the form: while editing, the ticked stretch's own value
@@ -57,35 +56,18 @@ export function EditableFieldGroup({
   const formRef = useRef<HTMLFormElement>(null);
   const [formKey, setFormKey] = useState(0);
 
-  const { currentEdit, exitEditMode, setEditDataSourceId } = useEditManager();
+  const { currentEdit, exitEditMode } = useEditManager();
 
   const isEditing = currentEdit?.fieldId === fieldGroupId;
 
   // The edit writes every field over the ticked stretch, so the fields start
   // from that stretch's own values and data source, not the page's (Live's).
   // A field the user leaves alone then keeps its value (owner 2026-11-13).
-  const { periods } = useFieldTimeline(isEditing ? editSource : undefined);
-  const ticked = isEditing
-    ? periodsInRange(periods, currentEdit.validFrom, currentEdit.validTo)
-    : [];
-  const tickedKey = ticked.join(",");
-  const start = useMemo(
-    () => editStartValues(periods, ticked),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [periods, tickedKey]
-  );
+  const start = useEditStartValues(isEditing, editSource);
   const valueOf: FieldValueOf = (column, shown) =>
     isEditing && start && column in start.values
       ? (start.values[column] as string | number | null)
       : shown;
-  useGuardedEffect(
-    () => {
-      if (isEditing && start)
-        setEditDataSourceId(start.dataSourceId?.toString() ?? null);
-    },
-    [isEditing, tickedKey, start],
-    "EditableFieldGroup:dataSourceFromTicked"
-  );
   // Remove mode (the Timeline's Change | Remove switch): the fields are not
   // changed, so they are greyed, and the red Remove takes Save's place.
   const removing = isEditing && currentEdit.removing != null;

@@ -14,6 +14,7 @@ import { useEditableFieldState } from "./use-editable-field-state";
 import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
+import { useEditStartValues } from "./use-edit-start-values";
 import { RemoveRecordAction } from "./remove-record-button";
 
 interface EditableFieldWithMetadataProps {
@@ -67,6 +68,14 @@ export const EditableFieldWithMetadata = ({
     hasUnsavedChanges,
     handleCancel: baseHandleCancel,
   } = useEditableFieldState(value, response, isEditing, exitEditMode);
+  // The input starts from the ticked stretch's own value, so Save keeps it
+  // unless the user changes it (owner 2026-11-13).
+  const column =
+    editSource && !Array.isArray(editSource.column) ? editSource.column : null;
+  useEditStartValues(isEditing, editSource, (start) => {
+    if (column && column in start.values)
+      setCurrentValue(String(start.values[column] ?? ""));
+  });
 
   const handleCancel = () => {
     baseHandleCancel();
@@ -89,7 +98,9 @@ export const EditableFieldWithMetadata = ({
             <Label className="text-xs uppercase text-gray-600">{label}</Label>
             {/* The icons sit beside the label, not in it: a label passes hover and clicks to its first button. */}
             {metadata && <MetadataTooltip metadata={metadata} />}
-            {editSource && <FieldTimelineButton source={editSource} label={label} />}
+            {editSource && (
+              <FieldTimelineButton source={editSource} label={label} />
+            )}
           </div>
           <div className="flex space-x-2 items-center">
             {!isEditing && (
