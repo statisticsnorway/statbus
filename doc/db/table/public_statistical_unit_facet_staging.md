@@ -18,6 +18,7 @@
 Indexes:
     "idx_statistical_unit_facet_staging_hash_slot" btree (hash_slot)
     "statistical_unit_facet_stagin_hash_slot_valid_from_vali_key" UNIQUE CONSTRAINT, btree (hash_slot, valid_from, valid_to, valid_until, unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id) NULLS NOT DISTINCT
+    "statistical_unit_facet_staging_key_idx" btree (valid_from, valid_to, valid_until, unit_type, COALESCE(physical_region_path::text, ''::text), COALESCE(primary_activity_category_path::text, ''::text), COALESCE(sector_path::text, ''::text), COALESCE(legal_form_id, '-1'::integer), COALESCE(physical_country_id, '-1'::integer), COALESCE(status_id, '-1'::integer))
 Not-null constraints:
     "statistical_unit_facet_staging_hash_slot_not_null" NOT NULL "hash_slot"
     "statistical_unit_facet_staging_count_not_null" NOT NULL "count"

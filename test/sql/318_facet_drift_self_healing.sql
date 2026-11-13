@@ -24,6 +24,11 @@
 -- statistical_history_facet is a view over additive delta tables since
 -- STATBUS-558; its recovery from drift is the full rebuild, pinned in
 -- test 319.
+--
+-- Since STATBUS-626 a partial cycle recounts only the facet keys its units
+-- left or entered (test 360). A row no unit supports lies outside those keys,
+-- so the recount of every facet (worker.statistical_unit_facet_state.recount_all,
+-- set by a full recalculation) is what clears it; step 3 requests that recount.
 
 BEGIN;
 
@@ -99,8 +104,13 @@ FROM public.statistical_unit_facet
 WHERE valid_from = '2099-01-01'::date AND count = 99;
 
 \echo
-\echo "=== STEP 3: Run the collapsed reduce directly ==="
-\echo "(simulates a normal pipeline drain triggering reduce)"
+\echo "=== STEP 3: Run the reduce directly, recounting every facet ==="
+\echo "(a full recalculation sets recount_all; a partial cycle recounts only its keys,"
+\echo " and a row no unit ever supported is outside every key a cycle touches)"
+SET LOCAL ROLE postgres;
+UPDATE worker.statistical_unit_facet_state SET recount_all = true WHERE NOT recount_all;
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
 CALL worker.statistical_unit_facet_reduce('{}'::jsonb);
 
 \echo

@@ -1575,6 +1575,22 @@ erDiagram
 		bigint rebuild_generation
 		boolean rebuild_needed
 	}
+	worker_statistical_unit_facet_recount_keys["worker.statistical_unit_facet_recount_keys"] {
+		date valid_from
+		date valid_to
+		date valid_until
+		statistical_unit_type unit_type
+		ltree physical_region_path
+		ltree primary_activity_category_path
+		ltree sector_path
+		integer legal_form_id
+		integer physical_country_id
+		integer status_id
+	}
+	worker_statistical_unit_facet_state["worker.statistical_unit_facet_state"] {
+		boolean recount_all
+		int4multirange recount_ranges
+	}
 	worker_tasks["worker.tasks"] {
 		bigint id
 		text command
