@@ -30,8 +30,13 @@ export function editStartValues(
 ): EditStartValues | null {
   const chosen = ticked.map((i) => periods[i]).filter(Boolean);
   if (chosen.length === 0) return null;
-  const [first, ...rest] = chosen;
-  const newest = chosen[chosen.length - 1];
+  // A hole (withGaps) has no value: the edit fills it, so it neither starts a
+  // value nor makes one differ. Only ticked holes: the edit starts empty.
+  const valued = chosen.filter((p) => !p.empty);
+  if (valued.length === 0)
+    return { values: { ...chosen[0].values }, dataSourceId: null, differing: [] };
+  const [first, ...rest] = valued;
+  const newest = valued[valued.length - 1];
   const values: Record<string, unknown> = {};
   const differing: string[] = [];
   for (const [column, value] of Object.entries(first.values)) {

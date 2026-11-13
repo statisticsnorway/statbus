@@ -26,7 +26,12 @@ import {
   frameSegments,
   type TimelinePeriod,
 } from "./field-timeline";
-import { removalCaption, removalRuns, removalSummary, type RemovalPiece } from "./removal";
+import {
+  removalCaption,
+  removalRuns,
+  removalSummary,
+  type RemovalPiece,
+} from "./removal";
 import type { EditFieldSource } from "./read-edit-range";
 
 /** The tables whose rows are records a unit has, which Remove can take away (STATBUS-611). */
@@ -49,7 +54,9 @@ const formatEnd = (to: string | null | undefined) =>
  * its own, oldest first, each with its value.
  */
 export function useRemovalPieces(source: EditFieldSource | undefined) {
-  const { periods, loaded } = useFieldTimeline(source);
+  const { periods: all, loaded } = useFieldTimeline(source);
+  // A hole (withGaps) has nothing to remove.
+  const periods = useMemo(() => all.filter((p) => !p.empty), [all]);
   const { timeFrames } = useTimeFrame();
   const pieces = useMemo(
     () =>
@@ -179,7 +186,10 @@ export function TickAllPieces() {
  * The period Remove takes out in the Frame view: the chosen frame's own
  * period, or the specific dates typed. validTo null is open-ended.
  */
-export function useFrameRemovalPeriod(): { validFrom: string | null; validTo: string | null } {
+export function useFrameRemovalPeriod(): {
+  validFrom: string | null;
+  validTo: string | null;
+} {
   const { currentEdit } = useEditManager();
   const { timeFrames } = useTimeFrame();
   const frame =
@@ -187,8 +197,14 @@ export function useFrameRemovalPeriod(): { validFrom: string | null; validTo: st
       ? timeFrames.find((tf) => tf.ident === currentEdit.frameIdent)
       : undefined;
   if (frame)
-    return { validFrom: frame.valid_from, validTo: frame.valid_to === "infinity" ? null : frame.valid_to };
-  return { validFrom: currentEdit.validFrom ?? null, validTo: currentEdit.validTo ?? null };
+    return {
+      validFrom: frame.valid_from,
+      validTo: frame.valid_to === "infinity" ? null : frame.valid_to,
+    };
+  return {
+    validFrom: currentEdit.validFrom ?? null,
+    validTo: currentEdit.validTo ?? null,
+  };
 }
 
 export function useRemoval(source: EditFieldSource | undefined) {
@@ -210,8 +226,13 @@ export function useRemoval(source: EditFieldSource | undefined) {
     };
   }
   // Frame: the frame's own period; Specific dates: the dates typed.
-  if (!from) return { runs: [], removed: [], kept: [] as RemovalPiece[], all: false };
-  const { removed, kept } = removalSummary(periods, from, to);
+  if (!from)
+    return { runs: [], removed: [], kept: [] as RemovalPiece[], all: false };
+  const { removed, kept } = removalSummary(
+    periods.filter((p) => !p.empty),
+    from,
+    to
+  );
   return {
     runs: removed.length > 0 ? [{ validFrom: from, validTo: to ?? null }] : [],
     removed,
@@ -237,7 +258,11 @@ export function FrameRemovalSummary() {
   return (
     <div className="space-y-1 text-sm" data-frame-removal="">
       {removed.map((p) => (
-        <div key={p.valid_from} className="rounded bg-red-50 px-2 py-1" data-frame-removal-removed="">
+        <div
+          key={p.valid_from}
+          className="rounded bg-red-50 px-2 py-1"
+          data-frame-removal-removed=""
+        >
           <span className="block break-words font-medium text-red-700 line-through">
             {describe.value(p.values) ?? "Empty"}
           </span>
@@ -248,7 +273,10 @@ export function FrameRemovalSummary() {
       ))}
       {kept.length > 0 && (
         <p className="text-xs text-zinc-600" data-frame-removal-kept="">
-          Stays: {kept.map((p) => `${p.valid_from} – ${formatEnd(p.valid_to)}`).join(", ")}
+          Stays:{" "}
+          {kept
+            .map((p) => `${p.valid_from} – ${formatEnd(p.valid_to)}`)
+            .join(", ")}
         </p>
       )}
     </div>
@@ -331,7 +359,11 @@ export function RemoveRecordAction({ label }: { label: string }) {
         data-remove-record=""
       >
         <span className="leading-tight">{action}</span>
-        {scope && <span className="text-xs font-normal leading-tight opacity-90">{scope}</span>}
+        {scope && (
+          <span className="text-xs font-normal leading-tight opacity-90">
+            {scope}
+          </span>
+        )}
       </Button>
       {open && (
         <AlertDialog

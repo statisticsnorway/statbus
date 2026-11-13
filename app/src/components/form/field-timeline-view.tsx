@@ -21,6 +21,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { TimeFrame } from "@/lib/time-frame";
 import type { EditFieldSource } from "./read-edit-range";
+import { useUnitExistence } from "./timeline-skeleton-view";
+import { withGaps } from "./timeline-gaps";
 import {
   describeValues,
   fieldTimeline,
@@ -76,9 +78,11 @@ export function useFieldTimeline(source: EditFieldSource | undefined) {
     if (readError) throw readError;
     return rows as unknown as TimelineSourceRow[];
   });
+  const existence = useUnitExistence(source);
+  // Holes inside the unit's life are drawn as periods of their own (withGaps).
   const periods = useMemo(
-    () => (data ? fieldTimeline(data, columns) : []),
-    [data, columns]
+    () => (data ? withGaps(fieldTimeline(data, columns), existence) : []),
+    [data, columns, existence]
   );
   return { periods, loaded: !!data, error, isLoading, refresh: mutate };
 }
@@ -541,6 +545,7 @@ export function FieldTimeline({
               className="contents"
               data-timeline-period={p.valid_from}
               data-selected={on || undefined}
+              data-timeline-hole={p.empty || undefined}
             >
               {onToggle && (
                 <div
@@ -564,6 +569,7 @@ export function FieldTimeline({
                 }}
                 className={cn(
                   "my-0.5 min-w-0 rounded px-2 py-1",
+                  p.empty && !on && "border border-dashed border-zinc-300",
                   on && "bg-ssb-light"
                 )}
                 data-shown={i === shownIndex || undefined}
@@ -574,7 +580,7 @@ export function FieldTimeline({
                     !value && "italic text-zinc-400"
                   )}
                 >
-                  {value ?? "Empty"}
+                  {p.empty ? "No value" : (value ?? "Empty")}
                 </div>
                 <div className="text-xs text-zinc-500">
                   {p.valid_from} – {formatEnd(p.valid_to)}

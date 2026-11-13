@@ -62,4 +62,17 @@ describe("editStartValues", () => {
   it("has nothing to start from when nothing is ticked", () => {
     expect(editStartValues(periods, [])).toBeNull();
   });
+
+  it("fills a hole with the ticked periods' value, and a hole is no difference", () => {
+    const withHole = [
+      periods[0],
+      { ...period("2025-01-01", "2025-12-31", { email_address: null, web_address: null }, null), empty: true },
+      periods[2],
+    ];
+    expect(editStartValues(withHole, [0, 1, 2])).toEqual({
+      values: { email_address: null, web_address: "https://my.home.com" },
+      dataSourceId: null,
+      differing: [],
+    });
+  });
 });

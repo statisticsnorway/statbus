@@ -30,6 +30,11 @@ export interface TimelinePeriod {
   edit_comment: string | null;
   edit_by_user_id: number | null;
   edit_at: string | null;
+  /**
+   * A hole: a stretch inside the unit's life where the record has no row
+   * (withGaps). Drawn as "No value"; ticking it fills it, Remove skips it.
+   */
+  empty?: boolean;
 }
 
 const INFINITY = "infinity";
