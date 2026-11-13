@@ -20,6 +20,13 @@ const isoDate = z.iso.date({ error: (issue) => (issue.input === undefined ? "Req
 /** Optional ISO date: empty clears it. */
 export const optionalDate = z.preprocess(emptyAsNull, isoDate.nullable().optional());
 
+/**
+ * An optional reference to a code list row (sector, legal form, unit size,
+ * region): None posts "", which stores no value. Coercing "" alone would give
+ * 0, a reference to a row that doesn't exist.
+ */
+export const optionalId = z.preprocess(emptyAsNull, z.coerce.number().nullable().optional());
+
 /** Text the database requires (a unit's name): empty is refused on the field. */
 export const requiredText = (message: string) =>
   z.preprocess(emptyAsNull, z.string({ error: message }).optional());

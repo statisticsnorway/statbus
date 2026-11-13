@@ -1,3 +1,4 @@
+import { legalFormSchema, sectorSchema } from "@/app/legal-units/[id]/classifications/validation";
 import { contactInfoSchema } from "@/app/legal-units/[id]/contact/validation";
 import { demographicSchema } from "@/app/legal-units/[id]/demographic/validation";
 import { generalInfoSchema, locationSchema } from "@/app/legal-units/[id]/general-info/validation";
@@ -78,5 +79,18 @@ describe("an emptied field on an edit form", () => {
     const parsed = generalInfoSchema.safeParse(form({ ...period, delete_image: "true" }));
     expect(parsed.success).toBe(true);
     expect(parsed.success && "name" in parsed.data && parsed.data.name !== undefined).toBe(false);
+  });
+});
+
+// Choosing None in an optional select posts "" (STATBUS-610): no value, never row 0.
+describe("None in an optional select", () => {
+  it("clears the sector", () => {
+    expect(sectorSchema.safeParse(form({ ...period, sector_id: "" })).data).toMatchObject({ sector_id: null });
+  });
+  it("clears the legal form", () => {
+    expect(legalFormSchema.safeParse(form({ ...period, legal_form_id: "" })).data).toMatchObject({ legal_form_id: null });
+  });
+  it("keeps a chosen sector", () => {
+    expect(sectorSchema.safeParse(form({ ...period, sector_id: "43" })).data).toMatchObject({ sector_id: 43 });
   });
 });
