@@ -10,9 +10,11 @@ Dependency-closed LU/establishment batches ran through the existing worker with 
 
 The November 12–13 comparison used the same 8-core bench host, the same input files, a fresh database for each round, and serial/concurrent/concurrent/serial order. Both configurations used the experimental implementation, changing only whether the final migration enabled four import workers. Therefore the one-worker measurements are a concurrency control, not a direct measurement of unchanged master.
 
-- One worker: `ee3a51dfb2d38266aecc10603bfc221dd818fff1`, branch `statbus-591-serial-bench`.
-- Four workers: `da11950e1f40f76a429a17ceb56c4ce0f164d4cd`, branch `statbus-591-concurrency-rebased`.
+- One worker: `ee3a51dfb`, a bench-only build of the concurrent implementation with import concurrency at one.
+- Four workers: `da11950e1`, the same build with four import workers.
 - Run identity: `20261112T193846Z`. Local raw evidence: `tmp/bench/20261112/box/20261112T193846Z/`, including `run.log`, `round-*.log`, worker logs and fingerprints. These files are retained locally, not shipped with the documentation.
+
+The experiment's branches were deleted on November 14 with the owner's cleanup decision. The concurrent implementation remains in master's history: it landed as `a1ba6063d` (November 8) and was withdrawn by a forward commit (November 9), so `git show a1ba6063d` still shows it. The two bench builds above and the automatic-root proposal `34c1087ff` existed only on the deleted branches; this record keeps what they did and measured.
 
 ## Results in minutes
 
@@ -40,7 +42,7 @@ No failed tasks is not proof of identical business results. Raw fingerprints dif
 ## Consequences
 
 - Keep master's serial import behavior. The rejected candidate is not on master, so this decision requires no runtime revert.
-- Preserve branch SHAs, diagnostics and earlier regression evidence as the record of the experiment. Discarding the approach does not authorize deleting retained databases or worktrees.
+- The experiment's branches, worktrees and scratch databases are deleted (owner, November 13-14). This record and master's history (`a1ba6063d`) are what remains.
 - Retire the pending concurrency eligibility, recovery and root-policy reviews as gates for this abandoned implementation. Independent validity-date, security and cleanup decisions remain separate.
 - Reopen concurrency only through a new owner-approved proposal with a concrete contention diagnosis, a matched end-to-idle speed improvement, and normalized business/temporal parity. Small-fixture parallelism alone is insufficient.
 
