@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-07T12:31:00Z'
-updated_date: '2026-11-13T11:16:00Z'
+updated_date: '2026-11-14T20:14:00Z'
 labels:
   - import
   - performance
@@ -180,4 +180,6 @@ Round 4 serial: import 9,029 s (150 min) + recalc 1,225 s (20 min). ABBA result:
 Owner decision November 13, 2026 at 10:59 and 11:04 UTC: stop and discard the concurrent-import approach, and retain a durable rationale of what was tried and why it was rejected. Recorded in doc/performance/2026-11-concurrent-import-rejected.md and linked from the combined review. Serial 159.7/150.5 min, concurrent 173.3/168.3 min, no failed tasks. No claim of a diagnosed lock or completed normalized parity. No code revert or database deletion. Separate serial optimizations remain landed. Documentation verified against raw round logs and source ancestry; broader ticket deferred rather than falsely marked Done.
 
 Cleanup November 13, 2026 11:16 UTC, owner-authorized: dropped all 146 statbus_591_* scratch databases (143 inventoried plus three empty 591 bench templates, about 24.5 GB). Zero remained afterwards and none had sessions. Kept import_benchmark_97846 (serial result), import_benchmark_12794 (concurrent result) and import_benchmark_64469 (full register used by 598/599/605/612-615). Lists and logs: tmp/cleanup-591/.
+
+Cleanup 2026-11-14 20:13 UTC (owner: delete what was tried and thrown away): 24 remote and 19 local statbus-59x..62x branches deleted (merged, cherry-landed, or the rejected 591 concurrency work; SHAs saved in tmp/cleanup-626/), worktrees tmp/wt591 and ../statbus_591_serial removed, 10 scratch/template databases dropped, tmp/591 (1.4 GB) deleted. The record is doc/performance/2026-11-concurrent-import-rejected.md, updated (fbedd5d50) to stand without the branches; the implementation stays readable in master history at a1ba6063d.
 <!-- SECTION:NOTES:END -->
