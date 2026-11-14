@@ -95,9 +95,9 @@ declare interface Location {
   edit_comment: string | null;
   establishment_id: number | null;
   id: number;
-  latitude: number | null;
+  physical_latitude: number | null;
   legal_unit_id: number | null;
-  longitude: number | null;
+  physical_longitude: number | null;
   postcode: string | null;
   postplace: string | null;
   region_id: number | null;

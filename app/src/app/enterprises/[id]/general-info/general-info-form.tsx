@@ -100,13 +100,13 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
           <div className="grid lg:grid-cols-3 gap-4">
             <DisplayFormField
               label="Latitude"
-              name="latitude"
-              value={physicalLocation?.latitude}
+              name="physical_latitude"
+              value={physicalLocation?.physical_latitude}
             />
             <DisplayFormField
               label="Longitude"
-              name="longitude"
-              value={physicalLocation?.longitude}
+              name="physical_longitude"
+              value={physicalLocation?.physical_longitude}
             />
             <DisplayFormField
               label="Altitude"

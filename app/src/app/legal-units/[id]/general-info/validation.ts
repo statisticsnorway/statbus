@@ -44,8 +44,8 @@ export const locationSchema = zfd.formData({
       invalid_type_error: "Select a country",
     })
   ),
-  latitude: optionalNumber,
-  longitude: optionalNumber,
+  physical_latitude: optionalNumber,
+  physical_longitude: optionalNumber,
   altitude: optionalNumber,
   type: z.enum(["physical", "postal"]),
   ...editMetadataSchemaFields,
