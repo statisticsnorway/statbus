@@ -217,15 +217,15 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
               <FormField
                 readonly={!isEditing}
                 label="Latitude"
-                name="latitude"
-                value={physicalLocation?.latitude}
+                name="physical_latitude"
+                value={physicalLocation?.physical_latitude}
                 response={null}
               />
               <FormField
                 readonly={!isEditing}
                 label="Longitude"
-                name="longitude"
-                value={physicalLocation?.longitude}
+                name="physical_longitude"
+                value={physicalLocation?.physical_longitude}
                 response={null}
               />
               <FormField
