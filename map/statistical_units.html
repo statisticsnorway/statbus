@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Statistical Units Map</title>
+
+<link href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<!-- API key loaded from config.js (gitignored). Copy config.example.js to config.js and add your key. -->
+<script src="config.js"></script>
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  #map { width: 100%; height: 100%; }
+  .maplibregl-ctrl-attrib { background: transparent !important; }
+  .maplibregl-ctrl-attrib-button { display: none !important; }
+
+  #legend {
+    position: absolute;
+    bottom: 28px;
+    right: 10px;
+    background: rgba(255,255,255,0.92);
+    padding: 8px 12px;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    z-index: 10;
+    line-height: 1.8;
+    text-align: left;
+  }
+  #legend .dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+
+  .maplibregl-popup-content {
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 300px;
+  }
+
+  #status-bar {
+    position: absolute;
+    bottom: 28px;
+    left: 10px;
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    color: #888;
+    background: rgba(255,255,255,0.8);
+    padding: 3px 8px;
+    border-radius: 4px;
+    z-index: 10;
+  }
+
+  @media (max-width: 520px) {
+    .select-bar { font-size: 12px !important; }
+    .select-bar strong { font-size: 14px !important; }
+    #legend { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="select-bar" style="padding:8px;background:#f5f5f5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <strong style="font-family:Arial,sans-serif;font-size:16px;color:#1a3a6b;">Statistical Units</strong>
+    <label style="font-family:Arial,sans-serif;font-size:13px;cursor:pointer;">
+      <input type="checkbox" class="type-filter" value="enterprise"> <span style="color:#d63384">&#9679;</span> Enterprises
+    </label>
+    <label style="font-family:Arial,sans-serif;font-size:13px;cursor:pointer;">
+      <input type="checkbox" class="type-filter" value="legal_unit" checked> <span style="color:#1a3a5c">&#9679;</span> Legal units
+    </label>
+    <label style="font-family:Arial,sans-serif;font-size:13px;cursor:pointer;">
+      <input type="checkbox" class="type-filter" value="establishment"> <span style="color:#27ae60">&#9679;</span> Establishments
+    </label>
+    <span style="color:#ccc;font-size:16px;margin:0 2px;">|</span>
+    <input id="search" type="text" placeholder="Search by name..." style="padding:4px 8px;font-size:13px;border-radius:4px;border:1px solid #ccc;width:180px">
+    <span style="color:#ccc;font-size:16px;margin:0 2px;">|</span>
+    <span id="stat-radios" style="display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <!-- Dynamically populated from stat_definition_enabled -->
+    </span>
+  </div>
+
+  <div id="container" style="width:100%; height:calc(100vh - 50px); margin:0 auto; position:relative">
+    <div id="map"></div>
+
+    <div id="legend">
+      <div><span class="dot" style="background:#d63384"></span> Enterprise</div>
+      <div><span class="dot" style="background:#1a3a5c"></span> Legal unit</div>
+      <div><span class="dot" style="background:#27ae60"></span> Establishment</div>
+      <hr style="border:0;border-top:1px solid #ccc;margin:4px 0">
+      <div id="totals"></div>
+    </div>
+
+    <div id="status-bar">Loading data...</div>
+  </div>
+
+<script>
+{
+  // ── Configuration ──────────────────────────────────────────────────
+  // API_URL and API_KEY are loaded from config.js (gitignored).
+  // Copy config.example.js to config.js and set your values there.
+  if (typeof API_URL === 'undefined') var API_URL = 'https://ma.statbus.org';
+  if (typeof API_KEY === 'undefined') var API_KEY = '';
+  // Maximum rows to fetch
+  const FETCH_LIMIT = 5000;
+
+  // ── State ──────────────────────────────────────────────────────────
+  let map;
+  let allData = null;        // Array of unit objects
+  let statDefs = [];         // [{code, name, type}, ...] from stat_definition_enabled
+  let activeTypes = new Set(['legal_unit']);
+  let colorBy = null;        // Set to first stat code after fetching definitions
+  let searchFilter = '';
+  let statStops = {};        // { code: [stop0..stop4] } for color scaling
+
+  map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://tiles.openfreemap.org/styles/liberty',
+    center: [0, 20],
+    zoom: 2,
+    maxZoom: 16,
+    minZoom: 3
+  });
+
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
+
+  // ── API helpers ────────────────────────────────────────────────────
+  function apiFetch(path) {
+    const headers = { 'Accept': 'application/json' };
+    if (API_KEY) headers['Authorization'] = `Bearer ${API_KEY}`;
+    const fetchOpts = { headers };
+    if (new URL(API_URL).origin === window.location.origin) {
+      fetchOpts.credentials = 'include';
+    }
+    return fetch(`${API_URL}${path}`, fetchOpts).then(resp => {
+      if (!resp.ok) return resp.text().then(t => { throw new Error(`API ${resp.status}: ${t.slice(0, 200)}`); });
+      return resp.json();
+    });
+  }
+
+  // ── Data transformation ────────────────────────────────────────────
+  function transformRow(row) {
+    const typeMap = { legal_unit: 0, establishment: 1, enterprise: 2 };
+    // Extract all stat values: use stats (own) with stats_summary (aggregated) as fallback
+    const stats = {};
+    for (const def of statDefs) {
+      const own = Number(row.stats?.[def.code]?.value) || 0;
+      const agg = Number(row.stats_summary?.[def.code]?.sum) || 0;
+      stats[def.code] = own || agg;
+    }
+    return {
+      lon: Number(row.physical_longitude),
+      lat: Number(row.physical_latitude),
+      name: row.name || '',
+      utype: typeMap[row.unit_type] ?? 1,
+      postplace: row.physical_postplace || '',
+      activity: row.primary_activity_category_path || '',
+      stats
+    };
+  }
+
+  // ── GeoJSON builder ────────────────────────────────────────────────
+  function buildGeoJSON() {
+    const typeMap = { enterprise: 2, legal_unit: 0, establishment: 1 };
+    const allowed = new Set();
+    activeTypes.forEach(t => allowed.add(typeMap[t]));
+    const q = searchFilter.toLowerCase();
+    const features = allData
+      .filter(u => allowed.has(u.utype))
+      .filter(u => !q || u.name.toLowerCase().includes(q))
+      .map(u => {
+        const props = {
+          name: u.name,
+          utype: u.utype,
+          postplace: u.postplace,
+          activity: u.activity
+        };
+        // Flatten stats into properties for MapLibre expressions
+        for (const code in u.stats) {
+          props['stat_' + code] = u.stats[code];
+        }
+        return {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [u.lon, u.lat] },
+          properties: props
+        };
+      });
+    return { type: 'FeatureCollection', features };
+  }
+
+  // ── Percentile stops for color scaling ─────────────────────────────
+  function computeStops(statCode) {
+    const vals = allData.map(u => u.stats[statCode] || 0).filter(v => v > 0).sort((a, b) => a - b);
+    if (vals.length === 0) return [0, 1, 2, 3, 4];
+    const raw = [
+      0,
+      vals[Math.floor(vals.length * 0.25)] || 1,
+      vals[Math.floor(vals.length * 0.50)] || 2,
+      vals[Math.floor(vals.length * 0.75)] || 3,
+      vals[Math.floor(vals.length * 0.95)] || 4
+    ];
+    // MapLibre requires strictly ascending stops — deduplicate by bumping
+    for (let i = 1; i < raw.length; i++) {
+      if (raw[i] <= raw[i - 1]) raw[i] = raw[i - 1] + 0.001;
+    }
+    return raw;
+  }
+
+  // ── Map setup ──────────────────────────────────────────────────────
+  map.on('load', async () => {
+    const statusBar = document.getElementById('status-bar');
+
+    // Hide borders immediately, before any API calls
+    map.getStyle().layers.forEach(layer => {
+      if (layer.type === 'line' && /boundary|border|admin/i.test(layer.id)) {
+        map.setLayoutProperty(layer.id, 'visibility', 'none');
+      }
+    });
+
+    try {
+      // 1. Fetch stat definitions
+      statusBar.textContent = 'Loading statistical variable definitions...';
+      statDefs = await apiFetch('/rest/stat_definition_enabled?select=code,name,type&order=code.asc');
+      console.log('Stat definitions:', statDefs.map(d => d.code));
+
+      // Set default colorBy to first stat
+      if (statDefs.length > 0) colorBy = statDefs[0].code;
+
+      // 2. Build radio buttons
+      const radiosContainer = document.getElementById('stat-radios');
+      statDefs.forEach((def, i) => {
+        const label = document.createElement('label');
+        label.style.cssText = 'font-family:Arial,sans-serif;font-size:13px;cursor:pointer;';
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'colorBy';
+        radio.value = def.code;
+        if (i === 0) radio.checked = true;
+        label.appendChild(radio);
+        // Capitalize first letter of name for display
+        const displayName = def.name || def.code;
+        label.appendChild(document.createTextNode(' ' + displayName));
+        radiosContainer.appendChild(label);
+      });
+
+      // 3. Fetch units with coordinates
+      statusBar.textContent = 'Fetching statistical units...';
+      const select = 'unit_type,physical_latitude,physical_longitude,name,stats,stats_summary,physical_postplace,primary_activity_category_path';
+      const rows = await apiFetch(`/rest/statistical_unit?select=${select}&physical_latitude=not.is.null&physical_longitude=not.is.null&limit=${FETCH_LIMIT}`);
+
+      allData = rows.map(transformRow);
+      // Count by type for status message
+      const counts = {};
+      for (const r of rows) counts[r.unit_type] = (counts[r.unit_type] || 0) + 1;
+      const parts = Object.entries(counts).map(([t, n]) => `${n} ${t.replace('_', ' ')}s`);
+      statusBar.textContent = `Loaded ${parts.join(', ')} with coordinates · ${statDefs.length} stat variables`;
+
+    } catch (err) {
+      statusBar.textContent = `Error: ${err.message}`;
+      statusBar.style.color = '#c00';
+      console.error('Failed to load data:', err);
+      return;
+    }
+
+    // Compute stops for each stat
+    for (const def of statDefs) {
+      statStops[def.code] = computeStops(def.code);
+    }
+
+    // Auto-fit map to data bounds
+    if (allData.length > 0) {
+      const bounds = new maplibregl.LngLatBounds();
+      allData.forEach(u => bounds.extend([u.lon, u.lat]));
+      map.fitBounds(bounds, { padding: 50, maxZoom: 12 });
+    }
+
+    // ── Totals ─────────────────────────────────────────────────────
+    function updateTotals() {
+      const typeMap = { enterprise: 2, legal_unit: 0, establishment: 1 };
+      const allowed = new Set();
+      activeTypes.forEach(t => allowed.add(typeMap[t]));
+      const q = searchFilter.toLowerCase();
+      const data = allData.filter(u => allowed.has(u.utype)).filter(u => !q || u.name.toLowerCase().includes(q));
+      const fmt = n => typeof n === 'number' && n % 1 !== 0
+        ? n.toLocaleString('nb-NO', { maximumFractionDigits: 2 })
+        : n.toLocaleString('nb-NO');
+
+      const total = data.length;
+      const enterprises = data.filter(u => u.utype === 2).length;
+      const legalUnits = data.filter(u => u.utype === 0).length;
+      const establishments = data.filter(u => u.utype === 1).length;
+
+      let rows = '';
+      if (activeTypes.has('enterprise')) rows += `<tr><td style="text-align:left;padding:1px 6px 1px 0">Enterprises:</td><td style="text-align:right">${fmt(enterprises)}</td></tr>`;
+      if (activeTypes.has('legal_unit')) rows += `<tr><td style="text-align:left;padding:1px 6px 1px 0">Legal units:</td><td style="text-align:right">${fmt(legalUnits)}</td></tr>`;
+      if (activeTypes.has('establishment')) rows += `<tr><td style="text-align:left;padding:1px 6px 1px 0">Establishments:</td><td style="text-align:right">${fmt(establishments)}</td></tr>`;
+
+      // Dynamic stat totals
+      for (const def of statDefs) {
+        const sum = data.reduce((s, u) => s + (u.stats[def.code] || 0), 0);
+        const withVal = data.filter(u => u.stats[def.code] > 0).length;
+        const displayName = def.name || def.code;
+        rows += `<tr><td style="text-align:left;padding:1px 6px 1px 0">Total ${displayName}:</td><td style="text-align:right">${fmt(sum)}</td></tr>`;
+        rows += `<tr><td style="text-align:left;padding:1px 6px 1px 0">&nbsp;&nbsp;with ${displayName}:</td><td style="text-align:right">${fmt(withVal)}</td></tr>`;
+      }
+
+      document.getElementById('totals').innerHTML =
+        `<table style="border-collapse:collapse;width:100%;font-size:inherit">` +
+        `<tr><td style="text-align:left;padding:1px 6px 1px 0">Total units:</td><td style="text-align:right">${fmt(total)}</td></tr>` +
+        rows + `</table>`;
+    }
+
+    // ── Cluster source with dynamic stat sums ──────────────────────
+    const clusterProperties = {};
+    for (const def of statDefs) {
+      clusterProperties['sum_' + def.code] = ['+', ['get', 'stat_' + def.code]];
+    }
+
+    map.addSource('units', {
+      type: 'geojson',
+      data: buildGeoJSON(),
+      cluster: true,
+      clusterRadius: 40,
+      clusterMaxZoom: 13,
+      clusterProperties
+    });
+
+    // ── Color ramps ────────────────────────────────────────────────
+    const blueRamp  = ['#1a3a5c', '#152f4a', '#0f2840', '#0a1e33', '#061525'];
+    const greenRamp = ['#a9dfbf', '#82e0aa', '#27ae60', '#1e8449', '#0b5345'];
+    const pinkRamp  = ['#e8b5d4', '#e8a5d0', '#d63384', '#a0245e', '#6b1740'];
+    const greyRamp  = ['#c0c0c0', '#a0a0a0', '#787878', '#505050', '#282828'];
+
+    function getClusterRamp() {
+      if (activeTypes.size === 1) {
+        if (activeTypes.has('establishment')) return greenRamp;
+        if (activeTypes.has('legal_unit')) return blueRamp;
+        return pinkRamp;
+      }
+      return greyRamp;
+    }
+
+    function getClusterColorExpr() {
+      const ramp = getClusterRamp();
+      return [
+        'interpolate', ['linear'], ['get', 'point_count'],
+        1, ramp[0], 200, ramp[1], 1000, ramp[2], 5000, ramp[3], 20000, ramp[4]
+      ];
+    }
+
+    const clusterRadiusByCount = [
+      'interpolate', ['linear'], ['get', 'point_count'],
+      1, 12, 200, 18, 1000, 24, 5000, 32, 20000, 42
+    ];
+
+    // Cluster circles
+    map.addLayer({
+      id: 'clusters',
+      type: 'circle',
+      source: 'units',
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': getClusterColorExpr(),
+        'circle-radius': clusterRadiusByCount,
+        'circle-stroke-width': 1,
+        'circle-stroke-color': '#fff'
+      }
+    });
+
+    // Cluster count labels
+    function abbreviate(prop) {
+      return [
+        'case',
+        ['>=', ['get', prop], 1000000],
+          ['concat', ['to-string', ['round', ['/', ['get', prop], 100000]]], 'M'],
+        ['>=', ['get', prop], 1000],
+          ['concat', ['to-string', ['round', ['/', ['get', prop], 100]]], 'k'],
+        ['to-string', ['round', ['get', prop]]]
+      ];
+    }
+
+    function getClusterTextField() {
+      if (colorBy) return abbreviate('sum_' + colorBy);
+      return '{point_count_abbreviated}';
+    }
+
+    map.addLayer({
+      id: 'cluster-count',
+      type: 'symbol',
+      source: 'units',
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': getClusterTextField(),
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 11,
+        'text-allow-overlap': true
+      },
+      paint: { 'text-color': '#fff' }
+    });
+
+    // Point color expressions
+    function makeColorExpr(statCode) {
+      const stops = statStops[statCode] || [0, 1, 2, 3, 4];
+      const prop = 'stat_' + statCode;
+      return [
+        'case',
+        ['==', ['get', 'utype'], 0],
+        ['interpolate', ['linear'], ['get', prop],
+          stops[0], blueRamp[0], stops[1], blueRamp[1], stops[2], blueRamp[2], stops[3], blueRamp[3], stops[4], blueRamp[4]],
+        ['==', ['get', 'utype'], 2],
+        ['interpolate', ['linear'], ['get', prop],
+          stops[0], pinkRamp[0], stops[1], pinkRamp[1], stops[2], pinkRamp[2], stops[3], pinkRamp[3], stops[4], pinkRamp[4]],
+        ['interpolate', ['linear'], ['get', prop],
+          stops[0], greenRamp[0], stops[1], greenRamp[1], stops[2], greenRamp[2], stops[3], greenRamp[3], stops[4], greenRamp[4]]
+      ];
+    }
+
+    const colorByType = [
+      'case',
+      ['==', ['get', 'utype'], 0], '#1a3a5c',
+      ['==', ['get', 'utype'], 2], '#d63384',
+      '#27ae60'
+    ];
+
+    function getColorExpr() {
+      if (colorBy) return makeColorExpr(colorBy);
+      return colorByType;
+    }
+
+    // Individual points
+    map.addLayer({
+      id: 'points',
+      type: 'circle',
+      source: 'units',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 4, 8, 8, 12, 14, 16, 20],
+        'circle-color': getColorExpr(),
+        'circle-opacity': 1,
+        'circle-stroke-width': 0.5,
+        'circle-stroke-color': '#fff'
+      }
+    });
+
+    // ── Interactions ────────────────────────────────────────────────
+    map.on('click', 'clusters', (e) => {
+      e.preventDefault();
+      const feature = e.features[0];
+      const clusterId = feature.properties.cluster_id;
+      map.getSource('units').getClusterExpansionZoom(clusterId).then(zoom => {
+        map.easeTo({ center: feature.geometry.coordinates, zoom: zoom + 0.5 });
+      }).catch(() => {
+        map.easeTo({ center: feature.geometry.coordinates, zoom: map.getZoom() + 2 });
+      });
+    });
+
+    // Click point → popup with all stats
+    map.on('click', 'points', (e) => {
+      const p = e.features[0].properties;
+      const coords = e.features[0].geometry.coordinates;
+      const typeLabel = p.utype === 2 ? 'Enterprise' : p.utype === 0 ? 'Legal unit' : 'Establishment';
+      const typeColor = p.utype === 2 ? '#d63384' : p.utype === 0 ? '#1a3a5c' : '#27ae60';
+
+      let html = `<b>${p.name}</b><br>` +
+        `<span style="color:${typeColor}">\u25CF ${typeLabel}</span><br>` +
+        (p.activity ? `${p.activity}<br>` : '') +
+        (p.postplace ? `${p.postplace}<br>` : '');
+
+      // Show all stat values
+      for (const def of statDefs) {
+        const val = p['stat_' + def.code];
+        if (val && val > 0) {
+          const displayName = def.name || def.code;
+          html += `${displayName}: <b>${Number(val).toLocaleString()}</b><br>`;
+        }
+      }
+
+      new maplibregl.Popup({ offset: 10 })
+        .setLngLat(coords)
+        .setHTML(html)
+        .addTo(map);
+    });
+
+    map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
+    map.on('mouseenter', 'points', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'points', () => map.getCanvas().style.cursor = '');
+
+    // ── Refresh ────────────────────────────────────────────────────
+    function refreshMap() {
+      map.getSource('units').setData(buildGeoJSON());
+      map.setPaintProperty('clusters', 'circle-color', getClusterColorExpr());
+      map.setPaintProperty('clusters', 'circle-radius', clusterRadiusByCount);
+      map.setPaintProperty('points', 'circle-color', getColorExpr());
+      map.setLayoutProperty('cluster-count', 'text-field', getClusterTextField());
+      updateTotals();
+    }
+
+    // Type filter checkboxes
+    document.querySelectorAll('.type-filter').forEach(cb => {
+      cb.addEventListener('change', function () {
+        if (this.checked) {
+          activeTypes.add(this.value);
+        } else {
+          if (activeTypes.size <= 1) { this.checked = true; return; }
+          activeTypes.delete(this.value);
+        }
+        refreshMap();
+      });
+    });
+
+    // Stat radio buttons (dynamically created)
+    document.getElementById('stat-radios').addEventListener('change', function (e) {
+      if (e.target.name === 'colorBy') {
+        colorBy = e.target.value;
+        refreshMap();
+      }
+    });
+
+    updateTotals();
+
+    // Search
+    const searchInput = document.getElementById('search');
+    let searchTimer = null;
+
+    function applySearch() {
+      searchFilter = searchInput.value.trim();
+      refreshMap();
+      if (searchFilter) {
+        const q = searchFilter.toLowerCase();
+        const typeMap = { enterprise: 2, legal_unit: 0, establishment: 1 };
+        const allowed = new Set();
+        activeTypes.forEach(t => allowed.add(typeMap[t]));
+        const matched = allData.filter(u => allowed.has(u.utype) && u.name.toLowerCase().includes(q));
+        if (matched.length > 0) {
+          const bounds = new maplibregl.LngLatBounds();
+          matched.forEach(u => bounds.extend([u.lon, u.lat]));
+          map.fitBounds(bounds, { padding: 50, maxZoom: 12 });
+        }
+      }
+    }
+
+    searchInput.addEventListener('input', function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(applySearch, 300);
+    });
+  });
+}
+</script>
+
+</body>
+</html>
