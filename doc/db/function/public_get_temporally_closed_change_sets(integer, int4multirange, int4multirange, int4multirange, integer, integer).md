@@ -130,20 +130,34 @@ BEGIN
             -- Scoped group query with bridge groups
             FOR v_group IN
                 SELECT
-                    COALESCE(bg.group_id, en.id) AS group_id,
-                    array_agg(DISTINCT en.id ORDER BY en.id) AS enterprise_ids,
-                    array_agg(DISTINCT lu.id ORDER BY lu.id)
-                        FILTER (WHERE lu.id IS NOT NULL) AS legal_unit_ids,
-                    array_agg(DISTINCT es.id ORDER BY es.id)
-                        FILTER (WHERE es.id IS NOT NULL) AS establishment_ids,
-                    (COUNT(DISTINCT en.id) + COUNT(DISTINCT lu.id) + COUNT(DISTINCT es.id))::INT AS total_unit_count
-                FROM _affected_enterprises AS ae
-                JOIN public.enterprise AS en ON en.id = ae.enterprise_id
-                LEFT JOIN _bridge_groups AS bg ON bg.enterprise_id = en.id
-                LEFT JOIN public.legal_unit AS lu ON lu.enterprise_id = en.id
-                LEFT JOIN public.establishment AS es
-                    ON es.legal_unit_id = lu.id OR es.enterprise_id = en.id
-                GROUP BY COALESCE(bg.group_id, en.id)
+                    COALESCE(bg.group_id, member.enterprise_id) AS group_id,
+                    array_agg(DISTINCT member.unit_id ORDER BY member.unit_id)
+                        FILTER (WHERE member.kind = 'enterprise') AS enterprise_ids,
+                    array_agg(DISTINCT member.unit_id ORDER BY member.unit_id)
+                        FILTER (WHERE member.kind = 'legal_unit') AS legal_unit_ids,
+                    array_agg(DISTINCT member.unit_id ORDER BY member.unit_id)
+                        FILTER (WHERE member.kind = 'establishment') AS establishment_ids,
+                    COUNT(DISTINCT (member.kind, member.unit_id))::INT AS total_unit_count
+                FROM (
+                    SELECT en.id AS enterprise_id, 'enterprise'::TEXT AS kind, en.id AS unit_id
+                    FROM _affected_enterprises AS ae
+                    JOIN public.enterprise AS en ON en.id = ae.enterprise_id
+                    UNION ALL
+                    SELECT lu.enterprise_id, 'legal_unit', lu.id
+                    FROM _affected_enterprises AS ae
+                    JOIN public.legal_unit AS lu ON lu.enterprise_id = ae.enterprise_id
+                    UNION ALL
+                    SELECT lu.enterprise_id, 'establishment', es.id
+                    FROM _affected_enterprises AS ae
+                    JOIN public.legal_unit AS lu ON lu.enterprise_id = ae.enterprise_id
+                    JOIN public.establishment AS es ON es.legal_unit_id = lu.id
+                    UNION ALL
+                    SELECT es.enterprise_id, 'establishment', es.id
+                    FROM _affected_enterprises AS ae
+                    JOIN public.establishment AS es ON es.enterprise_id = ae.enterprise_id
+                ) AS member
+                LEFT JOIN _bridge_groups AS bg ON bg.enterprise_id = member.enterprise_id
+                GROUP BY COALESCE(bg.group_id, member.enterprise_id)
                 ORDER BY total_unit_count DESC, group_id
             LOOP
                 IF v_current_change_set_size > 0
@@ -183,20 +197,33 @@ BEGIN
             -- No bridges, filtered: scoped group query
             FOR v_group IN
                 SELECT
-                    en.id AS group_id,
-                    ARRAY[en.id] AS enterprise_ids,
-                    array_agg(DISTINCT lu.id ORDER BY lu.id)
-                        FILTER (WHERE lu.id IS NOT NULL) AS legal_unit_ids,
-                    array_agg(DISTINCT es.id ORDER BY es.id)
-                        FILTER (WHERE es.id IS NOT NULL) AS establishment_ids,
-                    (1 + COUNT(DISTINCT lu.id) + COUNT(DISTINCT es.id))::INT AS total_unit_count
-                FROM _affected_enterprises AS ae
-                JOIN public.enterprise AS en ON en.id = ae.enterprise_id
-                LEFT JOIN public.legal_unit AS lu ON lu.enterprise_id = en.id
-                LEFT JOIN public.establishment AS es
-                    ON es.legal_unit_id = lu.id OR es.enterprise_id = en.id
-                GROUP BY en.id
-                ORDER BY total_unit_count DESC, en.id
+                    member.enterprise_id AS group_id,
+                    ARRAY[member.enterprise_id] AS enterprise_ids,
+                    array_agg(DISTINCT member.unit_id ORDER BY member.unit_id)
+                        FILTER (WHERE member.kind = 'legal_unit') AS legal_unit_ids,
+                    array_agg(DISTINCT member.unit_id ORDER BY member.unit_id)
+                        FILTER (WHERE member.kind = 'establishment') AS establishment_ids,
+                    COUNT(DISTINCT (member.kind, member.unit_id))::INT AS total_unit_count
+                FROM (
+                    SELECT en.id AS enterprise_id, 'enterprise'::TEXT AS kind, en.id AS unit_id
+                    FROM _affected_enterprises AS ae
+                    JOIN public.enterprise AS en ON en.id = ae.enterprise_id
+                    UNION ALL
+                    SELECT lu.enterprise_id, 'legal_unit', lu.id
+                    FROM _affected_enterprises AS ae
+                    JOIN public.legal_unit AS lu ON lu.enterprise_id = ae.enterprise_id
+                    UNION ALL
+                    SELECT lu.enterprise_id, 'establishment', es.id
+                    FROM _affected_enterprises AS ae
+                    JOIN public.legal_unit AS lu ON lu.enterprise_id = ae.enterprise_id
+                    JOIN public.establishment AS es ON es.legal_unit_id = lu.id
+                    UNION ALL
+                    SELECT es.enterprise_id, 'establishment', es.id
+                    FROM _affected_enterprises AS ae
+                    JOIN public.establishment AS es ON es.enterprise_id = ae.enterprise_id
+                ) AS member
+                GROUP BY member.enterprise_id
+                ORDER BY total_unit_count DESC, group_id
             LOOP
                 IF v_current_change_set_size > 0
                    AND v_current_change_set_size + v_group.total_unit_count > p_target_change_set_size
@@ -279,19 +306,33 @@ BEGIN
 
             FOR v_group IN
                 SELECT
-                    COALESCE(bg.group_id, en.id) AS group_id,
-                    array_agg(DISTINCT en.id ORDER BY en.id) AS enterprise_ids,
-                    array_agg(DISTINCT lu.id ORDER BY lu.id)
-                        FILTER (WHERE lu.id IS NOT NULL) AS legal_unit_ids,
-                    array_agg(DISTINCT es.id ORDER BY es.id)
-                        FILTER (WHERE es.id IS NOT NULL) AS establishment_ids,
-                    (COUNT(DISTINCT en.id) + COUNT(DISTINCT lu.id) + COUNT(DISTINCT es.id))::INT AS total_unit_count
-                FROM public.enterprise AS en
-                LEFT JOIN _bridge_groups AS bg ON bg.enterprise_id = en.id
-                LEFT JOIN public.legal_unit AS lu ON lu.enterprise_id = en.id
-                LEFT JOIN public.establishment AS es
-                    ON es.legal_unit_id = lu.id OR es.enterprise_id = en.id
-                GROUP BY COALESCE(bg.group_id, en.id)
+                    COALESCE(bg.group_id, member.enterprise_id) AS group_id,
+                    array_agg(DISTINCT member.unit_id ORDER BY member.unit_id)
+                        FILTER (WHERE member.kind = 'enterprise') AS enterprise_ids,
+                    array_agg(DISTINCT member.unit_id ORDER BY member.unit_id)
+                        FILTER (WHERE member.kind = 'legal_unit') AS legal_unit_ids,
+                    array_agg(DISTINCT member.unit_id ORDER BY member.unit_id)
+                        FILTER (WHERE member.kind = 'establishment') AS establishment_ids,
+                    COUNT(DISTINCT (member.kind, member.unit_id))::INT AS total_unit_count
+                FROM (
+                    SELECT en.id AS enterprise_id, 'enterprise'::TEXT AS kind, en.id AS unit_id
+                    FROM public.enterprise AS en
+                    UNION ALL
+                    SELECT lu.enterprise_id, 'legal_unit', lu.id
+                    FROM public.legal_unit AS lu
+                    WHERE lu.enterprise_id IS NOT NULL
+                    UNION ALL
+                    SELECT lu.enterprise_id, 'establishment', es.id
+                    FROM public.legal_unit AS lu
+                    JOIN public.establishment AS es ON es.legal_unit_id = lu.id
+                    WHERE lu.enterprise_id IS NOT NULL
+                    UNION ALL
+                    SELECT es.enterprise_id, 'establishment', es.id
+                    FROM public.establishment AS es
+                    WHERE es.enterprise_id IS NOT NULL
+                ) AS member
+                LEFT JOIN _bridge_groups AS bg ON bg.enterprise_id = member.enterprise_id
+                GROUP BY COALESCE(bg.group_id, member.enterprise_id)
                 ORDER BY total_unit_count DESC, group_id
             LOOP
                 IF v_current_change_set_size > 0
@@ -330,19 +371,32 @@ BEGIN
         ELSE
             FOR v_group IN
                 SELECT
-                    en.id AS group_id,
-                    ARRAY[en.id] AS enterprise_ids,
-                    array_agg(DISTINCT lu.id ORDER BY lu.id)
-                        FILTER (WHERE lu.id IS NOT NULL) AS legal_unit_ids,
-                    array_agg(DISTINCT es.id ORDER BY es.id)
-                        FILTER (WHERE es.id IS NOT NULL) AS establishment_ids,
-                    (1 + COUNT(DISTINCT lu.id) + COUNT(DISTINCT es.id))::INT AS total_unit_count
-                FROM public.enterprise AS en
-                LEFT JOIN public.legal_unit AS lu ON lu.enterprise_id = en.id
-                LEFT JOIN public.establishment AS es
-                    ON es.legal_unit_id = lu.id OR es.enterprise_id = en.id
-                GROUP BY en.id
-                ORDER BY total_unit_count DESC, en.id
+                    member.enterprise_id AS group_id,
+                    ARRAY[member.enterprise_id] AS enterprise_ids,
+                    array_agg(DISTINCT member.unit_id ORDER BY member.unit_id)
+                        FILTER (WHERE member.kind = 'legal_unit') AS legal_unit_ids,
+                    array_agg(DISTINCT member.unit_id ORDER BY member.unit_id)
+                        FILTER (WHERE member.kind = 'establishment') AS establishment_ids,
+                    COUNT(DISTINCT (member.kind, member.unit_id))::INT AS total_unit_count
+                FROM (
+                    SELECT en.id AS enterprise_id, 'enterprise'::TEXT AS kind, en.id AS unit_id
+                    FROM public.enterprise AS en
+                    UNION ALL
+                    SELECT lu.enterprise_id, 'legal_unit', lu.id
+                    FROM public.legal_unit AS lu
+                    WHERE lu.enterprise_id IS NOT NULL
+                    UNION ALL
+                    SELECT lu.enterprise_id, 'establishment', es.id
+                    FROM public.legal_unit AS lu
+                    JOIN public.establishment AS es ON es.legal_unit_id = lu.id
+                    WHERE lu.enterprise_id IS NOT NULL
+                    UNION ALL
+                    SELECT es.enterprise_id, 'establishment', es.id
+                    FROM public.establishment AS es
+                    WHERE es.enterprise_id IS NOT NULL
+                ) AS member
+                GROUP BY member.enterprise_id
+                ORDER BY total_unit_count DESC, group_id
             LOOP
                 IF v_current_change_set_size > 0
                    AND v_current_change_set_size + v_group.total_unit_count > p_target_change_set_size
