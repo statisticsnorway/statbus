@@ -28,9 +28,8 @@ interface CategoryStandardFormProps {
 }
 
 const FormSchema = z.object({
-  activity_category_standard_id: z.coerce.number({
-    required_error: "You need to select an activity category standard",
-    invalid_type_error: "You need to select an activity category standard",
+  activity_category_standard_id: z.coerce.number<number>({
+    error: "You need to select an activity category standard",
   }),
 });
 

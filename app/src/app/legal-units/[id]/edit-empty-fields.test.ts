@@ -13,7 +13,7 @@ const form = (fields: Record<string, string>) => {
   return fd;
 };
 const period = { valid_from: "2026-01-01", valid_to: "" };
-const issues = (parsed: { success: boolean; error?: { issues: { path: (string | number)[]; message: string }[] } }) =>
+const issues = (parsed: { success: boolean; error?: { issues: { path: PropertyKey[]; message: string }[] } }) =>
   parsed.success ? [] : parsed.error!.issues.map((i) => [i.path.join("."), i.message]);
 
 describe("an emptied field on an edit form", () => {

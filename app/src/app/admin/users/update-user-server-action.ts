@@ -6,7 +6,7 @@ import { z } from "zod";
 
 const baseUserSchema = z.object({
   display_name: z.string().min(1, "Display name is required"),
-  email: z.string().min(1, "Email is required").email(),
+  email: z.string().min(1, "Email is required").pipe(z.email("Invalid email")),
   statbus_role: z.enum(
     ["admin_user", "regular_user", "external_user", "restricted_user"],
     { message: "Role is required" }

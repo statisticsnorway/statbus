@@ -35,8 +35,8 @@ interface CountryFormProps {
 }
 
 const FormSchema = z.object({
-  country_id: z.coerce.number({
-    required_error: "You need to select a country",
+  country_id: z.coerce.number<number>({
+    error: "You need to select a country",
   }),
 });
 

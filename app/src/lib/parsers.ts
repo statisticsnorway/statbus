@@ -10,8 +10,9 @@ import type {
 
 // Decoded URL-state resource budgets: 64Ki UTF-16 code units bounds JSON decoding,
 // 128 rows leaves headroom beyond typical table controls, and 256 selected values
-// supports broad multi-select filters while bounding Zod 3's issue accumulation.
-// The raw limit measures JavaScript string length, not HTTP or UTF-8 bytes.
+// supports broad multi-select filters while bounding the work a crafted URL can
+// cause before validation. The raw limit measures JavaScript string length, not
+// HTTP or UTF-8 bytes.
 const queryStateLimits = {
   rawCodeUnits: 64 * 1024,
   items: 128,

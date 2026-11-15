@@ -11,12 +11,18 @@ const emptyAsNull = (val: unknown) => (typeof val === "string" && val.trim() ===
 /** Optional text: empty clears it. */
 export const optionalText = z.preprocess(emptyAsNull, z.string().nullable().optional());
 
+/**
+ * An ISO date (YYYY-MM-DD) a user types or picks. A missing value says it is
+ * required; anything else that is not a real date says so.
+ */
+const isoDate = z.iso.date({ error: (issue) => (issue.input === undefined ? "Required" : "Invalid date") });
+
 /** Optional ISO date: empty clears it. */
-export const optionalDate = z.preprocess(emptyAsNull, z.string().date().nullable().optional());
+export const optionalDate = z.preprocess(emptyAsNull, isoDate.nullable().optional());
 
 /** Text the database requires (a unit's name): empty is refused on the field. */
 export const requiredText = (message: string) =>
-  z.preprocess(emptyAsNull, z.string({ invalid_type_error: message }).optional());
+  z.preprocess(emptyAsNull, z.string({ error: message }).optional());
 
 /**
  * A number the database requires when the field is posted (a statistical
@@ -29,7 +35,7 @@ export const requiredNumber = z.preprocess(
     return typeof v === "string" ? Number(v) : v;
   },
   z
-    .number({ invalid_type_error: "Enter a number" })
+    .number({ error: "Enter a number" })
     .refine((n) => Number.isFinite(n), "Enter a number")
     .optional()
 );
@@ -53,9 +59,17 @@ export const editMetadataSchemaFields = {
     (val) => (val === "" ? null : val),
     z.coerce.number().nullable().optional()
   ),
-  valid_from: z.string().date(),
+  valid_from: isoDate,
   valid_to: z.preprocess(
     (val) => (val === "" ? "infinity" : val),
-    z.union([z.string().date(), z.literal("infinity")])
+    z.union([isoDate, z.literal("infinity")])
   ),
 };
+
+/**
+ * A schema an edit form posts to: it reads the posted FormData into the edit's
+ * fields, which always include the edit period (editMetadataSchemaFields). The
+ * shared edit actions read valid_from and valid_to and pass the other fields on
+ * to the table the form edits.
+ */
+export type EditSchema = z.ZodType<{ valid_from: string; valid_to: string } & Record<string, unknown>>;

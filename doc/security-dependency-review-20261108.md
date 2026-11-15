@@ -1,5 +1,7 @@
 # Application dependency security review, 2026-11-08
 
+> **2026-11-15, STATBUS-630:** Zod is now 4.6.7 (and zod-form-data 3.0.4), the only Zod in the app's dependency graph, so GHSA-mrhx-c7xc-m3w5 is patched, not just mitigated. The URL query budgets in `app/src/lib/parsers.ts` stay as defence in depth. `app/src/lib/form-schemas.test.ts` pins every edit and admin form's accepted values, written rows and refusal messages. Its tests were written on Zod 3 and pass on Zod 4. The only wording change is for enum values a form's own select cannot send. The minimatch, glob, KaTeX and deepmerge gates below are still open, tracked in STATBUS-630.
+
 ## Decision and release gate
 
 STATBUS-593 applies compatible fixes for Next.js, Undici and DOMPurify, and bounds all current application-defined Zod query-array inputs before JSON decoding and schema traversal. The Zod advisory is **mitigated at these application boundaries, not patched or dismissed**. This work does **not** close all dependency advisories. The next stable release remains on the owner's **personal-review hard hold**. Local checks are not deployment authorization, CI evidence, or a substitute for the owner's review of the residual findings below.

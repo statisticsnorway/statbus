@@ -27,7 +27,7 @@ export const generalInfoSchema = zfd.formData({
 // database reads as a reference to row 0 (STATBUS-604).
 const optionalNumber = z.preprocess(
   (val) => (val === "" || val === undefined ? null : val),
-  z.coerce.number().nullable()
+  z.coerce.number({ error: "Enter a number" }).nullable()
 );
 
 export const locationSchema = zfd.formData({
@@ -39,10 +39,7 @@ export const locationSchema = zfd.formData({
   region_id: optionalNumber,
   country_id: z.preprocess(
     (val) => (val === "" || val === undefined ? undefined : Number(val)),
-    z.number({
-      required_error: "Select a country",
-      invalid_type_error: "Select a country",
-    })
+    z.number({ error: "Select a country" })
   ),
   latitude: optionalNumber,
   longitude: optionalNumber,

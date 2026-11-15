@@ -79,8 +79,8 @@
     "undici": "^7.30.1",
     "xlsx": "file:./vendor/xlsx",
     "xstate": "^5.26.0",
-    "zod": "^3.25.76",
-    "zod-form-data": "^2.0.8"
+    "zod": "^4.6.7",
+    "zod-form-data": "^3.0.4"
   },
   "devDependencies": {
     "@supabase/auth-js": "^2.93.3",

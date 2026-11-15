@@ -7,13 +7,13 @@ import { locationSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { activitySchema } from "./classifications/validation";
 import { statsSchema } from "./statistical-variables/validation";
 import { _parseAuthStatusRpcResponseToAuthStatus } from "@/lib/auth.types";
+import type { TablesInsert } from "@/lib/database.types";
 import { contactInfoSchema } from "./contact/validation";
 import {
   resolveSchemaByType,
 } from "@/components/form/helper-functions";
-import { describeInvalidForm } from "@/components/form/metadata-validation";
+import { describeInvalidForm, type EditSchema } from "@/components/form/metadata-validation";
 import { capToExistence, unitExistence, type UnitRow } from "@/components/form/unit-existence";
-import { z } from "zod";
 
 export async function getEditMetadata(client: Awaited<ReturnType<typeof getServerRestClient>>) {
   const { data } = await client.rpc("auth_status", {}, { get: true });
@@ -336,7 +336,7 @@ interface upsertTemporalRecordParams {
   id: string;
   unitType: "establishment" | "legal_unit";
   tableName: "activity" | "location" | "stat_for_unit" | "contact";
-  schemaType: z.Schema;
+  schemaType: EditSchema;
   formData: FormData;
   naturalKeys?: string[];
   revalidationPath: string;
@@ -364,8 +364,9 @@ export async function upsertTemporalRecord({
     [unitIdFieldName]: unitId,
   };
   for (const key of naturalKeys) {
-    if (key in validatedFields.data) {
-      naturalKeyValues[key] = validatedFields.data[key];
+    const value = validatedFields.data[key];
+    if (typeof value === "string" || typeof value === "number") {
+      naturalKeyValues[key] = value;
     }
   }
   try {
@@ -433,12 +434,13 @@ export async function upsertTemporalRecord({
         };
       }
 
-      let insertPayload = {
+      // The schema read the form into this table's columns; the database checks the row.
+      const insertPayload = {
         ...payload,
         ...naturalKeyValues,
         valid_from: capped.validFrom,
         valid_to: capped.validTo,
-      };
+      } as TablesInsert<typeof tableName> & { id?: number };
       let templateQuery = client.from(tableName).select("id").limit(1);
       for (const key in naturalKeyValues) {
         templateQuery = templateQuery.eq(key, naturalKeyValues[key]);
