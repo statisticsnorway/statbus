@@ -44,8 +44,34 @@
     font-family: Arial, sans-serif;
     font-size: 13px;
     line-height: 1.5;
-    max-width: 300px;
+    max-width: 320px;
+    padding: 0 !important;
+    overflow: hidden;
+    border-radius: 6px;
   }
+  .popup-header {
+    padding: 6px 28px 6px 10px;
+    color: #fff;
+    font-weight: bold;
+    font-size: 13px;
+    position: relative;
+  }
+  .maplibregl-popup-close-button {
+    color: #fff;
+    font-size: 18px;
+    right: 4px;
+    top: 2px;
+  }
+  .maplibregl-popup-close-button:hover {
+    background: rgba(255,255,255,0.3);
+    border-radius: 50%;
+  }
+  .popup-body {
+    padding: 6px 10px 8px;
+  }
+  .popup-body .region { color: #555; font-size: 12px; }
+  .popup-body .activity { color: #333; margin-top: 2px; }
+  .popup-body .stat-line { color: #444; font-size: 12px; margin-top: 1px; }
 
   #status-bar {
     position: absolute;
@@ -78,7 +104,7 @@
       <input type="checkbox" class="type-filter" value="legal_unit" checked> <span style="color:#1a3a5c">&#9679;</span> Legal units
     </label>
     <label style="font-family:Arial,sans-serif;font-size:13px;cursor:pointer;">
-      <input type="checkbox" class="type-filter" value="establishment"> <span style="color:#27ae60">&#9679;</span> Establishments
+      <input type="checkbox" class="type-filter" value="establishment"> <span style="color:#00c853">&#9679;</span> Establishments
     </label>
     <span style="color:#ccc;font-size:16px;margin:0 2px;">|</span>
     <input id="search" type="text" placeholder="Search by name..." style="padding:4px 8px;font-size:13px;border-radius:4px;border:1px solid #ccc;width:180px">
@@ -94,7 +120,7 @@
     <div id="legend">
       <div><span class="dot" style="background:#d63384"></span> Enterprise</div>
       <div><span class="dot" style="background:#1a3a5c"></span> Legal unit</div>
-      <div><span class="dot" style="background:#27ae60"></span> Establishment</div>
+      <div><span class="dot" style="background:#00c853"></span> Establishment</div>
       <hr style="border:0;border-top:1px solid #ccc;margin:4px 0">
       <div id="totals"></div>
     </div>
@@ -119,6 +145,7 @@
   let activeTypes = new Set(['legal_unit']);
   let colorBy = null;        // Set to first stat code after fetching definitions
   let searchFilter = '';
+  let regionMap = {};        // region id -> name
   let statStops = {};        // { code: [stop0..stop4] } for color scaling
 
   map = new maplibregl.Map({
@@ -163,6 +190,8 @@
       utype: typeMap[row.unit_type] ?? 1,
       postplace: row.physical_postplace || '',
       activity: row.primary_activity_category_path || '',
+      regionId: row.physical_region_id,
+      regionCode: row.physical_region_code || '',
       stats
     };
   }
@@ -181,7 +210,9 @@
           name: u.name,
           utype: u.utype,
           postplace: u.postplace,
-          activity: u.activity
+          activity: u.activity,
+          regionName: regionMap[u.regionId] || '',
+          regionCode: u.regionCode
         };
         // Flatten stats into properties for MapLibre expressions
         for (const code in u.stats) {
@@ -251,9 +282,14 @@
         radiosContainer.appendChild(label);
       });
 
-      // 3. Fetch units with coordinates
+      // 3. Fetch region lookup
+      statusBar.textContent = 'Loading region names...';
+      const regions = await apiFetch('/rest/region?select=id,name,code&limit=10000');
+      for (const r of regions) regionMap[r.id] = r.name;
+
+      // 4. Fetch units with coordinates
       statusBar.textContent = 'Fetching statistical units...';
-      const select = 'unit_type,physical_latitude,physical_longitude,name,stats,stats_summary,physical_postplace,primary_activity_category_path';
+      const select = 'unit_type,physical_latitude,physical_longitude,name,stats,stats_summary,physical_postplace,primary_activity_category_path,physical_region_id,physical_region_code';
       const rows = await apiFetch(`/rest/statistical_unit?select=${select}&physical_latitude=not.is.null&physical_longitude=not.is.null&limit=${FETCH_LIMIT}`);
 
       allData = rows.map(transformRow);
@@ -294,22 +330,30 @@
         : n.toLocaleString('nb-NO');
 
       const total = data.length;
-      const enterprises = data.filter(u => u.utype === 2).length;
-      const legalUnits = data.filter(u => u.utype === 0).length;
-      const establishments = data.filter(u => u.utype === 1).length;
+
+      // Build per-type rows with inline stat sums
+      const typeEntries = [
+        { key: 'enterprise', utype: 2, label: 'Enterprises', color: '#d63384' },
+        { key: 'legal_unit', utype: 0, label: 'Legal units', color: '#1a3a5c' },
+        { key: 'establishment', utype: 1, label: 'Establishments', color: '#00c853' }
+      ];
 
       let rows = '';
-      if (activeTypes.has('enterprise')) rows += `<tr><td style="text-align:left;padding:1px 6px 1px 0">Enterprises:</td><td style="text-align:right">${fmt(enterprises)}</td></tr>`;
-      if (activeTypes.has('legal_unit')) rows += `<tr><td style="text-align:left;padding:1px 6px 1px 0">Legal units:</td><td style="text-align:right">${fmt(legalUnits)}</td></tr>`;
-      if (activeTypes.has('establishment')) rows += `<tr><td style="text-align:left;padding:1px 6px 1px 0">Establishments:</td><td style="text-align:right">${fmt(establishments)}</td></tr>`;
-
-      // Dynamic stat totals
-      for (const def of statDefs) {
-        const sum = data.reduce((s, u) => s + (u.stats[def.code] || 0), 0);
-        const withVal = data.filter(u => u.stats[def.code] > 0).length;
-        const displayName = def.name || def.code;
-        rows += `<tr><td style="text-align:left;padding:1px 6px 1px 0">Total ${displayName}:</td><td style="text-align:right">${fmt(sum)}</td></tr>`;
-        rows += `<tr><td style="text-align:left;padding:1px 6px 1px 0">&nbsp;&nbsp;with ${displayName}:</td><td style="text-align:right">${fmt(withVal)}</td></tr>`;
+      for (const te of typeEntries) {
+        if (!activeTypes.has(te.key)) continue;
+        const typeData = data.filter(u => u.utype === te.utype);
+        const count = typeData.length;
+        // Stat sums for this type
+        const statParts = [];
+        for (const def of statDefs) {
+          const sum = typeData.reduce((s, u) => s + (u.stats[def.code] || 0), 0);
+          if (sum > 0) {
+            const displayName = def.name || def.code;
+            statParts.push(`${displayName}: ${fmt(sum)}`);
+          }
+        }
+        const statText = statParts.length ? ` <span style="color:#888;font-size:11px">(${statParts.join(', ')})</span>` : '';
+        rows += `<tr><td style="text-align:left;padding:1px 6px 1px 0;color:${te.color}">${te.label}:</td><td style="text-align:right">${fmt(count)}${statText}</td></tr>`;
       }
 
       document.getElementById('totals').innerHTML =
@@ -335,7 +379,7 @@
 
     // ── Color ramps ────────────────────────────────────────────────
     const blueRamp  = ['#1a3a5c', '#152f4a', '#0f2840', '#0a1e33', '#061525'];
-    const greenRamp = ['#a9dfbf', '#82e0aa', '#27ae60', '#1e8449', '#0b5345'];
+    const greenRamp = ['#00e676', '#00c853', '#00a844', '#007d32', '#005522'];
     const pinkRamp  = ['#e8b5d4', '#e8a5d0', '#d63384', '#a0245e', '#6b1740'];
     const greyRamp  = ['#c0c0c0', '#a0a0a0', '#787878', '#505050', '#282828'];
 
@@ -427,7 +471,7 @@
       'case',
       ['==', ['get', 'utype'], 0], '#1a3a5c',
       ['==', ['get', 'utype'], 2], '#d63384',
-      '#27ae60'
+      '#00c853'
     ];
 
     function getColorExpr() {
@@ -462,28 +506,41 @@
       });
     });
 
-    // Click point → popup with all stats
+    // Click point → popup with colored header, region, activity, stats
     map.on('click', 'points', (e) => {
       const p = e.features[0].properties;
       const coords = e.features[0].geometry.coordinates;
-      const typeLabel = p.utype === 2 ? 'Enterprise' : p.utype === 0 ? 'Legal unit' : 'Establishment';
-      const typeColor = p.utype === 2 ? '#d63384' : p.utype === 0 ? '#1a3a5c' : '#27ae60';
+      const typeColor = p.utype === 2 ? '#d63384' : p.utype === 0 ? '#1a3a5c' : '#00c853';
 
-      let html = `<b>${p.name}</b><br>` +
-        `<span style="color:${typeColor}">\u25CF ${typeLabel}</span><br>` +
-        (p.activity ? `${p.activity}<br>` : '') +
-        (p.postplace ? `${p.postplace}<br>` : '');
+      let body = '';
 
-      // Show all stat values
+      // Region line: name (code)
+      if (p.regionName || p.regionCode) {
+        const regionText = p.regionName
+          ? (p.regionCode ? `${p.regionName} (${p.regionCode})` : p.regionName)
+          : p.regionCode;
+        body += `<div class="region">${regionText}</div>`;
+      } else if (p.postplace) {
+        body += `<div class="region">${p.postplace}</div>`;
+      }
+
+      // Activity
+      if (p.activity) body += `<div class="activity">${p.activity}</div>`;
+
+      // Stat values
       for (const def of statDefs) {
         const val = p['stat_' + def.code];
         if (val && val > 0) {
           const displayName = def.name || def.code;
-          html += `${displayName}: <b>${Number(val).toLocaleString()}</b><br>`;
+          body += `<div class="stat-line">${displayName}: <b>${Number(val).toLocaleString()}</b></div>`;
         }
       }
 
-      new maplibregl.Popup({ offset: 10 })
+      const html =
+        `<div class="popup-header" style="background:${typeColor}">${p.name}</div>` +
+        `<div class="popup-body">${body}</div>`;
+
+      new maplibregl.Popup({ offset: 10, closeButton: true })
         .setLngLat(coords)
         .setHTML(html)
         .addTo(map);
