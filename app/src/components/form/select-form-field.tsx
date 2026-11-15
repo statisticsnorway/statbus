@@ -18,14 +18,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Label } from "../ui/label";
-import {  useState } from "react";
+import { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { groupRuns } from "./code-list-options";
 
 interface Option {
   value: number | string;
   label: string;
-  /** A heading in the list (a code list row without a code): shown, not chosen. */
   disabled?: boolean;
+  /** Group title shown above consecutive options that share it (codeListOptions). */
+  group?: string;
 }
 
 interface SelectFormFieldProps {
@@ -91,29 +93,35 @@ export function SelectFormField({
             <CommandInput placeholder="Search..." />
             <CommandList>
               <CommandEmpty>No results found.</CommandEmpty>
-              <CommandGroup>
-                {options.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={option.label}
-                    disabled={option.disabled}
-                    onSelect={() => {
-                      setSelectedValue(option.value);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selectedValue === option.value
-                          ? "opacity-100"
-                          : "opacity-0"
-                      )}
-                    />
-                    {option.label}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+              {groupRuns(options).map((run, runIndex) => (
+                <CommandGroup
+                  key={`${runIndex}-${run.title ?? ""}`}
+                  heading={run.title}
+                >
+                  {run.options.map((option) => (
+                    <CommandItem
+                      key={option.value}
+                      value={option.label}
+                      keywords={option.group ? [option.group] : undefined}
+                      disabled={option.disabled}
+                      onSelect={() => {
+                        setSelectedValue(option.value);
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedValue === option.value
+                            ? "opacity-100"
+                            : "opacity-0"
+                        )}
+                      />
+                      {option.label}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ))}
             </CommandList>
           </Command>
         </PopoverContent>
