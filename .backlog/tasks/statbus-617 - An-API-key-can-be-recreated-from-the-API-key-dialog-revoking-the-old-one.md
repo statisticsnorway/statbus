@@ -1,10 +1,10 @@
 ---
 id: STATBUS-617
 title: An API key can be recreated from the API key dialog, revoking the old one
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-11T12:40:00Z'
-updated_date: '2026-11-12T02:04:00Z'
+updated_date: '2026-11-15T13:34:00Z'
 labels:
   - app
   - auth
@@ -30,7 +30,7 @@ Owner 12:39: a Recreate (refresh) button on the show-key dialog. Recreate create
 <!-- AC:BEGIN -->
 - [x] #1 The API key dialog offers Recreate; pressing it shows a new token, and the previous token is refused with 'API Key has been revoked.'; a test asserts both against the REST API
 - [x] #2 The dialog shows the active key (not a revoked one) when the user has several keys; a test asserts it
-- [ ] #3 [Owner] Recreates his key on a box after the release carrying this. The answer is recorded in this ticket's notes: yes closes the ticket; no gives the error to investigate.
+- [x] #3 [Owner] Recreates his key on a box after the release carrying this. The answer is recorded in this ticket's notes: yes closes the ticket; no gives the error to investigate.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -43,4 +43,6 @@ Dialog shows the newest active key: description, Name in key (with a line that c
 2026-11-11 14:05: in release candidate v2026.11.4-rc.02 (49376c40a; CI all green, ./sb release check green). Release tests held up by outside outages (Hetzner core limit, then Canonical snap store); re-run when the store answers. Remaining owner checks after the release reaches a box.
 
 2026-11-12 02:03 UTC (Rabbit): rc.02 (v2026.11.4-rc.02, 49376c40a) release run GREEN: orchestrator https://github.com/statisticsnorway/statbus/actions/runs/43131208686 (smoke, dev canary, LXD fault fleet, arc harness, verdict). Awaiting owner: ./sb release stable.
+
+2026-11-15 13:34 owner: recreated his API key on a box after the release carrying this, tested it, and his manager Erik also tested it: works. AC3 met, Done.
 <!-- SECTION:NOTES:END -->
