@@ -14,6 +14,7 @@ DECLARE
     v_hash_partition_size integer;
     v_hash_partition int4range;
     v_left_keys bigint := 0;
+    v_state worker.statistical_unit_facet_state;
 BEGIN
     v_partition_count_target := public.get_partition_count_target();
     v_hash_partition_size := GREATEST(1, 16384 / v_partition_count_target);
@@ -41,22 +42,25 @@ BEGIN
 
     IF v_dirty_hash_slots IS NOT NULL THEN
         IF cardinality(v_dirty_hash_slots) > 16384 / 16 THEN
-            -- A large change: its dirty slots' keys cover most facets, and one pass over all
-            -- staging recounts them faster than a lookup per key (worker.statistical_unit_facet_reduce).
+            -- A large change: one pass over all staging recounts the facets faster than adding the
+            -- differences of this many slots (worker.statistical_unit_facet_reduce).
             UPDATE worker.statistical_unit_facet_state
                SET recount_all = true, recount_slots = '{}'
              WHERE NOT recount_all OR recount_slots <> '{}';
-            DELETE FROM worker.statistical_unit_facet_recount_keys WHERE true; -- every row: every facet is recounted
+            DELETE FROM worker.statistical_unit_facet_slot_before WHERE true; -- every row: every facet is recounted
         ELSE
-            -- The dirty slots, and the facet keys staged in them before the children rewrite them:
-            -- the facets the changed units may leave (worker.statistical_unit_facet_state, recount_keys).
-            INSERT INTO worker.statistical_unit_facet_recount_keys
-            SELECT DISTINCT s.valid_from, s.valid_to, s.valid_until, s.unit_type,
-                   s.physical_region_path, s.primary_activity_category_path,
-                   s.sector_path, s.legal_form_id, s.physical_country_id, s.status_id
-              FROM public.statistical_unit_facet_staging AS s
-             WHERE s.hash_slot = ANY (v_dirty_hash_slots);
-            GET DIAGNOSTICS v_left_keys := ROW_COUNT;
+            -- The dirty slots' staging rows before the children rewrite them: what the stored facets
+            -- hold for those slots (worker.statistical_unit_facet_slot_before). A slot recorded by a
+            -- cycle whose reduce has not committed keeps its rows, and a pending recount_all needs none.
+            SELECT * INTO v_state FROM worker.statistical_unit_facet_state FOR UPDATE;
+            IF NOT v_state.recount_all THEN
+                INSERT INTO worker.statistical_unit_facet_slot_before
+                SELECT s.*
+                  FROM public.statistical_unit_facet_staging AS s
+                 WHERE s.hash_slot = ANY (v_dirty_hash_slots)
+                   AND s.hash_slot <> ALL (v_state.recount_slots);
+                GET DIAGNOSTICS v_left_keys := ROW_COUNT;
+            END IF;
             UPDATE worker.statistical_unit_facet_state
                SET recount_slots = ARRAY(SELECT DISTINCT unnest(recount_slots || v_dirty_hash_slots) ORDER BY 1)
              WHERE NOT recount_all;
@@ -87,7 +91,7 @@ BEGIN
         UPDATE worker.statistical_unit_facet_state
            SET recount_all = true, recount_slots = '{}'
          WHERE NOT recount_all OR recount_slots <> '{}';
-        DELETE FROM worker.statistical_unit_facet_recount_keys WHERE true; -- every row: every facet is recounted
+        DELETE FROM worker.statistical_unit_facet_slot_before WHERE true; -- every row: every facet is recounted
         FOR v_hash_partition IN
             SELECT DISTINCT int4range(
                 (su.hash_slot / v_hash_partition_size) * v_hash_partition_size,
@@ -109,7 +113,7 @@ BEGIN
         END LOOP;
     END IF;
 
-    p_info := jsonb_build_object('child_count', v_child_count, 'left_keys', v_left_keys);
+    p_info := jsonb_build_object('child_count', v_child_count, 'slot_rows_before', v_left_keys);
 END;
 $procedure$
 ```

@@ -26,7 +26,7 @@ View definition:
     physical_country_id,
     status_id,
     count(*) AS count,
-    jsonb_stats_merge_agg(stats_summary) AS stats_summary
+    jsonb_stats_delta_to_agg(jsonb_stats_to_delta(jsonb_stats_merge_agg(stats_summary))) AS stats_summary
    FROM statistical_unit
   WHERE used_for_counting AND unit_existence_from(valid_from, birth_date) < unit_existence_until(valid_until, death_date)
   GROUP BY (unit_existence_from(valid_from, birth_date)), (unit_existence_until(valid_until, death_date)), unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id;
@@ -34,4 +34,4 @@ Options: security_invoker=on
 
 ```
 
-**Comment:** STATBUS-475: facet windows are the unit EXISTENCE window within each record (public.unit_existence_from/until), so the Reports drilldown counts existing units, like the dashboard cards and the Units-over-time chart.
+**Comment:** STATBUS-475: facet windows are the unit EXISTENCE window within each record (public.unit_existence_from/until), so the Reports drilldown counts existing units, like the dashboard cards and the Units-over-time chart. stats_summary is the merged summary of the facet's units without min and max (jsonb_stats_delta_to_agg): worker.statistical_unit_facet_reduce keeps facets by adding and subtracting units, and min and max cannot be subtracted.

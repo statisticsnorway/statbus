@@ -318,9 +318,14 @@ results into the main table in a single transaction.
 
 Only **dirty hash slots** (those with changed data tracked in
 `statistical_unit_facet_dirty_hash_slots`) are recomputed at the partition-derive
-level. The reduce step does a global MERGE over the full staging-aggregate (see
-the *Reduce strategy* section below); incremental savings come from skipping
-non-dirty slots' partition derives, not from scoping the reduce.
+level. The reduce then adds to each stored facet what those slots changed in it:
+their staging rows after the rewrite minus their rows before it, which the parent
+derive copies to `worker.statistical_unit_facet_slot_before` (STATBUS-626). Counts
+and `jsonb_stats` summaries are additive (`stats_delta`), so this is exact and reads
+only the dirty slots' rows. Facet summaries therefore carry no `min`/`max`, which
+cannot be subtracted; nothing reads them, and the drilldown and reports use count
+and sum. A full recalculation, or a change of more than a sixteenth of the slots,
+merges the whole staging aggregate instead.
 
 
 ## Production Performance (1.1M LU + 826K ES = 3.1M stat units)

@@ -21,8 +21,16 @@ NOTICE:  identifier "pg_regress/360_statbus_626_facet_reduce_recounts_the_change
 --   C. a new legal unit,
 --   D. the new legal unit is deleted with its enterprise (units leave through orphan cleanup),
 --   E. a move whose facet reduce fails, then a cycle with an unrelated new unit: the second
---      cycle's reduce must still remove the facet the first cycle's unit left.
--- 360.6 shows a partial cycle's reduce recounts only its keys; 360.7 a full recalculation.
+--      cycle's reduce must still remove the facet the first cycle's unit left,
+--   F. a move whose facet reduce fails, then a rename of the same unit: the second cycle
+--      rewrites the same hash slot, and its reduce must take the slot's rows from before the
+--      first cycle, the ones the stored facets hold.
+-- 360.7 shows a partial cycle's reduce adds only what its dirty slots changed; 360.8 a full
+-- recalculation.
+--
+-- The reduce adds to each stored facet its dirty slots' staging rows after the rewrite minus
+-- their rows before it (worker.statistical_unit_facet_slot_before). Facet summaries carry no
+-- min or max, which cannot be subtracted; the comparison covers count and stats_summary.
 BEGIN;
 \i test/setup.sql
 \echo -- test/setup.sql output suppressed for cleaner test output
@@ -246,22 +254,70 @@ GROUP BY r.code ORDER BY r.code;
 
 \echo
 
-\echo "360.6 the reduce of a partial cycle recounts only the facets its units left or entered"
-"360.6 the reduce of a partial cycle recounts only the facets its units left or entered"
+\echo "360.6 cycle F: the unit moves to region 22122 and the facet reduce fails; the next cycle renames the same unit"
+"360.6 cycle F: the unit moves to region 22122 and the facet reduce fails; the next cycle renames the same unit"
+SET LOCAL ROLE postgres;
+UPDATE worker.command_registry SET handler_procedure = 'pg_temp.reduce_that_fails'
+ WHERE command = 'statistical_unit_facet_reduce';
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+CALL pg_temp.import_lu('import_360_f', '2220794', 'The Office Corp', '2024-01-01', '22122');
+CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
+CALL pg_temp.process_analytics_quietly();
+SELECT t.command, t.state
+FROM worker.tasks AS t
+WHERE t.command = 'statistical_unit_facet_reduce'
+ORDER BY t.id DESC LIMIT 1;
+            command            | state  
+-------------------------------+--------
+ statistical_unit_facet_reduce | failed
+(1 row)
+
+SET LOCAL ROLE postgres;
+UPDATE worker.command_registry SET handler_procedure = 'worker.statistical_unit_facet_reduce'
+ WHERE command = 'statistical_unit_facet_reduce';
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+CALL pg_temp.import_lu('import_360_f2', '2220794', 'The Office Corp Renamed', '2024-01-01', '22122');
+CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT * FROM facets_vs_definition;
+ stored | defined | only_stored | only_defined 
+--------+---------+-------------+--------------
+    134 |     134 |           0 |            0
+(1 row)
+
+SELECT r.code, count(f.*) AS facets, COALESCE(sum(f.count), 0) AS units
+FROM public.region AS r
+LEFT JOIN public.statistical_unit_facet AS f ON f.physical_region_path = r.path
+WHERE r.code IN ('22121', '22122')
+GROUP BY r.code ORDER BY r.code;
+ code  | facets | units 
+-------+--------+-------
+ 22121 |      0 |     0
+ 22122 |      4 |     4
+(2 rows)
+
+\echo
+
+\echo "360.7 the reduce of a partial cycle adds what its dirty slots changed, reading only their rows"
+"360.7 the reduce of a partial cycle adds what its dirty slots changed, reading only their rows"
 SELECT t.info->>'mode' AS mode,
-       (t.info->>'keys_recounted')::int < (SELECT count(*) FROM public.statistical_unit_facet) AS fewer_keys_than_facets
+       (t.info->>'facets_changed')::int < (SELECT count(*) FROM public.statistical_unit_facet) AS fewer_facets_than_stored
 FROM worker.tasks AS t
 WHERE t.command = 'statistical_unit_facet_reduce' AND t.state = 'completed'
 ORDER BY t.id DESC LIMIT 1;
-  mode  | fewer_keys_than_facets 
---------+------------------------
- scoped | t
+    mode    | fewer_facets_than_stored 
+------------+--------------------------
+ difference | t
 (1 row)
 
 \echo
 
-\echo "360.7 a full recalculation recounts every facet and leaves the table equal to its definition"
-"360.7 a full recalculation recounts every facet and leaves the table equal to its definition"
+\echo "360.8 a full recalculation recounts every facet and leaves the table equal to its definition"
+"360.8 a full recalculation recounts every facet and leaves the table equal to its definition"
 SELECT worker.enqueue_derive_statistical_unit_all() IS NOT NULL AS rebuild_scheduled;
  rebuild_scheduled 
 -------------------

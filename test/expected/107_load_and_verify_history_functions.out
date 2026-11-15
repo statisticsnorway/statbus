@@ -7315,8 +7315,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 1500000,                     +
-                               |         "min": 1500000,                     +
                                |         "sum": 1500000,                     +
                                |         "mean": 1500000.00,                 +
                                |         "type": "float_agg",                +
@@ -7328,8 +7326,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 1,                           +
-                               |         "min": 1,                           +
                                |         "sum": 1,                           +
                                |         "mean": 1.00,                       +
                                |         "type": "int_agg",                  +
@@ -7352,8 +7348,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 1500000,                     +
-                               |         "min": 1500000,                     +
                                |         "sum": 1500000,                     +
                                |         "mean": 1500000.00,                 +
                                |         "type": "float_agg",                +
@@ -7365,8 +7359,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 1,                           +
-                               |         "min": 1,                           +
                                |         "sum": 1,                           +
                                |         "mean": 1.00,                       +
                                |         "type": "int_agg",                  +
@@ -7389,8 +7381,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 1500000,                     +
-                               |         "min": 1500000,                     +
                                |         "sum": 1500000,                     +
                                |         "mean": 1500000.00,                 +
                                |         "type": "float_agg",                +
@@ -7402,8 +7392,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 1,                           +
-                               |         "min": 1,                           +
                                |         "sum": 1,                           +
                                |         "mean": 1.00,                       +
                                |         "type": "int_agg",                  +
@@ -7426,8 +7414,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 3000000,                     +
-                               |         "min": 3000000,                     +
                                |         "sum": 3000000,                     +
                                |         "mean": 3000000.00,                 +
                                |         "type": "float_agg",                +
@@ -7439,8 +7425,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 3,                           +
-                               |         "min": 3,                           +
                                |         "sum": 3,                           +
                                |         "mean": 3.00,                       +
                                |         "type": "int_agg",                  +
@@ -7463,8 +7447,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 3000000,                     +
-                               |         "min": 3000000,                     +
                                |         "sum": 3000000,                     +
                                |         "mean": 3000000.00,                 +
                                |         "type": "float_agg",                +
@@ -7476,8 +7458,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 3,                           +
-                               |         "min": 3,                           +
                                |         "sum": 3,                           +
                                |         "mean": 3.00,                       +
                                |         "type": "int_agg",                  +
@@ -7500,8 +7480,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 3000000,                     +
-                               |         "min": 3000000,                     +
                                |         "sum": 3000000,                     +
                                |         "mean": 3000000.00,                 +
                                |         "type": "float_agg",                +
@@ -7513,8 +7491,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 3,                           +
-                               |         "min": 3,                           +
                                |         "sum": 3,                           +
                                |         "mean": 3.00,                       +
                                |         "type": "int_agg",                  +
@@ -7537,8 +7513,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 12000000,                    +
-                               |         "min": 12000000,                    +
                                |         "sum": 12000000,                    +
                                |         "mean": 12000000.00,                +
                                |         "type": "float_agg",                +
@@ -7550,8 +7524,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 9,                           +
-                               |         "min": 9,                           +
                                |         "sum": 9,                           +
                                |         "mean": 9.00,                       +
                                |         "type": "int_agg",                  +
@@ -7574,8 +7546,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 12000000,                    +
-                               |         "min": 12000000,                    +
                                |         "sum": 12000000,                    +
                                |         "mean": 12000000.00,                +
                                |         "type": "float_agg",                +
@@ -7587,8 +7557,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 9,                           +
-                               |         "min": 9,                           +
                                |         "sum": 9,                           +
                                |         "mean": 9.00,                       +
                                |         "type": "int_agg",                  +
@@ -7611,8 +7579,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 12000000,                    +
-                               |         "min": 12000000,                    +
                                |         "sum": 12000000,                    +
                                |         "mean": 12000000.00,                +
                                |         "type": "float_agg",                +
@@ -7624,8 +7590,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 9,                           +
-                               |         "min": 9,                           +
                                |         "sum": 9,                           +
                                |         "mean": 9.00,                       +
                                |         "type": "int_agg",                  +
@@ -7648,8 +7612,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -7661,8 +7623,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 25,                          +
-                               |         "min": 25,                          +
                                |         "sum": 25,                          +
                                |         "mean": 25.00,                      +
                                |         "type": "int_agg",                  +
@@ -7685,8 +7645,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -7698,8 +7656,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 25,                          +
-                               |         "min": 25,                          +
                                |         "sum": 25,                          +
                                |         "mean": 25.00,                      +
                                |         "type": "int_agg",                  +
@@ -7722,8 +7678,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -7735,8 +7689,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 25,                          +
-                               |         "min": 25,                          +
                                |         "sum": 25,                          +
                                |         "mean": 25.00,                      +
                                |         "type": "int_agg",                  +
@@ -7759,8 +7711,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -7772,8 +7722,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 30,                          +
-                               |         "min": 30,                          +
                                |         "sum": 30,                          +
                                |         "mean": 30.00,                      +
                                |         "type": "int_agg",                  +
@@ -7796,8 +7744,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -7809,8 +7755,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 30,                          +
-                               |         "min": 30,                          +
                                |         "sum": 30,                          +
                                |         "mean": 30.00,                      +
                                |         "type": "int_agg",                  +
@@ -7833,8 +7777,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -7846,8 +7788,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 30,                          +
-                               |         "min": 30,                          +
                                |         "sum": 30,                          +
                                |         "mean": 30.00,                      +
                                |         "type": "int_agg",                  +
@@ -7870,8 +7810,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -7883,8 +7821,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 35,                          +
-                               |         "min": 35,                          +
                                |         "sum": 35,                          +
                                |         "mean": 35.00,                      +
                                |         "type": "int_agg",                  +
@@ -7907,8 +7843,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -7920,8 +7854,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 35,                          +
-                               |         "min": 35,                          +
                                |         "sum": 35,                          +
                                |         "mean": 35.00,                      +
                                |         "type": "int_agg",                  +
@@ -7944,8 +7876,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -7957,8 +7887,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 35,                          +
-                               |         "min": 35,                          +
                                |         "sum": 35,                          +
                                |         "mean": 35.00,                      +
                                |         "type": "int_agg",                  +
@@ -7981,8 +7909,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -7994,8 +7920,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 40,                          +
-                               |         "min": 40,                          +
                                |         "sum": 40,                          +
                                |         "mean": 40.00,                      +
                                |         "type": "int_agg",                  +
@@ -8018,8 +7942,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -8031,8 +7953,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 40,                          +
-                               |         "min": 40,                          +
                                |         "sum": 40,                          +
                                |         "mean": 40.00,                      +
                                |         "type": "int_agg",                  +
@@ -8055,8 +7975,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -8068,8 +7986,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 40,                          +
-                               |         "min": 40,                          +
                                |         "sum": 40,                          +
                                |         "mean": 40.00,                      +
                                |         "type": "int_agg",                  +
@@ -8092,8 +8008,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -8105,8 +8019,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 50,                          +
-                               |         "min": 50,                          +
                                |         "sum": 50,                          +
                                |         "mean": 50.00,                      +
                                |         "type": "int_agg",                  +
@@ -8129,8 +8041,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -8142,8 +8052,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 50,                          +
-                               |         "min": 50,                          +
                                |         "sum": 50,                          +
                                |         "mean": 50.00,                      +
                                |         "type": "int_agg",                  +
@@ -8166,8 +8074,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -8179,8 +8085,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 50,                          +
-                               |         "min": 50,                          +
                                |         "sum": 50,                          +
                                |         "mean": 50.00,                      +
                                |         "type": "int_agg",                  +
@@ -8203,8 +8107,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -8216,8 +8118,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 40,                          +
-                               |         "min": 40,                          +
                                |         "sum": 40,                          +
                                |         "mean": 40.00,                      +
                                |         "type": "int_agg",                  +
@@ -8240,8 +8140,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -8253,8 +8151,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 40,                          +
-                               |         "min": 40,                          +
                                |         "sum": 40,                          +
                                |         "mean": 40.00,                      +
                                |         "type": "int_agg",                  +
@@ -8277,8 +8173,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 60000000,                    +
-                               |         "min": 60000000,                    +
                                |         "sum": 60000000,                    +
                                |         "mean": 60000000.00,                +
                                |         "type": "float_agg",                +
@@ -8290,8 +8184,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 40,                          +
-                               |         "min": 40,                          +
                                |         "sum": 40,                          +
                                |         "mean": 40.00,                      +
                                |         "type": "int_agg",                  +
@@ -8314,8 +8206,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 70000000,                    +
-                               |         "min": 70000000,                    +
                                |         "sum": 70000000,                    +
                                |         "mean": 70000000.00,                +
                                |         "type": "float_agg",                +
@@ -8327,8 +8217,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 45,                          +
-                               |         "min": 45,                          +
                                |         "sum": 45,                          +
                                |         "mean": 45.00,                      +
                                |         "type": "int_agg",                  +
@@ -8351,8 +8239,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 70000000,                    +
-                               |         "min": 70000000,                    +
                                |         "sum": 70000000,                    +
                                |         "mean": 70000000.00,                +
                                |         "type": "float_agg",                +
@@ -8364,8 +8250,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 45,                          +
-                               |         "min": 45,                          +
                                |         "sum": 45,                          +
                                |         "mean": 45.00,                      +
                                |         "type": "int_agg",                  +
@@ -8388,8 +8272,6 @@ count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
                                |     "turnover": {                           +
-                               |         "max": 70000000,                    +
-                               |         "min": 70000000,                    +
                                |         "sum": 70000000,                    +
                                |         "mean": 70000000.00,                +
                                |         "type": "float_agg",                +
@@ -8401,8 +8283,6 @@ stats_summary                  | {                                           +
                                |         "coefficient_of_variation_pct": null+
                                |     },                                      +
                                |     "employees": {                          +
-                               |         "max": 45,                          +
-                               |         "min": 45,                          +
                                |         "sum": 45,                          +
                                |         "mean": 45.00,                      +
                                |         "type": "int_agg",                  +

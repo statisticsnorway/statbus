@@ -8,23 +8,22 @@ DECLARE
     v_state worker.statistical_unit_facet_state;
     v_row_count bigint;
     v_keys bigint;
-    v_deleted bigint;
     v_indexscan text;
     v_bitmapscan text;
 BEGIN
     SELECT * INTO v_state FROM worker.statistical_unit_facet_state FOR UPDATE;
 
-    -- A large change touches most facets; then one pass over all staging is cheaper than a
-    -- lookup per key (Norway register, 50 % of units: scoped 67 s over every key, global 16-20 s).
-    -- At a sixteenth of the slots the keys already cover most facets, so the global MERGE is used.
+    -- A large change touches most facets; then one pass over all staging is cheaper than the
+    -- difference of each dirty slot (Norway register, 50 % of units: recounting every changed key
+    -- 67 s, global 16-20 s). At a sixteenth of the slots the global MERGE is used.
     IF NOT v_state.recount_all AND cardinality(v_state.recount_slots) > 16384 / 16 THEN
         v_state.recount_all := true;
     END IF;
 
     IF v_state.recount_all THEN
         -- Every staging row is read, so a hash aggregate over a sequential scan is the plan: walking
-        -- the key indexes made for the scoped recount instead took 20-38 s against 15-16 s on the
-        -- Norway register. Restored after the MERGE, as the worker may run more in this transaction.
+        -- the facet key index instead took 20-38 s against 15-16 s on the Norway register.
+        -- Restored after the MERGE, as the worker may run more in this transaction.
         v_indexscan := current_setting('enable_indexscan');
         v_bitmapscan := current_setting('enable_bitmapscan');
         PERFORM set_config('enable_indexscan', 'off', true);
@@ -35,7 +34,8 @@ BEGIN
                    s.physical_region_path, s.primary_activity_category_path,
                    s.sector_path, s.legal_form_id, s.physical_country_id, s.status_id,
                    SUM(s.count)::BIGINT AS count,
-                   jsonb_stats_merge_agg(s.stats_summary) AS stats_summary
+                   -- The facet form, without min and max (public.statistical_unit_facet_def).
+                   jsonb_stats_delta_to_agg(jsonb_stats_to_delta(jsonb_stats_merge_agg(s.stats_summary))) AS stats_summary
               FROM public.statistical_unit_facet_staging AS s
              GROUP BY s.valid_from, s.valid_to, s.valid_until, s.unit_type,
                       s.physical_region_path, s.primary_activity_category_path,
@@ -71,46 +71,43 @@ BEGIN
 
         p_info := jsonb_build_object('mode', 'global', 'rows_merged', v_row_count);
     ELSE
-        -- The facets the cycles since the last committed reduce can have changed: the keys their
-        -- units left (recorded before the rewrite) and the keys now staged in their dirty slots.
-        IF to_regclass('pg_temp.facet_keys') IS NOT NULL THEN DROP TABLE facet_keys; END IF;
-        CREATE TEMP TABLE facet_keys ON COMMIT DROP AS
-        SELECT k.valid_from, k.valid_to, k.valid_until, k.unit_type,
-               COALESCE(k.physical_region_path::text, '') AS region, COALESCE(k.primary_activity_category_path::text, '') AS activity,
-               COALESCE(k.sector_path::text, '') AS sector, COALESCE(k.legal_form_id, -1) AS legal_form,
-               COALESCE(k.physical_country_id, -1) AS country, COALESCE(k.status_id, -1) AS status
-          FROM worker.statistical_unit_facet_recount_keys AS k
-        UNION
-        SELECT s.valid_from, s.valid_to, s.valid_until, s.unit_type,
-               COALESCE(s.physical_region_path::text, ''), COALESCE(s.primary_activity_category_path::text, ''),
-               COALESCE(s.sector_path::text, ''), COALESCE(s.legal_form_id, -1),
-               COALESCE(s.physical_country_id, -1), COALESCE(s.status_id, -1)
-          FROM public.statistical_unit_facet_staging AS s
-         WHERE s.hash_slot = ANY (v_state.recount_slots);
-        GET DIAGNOSTICS v_keys := ROW_COUNT;
-        ANALYZE facet_keys;
-
-        MERGE INTO public.statistical_unit_facet AS target
-        USING (
+        -- What the dirty slots changed in each facet: their staging rows now (the facets their units
+        -- are in) minus their rows before the first rewrite since the last committed reduce (the
+        -- facets the stored table holds them in, worker.statistical_unit_facet_slot_before). Counts
+        -- and summaries are additive (jsonb_stats stats_delta), so a facet is the stored one plus
+        -- this difference, and only the rows of the dirty slots are read. A key whose difference
+        -- nets to zero, as for a rename, is left as stored.
+        IF to_regclass('pg_temp.facet_difference') IS NOT NULL THEN DROP TABLE facet_difference; END IF;
+        CREATE TEMP TABLE facet_difference ON COMMIT DROP AS
+        SELECT r.valid_from, r.valid_to, r.valid_until, r.unit_type,
+               r.physical_region_path, r.primary_activity_category_path,
+               r.sector_path, r.legal_form_id, r.physical_country_id, r.status_id,
+               SUM(r.count)::BIGINT AS count,
+               jsonb_stats_delta_agg(r.stats_delta) AS stats_delta
+          FROM (
             SELECT s.valid_from, s.valid_to, s.valid_until, s.unit_type,
                    s.physical_region_path, s.primary_activity_category_path,
                    s.sector_path, s.legal_form_id, s.physical_country_id, s.status_id,
-                   SUM(s.count)::BIGINT AS count,
-                   jsonb_stats_merge_agg(s.stats_summary) AS stats_summary
-              FROM facet_keys AS k
-              JOIN public.statistical_unit_facet_staging AS s
-                ON s.valid_from = k.valid_from AND s.valid_to = k.valid_to
-               AND s.valid_until = k.valid_until AND s.unit_type = k.unit_type
-               AND COALESCE(s.physical_region_path::text, '') = k.region
-               AND COALESCE(s.primary_activity_category_path::text, '') = k.activity
-               AND COALESCE(s.sector_path::text, '') = k.sector
-               AND COALESCE(s.legal_form_id, -1) = k.legal_form
-               AND COALESCE(s.physical_country_id, -1) = k.country
-               AND COALESCE(s.status_id, -1) = k.status
-             GROUP BY s.valid_from, s.valid_to, s.valid_until, s.unit_type,
-                      s.physical_region_path, s.primary_activity_category_path,
-                      s.sector_path, s.legal_form_id, s.physical_country_id, s.status_id
-        ) AS source
+                   s.count, jsonb_stats_to_delta(s.stats_summary) AS stats_delta
+              FROM public.statistical_unit_facet_staging AS s
+             WHERE s.hash_slot = ANY (v_state.recount_slots)
+            UNION ALL
+            SELECT b.valid_from, b.valid_to, b.valid_until, b.unit_type,
+                   b.physical_region_path, b.primary_activity_category_path,
+                   b.sector_path, b.legal_form_id, b.physical_country_id, b.status_id,
+                   -b.count, jsonb_stats_negate(b.stats_summary)
+              FROM worker.statistical_unit_facet_slot_before AS b
+          ) AS r
+         GROUP BY r.valid_from, r.valid_to, r.valid_until, r.unit_type,
+                  r.physical_region_path, r.primary_activity_category_path,
+                  r.sector_path, r.legal_form_id, r.physical_country_id, r.status_id
+        HAVING SUM(r.count) <> 0
+            OR jsonb_stats_delta_nullif_zero(jsonb_stats_delta_agg(r.stats_delta)) IS NOT NULL;
+        GET DIAGNOSTICS v_keys := ROW_COUNT;
+        ANALYZE facet_difference;
+
+        MERGE INTO public.statistical_unit_facet AS target
+        USING facet_difference AS source
            ON target.valid_from = source.valid_from
           AND target.valid_to = source.valid_to
           AND COALESCE(target.valid_until, 'infinity'::date) = COALESCE(source.valid_until, 'infinity'::date)
@@ -121,10 +118,13 @@ BEGIN
           AND COALESCE(target.legal_form_id, -1) = COALESCE(source.legal_form_id, -1)
           AND COALESCE(target.physical_country_id, -1) = COALESCE(source.physical_country_id, -1)
           AND COALESCE(target.status_id, -1) = COALESCE(source.status_id, -1)
-        WHEN MATCHED AND (target.count <> source.count
-                          OR target.stats_summary IS DISTINCT FROM source.stats_summary)
-            THEN UPDATE SET count = source.count,
-                            stats_summary = source.stats_summary
+        -- The facet's last units left it.
+        WHEN MATCHED AND target.count + source.count = 0
+            THEN DELETE
+        WHEN MATCHED
+            THEN UPDATE SET count = target.count + source.count,
+                            stats_summary = jsonb_stats_delta_to_agg(
+                                jsonb_stats_delta_merge(jsonb_stats_to_delta(target.stats_summary), source.stats_delta))
         WHEN NOT MATCHED BY TARGET
             THEN INSERT (valid_from, valid_to, valid_until, unit_type,
                          physical_region_path, primary_activity_category_path,
@@ -133,42 +133,18 @@ BEGIN
                  VALUES (source.valid_from, source.valid_to, source.valid_until, source.unit_type,
                          source.physical_region_path, source.primary_activity_category_path,
                          source.sector_path, source.legal_form_id, source.physical_country_id, source.status_id,
-                         source.count, source.stats_summary);
+                         source.count, jsonb_stats_delta_to_agg(source.stats_delta));
         GET DIAGNOSTICS v_row_count := ROW_COUNT;
 
-        -- A recounted facet with no staging row left has lost its last unit.
-        DELETE FROM public.statistical_unit_facet AS f
-         USING facet_keys AS k
-         WHERE f.valid_from = k.valid_from AND f.valid_to = k.valid_to
-           AND COALESCE(f.valid_until, 'infinity'::date) = COALESCE(k.valid_until, 'infinity'::date)
-           AND f.unit_type = k.unit_type
-           AND COALESCE(f.physical_region_path::text, '') = k.region
-           AND COALESCE(f.primary_activity_category_path::text, '') = k.activity
-           AND COALESCE(f.sector_path::text, '') = k.sector
-           AND COALESCE(f.legal_form_id, -1) = k.legal_form
-           AND COALESCE(f.physical_country_id, -1) = k.country
-           AND COALESCE(f.status_id, -1) = k.status
-           AND NOT EXISTS (
-               SELECT 1 FROM public.statistical_unit_facet_staging AS s
-                WHERE s.valid_from = k.valid_from AND s.valid_to = k.valid_to
-                  AND s.valid_until = k.valid_until AND s.unit_type = k.unit_type
-                  AND COALESCE(s.physical_region_path::text, '') = k.region
-                  AND COALESCE(s.primary_activity_category_path::text, '') = k.activity
-                  AND COALESCE(s.sector_path::text, '') = k.sector
-                  AND COALESCE(s.legal_form_id, -1) = k.legal_form
-                  AND COALESCE(s.physical_country_id, -1) = k.country
-                  AND COALESCE(s.status_id, -1) = k.status);
-        GET DIAGNOSTICS v_deleted := ROW_COUNT;
-
-        p_info := jsonb_build_object('mode', 'scoped', 'keys_recounted', v_keys,
-                                     'rows_merged', v_row_count, 'rows_deleted', v_deleted);
+        p_info := jsonb_build_object('mode', 'difference', 'slots', cardinality(v_state.recount_slots),
+                                     'facets_changed', v_keys, 'rows_merged', v_row_count);
     END IF;
 
     -- Recounted: what the derives recorded is settled in this transaction.
     UPDATE worker.statistical_unit_facet_state
        SET recount_all = false, recount_slots = '{}'
      WHERE recount_all OR recount_slots <> '{}';
-    DELETE FROM worker.statistical_unit_facet_recount_keys WHERE true; -- every row: each was recounted above
+    DELETE FROM worker.statistical_unit_facet_slot_before WHERE true; -- every row: each was applied above
 END;
 $procedure$
 ```
