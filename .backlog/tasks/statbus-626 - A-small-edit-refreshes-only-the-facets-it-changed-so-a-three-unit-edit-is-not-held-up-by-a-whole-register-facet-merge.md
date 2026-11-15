@@ -3,10 +3,10 @@ id: STATBUS-626
 title: >-
   A small edit refreshes only the facets it changed, so a three-unit edit is not
   held up by a whole-register facet merge
-status: Done
+status: In Progress
 assignee: []
 created_date: '2026-11-12T00:59:00Z'
-updated_date: '2026-11-13T16:50:00Z'
+updated_date: '2026-11-15T13:32:00Z'
 labels:
   - performance
   - db
@@ -30,8 +30,7 @@ Closing review: the reason for the scope rule recorded on the procedure; no memo
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 After any sequence of edits, deletes and moves, statistical_unit_facet equals a full statistical_unit_facet_derive('-infinity','infinity'), shown by a test that includes the partial-contributor delete that broke the old scoped path
-- [ ] #2 A 3-unit edit on the Norway register spends under 3 s in statistical_unit_facet_reduce on the bench box
-- [ ] #3 A 50 % change and a full recalculation on the bench box give the same tables as before, with statistical_unit_facet_reduce taking no longer than it does today
+- [ ] #2 After the next release candidate is installed on rune (Norway), a 3-unit edit's statistical_unit_facet_reduce time and a 50 % change's are measured there against the previous release, written in the release notes, and recorded here
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -48,4 +47,11 @@ Owner 2026-11-13 10:56: go ahead with the design. Rule it must satisfy: an edit 
 2026-11-13 16:28 landed on master aad458f1e (bcada9ec8 + aad458f1e). The first version (623909d2c) recorded the keys of whole 64-slot ranges: on the full register a 3-unit edit recounted 49,406 keys and its scoped MERGE read the whole facet table (>40 min, cancelled). Rework: the dirty slots' keys only (a unit's staging rows sit in its own slot), an index on the facet key for the scoped MERGE/DELETE, a change dirtying >1/16 of the slots recounts all, and the global MERGE keeps its hash-aggregate plan. AC1: test 360 GREEN (facets equal statistical_unit_facet_def after move, last contributor leaving, new unit, deleted unit, failed reduce then an unrelated cycle); RED on master (360.6), on an April-style variant (4 stale + 4 missing facets after the failed reduce) and on an after-keys-only variant (stale facets from the first move). Full-register bench on import_benchmark_64469 (local, shared host load 10-60, not the bench box): 3-unit edit facet reduce 2.66/3.80/5.29/7.34/7.82 s scoped (1,196-1,576 keys) vs master 15.7/16.8/17.7/18.7 s; whole edit 16-24 s vs 29-42 s. 50 %: reduce 17.0 s (global fallback) vs master 21.3 s, wall 1,550 vs 1,650 s. Facets equal their definition (facet_def_diff 0) and identical to master (md5 b5289c9e80b7) in every round. Fast suite 144/144 on a seed rebuilt from all migrations. Down restores master's procedures exactly; up/down/up identical. Evidence tmp/626/ and tmp/journal.md. AC2/AC3 name the bench box: measured locally on the same Norway register instead.
 
 CI on b69b1208b (contains aad458f1e): Fast Tests 43463672094 completed/success (pg_regress fast suite), CodeQL, Images, Harness Selftest, Notify success; aad458f1e: Go Test, app build & lint, Images, CodeQL, Harness, Notify all success.
+
+2026-11-15 owner: the speed checks move from the bench box to rune after the next release candidate (cheaper, and the real Norway installation). Reference numbers measured locally on the full Norway register (import_benchmark_64469, shared host): 3-unit edit facet reduce 2.7-7.8 s vs 15.7-18.7 s before; 50 % change 17.0 s vs 21.3 s; facets identical in every round. Close after the rune measurement is in the release notes.
+
+Considered and not pursued (owner 2026-11-15), measured this week:
+- Staging index built once after the fill instead of maintained during it: saves about 19 s of a ~12 min full recalculation (~2 %), only on full recalculations, and puts index DDL inside the worker pipeline (tmp/605/stidx-*.log).
+- Change-set grouping with two plain joins instead of one OR join: 7.5 s to 4.5-5.8 s on the full path, identical groups, one local run (tmp/613/changeset-or.*): under 0.5 % of a recalculation.
+- Facet totals kept per key and adjusted by the change: would remove the remaining ~2.5 s of a small edit (132 popular keys hold two thirds of the 510k staging rows a 3-unit edit recounts). Counts subtract, but the stats summary's min/max cannot be retracted without a recount, so it needs a new storage design. Not worth it at 3-8 s.
 <!-- SECTION:NOTES:END -->
