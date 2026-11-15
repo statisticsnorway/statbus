@@ -1,11 +1,11 @@
 ---
 id: STATBUS-622
 title: A dump with no sql_saga receipt restores at sql_saga 1.0 and fails Phase 3
-status: In Progress
+status: Done
 assignee:
   - hibiscus
 created_date: '2026-11-11T16:19:00Z'
-updated_date: '2026-11-11T16:26:00Z'
+updated_date: '2026-11-15T13:00:00Z'
 labels:
   - db
   - ops
@@ -41,4 +41,6 @@ Closing review: no memory change; the reason is documented at sqlSagaImagePins a
 RED: the new case returned 1.0 (tmp/616/saga-red.log). GREEN: all 6 TestDumpSqlSagaVersion cases and TestSqlSagaImagePinMatchesDockerfile pass (tmp/616/saga-green.log). Found while restoring rune's dump on the bench box (STATBUS-616): Phase 0 created sql_saga 1.0, Phase 3 failed on sql_saga.era.catalog_format. Rune: sql_saga 1.4, db.extension_upgrade has receipts only for jsonb_stats, ltree, citext; 20261027221500 applied 2026-11-08.
 
 AC2: on the bench box (ccx33, rc.01 stack 4a66d259) ./sb db restore dbdumps/no_20261110_161917.pg_dump --yes with sb built from the fix: 'Phase 0: sql_saga created at the dump's version 1.4', Phase 5 extension lifecycle ran, exit 0 in 994 s. Before the fix the same command failed in Phase 3 (Phase 0 at 1.0).
+
+2026-11-15: fix d6978425d is on master; CI on that commit all success (Fast Tests, Go Test, Harness Selftest, Images, app build & lint, CodeQL). Later pins extended the same version table (1.5 ab4f4e845, 1.6 12f27cf20). All 3 AC checked. Done.
 <!-- SECTION:NOTES:END -->
