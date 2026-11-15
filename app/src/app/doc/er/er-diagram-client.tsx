@@ -12,6 +12,14 @@ mermaid.initialize({
   // that and Mermaid renders the "Maximum text size in diagram" warning
   // instead of the diagram. 500,000 leaves headroom for ~10x schema growth.
   maxTextSize: 500000,
+  // The diagram as it has always looked: dagre layout, default theme, classic
+  // look. Mermaid 12 made ELK, redux-color and neo the defaults. The page asked
+  // for ELK before, but Mermaid 11 had no ELK loader installed and drew it with
+  // dagre; with Mermaid 12's bundled ELK the 270-table schema took about three
+  // minutes to draw in Firefox, against under a minute with dagre (STATBUS-630).
+  layout: "dagre",
+  theme: "default",
+  look: "classic",
 });
 
 export default function ErDiagramClientComponent() {
@@ -39,14 +47,9 @@ export default function ErDiagramClientComponent() {
           throw new Error("No diagram data received.");
         }
 
-        const fullDiagramText = `---
-config:
-    layout: elk
----
-${diagramText}`;
         const { svg: renderedSvg } = await mermaid.render(
           "er-diagram-graph",
-          fullDiagramText,
+          diagramText,
         );
         setSvg(renderedSvg);
         setError(null);

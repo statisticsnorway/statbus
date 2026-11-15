@@ -93,7 +93,7 @@ describe("dependency security compatibility", () => {
     }
   });
 
-  test("Mermaid accepts the database ER diagram syntax and ELK configuration", () => {
+  test("Mermaid accepts the database ER diagram syntax with the ER page's configuration", () => {
     const output = execFileSync(
       process.execPath,
       [
@@ -101,8 +101,8 @@ describe("dependency security compatibility", () => {
         "-e",
         `
       import mermaid from 'mermaid';
-      mermaid.initialize({ startOnLoad: false, maxTextSize: 500000 });
-      const result = await mermaid.parse('---\\nconfig:\\n    layout: elk\\n---\\nerDiagram\\n  legal_unit ||--o{ establishment : contains\\n  legal_unit {\\n    int id PK\\n    string name\\n  }');
+      mermaid.initialize({ startOnLoad: false, maxTextSize: 500000, layout: 'dagre', theme: 'default', look: 'classic' });
+      const result = await mermaid.parse('erDiagram\\n  legal_unit ||--o{ establishment : contains\\n  legal_unit {\\n    int id PK\\n    string name\\n  }');
       console.log(result.diagramType);
     `,
       ],
