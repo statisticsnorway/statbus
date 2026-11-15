@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Legal units with unequal top establishment</title>
+<!-- API config from map/config.js (gitignored) -->
+<script src="config.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+  h1 { color: #0a3622; margin-bottom: 4px; font-size: 22px; }
+  .subtitle { color: #666; margin-bottom: 16px; font-size: 14px; }
+  #status { padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 16px; font-size: 14px; color: #333; }
+  #search { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 16px; font-size: 14px; outline: none; }
+  #search:focus { border-color: #0a3622; box-shadow: 0 0 0 2px rgba(10,54,34,0.15); }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  th { background: #0a3622; color: #fff; text-align: left; padding: 10px 14px; font-size: 13px; cursor: pointer; user-select: none; white-space: nowrap; }
+  th:hover { background: #0d4a2e; }
+  th .arrow { font-size: 10px; margin-left: 4px; opacity: 0.4; }
+  th.sorted .arrow { opacity: 1; }
+  td { padding: 8px 14px; border-bottom: 1px solid #eee; font-size: 13px; }
+  tr.lu-row { cursor: pointer; }
+  tr.lu-row:hover td { background: #f0f8f0; }
+  tr.lu-row td:first-child::before { content: '\25B6 '; font-size: 9px; color: #999; margin-right: 4px; }
+  tr.lu-row.expanded td:first-child::before { content: '\25BC '; }
+  .num { text-align: right; }
+  th.est-col { color: #ffd700; }
+  td.est-col { color: #1a5276; }
+  /* Establishment detail rows */
+  tr.est-detail td { background: #f8faf8; padding: 4px 14px 4px 34px; font-size: 12px; color: #555; border-bottom: 1px solid #f0f0f0; }
+  tr.est-detail td.est-name { font-weight: bold; color: #1a5276; }
+  tr.est-detail:last-of-type td { border-bottom: 2px solid #0a3622; }
+</style>
+</head>
+<body>
+<h1>Legal units with unequal top establishment</h1>
+<div class="subtitle">Legal units where the top establishment (by employees) has a different activity than the legal unit. Click a row to see all establishments.</div>
+<div id="status">Loading...</div>
+<input type="text" id="search" placeholder="Search across all columns..." style="display:none">
+<table id="report" style="display:none">
+  <thead>
+    <tr>
+      <th data-col="0" data-type="text">Name <span class="arrow">&#9650;</span></th>
+      <th data-col="1" data-type="num" class="num">Est. <span class="arrow">&#9650;</span></th>
+      <th data-col="2" data-type="num" class="num">Employees <span class="arrow">&#9650;</span></th>
+      <th data-col="3" data-type="text">Activity <span class="arrow">&#9650;</span></th>
+      <th data-col="4" data-type="text" class="est-col">Top Est. Activity <span class="arrow">&#9650;</span></th>
+      <th data-col="5" data-type="text" class="est-col">Top Est. Name <span class="arrow">&#9650;</span></th>
+      <th data-col="6" data-type="num" class="num est-col">Top Est. Empl. <span class="arrow">&#9650;</span></th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+<script>
+{
+  if (typeof API_URL === 'undefined') var API_URL = 'https://ma.statbus.org';
+  if (typeof API_KEY === 'undefined') var API_KEY = '';
+
+  const status = document.getElementById('status');
+  let allRowData = [];
+  let estMap = {};       // shared: est unit_id -> { name, region_id, activity_id, employees }
+  let regionMap = {};    // shared: region id -> name
+  let activityMap = {};  // shared: activity id -> name
+
+  async function apiFetch(path) {
+    const headers = { 'Accept': 'application/json; charset=utf-8' };
+    if (API_KEY) headers['Authorization'] = `Bearer ${API_KEY}`;
+    const opts = { headers };
+    if (new URL(API_URL).origin === window.location.origin) opts.credentials = 'include';
+    const resp = await fetch(`${API_URL}${path}`, opts);
+    if (!resp.ok) throw new Error(`API ${resp.status}: ${await resp.text()}`);
+    return resp.json();
+  }
+
+  let sortCol = 1;
+  let sortAsc = false;
+  let searchTerm = '';
+  const COL_COUNT = 7;
+
+  function buildEstDetailRows(estIds) {
+    const rows = [];
+    // Sort establishments by employees descending
+    const sorted = (estIds || [])
+      .map(id => estMap[id])
+      .filter(Boolean)
+      .sort((a, b) => (b.employees || 0) - (a.employees || 0));
+
+    for (const e of sorted) {
+      const tr = document.createElement('tr');
+      tr.className = 'est-detail';
+      const cells = [
+        { text: e.name, cls: 'est-name' },
+        { text: '', cls: 'num' },
+        { text: String(e.employees || '-'), cls: 'num' },
+        { text: activityMap[e.activity_id] || '-', cls: '' },
+        { text: '', cls: '' },
+        { text: '', cls: '' },
+        { text: '', cls: '' }
+      ];
+      for (const c of cells) {
+        const td = document.createElement('td');
+        td.textContent = c.text;
+        if (c.cls) td.className = c.cls;
+        tr.appendChild(td);
+      }
+      rows.push(tr);
+    }
+    return rows;
+  }
+
+  function toggleExpand(luTr, estIds) {
+    const isExpanded = luTr.classList.contains('expanded');
+    if (isExpanded) {
+      // Remove detail rows following this tr
+      luTr.classList.remove('expanded');
+      while (luTr.nextElementSibling && luTr.nextElementSibling.classList.contains('est-detail')) {
+        luTr.nextElementSibling.remove();
+      }
+    } else {
+      luTr.classList.add('expanded');
+      const detailRows = buildEstDetailRows(estIds);
+      let insertAfter = luTr;
+      for (const dr of detailRows) {
+        insertAfter.after(dr);
+        insertAfter = dr;
+      }
+    }
+  }
+
+  function renderTable() {
+    const term = searchTerm.toLowerCase();
+    const filtered = term
+      ? allRowData.filter(r => r.cells.some(c => c.toLowerCase().includes(term)))
+      : allRowData;
+
+    const col = sortCol;
+    const isNum = document.querySelectorAll('th')[col]?.dataset.type === 'num';
+    filtered.sort((a, b) => {
+      let va = a.cells[col], vb = b.cells[col];
+      if (isNum) {
+        va = va === '-' ? -Infinity : Number(va);
+        vb = vb === '-' ? -Infinity : Number(vb);
+        return sortAsc ? va - vb : vb - va;
+      }
+      return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    const colClasses = ['', 'num', 'num', '', 'est-col', 'est-col', 'num est-col'];
+    for (const r of filtered) {
+      const tr = document.createElement('tr');
+      tr.className = 'lu-row';
+      for (let i = 0; i < r.cells.length; i++) {
+        const td = document.createElement('td');
+        td.textContent = r.cells[i];
+        if (colClasses[i]) td.className = colClasses[i];
+        tr.appendChild(td);
+      }
+      tr.addEventListener('click', () => toggleExpand(tr, r.estIds));
+      tbody.appendChild(tr);
+    }
+
+    document.querySelectorAll('th').forEach(th => {
+      const c = Number(th.dataset.col);
+      th.classList.toggle('sorted', c === sortCol);
+      th.querySelector('.arrow').innerHTML = c === sortCol
+        ? (sortAsc ? '&#9650;' : '&#9660;')
+        : '&#9650;';
+    });
+
+    const countText = filtered.length < allRowData.length
+      ? `Showing ${filtered.length} of ${allRowData.length}`
+      : `Found ${allRowData.length}`;
+    status.textContent = `${countText} legal units with different activity on top establishment.`;
+  }
+
+  document.querySelectorAll('th').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = Number(th.dataset.col);
+      if (sortCol === col) {
+        sortAsc = !sortAsc;
+      } else {
+        sortCol = col;
+        sortAsc = th.dataset.type === 'text';
+      }
+      renderTable();
+    });
+  });
+
+  document.getElementById('search').addEventListener('input', (e) => {
+    searchTerm = e.target.value;
+    renderTable();
+  });
+
+  (async () => {
+    try {
+      status.textContent = 'Loading legal units...';
+
+      // 1. Fetch legal units starting with E, with >1 establishment
+      const select = 'name,included_establishment_count,primary_activity_category_id,stats_summary,included_establishment_ids';
+      const filter = 'unit_type=eq.legal_unit&included_establishment_count=gt.1&used_for_counting=is.true';
+      const order = 'order=included_establishment_count.desc';
+      const rows = await apiFetch(`/rest/statistical_unit?select=${select}&${filter}&${order}&limit=5000`);
+
+      if (!rows.length) {
+        status.textContent = 'No legal units with more than one establishment found.';
+        return;
+      }
+
+      // 2. Collect all establishment IDs across all legal units
+      const allEstIds = new Set();
+      for (const r of rows) {
+        if (r.included_establishment_ids) {
+          for (const id of r.included_establishment_ids) allEstIds.add(id);
+        }
+      }
+
+      // 3. Collect unique region and activity IDs from legal units
+      const regionIds = new Set(rows.map(r => r.physical_region_id).filter(Boolean));
+      const activityIds = new Set(rows.map(r => r.primary_activity_category_id).filter(Boolean));
+
+      status.textContent = `Found ${rows.length} units. Loading ${allEstIds.size} establishments...`;
+
+      // 4. Fetch establishments in batches (PostgREST has URL length limits)
+      const estIdArr = [...allEstIds];
+      const BATCH = 500;
+      for (let i = 0; i < estIdArr.length; i += BATCH) {
+        const batch = estIdArr.slice(i, i + BATCH);
+        const estSelect = 'unit_id,name,physical_region_id,primary_activity_category_id,stats_summary';
+        const estFilter = `unit_type=eq.establishment&unit_id=in.(${batch.join(',')})`;
+        const ests = await apiFetch(`/rest/statistical_unit?select=${estSelect}&${estFilter}&limit=${BATCH}`);
+        for (const e of ests) {
+          const emp = e.stats_summary?.employees?.sum ?? 0;
+          regionIds.add(e.physical_region_id);
+          activityIds.add(e.primary_activity_category_id);
+          estMap[e.unit_id] = {
+            name: e.name || '-',
+            region_id: e.physical_region_id,
+            activity_id: e.primary_activity_category_id,
+            employees: emp
+          };
+        }
+        status.textContent = `Loading establishments... ${Math.min(i + BATCH, estIdArr.length)} of ${estIdArr.length}`;
+      }
+
+      status.textContent = 'Loading region and activity names...';
+
+      // 5. Fetch region names
+      const rIds = [...regionIds].filter(Boolean);
+      for (let i = 0; i < rIds.length; i += BATCH) {
+        const batch = rIds.slice(i, i + BATCH);
+        const regions = await apiFetch(`/rest/region?select=id,name&id=in.(${batch.join(',')})&limit=${BATCH}`);
+        for (const r of regions) regionMap[r.id] = r.name;
+      }
+
+      // 6. Fetch activity category names
+      const aIds = [...activityIds].filter(Boolean);
+      for (let i = 0; i < aIds.length; i += BATCH) {
+        const batch = aIds.slice(i, i + BATCH);
+        const acts = await apiFetch(`/rest/activity_category?select=id,name&id=in.(${batch.join(',')})&limit=${BATCH}`);
+        for (const a of acts) activityMap[a.id] = a.name;
+      }
+
+      // 7. Build row data — find top establishment per legal unit
+      //    Only include rows where the legal unit activity differs from the top establishment activity
+      let skippedSame = 0;
+      for (const r of rows) {
+        const employees = r.stats_summary?.employees?.sum ?? '-';
+        const activityName = activityMap[r.primary_activity_category_id] || '-';
+
+        // Find establishment with most employees
+        let topEst = null;
+        if (r.included_establishment_ids) {
+          for (const eid of r.included_establishment_ids) {
+            const e = estMap[eid];
+            if (e && (!topEst || e.employees > topEst.employees)) topEst = e;
+          }
+        }
+
+        const topEstActivity = topEst ? (activityMap[topEst.activity_id] || '-') : '-';
+
+        // Skip rows where activity is the same
+        if (activityName === topEstActivity) { skippedSame++; continue; }
+
+        const topEstName = topEst ? topEst.name : '-';
+        const topEstEmpl = topEst ? String(topEst.employees || '-') : '-';
+
+        allRowData.push({
+          cells: [
+            r.name || '-',
+            String(r.included_establishment_count),
+            String(employees),
+            activityName,
+            topEstActivity,
+            topEstName,
+            topEstEmpl
+          ],
+          estIds: r.included_establishment_ids || []
+        });
+      }
+
+      document.getElementById('search').style.display = '';
+      document.getElementById('report').style.display = '';
+      renderTable();
+    } catch (e) {
+      status.textContent = `Error: ${e.message}`;
+      status.style.color = '#c00';
+    }
+  })();
+}
+</script>
+</body>
+</html>
