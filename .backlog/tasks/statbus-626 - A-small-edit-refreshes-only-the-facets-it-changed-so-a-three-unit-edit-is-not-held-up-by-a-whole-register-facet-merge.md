@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-12T00:59:00Z'
-updated_date: '2026-11-15T13:32:00Z'
+updated_date: '2026-11-15T16:13:00Z'
 labels:
   - performance
   - db
@@ -54,4 +54,12 @@ Considered and not pursued (owner 2026-11-15), measured this week:
 - Staging index built once after the fill instead of maintained during it: saves about 19 s of a ~12 min full recalculation (~2 %), only on full recalculations, and puts index DDL inside the worker pipeline (tmp/605/stidx-*.log).
 - Change-set grouping with two plain joins instead of one OR join: 7.5 s to 4.5-5.8 s on the full path, identical groups, one local run (tmp/613/changeset-or.*): under 0.5 % of a recalculation.
 - Facet totals kept per key and adjusted by the change: would remove the remaining ~2.5 s of a small edit (132 popular keys hold two thirds of the 510k staging rows a 3-unit edit recounts). Counts subtract, but the stats summary's min/max cannot be retracted without a recount, so it needs a new storage design. Not worth it at 3-8 s.
+
+2026-11-15 owner reversed two of the three: do them now, as clean examples and faster code, and drop facet min/max. Both landed on master:
+- 75f9601cd, migration 20261115134359: change sets gather each group's units with one plain equality join per link (enterprise, its legal units, their establishments, its informal establishments) instead of the OR join, whose plan was a nested loop with two index probes per legal unit row. Norway register (import_benchmark_64469, two rounds each): full path 16.9-17.2 s to 8.6-9.3 s, an 800,000-unit change 12.7-13.1 s to 8.7-8.9 s; identical change sets (387 full, 1,845 partial, 0 differing). Test 361 pins the groups on all four paths (full/filtered, with/without a bridging legal unit); same output before and after the migration.
+- b97d0035d, migration 20261115143155: the facet reduce adds to each stored facet its dirty slots' staging rows after the rewrite minus their rows before it (worker.statistical_unit_facet_slot_before replaces recount_keys; a pending slot is recorded once, so a failed reduce is applied by the next). Facet stats_summary drops min/max (cannot be subtracted; no reader: drilldown merges facets, the app reads count and sum), in the table and statistical_unit_facet_def alike. Exactness checked on all 362,822 Norway facets (merge_agg minus min/max == delta sum) and on float summaries. Test 360 adds cycle F (failed reduce, then an edit of the same slot): GREEN; RED on the 626 reduce (every row differs: min/max) and on a variant that records a pending slot again (6 facets missing). Up/down/up round trip identical. Norway register, local: 3-unit edit facet reduce 0.06 s x4 vs 3.5-5.2 s for the 626 recount; whole edit 11-14 s vs 16-18 s; 50 % change falls back to the global merge, 19.7 s, wall 1,298 s, 0 failed; facets equal the definition every round.
+- The staging index built after loading stays not pursued: index DDL inside the running pipeline, for about 2 % of a full recalculation.
+Fast suite 145/145 (tmp/test-626-fast2.log). Remaining: AC2, the rune measurement after the next release candidate.
+
+CI on b97d0035d (contains 75f9601cd), all completed/success: Fast Tests 43732527613 (pg_regress fast suite), Images 43732210396, Go Test 43732210265, app build & lint 43732210379, Harness Selftest 43732210433, Push on master 43732210444, Notify 43732210462.
 <!-- SECTION:NOTES:END -->
