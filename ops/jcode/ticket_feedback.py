@@ -50,9 +50,9 @@ TICKET:
 
 TODO_PLAN = ("Ticket created. Plan the work in your todos now: the implementation steps, when to delegate and "
              "to whom, when to collect (reap) worker results, how you verify, and the ticket updates at each "
-             "step (In Progress when started or delegated, --append-notes evidence, --check-ac, Done after verification).")
-TODO_SYNC = ("Todos changed. If these steps belong to a ticket, keep it in step: status when work starts or is "
-             "delegated, evidence with --append-notes, --check-ac as criteria are verified, Done only after verification.")
+             "step (hug task take when started or delegated, hug task note evidence, hug task check, hug task done after verification).")
+TODO_SYNC = ("Todos changed. If these steps belong to a hug task, keep it in step: hug task take when work starts or is "
+             "delegated, hug task note for evidence, hug task check as checks are verified, hug task done only after verification.")
 
 
 def inside_repo(cwd):
