@@ -41,6 +41,7 @@ STATBUS is SSB's statistical business registry: PostgreSQL 18+, PostgREST 12+, N
 - For offline database definitions, search `doc/db/` before chronological migrations.
 - Run SQL tests with `./dev.sh test fast` or `./dev.sh test <prefix>`. Save output with `2>&1 | tee tmp/test-<name>.log` and preserve the test exit status with `set -o pipefail`.
 - Frontend checks run from `app/`: `pnpm run lint`, `pnpm run format`, `pnpm run tsc`, `pnpm run test`, and `pnpm run build`.
+- Node is selected with fnm from `app/.nvmrc`, and pnpm comes from Corepack at the version in `app/package.json`. An agent's non-interactive shell does not load the developer's zsh, so start app commands with `eval "$(fnm env)" && cd app && fnm use` rather than another version manager or the system Node.
 - Database deletion/recreation commands are local-development only, never production. Confirm the target and authorization before destructive operations.
 - Additional commands and connection examples: [development reference](doc/development-reference.md).
 

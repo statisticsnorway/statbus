@@ -25,8 +25,8 @@ For using StatBus, see [User Guide](USAGE.md).
 **Required Tools**:
 - **Docker** 24.0+ and **Docker Compose** 2.20+
 - **Git** 2.40+
-- **Node.js** (version specified in `.nvmrc`)
-- **pnpm** 8.0+
+- **Node.js** (version pinned in `app/.nvmrc`, selected with [fnm](https://github.com/Schniz/fnm))
+- **pnpm** (version pinned by `packageManager` in `app/package.json`, provided by Corepack)
 
 **Platform-Specific**:
 
@@ -36,7 +36,7 @@ For using StatBus, see [User Guide](USAGE.md).
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Install tools
-brew install nvm git docker docker-compose crystal-lang
+brew install fnm git docker docker-compose crystal-lang
 brew install --cask docker  # Docker Desktop
 ```
 
@@ -53,11 +53,8 @@ curl -fsSL https://crystal-lang.org/install.sh | sudo bash
 crystal --version
 shards --version
 
-# Install Node Version Manager
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-
-# Install pnpm
-curl -fsSL https://get.pnpm.io/install.sh | sh -
+# Install fnm (Fast Node Manager)
+curl -fsSL https://fnm.vercel.app/install | bash
 ```
 
 **Windows**:
@@ -67,7 +64,7 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 irm get.scoop.sh | iex
 
 # Install tools
-scoop install git nvm
+scoop install git fnm
 scoop bucket add extras
 scoop install docker
 ```
@@ -130,13 +127,12 @@ This creates `.env`, `.env.credentials`, and `.env.config` with development defa
 #### 6. Install Node.js
 
 ```bash
-# Use Node version from .nvmrc
+# fnm installs and selects the Node version in app/.nvmrc; Corepack provides
+# the pnpm version pinned in app/package.json (packageManager).
 cd app
-nvm install
-nvm use
-
-# Install pnpm globally
-npm install -g pnpm
+fnm install
+fnm use
+corepack enable pnpm
 
 # Install app dependencies
 pnpm install
@@ -203,7 +199,7 @@ In development mode, you run backend services in Docker and the Next.js app loca
 
 ```bash
 cd app
-nvm use
+fnm use
 pnpm install
 pnpm run dev
 ```

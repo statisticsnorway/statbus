@@ -156,7 +156,7 @@ git config core.hooksPath .githooks
 
 # Run Next.js locally (in separate terminal)
 cd app
-nvm use
+fnm use
 pnpm install
 pnpm run dev
 ```
