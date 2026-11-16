@@ -1987,7 +1987,7 @@ DEVOPS_KEYPAIR
     # aptitude — core-tools) remains: an operator diagnosing a box needs an
     # editor, a monitor and a grep, and those are small, apt-managed, and
     # patched by the mechanism this script already installs. Full ruling:
-    # .backlog/docs/doc-032. tmux joined that same apt toolkit in core-tools
+    # doc/backlog-docs/doc-032. tmux joined that same apt toolkit in core-tools
     # (King-directed follow-up) to replace zellij's session-survival role —
     # plain install, no auto-attach hook; an operator opts in manually.
 
