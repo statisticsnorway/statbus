@@ -59,15 +59,31 @@ export function editChanges(
 }
 
 /**
+ * The edit's anchor: the ticked period whose values the form holds, against
+ * which every other ticked period's changes are shown (owner 2026-11-16). The
+ * edit opens anchored on the period the page shows. Ticking more periods keeps
+ * the anchor; unticking it moves the anchor to the nearest ticked period, and
+ * the form takes that period's values. With nothing ticked there is no anchor
+ * (-1), and the next tick becomes it.
+ */
+export function editAnchor(anchor: number, ticked: readonly number[]): number {
+  if (ticked.length === 0) return -1;
+  if (ticked.includes(anchor)) return anchor;
+  if (anchor < 0) return ticked[0];
+  return ticked.reduce((best, i) =>
+    Math.abs(i - anchor) < Math.abs(best - anchor) ? i : best
+  );
+}
+
+/**
  * Whether Save waits for the user's approval: it changes a ticked period other
- * than the one whose values the form shows (`shownIndex`, the period of the
- * frame the page shows). Changing that period alone is an ordinary edit of
- * what the user sees; any other period's changes are only seen in the
- * timeline, so the user approves them there.
+ * than the anchor, the one whose values the form shows. Changing the anchor
+ * alone is an ordinary edit of what the user sees; any other period's changes
+ * are only seen in the timeline, so the user approves them there.
  */
 export function needsApproval(
   changes: ReadonlyMap<number, PeriodChange>,
-  shownIndex: number
+  anchor: number
 ): boolean {
-  return [...changes.keys()].some((index) => index !== shownIndex);
+  return [...changes.keys()].some((index) => index !== anchor);
 }

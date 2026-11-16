@@ -1,4 +1,4 @@
-import { editChanges, needsApproval } from "./edit-changes";
+import { editAnchor, editChanges, needsApproval } from "./edit-changes";
 import type { TimelinePeriod } from "./field-timeline";
 
 // LU 29's sector (owner 2026-11-16): 2024–2025 holds 4500 from survey, Live is
@@ -84,6 +84,27 @@ describe("editChanges", () => {
         ],
       ])
     );
+  });
+});
+
+describe("editAnchor", () => {
+  // The owner's case (2026-11-16): start on Live, tick 2024, untick Live.
+  it("stays on the anchor while it is ticked", () => {
+    expect(editAnchor(1, [0, 1])).toBe(1);
+  });
+
+  it("moves to the nearest ticked period when the anchor is unticked", () => {
+    expect(editAnchor(1, [0])).toBe(0);
+    expect(editAnchor(0, [2, 3])).toBe(2);
+    expect(editAnchor(3, [0, 1])).toBe(1);
+  });
+
+  it("takes the first tick as the anchor when there was none", () => {
+    expect(editAnchor(-1, [2])).toBe(2);
+  });
+
+  it("has no anchor when nothing is ticked", () => {
+    expect(editAnchor(1, [])).toBe(-1);
   });
 });
 

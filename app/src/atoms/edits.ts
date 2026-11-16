@@ -39,6 +39,12 @@ export interface EditTarget {
   view?: "frame" | "timeline";
   /** In the Frame view: dated by the frame (default) or by specific dates. */
   validityChoice?: "frame" | "dates";
+  /**
+   * The anchor (edit-changes' editAnchor): the valid_from of the ticked period
+   * whose values the form holds. Absent until the user moves it, the period
+   * of the frame the page shows.
+   */
+  anchorFrom?: string | null;
 }
 
 export const initialEditAtom: EditTarget = {
@@ -49,17 +55,18 @@ export const currentEditAtom = atom<EditTarget>(initialEditAtom);
 
 /**
  * The changes a save of the open edit makes to ticked periods other than the
- * one the form shows (edit-changes' needsApproval), as a signature, or null
- * when the save needs no approval. Written by the edit's controls.
+ * anchor (edit-changes' needsApproval), as a signature, or null when the save
+ * needs no approval. Written by the edit's controls.
  */
 export const editChangesNeedingApprovalAtom = atom<string | null>(null);
 
 /**
- * The signature of the changes the user approved ("Save with the highlighted
- * changes"). Save goes ahead only while it equals the changes the save makes,
- * so any change to the form or the ticks after approving asks again.
+ * The user approved the changes now highlighted ("Save with the highlighted
+ * changes"). Any change to them (the ticks, the form's values, the data
+ * source) takes the approval back, even when it returns to changes approved
+ * before: an approval is for the set of changes in front of the user.
  */
-export const editApprovedChangesAtom = atom<string | null>(null);
+export const editApprovedAtom = atom<boolean>(false);
 
 export type EditTargetOptions = Omit<EditTarget, "fieldId">;
 
@@ -67,7 +74,7 @@ export const setEditTargetAtom = atom(
   null,
   (get, set, fieldId: string | null, options?: EditTargetOptions) => {
     set(editChangesNeedingApprovalAtom, null);
-    set(editApprovedChangesAtom, null);
+    set(editApprovedAtom, false);
     set(currentEditAtom, () => ({
       fieldId: fieldId,
       frameIdent: options?.frameIdent ?? null,
@@ -98,7 +105,7 @@ export const setEditFrameAtom = atom(
 
 export const exitEditModeAtom = atom(null, (get, set) => {
   set(editChangesNeedingApprovalAtom, null);
-  set(editApprovedChangesAtom, null);
+  set(editApprovedAtom, false);
   set(currentEditAtom, initialEditAtom);
 });
 
@@ -157,6 +164,14 @@ export const setEditValidityChoiceAtom = atom(
   }
 );
 
+/** Moves the edit's anchor to the period starting at `anchorFrom` (null: none). */
+export const setEditAnchorAtom = atom(
+  null,
+  (get, set, anchorFrom: string | null) => {
+    set(currentEditAtom, (prev) => ({ ...prev, anchorFrom }));
+  }
+);
+
 export const setEditCommentAtom = atom(
   null,
   (get, set, comment: string | null) => {
@@ -176,6 +191,7 @@ export const useEditManager = () => {
   const setEditRemoving = useSetAtom(setEditRemovingAtom);
   const setEditView = useSetAtom(setEditViewAtom);
   const setEditValidityChoice = useSetAtom(setEditValidityChoiceAtom);
+  const setEditAnchor = useSetAtom(setEditAnchorAtom);
   const setEditTarget = useCallback(
     (fieldId: string | null, options?: EditTargetOptions) => {
       doSetEditTarget(fieldId, options);
@@ -222,6 +238,7 @@ export const useEditManager = () => {
     setEditRemoving,
     setEditView,
     setEditValidityChoice,
+    setEditAnchor,
   };
 };
 

@@ -63,49 +63,49 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
           }}
           shownValues={establishment?.contact ?? undefined}
         >
-          {({ isEditing }) => (
+          {({ isEditing, valueOf }) => (
             <>
               <div className="grid lg:grid-cols-2 gap-4">
                 <FormField
                   readonly={!isEditing}
                   label="Email address"
                   name="email_address"
-                  value={establishment?.contact?.email_address}
+                  value={valueOf("email_address", establishment?.contact?.email_address)}
                   response={null}
                 />
                 <FormField
                   readonly={!isEditing}
                   label="Web Address"
                   name="web_address"
-                  value={establishment?.contact?.web_address}
+                  value={valueOf("web_address", establishment?.contact?.web_address)}
                   response={null}
                 />
                 <FormField
                   readonly={!isEditing}
                   label="Phone number"
                   name="phone_number"
-                  value={establishment?.contact?.phone_number}
+                  value={valueOf("phone_number", establishment?.contact?.phone_number)}
                   response={null}
                 />
                 <FormField
                   readonly={!isEditing}
                   label="Landline"
                   name="landline"
-                  value={establishment?.contact?.landline}
+                  value={valueOf("landline", establishment?.contact?.landline)}
                   response={null}
                 />
                 <FormField
                   readonly={!isEditing}
                   label="Mobile Number"
                   name="mobile_number"
-                  value={establishment?.contact?.mobile_number}
+                  value={valueOf("mobile_number", establishment?.contact?.mobile_number)}
                   response={null}
                 />
                 <FormField
                   readonly={!isEditing}
                   label="Fax Number"
                   name="fax_number"
-                  value={establishment?.contact?.fax_number}
+                  value={valueOf("fax_number", establishment?.contact?.fax_number)}
                   response={null}
                 />
               </div>
@@ -128,7 +128,7 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
         }}
         shownValues={postalLocation ?? undefined}
       >
-        {({ isEditing }) => (
+        {({ isEditing, valueOf }) => (
           <>
             <div className="flex flex-col gap-4">
               <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
@@ -136,21 +136,21 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
                   readonly={!isEditing}
                   label="Address part1"
                   name="address_part1"
-                  value={postalLocation?.address_part1}
+                  value={valueOf("address_part1", postalLocation?.address_part1)}
                   response={null}
                 />
                 <FormField
                   readonly={!isEditing}
                   label="Address part2"
                   name="address_part2"
-                  value={postalLocation?.address_part2}
+                  value={valueOf("address_part2", postalLocation?.address_part2)}
                   response={null}
                 />
                 <FormField
                   readonly={!isEditing}
                   label="Address part3"
                   name="address_part3"
-                  value={postalLocation?.address_part3}
+                  value={valueOf("address_part3", postalLocation?.address_part3)}
                   response={null}
                 />
               </div>
@@ -159,21 +159,21 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
                   readonly={!isEditing}
                   label="Post code"
                   name="postcode"
-                  value={postalLocation?.postcode}
+                  value={valueOf("postcode", postalLocation?.postcode)}
                   response={null}
                 />
                 <FormField
                   readonly={!isEditing}
                   label="Post place"
                   name="postplace"
-                  value={postalLocation?.postplace}
+                  value={valueOf("postplace", postalLocation?.postplace)}
                   response={null}
                 />
                 <SelectFormField
                   readonly={!isEditing}
                   label="Country"
                   name="country_id"
-                  value={postalLocation?.country?.id}
+                  value={valueOf("country_id", postalLocation?.country?.id)}
                   options={countriesOptions}
                   placeholder="Select a country"
                 />

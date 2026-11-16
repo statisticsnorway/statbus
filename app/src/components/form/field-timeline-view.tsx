@@ -174,6 +174,12 @@ interface FieldTimelineProps {
    * shown as the addition (owner 2026-11-16).
    */
   changes?: ReadonlyMap<number, PeriodChange>;
+  /**
+   * The edit's baseline when it is not the period of the frame the page
+   * shows: the period whose values the form holds, marked "Baseline" so the
+   * user sees what the changes are measured against (owner 2026-11-16).
+   */
+  baseline?: number;
 }
 
 /** A frame with more values than this is folded to two (visibleSegments). */
@@ -200,6 +206,7 @@ export function FieldTimeline({
   onClose,
   scrollValues,
   changes,
+  baseline,
 }: FieldTimelineProps) {
   const { timeFrames, selectedTimeFrame } = useTimeFrame();
   const describe = useDescribeValue();
@@ -584,6 +591,15 @@ export function FieldTimeline({
                 )}
                 data-shown={i === shownIndex || undefined}
               >
+                {i === baseline && (
+                  <span
+                    className="float-right ml-2 rounded border border-ssb-dark px-1 text-[10px] font-medium uppercase tracking-wide text-ssb-dark"
+                    data-timeline-baseline=""
+                    title="The form holds this period's values; the changes are measured against it"
+                  >
+                    Baseline
+                  </span>
+                )}
                 {change ? (
                   <PeriodChangeView period={p} change={change} />
                 ) : (
@@ -643,7 +659,7 @@ function PeriodChangeView({
   return (
     <div className="space-y-0.5 break-words font-medium" data-timeline-change="">
       {change.columns.map((c) => {
-        const before = period.empty ? null : word(c.column, c.from);
+        const before = period.empty ? null : (word(c.column, c.from) ?? "Empty");
         const after = word(c.column, c.to);
         return (
           <div key={c.column} data-timeline-change-column={c.column}>

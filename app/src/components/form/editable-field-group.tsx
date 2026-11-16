@@ -14,6 +14,17 @@ import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
 import { RemoveRecordAction } from "./remove-record-button";
 import { SaveApproval, useSaveApproval } from "./edit-metadata-controls";
+import { useEditAnchor } from "./use-edit-anchor";
+
+/**
+ * A field's value in the form: while editing, the anchor's value for the
+ * column (useEditAnchor), so the form follows the anchor as it moves;
+ * otherwise the value shown on the page.
+ */
+export type FieldValueOf = (
+  column: string,
+  shown: string | number | null | undefined
+) => string | number | null | undefined;
 
 interface EditableFieldGroupProps {
   fieldGroupId: string;
@@ -26,11 +37,14 @@ interface EditableFieldGroupProps {
   /** The group's shown values by column, compared with editSource's rows. */
   shownValues?: object;
   /**
-   * The group's fields, holding the values the page shows. While editing they
-   * start from those values; with several periods ticked, the timeline shows
-   * what they change in each (owner 2026-11-16).
+   * The group's fields. While editing they hold the anchor's values
+   * (valueOf); with several periods ticked, the timeline shows what they
+   * change in each (owner 2026-11-16).
    */
-  children: (props: { isEditing: boolean }) => React.ReactNode;
+  children: (props: {
+    isEditing: boolean;
+    valueOf: FieldValueOf;
+  }) => React.ReactNode;
   hiddenFields?: Record<string, string | number>;
 }
 
@@ -53,6 +67,11 @@ export function EditableFieldGroup({
 
   const isEditing = currentEdit?.fieldId === fieldGroupId;
   const { blocked } = useSaveApproval();
+  const { values: anchorValues } = useEditAnchor(isEditing, editSource);
+  const valueOf: FieldValueOf = (column, shown) =>
+    isEditing && anchorValues && column in anchorValues
+      ? (anchorValues[column] as string | number | null)
+      : shown;
 
   // Remove mode (the Timeline's Change | Remove switch): the fields are not
   // changed, so they are greyed, and the red Remove takes Save's place.
@@ -129,7 +148,7 @@ export function EditableFieldGroup({
         disabled={removing}
         className={removing ? "opacity-50" : undefined}
       >
-        {children({ isEditing })}
+        {children({ isEditing, valueOf })}
       </fieldset>
 
       {isEditing && (

@@ -11,7 +11,7 @@ import {
   type ValidityChoice,
 } from "@/components/time-frame-panel";
 import {
-  editApprovedChangesAtom,
+  editApprovedAtom,
   editChangesNeedingApprovalAtom,
   useDetailsPageData,
   useEditManager,
@@ -37,6 +37,7 @@ import { piecesInPeriod } from "./removal";
 import { cn } from "@/lib/utils";
 import { editChanges, needsApproval } from "./edit-changes";
 import { useFormValues } from "./use-form-values";
+import { useEditAnchor } from "./use-edit-anchor";
 
 interface EditMetadataControlsProps {
   fieldId: string;
@@ -79,22 +80,27 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   // and Advanced views and the Timeline view always agree.
   const { periods, loaded } = useFieldTimeline(currentEdit.source);
   const selected = periodsInRange(periods, currentEdit.validFrom, currentEdit.validTo);
-  // What a save does to each ticked period (owner 2026-11-16): the form's
-  // values, as the user sees them, written over each one. The form shows the
-  // period of the frame the page shows; changes elsewhere wait for approval.
+  // What a save does to each ticked period (owner 2026-11-16): the form holds
+  // the anchor's values (useEditAnchor), and a save writes them over every
+  // ticked period; changes to periods other than the anchor wait for approval.
   const anchorRef = useRef<HTMLDivElement>(null);
   const columns = currentEdit.source
     ? [currentEdit.source.column].flat()
     : [];
   const formValues = useFormValues(anchorRef, columns);
+  const { anchor, shown } = useEditAnchor(true, currentEdit.source);
   const changes = editChanges(periods, selected, formValues, currentEdit.dataSourceId);
   const changesKey = JSON.stringify([...changes.entries()]);
-  const shownIndex = periodOn(periods, selectedTimeFrame?.valid_on ?? selectedTimeFrame?.valid_from);
-  const approvalKey = needsApproval(changes, shownIndex) ? changesKey : null;
+  const approvalKey = needsApproval(changes, anchor) ? changesKey : null;
   const setChangesNeedingApproval = useSetAtom(editChangesNeedingApprovalAtom);
+  const setApproved = useSetAtom(editApprovedAtom);
+  // Any change to the changes takes the approval back (editApprovedAtom).
   useGuardedEffect(
-    () => setChangesNeedingApproval(approvalKey),
-    [approvalKey, setChangesNeedingApproval],
+    () => {
+      setChangesNeedingApproval(approvalKey);
+      setApproved(false);
+    },
+    [approvalKey, setChangesNeedingApproval, setApproved],
     "EditMetadataControls:changesNeedingApproval"
   );
   const handleToggle = (index: number) => {
@@ -356,6 +362,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
                 selected={selected}
                 onToggle={handleToggle}
                 changes={removing ? undefined : changes}
+                baseline={!removing && anchor >= 0 && anchor !== shown ? anchor : undefined}
               />
               <p className="text-xs text-zinc-600" data-edit-timeline-range="">
                 {currentEdit.validFrom
@@ -377,20 +384,20 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
  */
 export function useSaveApproval() {
   const pending = useAtomValue(editChangesNeedingApprovalAtom);
-  const [approved, setApproved] = useAtom(editApprovedChangesAtom);
+  const [approved, setApproved] = useAtom(editApprovedAtom);
   return {
     needed: pending != null,
-    approved: pending != null && approved === pending,
-    blocked: pending != null && approved !== pending,
-    approve: (on: boolean) => setApproved(on ? pending : null),
+    approved: pending != null && approved,
+    blocked: pending != null && !approved,
+    approve: (on: boolean) => setApproved(on),
   };
 }
 
 /**
  * The approval left of Cancel when Save would change ticked periods besides
- * the one the form shows: the timeline highlights those changes, and Save
- * stays disabled until the user ticks this. Changing the form or the ticks
- * afterwards takes the approval back.
+ * the anchor: the timeline highlights those changes, and Save stays disabled
+ * until the user approves them here (owner 2026-11-16). Any change to the
+ * ticks or the values afterwards takes the approval back.
  */
 export function SaveApproval() {
   const { needed, approved, approve } = useSaveApproval();
@@ -403,9 +410,9 @@ export function SaveApproval() {
       <Checkbox
         checked={approved}
         onCheckedChange={(on) => approve(on === true)}
-        aria-label="Save with the highlighted changes"
+        aria-label="Approve timeline changes"
       />
-      Save with the highlighted changes
+      Approve timeline changes
     </label>
   );
 }

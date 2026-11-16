@@ -16,6 +16,7 @@ import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
 import { RemoveRecordAction } from "./remove-record-button";
 import { SaveApproval, useSaveApproval } from "./edit-metadata-controls";
+import { useEditAnchor } from "./use-edit-anchor";
 
 interface EditableFieldWithMetadataProps {
   fieldId: string;
@@ -68,9 +69,16 @@ export const EditableFieldWithMetadata = ({
     hasUnsavedChanges,
     handleCancel: baseHandleCancel,
   } = useEditableFieldState(value, response, isEditing, exitEditMode);
-  // The input holds the value the page shows; with several periods ticked the
-  // timeline shows what it changes in each (owner 2026-11-16).
+  // The input holds the anchor's value, and follows it when the anchor moves;
+  // with several periods ticked the timeline shows what it changes in each
+  // (owner 2026-11-16).
   const { blocked } = useSaveApproval();
+  const column =
+    editSource && !Array.isArray(editSource.column) ? editSource.column : null;
+  useEditAnchor(isEditing, editSource, (period) => {
+    if (column && column in period.values)
+      setCurrentValue(period.empty ? "" : String(period.values[column] ?? ""));
+  });
 
   const handleCancel = () => {
     baseHandleCancel();
