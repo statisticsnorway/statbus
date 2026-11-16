@@ -4,12 +4,13 @@ title: An API key can be recreated from the API key dialog, revoking the old one
 status: Done
 assignee: []
 created_date: '2026-11-11T12:40:00Z'
-updated_date: '2026-11-15T13:34:00Z'
+updated_date: '2026-11-16T13:01:00Z'
 labels:
   - app
   - auth
 dependencies: []
 priority: medium
+type: feature
 ordinal: 530204
 ---
 

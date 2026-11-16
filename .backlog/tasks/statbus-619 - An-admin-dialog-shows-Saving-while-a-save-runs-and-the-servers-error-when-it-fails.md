@@ -6,13 +6,14 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-11T12:43:00Z'
-updated_date: '2026-11-12T02:04:00Z'
+updated_date: '2026-11-16T13:01:00Z'
 labels:
   - app
   - db
   - admin
 dependencies: []
 priority: high
+type: bug
 ordinal: 532204
 ---
 

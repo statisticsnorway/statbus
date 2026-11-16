@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-15T16:14:00Z'
-updated_date: '2026-11-15T22:57:00Z'
+updated_date: '2026-11-16T13:02:00Z'
 labels:
   - security
   - app
@@ -19,7 +19,18 @@ ordinal: 541204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Six Dependabot alerts remain open on master after STATBUS-593 (2026-11-15, gh api dependabot/alerts): zod GHSA-mrhx-c7xc-m3w5 high (721, 714; installed 3.25.76, fixed 4.6.6), minimatch GHSA-g3hv-75wg-m249 moderate (733; fixed 11.0.1), glob GHSA-3g3m-2fjr-6pw4 moderate (731; fixed 14.0.2), katex GHSA-238p-pmpm-9mq7 low (697; 0.16.47 via Mermaid 11, fixed 0.18.2, Mermaid 12 declares ^0.18), deepmerge GHSA-gcqx-w48m-w2h4 low (730; no fix, Jest config). STATBUS-593 bounded the Zod query-array path in app/src/lib/parsers.ts but left Zod 3. Each needs a major upgrade, so each is its own step with its own checks. Order: Zod 4 (21 source files, zod-form-data 2 -> 3, @hookform/resolvers already supports 4), minimatch/glob, KaTeX via Mermaid 12, then the owner decides on deepmerge.
+## North Star
+The app ships with no known security advisory in its dependencies, and any it keeps is a decision the owner made and wrote down.
+
+## Zoom out
+Six Dependabot alerts were open on master after STATBUS-593 (2026-11-15). Each fix needed a new major version of a library, so each is its own step with its own checks, and the visible ones are checked by the owner before they land.
+
+## Zoom in
+- zod GHSA-mrhx-c7xc-m3w5, high (alerts 721, 714): Zod 3.25.76 -> 4.6.7 with zod-form-data 3 (7c9f5d360).
+- minimatch GHSA-g3hv-75wg-m249 and glob GHSA-3g3m-2fjr-6pw4, moderate (733, 731): scoped pnpm overrides lift only the vulnerable lines to minimatch 11 / glob 14; no parent release does (ddb44cecb).
+- katex GHSA-238p-pmpm-9mq7, low (697): Mermaid 11 -> 12, KaTeX 0.18.10; the ER page keeps today's look (d28df2738, owner 2026-11-16).
+- deepmerge GHSA-gcqx-w48m-w2h4, low (730): no fixed release exists; only Jest's configuration merging uses it. Owner decides.
+- Follow-up raised by the owner: the ER diagram is slow to draw (41 s today, 84 s on Mermaid 12 with today's look). A faster diagram is a separate project, to discuss later.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -38,4 +49,6 @@ Six Dependabot alerts remain open on master after STATBUS-593 (2026-11-15, gh ap
 
 2026-11-15 AC2 (minimatch, glob) landed in ddb44cecb. No parent release moves archiver-utils (glob ^10) or Jest (glob ^13) onto the fixed majors, so scoped pnpm overrides lift only the vulnerable lines: minimatch@>=7 <11.0.1 -> ^11.0.8, glob@>=9 <14.0.2 -> ^14.0.6. Consumers checked in node_modules: they call only new Minimatch()/.match(), minimatch(), glob.sync/globSync, all present in 11/14. Moving off the project-wide minimatch ^10 override exposed ESLint's minimatch 3 to the project-wide brace-expansion ^5 override ('expand is not a function'); brace-expansion is now overridden per major to each line's fixed release (1.1.22, 2.1.8, 5.0.12). Installed now: minimatch 3.1.5/5.1.9 (below the advisory range) and 11.0.8; glob 7.2.3 (below range) and 14.0.6. New test: the streamed workbook the import download writes (archiver, zip-stream, readdir-glob, glob) reads back with values and types. Jest 354/354, tsc, lint 0 errors, build, rimraf run. pnpm audit: katex low, deepmerge low. CI on ddb44cecb all success: Fast Tests 43770503969, app build & lint 43770066993, Go Test 43770067037, Images 43770067079, Harness 43770067016, Push on master 43770065915, Notify 43770067017.
 2026-11-15 AC3 (KaTeX via Mermaid 12) on branch statbus-630-mermaid12 (a97cad00f), NOT on master, waiting for the owner to see the diagram: mermaid 12.3.0, katex 0.18.10. The ER page sets layout dagre, theme default, look classic. Finding: the page asked for ELK, but Mermaid 11 had no ELK loader and drew with dagre. Real ER diagram (generate_mermaid_er_diagram, 68 KB, ~270 tables) drawn in Firefox: Mermaid 11 41 s; Mermaid 12 + ELK 175 s, colours and layout changed; Mermaid 12 pinned to dagre/default/classic 84 s, same look and same 49995x8200 SVG as Mermaid 11. Before/after pages in tmp/630/mermaid/ (m11.html, m12.html, m12-classic.html; served with python3 -m http.server from that directory). Jest 354/354, tsc, lint, build pass on the branch; audit leaves only deepmerge.
+
+2026-11-16 owner (13:00): merge Mermaid 12 with today's look; the diagram is still slow, a faster one is a separate project to discuss later. Landed on master as d28df2738 (cherry-pick of the reviewed branch commit a97cad00f onto cdfc31bb3, no conflicts); branch statbus-630-mermaid12 deleted. Rechecked on master: katex 0.18.10, Jest 354/354, tsc pass, pnpm audit leaves only deepmerge (low). AC3's second half (the ER diagram in the owner's browser on the real /doc/er page) still to see; the side-by-side render of the real diagram is in tmp/630/mermaid.
 <!-- SECTION:NOTES:END -->

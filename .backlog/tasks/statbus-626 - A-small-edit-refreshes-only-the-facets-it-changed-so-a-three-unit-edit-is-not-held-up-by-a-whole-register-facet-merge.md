@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-12T00:59:00Z'
-updated_date: '2026-11-15T16:13:00Z'
+updated_date: '2026-11-16T13:02:00Z'
 labels:
   - performance
   - db
@@ -18,13 +18,21 @@ ordinal: 537204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-A small edit should cost in proportion to the units it changed, not to the size of the register.
+## North Star
+A small edit costs in proportion to the units it changed, not to the size of the register.
 
-Zoom out: after every recalculation the facet reduce rebuilds the whole facet table, whatever changed. It was scoped once and made global again because the scoped delete could not reach every stale row (facet over-count).
+## Zoom out
+After every recalculation the facet reduce rebuilt the whole facet table, whatever changed. Bench box night 2026-11-11 (rune dump): a 3-unit edit took 18-24 s, of which the facet reduce alone was 11-16 s. A reduce that touches only what changed must still keep the facet table equal to its definition after any sequence of edits, deletes, moves and failed steps.
 
-Zoom in: worker.statistical_unit_facet_reduce MERGEs all of public.statistical_unit_facet from the whole staging aggregate (scoped in 20260324144548, collapsed to a global MERGE in 20260429233218: the scoped DELETE missed stale rows whose dimension tuple was not in the pre-dirty snapshot). Bench box night 2026-11-11 (rune dump, STATBUS-616 tasks.tsv): a 3-unit edit takes 18-24 s; the real work is about 6 s, statistical_unit_facet_reduce alone 11-16 s, history reduce about 2 s. A scoped reduce must keep the self-healing property: every target row that any dirty slot ever contributed to is reachable.
+## Zoom in (what was built)
+- Facets follow the changed units by difference (b97d0035d): the derive copies each dirty hash slot's staging rows before the rewrite (worker.statistical_unit_facet_slot_before, recorded once per pending slot so a failed reduce is applied by the next), and the reduce adds the slot's rows after the rewrite minus those before. Counts and jsonb_stats summaries are additive, so this is exact. Facet summaries leave out min and max, which cannot be subtracted and which nothing reads. A full recalculation, or a change of more than a sixteenth of the slots, merges the whole staging aggregate instead.
+- Change sets group each enterprise's units with plain equality joins instead of an OR join (75f9601cd): about twice as fast, identical change sets.
+- Earlier steps: the scoped recount by dirty slot (bcada9ec8, aad458f1e).
+- Norway register, local: 3-unit edit facet step 15.7-18.7 s (before) -> 0.06 s; whole edit 29-42 s -> 11-14 s; change sets for a full recalculation 16.9-17.2 s -> 8.6-9.3 s.
 
-Closing review: the reason for the scope rule recorded on the procedure; no memory change.
+Considered and not pursued: building the staging index once after the fill (about 2 % of a full recalculation, and index DDL inside the running pipeline).
+
+Closing review: the design is recorded on the procedures (COMMENT ON) and in doc/derive-pipeline.md; no memory change.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
