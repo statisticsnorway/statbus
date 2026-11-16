@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-15T16:14:00Z'
-updated_date: '2026-11-16T13:42:00Z'
+updated_date: '2026-11-16T16:05:00Z'
 labels:
   - security
   - app
@@ -57,4 +57,6 @@ Six Dependabot alerts were open on master after STATBUS-593 (2026-11-15). Each f
 2026-11-16 CI for the Mermaid merge d28df2738: app build & lint 43871800240 success (the workflow that lints, type-checks, runs Jest and builds the app), plus Go Test 43871800346, Images 43871800541, Harness 43871800419, Push on master 43871800087, Notify 43871800142 all success. Fast Tests runs the SQL suite against the database and does not exercise the app's dependencies, so it is not the gate for this change (owner 13:25).
 
 2026-11-16 correction (owner 13:41): the ER page on the real app draws in about 5-8 s on Mermaid 12 (dev server log: GET /doc/er 200 in 5.1 s, then the draw; owner's eye ~8 s). The 41 s / 84 s / 175 s I reported came from a standalone test page that loaded Mermaid's whole ESM build chunk by chunk from a local file server, not from the app's bundle: wrong as a measure of the app, and not grounds for 'still slow'. The owner's earlier ~5 s was the old app container (Mermaid 11), since no dev server ran for this checkout after the crash.
+
+2026-11-16 the local stack runs master (dev server on APP_DEV_PORT 3017 behind https://local.statbus.org:3011) on a fresh Norway restore; the time_frame error the owner saw came from the database being 18 migrations behind, now fixed. AC1/AC3 browser checks wait for the owner's sign-in.
 <!-- SECTION:NOTES:END -->

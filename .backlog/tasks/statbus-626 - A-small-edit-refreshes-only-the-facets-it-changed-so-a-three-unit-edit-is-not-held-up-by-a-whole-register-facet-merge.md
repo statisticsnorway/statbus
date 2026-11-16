@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-12T00:59:00Z'
-updated_date: '2026-11-16T13:02:00Z'
+updated_date: '2026-11-16T16:05:00Z'
 labels:
   - performance
   - db
@@ -70,4 +70,6 @@ Considered and not pursued (owner 2026-11-15), measured this week:
 Fast suite 145/145 (tmp/test-626-fast2.log). Remaining: AC2, the rune measurement after the next release candidate.
 
 CI on b97d0035d (contains 75f9601cd), all completed/success: Fast Tests 43732527613 (pg_regress fast suite), Images 43732210396, Go Test 43732210265, app build & lint 43732210379, Harness Selftest 43732210433, Push on master 43732210444, Notify 43732210462.
+
+2026-11-16 statbus_local restored from a fresh Norway dump (./sb db download no: dbdumps/no_20261116_145944.pg_dump, 3.4 GB; 2,190,793 legal units), migrate up applied 5 migrations including 20261115134359 and 20261115143155 with no content-hash refusal. Full recalculation on the owner's laptop (shared, load 50-96): 14:40-15:04, 24 min; derive 12.3 s, flush 81.0 s, facet reduce 26.1 s (global). Afterwards all 362,824 facets equal statistical_unit_facet_def and none carries min/max.
 <!-- SECTION:NOTES:END -->
