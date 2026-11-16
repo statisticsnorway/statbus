@@ -7,7 +7,8 @@ const fetcher: Fetcher<Tables<"status">[], string> = async (key) => {
   const { data, error } = await client
     .from("status")
     .select("*")
-    .order("priority")
+    .order("enabled", { ascending: false })
+    .order("priority");
 
   if (error) {
     throw new Error(error.message, { cause: error });
