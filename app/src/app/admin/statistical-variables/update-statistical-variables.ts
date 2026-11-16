@@ -5,7 +5,10 @@ import { z } from "zod";
 
 const schema = zfd.formData({
   name: z.string().min(1, "Name is required"),
-  code: z.string().min(1, "Code is required"),
+  code: z
+    .string()
+    .min(1, "Code is required")
+    .regex(/^[a-z0-9_]+$/, "Only lowercase letters, digits and underscores"),
   description: z.string().optional(),
   priority: z.coerce.number().int().min(1, "Priority is required"),
   enabled: zfd.checkbox(),
