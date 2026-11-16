@@ -21,7 +21,6 @@ import { Label } from "../ui/label";
 import { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { groupRuns } from "./code-list-options";
-import { DIFFERS } from "./edit-payload";
 
 interface Option {
   value: number | string;
@@ -79,11 +78,7 @@ export function SelectFormField({
             disabled={readonly}
           >
             <span className="truncate">
-              {selectedValue === DIFFERS ? (
-                <span className="text-amber-800">Differs</span>
-              ) : (
-                currentOption?.label ?? `${!readonly ? placeholder : ""}`
-              )}
+              {currentOption?.label ?? `${!readonly ? placeholder : ""}`}
             </span>
             <ChevronsUpDown
               className={`ml-2 h-4 w-4 shrink-0  ${readonly ? "opacity-0" : "opacity-50"}`}

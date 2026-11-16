@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useFixedFrameConfirmation } from "@/components/fixed-frame-confirmation";
 import {
@@ -9,12 +10,18 @@ import {
   type TimeFramePanelMode,
   type ValidityChoice,
 } from "@/components/time-frame-panel";
-import { useDetailsPageData, useEditManager } from "@/atoms/edits";
+import {
+  editApprovedChangesAtom,
+  editChangesNeedingApprovalAtom,
+  useDetailsPageData,
+  useEditManager,
+} from "@/atoms/edits";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useChangeEditFrame } from "./use-start-edit";
-import { FieldTimeline, useFieldTimeline } from "./field-timeline-view";
-import { opensInTimeline, periodsInRange, selectionRange, toggleSelection } from "./field-timeline";
+import { ChangedSource, FieldTimeline, PeriodChangeView, useFieldTimeline } from "./field-timeline-view";
+import { opensInTimeline, periodOn, periodsInRange, selectionRange, toggleSelection } from "./field-timeline";
 import { TimelineSkeleton, useUnitExistence } from "./timeline-skeleton-view";
 import { skeletonPieces, skeletonSelectionRange } from "./timeline-skeleton";
 import { capToExistence } from "./unit-existence";
@@ -28,14 +35,11 @@ import {
 } from "./remove-record-button";
 import { piecesInPeriod } from "./removal";
 import { cn } from "@/lib/utils";
-import { editStartValues } from "./edit-values";
-import { EditStartFields } from "./edit-start-fields";
-import { DataSourceDiffersNote, useReplaceDifferingConfirmation } from "./differing-values";
+import { editChanges, needsApproval } from "./edit-changes";
+import { useFormValues } from "./use-form-values";
 
 interface EditMetadataControlsProps {
   fieldId: string;
-  /** The edited field's name for the user (a single field's label), used when a save asks about its values. */
-  label?: string;
 }
 
 /**
@@ -46,15 +50,17 @@ interface EditMetadataControlsProps {
  * Timeline shows the field's history and the edit applies to the ticked
  * stretch of it; Edit opens there when the shown value is not the field's
  * newest. Change | Remove (a record the unit has) works in both views. Data
- * source and Comment are stored with a change. A save that reaches into a
- * relative or fixed frame asks first.
+ * source and Comment are stored with a change. With several periods ticked,
+ * the timeline shows what the save changes in each (edit-changes), and a save
+ * that changes a period other than the one the form shows waits for the
+ * user's approval (SaveApproval). A save that reaches into a relative or fixed
+ * frame asks first.
  */
-export function EditMetadataControls({ fieldId, label }: EditMetadataControlsProps) {
+export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   const { dataSources } = useDetailsPageData();
   const {
     currentEdit,
     setEditDataSourceId,
-    chooseEditDataSourceId,
     setEditComment,
     setEditValidFrom,
     setEditValidTo,
@@ -62,7 +68,7 @@ export function EditMetadataControls({ fieldId, label }: EditMetadataControlsPro
     setEditView,
     setEditValidityChoice,
   } = useEditManager();
-  const { timeFrames } = useTimeFrame();
+  const { timeFrames, selectedTimeFrame } = useTimeFrame();
   const changeEditFrame = useChangeEditFrame();
   // The view and the dating choice live with the edit (Remove follows them).
   const mode: TimeFramePanelMode = currentEdit.view ?? "frame";
@@ -73,16 +79,24 @@ export function EditMetadataControls({ fieldId, label }: EditMetadataControlsPro
   // and Advanced views and the Timeline view always agree.
   const { periods, loaded } = useFieldTimeline(currentEdit.source);
   const selected = periodsInRange(periods, currentEdit.validFrom, currentEdit.validTo);
-  // What the ticked stretch holds (editStartValues): posted with the save so
-  // each period keeps what the user leaves alone (EditStartFields), and asked
-  // about when the save replaces values that differ (owner 2026-11-16).
-  const start = loaded && periods.length > 0 ? editStartValues(periods, selected) : null;
-  const editColumn =
-    currentEdit.source && !Array.isArray(currentEdit.source.column) ? currentEdit.source.column : null;
-  const replaceConfirmation = useReplaceDifferingConfirmation(start, !!currentEdit.dataSourceChosen, {
-    data_source_id: "Data source",
-    ...(editColumn && label ? { [editColumn]: label } : {}),
-  });
+  // What a save does to each ticked period (owner 2026-11-16): the form's
+  // values, as the user sees them, written over each one. The form shows the
+  // period of the frame the page shows; changes elsewhere wait for approval.
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const columns = currentEdit.source
+    ? [currentEdit.source.column].flat()
+    : [];
+  const formValues = useFormValues(anchorRef, columns);
+  const changes = editChanges(periods, selected, formValues, currentEdit.dataSourceId);
+  const changesKey = JSON.stringify([...changes.entries()]);
+  const shownIndex = periodOn(periods, selectedTimeFrame?.valid_on ?? selectedTimeFrame?.valid_from);
+  const approvalKey = needsApproval(changes, shownIndex) ? changesKey : null;
+  const setChangesNeedingApproval = useSetAtom(editChangesNeedingApprovalAtom);
+  useGuardedEffect(
+    () => setChangesNeedingApproval(approvalKey),
+    [approvalKey, setChangesNeedingApproval],
+    "EditMetadataControls:changesNeedingApproval"
+  );
   const handleToggle = (index: number) => {
     const range = selectionRange(periods, toggleSelection(selected, index));
     setEditValidFrom(range?.validFrom ?? null);
@@ -217,12 +231,29 @@ export function EditMetadataControls({ fieldId, label }: EditMetadataControlsPro
   // user is asked (useFixedFrameConfirmation); Confirm submits again, marked
   // confirmed so it passes; Cancel stores nothing.
   const { ask, dialog } = useFixedFrameConfirmation();
-  const anchorRef = useRef<HTMLDivElement>(null);
-  // The save's questions, asked in turn: replacing values that differ between
-  // the ticked periods, then reaching into a past frame. A confirmed question
-  // submits again with its step passed (confirmedRef).
-  const confirmedRef = useRef<"none" | "replace" | "all">("none");
-  const askReplace = replaceConfirmation.ask;
+  const confirmedRef = useRef(false);
+  // A save waiting for approval is not sent, however it is started (Enter in
+  // a field submits too); Save itself is disabled meanwhile (SaveApproval).
+  const { blocked } = useSaveApproval();
+  // What the save writes, period by period, for the past-frame question: the
+  // same strikeouts the timeline shows (owner 2026-11-16).
+  const changeList =
+    changes.size > 0 ? (
+      <ul className="space-y-1 rounded border border-zinc-200 p-2 text-zinc-900" data-save-changes="">
+        {[...changes.entries()].map(([index, change]) => {
+          const p = periods[index];
+          return (
+            <li key={p.valid_from} data-save-change={p.valid_from}>
+              <div className="text-xs text-zinc-500">
+                {p.valid_from} – {p.valid_to === "infinity" ? "Present" : p.valid_to}
+                {change.dataSource && <ChangedSource change={change.dataSource} />}
+              </div>
+              {change.columns.length > 0 && <PeriodChangeView period={p} change={change} />}
+            </li>
+          );
+        })}
+      </ul>
+    ) : null;
   // A date outside the unit's existence (dateOutsideBounds) holds the save: the
   // field already says why, so nothing is sent.
   const dateBounds =
@@ -238,38 +269,36 @@ export function EditMetadataControls({ fieldId, label }: EditMetadataControlsPro
         const data = new FormData(form);
         const from = data.get("valid_from") as string | null;
         const to = data.get("valid_to") as string | null;
-        if (dateOutsideBounds(from, bounds) || dateOutsideBounds(to, bounds)) {
+        if (dateOutsideBounds(from, bounds) || dateOutsideBounds(to, bounds) || blocked) {
           event.preventDefault();
           event.stopImmediatePropagation();
           return;
         }
-        if (confirmedRef.current === "all") {
-          confirmedRef.current = "none";
+        if (confirmedRef.current) {
+          confirmedRef.current = false;
           return;
-        }
-        const hold = () => {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-        };
-        if (confirmedRef.current === "none") {
-          const heldForReplace = askReplace(data, () => {
-            confirmedRef.current = "replace";
-            form.requestSubmit();
-          });
-          if (heldForReplace) return hold();
         }
         // The period submitted is the form's own valid_from/valid_to fields.
-        const held = ask(from, to, () => {
-          confirmedRef.current = "all";
-          form.requestSubmit();
-        });
-        if (held) return hold();
-        confirmedRef.current = "none";
+        const held = ask(
+          from,
+          to,
+          () => {
+            confirmedRef.current = true;
+            form.requestSubmit();
+          },
+          changeList
+        );
+        if (held) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
       };
       form.addEventListener("submit", onSubmit, { capture: true });
       return () => form.removeEventListener("submit", onSubmit, { capture: true });
     },
-    [ask, askReplace, boundsFrom, boundsTo],
+    // Re-attached when the approval or the changes change, so the listener
+    // holds the current ones (changesKey stands for changeList).
+    [ask, boundsFrom, boundsTo, blocked, changesKey],
     "EditMetadataControls:askBeforeFixedFrameSave"
   );
 
@@ -277,9 +306,7 @@ export function EditMetadataControls({ fieldId, label }: EditMetadataControlsPro
     <>
       <Separator className="mt-1" />
       <div ref={anchorRef} hidden />
-      {!removing && <EditStartFields start={start} />}
       {dialog}
-      {replaceConfirmation.dialog}
       <TimeFramePanel
         idPrefix={fieldId}
         timeFrames={timeFrames}
@@ -296,7 +323,7 @@ export function EditMetadataControls({ fieldId, label }: EditMetadataControlsPro
         dataSources={dataSources}
         dataSourceCode={dataSourceCode}
         onDataSourceChange={(code) =>
-          chooseEditDataSourceId(dataSources.find((d) => d.code === code)?.id?.toString() ?? null)
+          setEditDataSourceId(dataSources.find((d) => d.code === code)?.id?.toString() ?? null)
         }
         comment={currentEdit.editComment ?? null}
         onCommentChange={setEditComment}
@@ -305,7 +332,6 @@ export function EditMetadataControls({ fieldId, label }: EditMetadataControlsPro
         headerControls={changeRemoveSwitch}
         hideMetadata={removing}
         frameFooter={removing ? <FrameRemovalSummary /> : undefined}
-        dataSourceNote={<DataSourceDiffersNote start={start} chosen={!!currentEdit.dataSourceChosen} />}
         timeline={
           removing ? (
             <RemovalTimeline />
@@ -325,7 +351,12 @@ export function EditMetadataControls({ fieldId, label }: EditMetadataControlsPro
             </div>
           ) : currentEdit.source && loaded && periods.length > 0 ? (
             <div className="space-y-1" data-edit-timeline="">
-              <FieldTimeline periods={periods} selected={selected} onToggle={handleToggle} />
+              <FieldTimeline
+                periods={periods}
+                selected={selected}
+                onToggle={handleToggle}
+                changes={removing ? undefined : changes}
+              />
               <p className="text-xs text-zinc-600" data-edit-timeline-range="">
                 {currentEdit.validFrom
                   ? `Changes ${currentEdit.validFrom} – ${currentEdit.validTo ?? "Present"}`
@@ -336,5 +367,45 @@ export function EditMetadataControls({ fieldId, label }: EditMetadataControlsPro
         }
       />
     </>
+  );
+}
+
+/**
+ * Whether the open edit's Save waits for the user's approval: the save changes
+ * a ticked period other than the one the form shows, and the user has not
+ * approved exactly these changes (owner 2026-11-16).
+ */
+export function useSaveApproval() {
+  const pending = useAtomValue(editChangesNeedingApprovalAtom);
+  const [approved, setApproved] = useAtom(editApprovedChangesAtom);
+  return {
+    needed: pending != null,
+    approved: pending != null && approved === pending,
+    blocked: pending != null && approved !== pending,
+    approve: (on: boolean) => setApproved(on ? pending : null),
+  };
+}
+
+/**
+ * The approval left of Cancel when Save would change ticked periods besides
+ * the one the form shows: the timeline highlights those changes, and Save
+ * stays disabled until the user ticks this. Changing the form or the ticks
+ * afterwards takes the approval back.
+ */
+export function SaveApproval() {
+  const { needed, approved, approve } = useSaveApproval();
+  if (!needed) return null;
+  return (
+    <label
+      className="mr-auto flex cursor-pointer items-center gap-2 text-sm text-zinc-800"
+      data-save-approval={approved ? "approved" : "pending"}
+    >
+      <Checkbox
+        checked={approved}
+        onCheckedChange={(on) => approve(on === true)}
+        aria-label="Save with the highlighted changes"
+      />
+      Save with the highlighted changes
+    </label>
   );
 }

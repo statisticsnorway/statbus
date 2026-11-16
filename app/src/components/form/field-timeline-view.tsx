@@ -37,6 +37,7 @@ import {
   type TimelinePeriod,
   type TimelineSourceRow,
 } from "./field-timeline";
+import type { PeriodChange } from "./edit-changes";
 
 const METADATA_COLUMNS =
   "valid_from,valid_to,data_source_id,edit_comment,edit_by_user_id,edit_at";
@@ -167,6 +168,12 @@ interface FieldTimelineProps {
    * in place and only the values scroll, so neither control leaves the view.
    */
   scrollValues?: boolean;
+  /**
+   * What the edit's save does to each ticked period (edit-changes), by period
+   * index: the period's lost values are struck out and the form's values
+   * shown as the addition (owner 2026-11-16).
+   */
+  changes?: ReadonlyMap<number, PeriodChange>;
 }
 
 /** A frame with more values than this is folded to two (visibleSegments). */
@@ -192,6 +199,7 @@ export function FieldTimeline({
   title,
   onClose,
   scrollValues,
+  changes,
 }: FieldTimelineProps) {
   const { timeFrames, selectedTimeFrame } = useTimeFrame();
   const describe = useDescribeValue();
@@ -539,6 +547,7 @@ export function FieldTimeline({
           const on = isSelected(i);
           const value = describe.value(p.values);
           const source = describe.source(p.data_source_id);
+          const change = on ? changes?.get(i) : undefined;
           return (
             <div
               key={p.valid_from}
@@ -546,6 +555,7 @@ export function FieldTimeline({
               data-timeline-period={p.valid_from}
               data-selected={on || undefined}
               data-timeline-hole={p.empty || undefined}
+              data-timeline-changed={change ? "" : undefined}
             >
               {onToggle && (
                 <div
@@ -574,17 +584,25 @@ export function FieldTimeline({
                 )}
                 data-shown={i === shownIndex || undefined}
               >
-                <div
-                  className={cn(
-                    "break-words font-medium",
-                    !value && "italic text-zinc-400"
-                  )}
-                >
-                  {p.empty ? "No value" : (value ?? "Empty")}
-                </div>
+                {change ? (
+                  <PeriodChangeView period={p} change={change} />
+                ) : (
+                  <div
+                    className={cn(
+                      "break-words font-medium",
+                      !value && "italic text-zinc-400"
+                    )}
+                  >
+                    {p.empty ? "No value" : (value ?? "Empty")}
+                  </div>
+                )}
                 <div className="text-xs text-zinc-500">
                   {p.valid_from} – {formatEnd(p.valid_to)}
-                  {source && <span> · {source}</span>}
+                  {change?.dataSource ? (
+                    <ChangedSource change={change.dataSource} />
+                  ) : (
+                    source && <span> · {source}</span>
+                  )}
                   {p.edit_comment && (
                     <span className="block truncate italic">
                       {p.edit_comment}
@@ -600,6 +618,78 @@ export function FieldTimeline({
     </div>
   );
 }
+
+/**
+ * A ticked period's value as the save leaves it: each column the save changes
+ * shows the period's value struck out and the form's value after it; the
+ * columns it keeps stand as they are. A hole has nothing to strike out.
+ */
+function PeriodChangeView({
+  period,
+  change,
+}: {
+  period: TimelinePeriod;
+  change: PeriodChange;
+}) {
+  const describe = useDescribeValue();
+  const changed = new Map(change.columns.map((c) => [c.column, c]));
+  const word = (column: string, v: unknown) =>
+    describe.value({ [column]: v === "" ? null : v });
+  const kept = describe.value(
+    Object.fromEntries(
+      Object.entries(period.values).filter(([column]) => !changed.has(column))
+    )
+  );
+  return (
+    <div className="space-y-0.5 break-words font-medium" data-timeline-change="">
+      {change.columns.map((c) => {
+        const before = period.empty ? null : word(c.column, c.from);
+        const after = word(c.column, c.to);
+        return (
+          <div key={c.column} data-timeline-change-column={c.column}>
+            {before && (
+              <del className="mr-1 text-red-700 decoration-red-700" data-timeline-removed="">
+                {before}
+              </del>
+            )}
+            <ins
+              className={cn(
+                "no-underline text-green-800",
+                !after && "italic text-green-700"
+              )}
+              data-timeline-added=""
+            >
+              {after ?? "Empty"}
+            </ins>
+          </div>
+        );
+      })}
+      {kept && <div className="text-zinc-900">{kept}</div>}
+    </div>
+  );
+}
+
+/** The data source the save writes over the period's own: the old one struck out. */
+function ChangedSource({
+  change,
+}: {
+  change: NonNullable<PeriodChange["dataSource"]>;
+}) {
+  const describe = useDescribeValue();
+  const before = describe.source(change.from);
+  const after = describe.source(change.to);
+  return (
+    <span data-timeline-change-source="">
+      {" · "}
+      {before && (
+        <del className="mr-1 text-red-700 decoration-red-700">{before}</del>
+      )}
+      <ins className="no-underline text-green-800">{after ?? "no source"}</ins>
+    </span>
+  );
+}
+
+export { PeriodChangeView, ChangedSource };
 
 /**
  * The timeline icon beside a field's (i): opens the field's timeline, the same

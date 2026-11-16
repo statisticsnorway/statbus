@@ -24,11 +24,9 @@ import { useEditableFieldState } from "./use-editable-field-state";
 import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
-import { useEditStartValues } from "./use-edit-start-values";
+import { SaveApproval, useSaveApproval } from "./edit-metadata-controls";
 import { RemoveRecordAction } from "./remove-record-button";
 import { groupRuns } from "./code-list-options";
-import { DIFFERS } from "./edit-payload";
-import { DiffersNote } from "./differing-values";
 
 interface Option {
   value: string | number;
@@ -83,20 +81,9 @@ export const EditableSelectWithMetadata = ({
     hasUnsavedChanges,
     handleCancel: baseHandleCancel,
   } = useEditableFieldState(value, response, isEditing, exitEditMode);
-  // The choice starts from the ticked stretch's own value, so Save keeps it
-  // unless the user changes it (owner 2026-11-13). When the ticked periods
-  // differ it starts as "Differs" and Save keeps each period's own value until
-  // the user chooses one (owner 2026-11-16).
-  const column =
-    editSource && !Array.isArray(editSource.column) ? editSource.column : null;
-  const start = useEditStartValues(isEditing, editSource, (start) => {
-    if (column && column in start.values)
-      setCurrentValue(
-        start.differing.includes(column)
-          ? DIFFERS
-          : String(start.values[column] ?? "")
-      );
-  });
+  // The choice holds the value the page shows; with several periods ticked the
+  // timeline shows what it changes in each (owner 2026-11-16).
+  const { blocked } = useSaveApproval();
 
   const handleCancel = () => {
     baseHandleCancel();
@@ -151,11 +138,7 @@ export const EditableSelectWithMetadata = ({
               disabled={!isEditing || removing}
             >
               <span className="truncate">
-                {currentValue === DIFFERS ? (
-                  <span className="text-amber-800">Differs</span>
-                ) : (
-                  currentOption?.label ?? `${isEditing ? placeholder : ""}`
-                )}
+                {currentOption?.label ?? `${isEditing ? placeholder : ""}`}
               </span>
               <ChevronsUpDown
                 className={`ml-2 h-4 w-4 shrink-0  ${!isEditing ? "opacity-0" : "opacity-50"}`}
@@ -202,13 +185,11 @@ export const EditableSelectWithMetadata = ({
         </Popover>
       </div>
 
-      {isEditing && !removing && column && (
-        <DiffersNote column={column} start={start} current={String(currentValue)} />
-      )}
       {isEditing && (
         <div className="space-y-2">
-          <EditMetadataControls fieldId={fieldId} label={label} />
-          <div className="flex justify-end space-x-2">
+          <EditMetadataControls fieldId={fieldId} />
+          <div className="flex items-center justify-end space-x-2">
+            {!removing && <SaveApproval />}
             <Button
               className="h-8"
               variant="outline"
@@ -222,7 +203,7 @@ export const EditableSelectWithMetadata = ({
             ) : (
               <Button
                 className="h-8"
-                // disabled={!hasUnsavedChanges}
+                disabled={blocked}
                 type="submit"
               >
                 Save

@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,19 +17,25 @@ import { framesNeedingConfirmation, type TimeFrame } from "@/lib/time-frame";
  * Asks before a change reaches into a relative or fixed frame
  * (framesNeedingConfirmation). `ask(validFrom, validTo, onConfirm)` returns
  * false for a change in the live frame, so the caller goes ahead at once.
- * Otherwise it opens the dialog naming the frames and returns true: the caller
+ * Otherwise it opens the dialog naming the frames, and `details` (what the
+ * save writes) when given, and returns true: the caller
  * holds the change, onConfirm runs on Confirm, and Cancel stores nothing.
  * The question lives in the UI only: the database stores what it is given.
  */
 export function useFixedFrameConfirmation() {
   const { timeFrames } = useTimeFrame();
-  const [pending, setPending] = useState<{ frames: TimeFrame[]; action: () => void } | null>(null);
+  const [pending, setPending] = useState<{ frames: TimeFrame[]; action: () => void; details?: ReactNode } | null>(null);
 
   const ask = useCallback(
-    (validFrom: string | null | undefined, validTo: string | null | undefined, onConfirm: () => void): boolean => {
+    (
+      validFrom: string | null | undefined,
+      validTo: string | null | undefined,
+      onConfirm: () => void,
+      details?: ReactNode
+    ): boolean => {
       const frames = framesNeedingConfirmation(timeFrames, validFrom, validTo);
       if (frames.length === 0) return false;
-      setPending({ frames, action: onConfirm });
+      setPending({ frames, action: onConfirm, details });
       return true;
     },
     [timeFrames]
@@ -49,6 +55,7 @@ export function useFixedFrameConfirmation() {
                 ))}
               </ul>
               <p>Reports and figures for these years will change.</p>
+              {pending.details}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>

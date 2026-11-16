@@ -144,27 +144,27 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         }}
         shownValues={physicalLocation ?? undefined}
       >
-        {({ isEditing, valueOf }) => (
+        {({ isEditing }) => (
           <div className="flex flex-col gap-4">
             <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
               <FormField
                 name="address_part1"
                 label="Address Part 1"
-                value={valueOf("address_part1", physicalLocation?.address_part1)}
+                value={physicalLocation?.address_part1}
                 response={locationState}
                 readonly={!isEditing}
               />
               <FormField
                 name="address_part2"
                 label="Address Part 2"
-                value={valueOf("address_part2", physicalLocation?.address_part2)}
+                value={physicalLocation?.address_part2}
                 response={locationState}
                 readonly={!isEditing}
               />
               <FormField
                 name="address_part3"
                 label="Address Part 3"
-                value={valueOf("address_part3", physicalLocation?.address_part3)}
+                value={physicalLocation?.address_part3}
                 response={locationState}
                 readonly={!isEditing}
               />
@@ -174,14 +174,14 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
               <FormField
                 name="postcode"
                 label="Post Code"
-                value={valueOf("postcode", physicalLocation?.postcode)}
+                value={physicalLocation?.postcode}
                 response={null}
                 readonly={!isEditing}
               />
               <FormField
                 name="postplace"
                 label="Post Place"
-                value={valueOf("postplace", physicalLocation?.postplace)}
+                value={physicalLocation?.postplace}
                 response={null}
                 readonly={!isEditing}
               />
@@ -189,14 +189,14 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
                 name="region_id"
                 label="Region"
                 readonly={!isEditing}
-                value={valueOf("region_id", physicalLocation?.region?.id)}
+                value={physicalLocation?.region?.id}
                 options={regionOptions}
                 placeholder="Select a region"
               />
               <SelectFormField
                 name="country_id"
                 label="Country"
-                value={valueOf("country_id", physicalLocation?.country?.id)}
+                value={physicalLocation?.country?.id}
                 options={countriesOptions}
                 readonly={!isEditing}
                 placeholder="Select a country"
@@ -207,21 +207,21 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
                 readonly={!isEditing}
                 label="Latitude"
                 name="latitude"
-                value={valueOf("latitude", physicalLocation?.latitude)}
+                value={physicalLocation?.latitude}
                 response={null}
               />
               <FormField
                 readonly={!isEditing}
                 label="Longitude"
                 name="longitude"
-                value={valueOf("longitude", physicalLocation?.longitude)}
+                value={physicalLocation?.longitude}
                 response={null}
               />
               <FormField
                 readonly={!isEditing}
                 label="Altitude"
                 name="altitude"
-                value={valueOf("altitude", physicalLocation?.altitude)}
+                value={physicalLocation?.altitude}
                 response={null}
               />
             </div>

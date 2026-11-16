@@ -2,7 +2,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import React, { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { DIFFERS } from "./edit-payload";
 
 export function FormField({
   label,
@@ -42,14 +41,13 @@ export function FormField({
         <Input
           type={type ?? "text"}
           readOnly={readonly}
-          placeholder={inputValue === DIFFERS ? "Differs" : (placeholder ?? "")}
-          value={inputValue === DIFFERS ? "" : inputValue}
+          placeholder={placeholder ?? ""}
+          name={name}
+          value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           autoComplete="off"
-          className={`read-only:opacity-80 read-only:focus:outline-none read-only:focus:ring-0 read-only:focus:shadow-none read-only:focus:border-zinc-200 bg-white ${inputValue === DIFFERS ? "placeholder:text-amber-800" : ""}`}
+          className="read-only:opacity-80 read-only:focus:outline-none read-only:focus:ring-0 read-only:focus:shadow-none read-only:focus:border-zinc-200 bg-white"
         />
-        {/* The posted value: DIFFERS keeps each period's own (edit-payload). */}
-        <input type="hidden" name={name} value={inputValue} />
       </Label>
       {error ? (
         <span className="mt-2 block text-sm text-red-500">

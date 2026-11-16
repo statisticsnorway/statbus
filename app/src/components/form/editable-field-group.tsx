@@ -13,18 +13,7 @@ import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
 import { RemoveRecordAction } from "./remove-record-button";
-import { useEditStartValues } from "./use-edit-start-values";
-import { DIFFERS } from "./edit-payload";
-import { DiffersNote } from "./differing-values";
-
-/**
- * A field's value in the form: while editing, the ticked stretch's own value
- * for the column (editStartValues); otherwise the value shown on the page.
- */
-export type FieldValueOf = (
-  column: string,
-  shown: string | number | null | undefined
-) => string | number | null | undefined;
+import { SaveApproval, useSaveApproval } from "./edit-metadata-controls";
 
 interface EditableFieldGroupProps {
   fieldGroupId: string;
@@ -36,10 +25,12 @@ interface EditableFieldGroupProps {
   editSource?: EditFieldSource;
   /** The group's shown values by column, compared with editSource's rows. */
   shownValues?: object;
-  children: (props: {
-    isEditing: boolean;
-    valueOf: FieldValueOf;
-  }) => React.ReactNode;
+  /**
+   * The group's fields, holding the values the page shows. While editing they
+   * start from those values; with several periods ticked, the timeline shows
+   * what they change in each (owner 2026-11-16).
+   */
+  children: (props: { isEditing: boolean }) => React.ReactNode;
   hiddenFields?: Record<string, string | number>;
 }
 
@@ -61,17 +52,8 @@ export function EditableFieldGroup({
   const { currentEdit, exitEditMode } = useEditManager();
 
   const isEditing = currentEdit?.fieldId === fieldGroupId;
+  const { blocked } = useSaveApproval();
 
-  // A field starts from the ticked stretch's own value (owner 2026-11-13). A
-  // field whose ticked periods differ starts as "Differs": Save keeps each
-  // period's own value until the user sets one (owner 2026-11-16).
-  const start = useEditStartValues(isEditing, editSource);
-  const valueOf: FieldValueOf = (column, shown) =>
-    isEditing && start && column in start.values
-      ? start.differing.includes(column)
-        ? DIFFERS
-        : (start.values[column] as string | number | null)
-      : shown;
   // Remove mode (the Timeline's Change | Remove switch): the fields are not
   // changed, so they are greyed, and the red Remove takes Save's place.
   const removing = isEditing && currentEdit.removing != null;
@@ -147,28 +129,21 @@ export function EditableFieldGroup({
         disabled={removing}
         className={removing ? "opacity-50" : undefined}
       >
-        {children({ isEditing, valueOf })}
+        {children({ isEditing })}
       </fieldset>
-
-      {isEditing && !removing && start && start.differing.length > 0 && (
-        <div className="space-y-0.5" data-edit-differing={start.differing.join(",")}>
-          {start.differing.map((column) => (
-            <DiffersNote key={column} column={column} start={start} current={DIFFERS} label={column.replace(/_/g, " ")} />
-          ))}
-        </div>
-      )}
 
       {isEditing && (
         <div className="space-y-2">
           <EditMetadataControls fieldId={fieldGroupId} />
-          <div className="flex justify-end space-x-2">
+          <div className="flex items-center justify-end space-x-2">
+            {!removing && <SaveApproval />}
             <Button variant="outline" type="button" onClick={handleCancel}>
               Cancel
             </Button>
             {removing ? (
               <RemoveRecordAction label={title} />
             ) : (
-              <Button type="submit">Save</Button>
+              <Button type="submit" disabled={blocked}>Save</Button>
             )}
           </div>
         </div>

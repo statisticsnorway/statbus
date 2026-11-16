@@ -39,13 +39,6 @@ export interface EditTarget {
   view?: "frame" | "timeline";
   /** In the Frame view: dated by the frame (default) or by specific dates. */
   validityChoice?: "frame" | "dates";
-  /**
-   * The user chose the data source, or wrote the comment, in this edit. Until
-   * then a save keeps each ticked period's own (edit-payload's keptColumns),
-   * so ticking periods with different sources never overwrites them.
-   */
-  dataSourceChosen?: boolean;
-  commentChosen?: boolean;
 }
 
 export const initialEditAtom: EditTarget = {
@@ -54,11 +47,27 @@ export const initialEditAtom: EditTarget = {
 
 export const currentEditAtom = atom<EditTarget>(initialEditAtom);
 
+/**
+ * The changes a save of the open edit makes to ticked periods other than the
+ * one the form shows (edit-changes' needsApproval), as a signature, or null
+ * when the save needs no approval. Written by the edit's controls.
+ */
+export const editChangesNeedingApprovalAtom = atom<string | null>(null);
+
+/**
+ * The signature of the changes the user approved ("Save with the highlighted
+ * changes"). Save goes ahead only while it equals the changes the save makes,
+ * so any change to the form or the ticks after approving asks again.
+ */
+export const editApprovedChangesAtom = atom<string | null>(null);
+
 export type EditTargetOptions = Omit<EditTarget, "fieldId">;
 
 export const setEditTargetAtom = atom(
   null,
   (get, set, fieldId: string | null, options?: EditTargetOptions) => {
+    set(editChangesNeedingApprovalAtom, null);
+    set(editApprovedChangesAtom, null);
     set(currentEditAtom, () => ({
       fieldId: fieldId,
       frameIdent: options?.frameIdent ?? null,
@@ -88,6 +97,8 @@ export const setEditFrameAtom = atom(
 );
 
 export const exitEditModeAtom = atom(null, (get, set) => {
+  set(editChangesNeedingApprovalAtom, null);
+  set(editApprovedChangesAtom, null);
   set(currentEditAtom, initialEditAtom);
 });
 
@@ -112,14 +123,6 @@ export const setEditDataSourceIdAtom = atom(
       ...prev,
       dataSourceId: dataSourceId,
     }));
-  }
-);
-
-/** The user's own choice of data source (the panel's menu): the save writes it. */
-export const chooseEditDataSourceIdAtom = atom(
-  null,
-  (get, set, dataSourceId: string | null) => {
-    set(currentEditAtom, (prev) => ({ ...prev, dataSourceId, dataSourceChosen: true }));
   }
 );
 
@@ -157,7 +160,7 @@ export const setEditValidityChoiceAtom = atom(
 export const setEditCommentAtom = atom(
   null,
   (get, set, comment: string | null) => {
-    set(currentEditAtom, (prev) => ({ ...prev, editComment: comment, commentChosen: true }));
+    set(currentEditAtom, (prev) => ({ ...prev, editComment: comment }));
   }
 );
 
@@ -169,7 +172,6 @@ export const useEditManager = () => {
   const doSetValidFrom = useSetAtom(setEditValidFromDateAtom);
   const doSetValidTo = useSetAtom(setEditValidToDateAtom);
   const doSetDataSourceId = useSetAtom(setEditDataSourceIdAtom);
-  const chooseEditDataSourceId = useSetAtom(chooseEditDataSourceIdAtom);
   const doSetEditComment = useSetAtom(setEditCommentAtom);
   const setEditRemoving = useSetAtom(setEditRemovingAtom);
   const setEditView = useSetAtom(setEditViewAtom);
@@ -216,7 +218,6 @@ export const useEditManager = () => {
     setEditValidFrom,
     setEditValidTo,
     setEditDataSourceId,
-    chooseEditDataSourceId,
     setEditComment,
     setEditRemoving,
     setEditView,
