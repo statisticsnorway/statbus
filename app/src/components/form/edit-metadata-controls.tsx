@@ -88,7 +88,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
     ? [currentEdit.source.column].flat()
     : [];
   const formValues = useFormValues(anchorRef, columns);
-  const { anchor, shown } = useEditAnchor(true, currentEdit.source);
+  const { anchor } = useEditAnchor(true, currentEdit.source);
   const changes = editChanges(periods, selected, formValues, currentEdit.dataSourceId);
   const changesKey = JSON.stringify([...changes.entries()]);
   const approvalKey = needsApproval(changes, anchor) ? changesKey : null;
@@ -380,7 +380,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
                 selected={selected}
                 onToggle={handleToggle}
                 changes={removing ? undefined : changes}
-                baseline={!removing && anchor >= 0 && anchor !== shown ? anchor : undefined}
+                baseline={!removing && anchor >= 0 && selected.length > 1 ? anchor : undefined}
               />
               <p className="text-xs text-zinc-600" data-edit-timeline-range="">
                 {currentEdit.validFrom

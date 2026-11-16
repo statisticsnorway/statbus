@@ -6,6 +6,7 @@ import useSWR from "swr";
 import {
   ChevronsDownUp,
   ChevronsUpDown,
+  Eye,
   GitCommitVertical,
   X,
 } from "lucide-react";
@@ -175,9 +176,9 @@ interface FieldTimelineProps {
    */
   changes?: ReadonlyMap<number, PeriodChange>;
   /**
-   * The edit's baseline when it is not the period of the frame the page
-   * shows: the period whose values the form holds, marked "Baseline" so the
-   * user sees what the changes are measured against (owner 2026-11-16).
+   * The edit's baseline when several periods are ticked: the period whose
+   * values the form shows, always marked with an eye (ShownInFormMarker) so
+   * the user sees what the changes are measured against (owner 2026-11-16).
    */
   baseline?: number;
 }
@@ -591,15 +592,7 @@ export function FieldTimeline({
                 )}
                 data-shown={i === shownIndex || undefined}
               >
-                {i === baseline && (
-                  <span
-                    className="float-right ml-2 rounded border border-ssb-dark px-1 text-[10px] font-medium uppercase tracking-wide text-ssb-dark"
-                    data-timeline-baseline=""
-                    title="The form holds this period's values; the changes are measured against it"
-                  >
-                    Baseline
-                  </span>
-                )}
+                {i === baseline && <ShownInFormMarker />}
                 {change ? (
                   <PeriodChangeView period={p} change={change} />
                 ) : (
@@ -632,6 +625,38 @@ export function FieldTimeline({
       </div>
       {showAll}
     </div>
+  );
+}
+
+/**
+ * The eye on the ticked period the form shows (the edit's baseline). It starts
+ * as the page's time frame and moves as the user ticks and unticks, so it is
+ * always marked; clicking it explains (owner 2026-11-16).
+ */
+function ShownInFormMarker() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="float-right ml-2 rounded-full p-0.5 text-ssb-dark hover:bg-white"
+          aria-label="Shown in the form"
+          title="Shown in the form"
+          data-timeline-baseline=""
+        >
+          <Eye className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 text-sm" align="end" data-timeline-baseline-help="">
+        <p className="font-medium">Shown in the form</p>
+        <p className="mt-1 text-zinc-600">
+          The form holds this period&apos;s values. Save writes them over every
+          ticked period; the other ticked periods show what they would lose,
+          struck out. It starts as the page&apos;s time frame and moves when
+          you untick it.
+        </p>
+      </PopoverContent>
+    </Popover>
   );
 }
 
