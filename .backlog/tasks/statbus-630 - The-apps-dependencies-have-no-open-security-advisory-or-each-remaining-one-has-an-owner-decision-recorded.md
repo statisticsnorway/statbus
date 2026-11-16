@@ -3,10 +3,10 @@ id: STATBUS-630
 title: >-
   The app's dependencies have no open security advisory, or each remaining one
   has an owner decision recorded
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-15T16:14:00Z'
-updated_date: '2026-11-16T16:05:00Z'
+updated_date: '2026-11-16T16:21:00Z'
 labels:
   - security
   - app
@@ -37,9 +37,9 @@ Six Dependabot alerts were open on master after STATBUS-593 (2026-11-15). Each f
 <!-- AC:BEGIN -->
 - [x] #1 Zod 4.6.6 or later is the only zod in the app's graph; every form schema and the URL query parsers keep their accepted and refused inputs and error messages, shown by tests on the real schemas, and the frontend typecheck, lint, tests and build pass
 - [x] #2 minimatch and glob resolve to patched versions, and lint, Jest, rimraf and the Excel export still work, shown by their real runs
-- [ ] #3 KaTeX resolves to 0.18.2 or later through Mermaid 12, and the ER diagram renders in the owner's browser
+- [x] #3 KaTeX resolves to 0.18.2 or later through Mermaid 12, and the ER diagram renders in the owner's browser
 - [x] #4 deepmerge: the owner's decision (accept as Jest-only, or replace) is recorded here
-- [ ] #5 gh api dependabot/alerts lists no open alert, or only the ones with a recorded owner decision; CI is green on that SHA
+- [x] #5 gh api dependabot/alerts lists no open alert, or only the ones with a recorded owner decision; CI is green on that SHA
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -59,4 +59,6 @@ Six Dependabot alerts were open on master after STATBUS-593 (2026-11-15). Each f
 2026-11-16 correction (owner 13:41): the ER page on the real app draws in about 5-8 s on Mermaid 12 (dev server log: GET /doc/er 200 in 5.1 s, then the draw; owner's eye ~8 s). The 41 s / 84 s / 175 s I reported came from a standalone test page that loaded Mermaid's whole ESM build chunk by chunk from a local file server, not from the app's bundle: wrong as a measure of the app, and not grounds for 'still slow'. The owner's earlier ~5 s was the old app container (Mermaid 11), since no dev server ran for this checkout after the crash.
 
 2026-11-16 the local stack runs master (dev server on APP_DEV_PORT 3017 behind https://local.statbus.org:3011) on a fresh Norway restore; the time_frame error the owner saw came from the database being 18 migrations behind, now fixed. AC1/AC3 browser checks wait for the owner's sign-in.
+
+2026-11-16 AC3: the owner saw the real /doc/er page draw on Mermaid 12 in his browser (~5-8 s, 13:41 note above). AC5: gh api dependabot/alerts?state=open lists 0 alerts (16:21). CI for the last dependency change d28df2738 all success (app build & lint 43871800240 and the rest, note above). The extra browser form check I had planned is not part of AC1, which the tests on the real schemas satisfy; dropped.
 <!-- SECTION:NOTES:END -->
