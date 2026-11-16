@@ -64,12 +64,17 @@ export function editChanges(
  * edit opens anchored on the period the page shows. Ticking more periods keeps
  * the anchor; unticking it moves the anchor to the nearest ticked period, and
  * the form takes that period's values. With nothing ticked there is no anchor
- * (-1), and the next tick becomes it.
+ * (-1): the next tick becomes it, or, when several come at once (Tick all),
+ * the period the page shows (`shown`) if it is among them.
  */
-export function editAnchor(anchor: number, ticked: readonly number[]): number {
+export function editAnchor(
+  anchor: number,
+  ticked: readonly number[],
+  shown = -1
+): number {
   if (ticked.length === 0) return -1;
   if (ticked.includes(anchor)) return anchor;
-  if (anchor < 0) return ticked[0];
+  if (anchor < 0) return ticked.includes(shown) ? shown : ticked[0];
   return ticked.reduce((best, i) =>
     Math.abs(i - anchor) < Math.abs(best - anchor) ? i : best
   );

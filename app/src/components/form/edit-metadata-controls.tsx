@@ -108,6 +108,19 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
     setEditValidFrom(range?.validFrom ?? null);
     setEditValidTo(range && range.validTo !== "infinity" ? range.validTo : null);
   };
+  // Tick all / Untick all for Change, as Remove has (owner 2026-11-16).
+  // Unticking all clears the anchor: the next tick, or Tick all, sets it.
+  const allTicked = periods.length > 0 && selected.length === periods.length;
+  const tickAll = () => {
+    if (allTicked) {
+      setEditValidFrom(null);
+      setEditValidTo(null);
+      return;
+    }
+    const range = selectionRange(periods, periods.map((_, i) => i));
+    setEditValidFrom(range?.validFrom ?? null);
+    setEditValidTo(range && range.validTo !== "infinity" ? range.validTo : null);
+  };
 
   // A record the unit does not have yet (no rows): its Timeline view is a
   // skeleton of the frames, cut to where the unit exists (the cap). The edit's
@@ -175,12 +188,17 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
     );
   const removing = currentEdit.removing != null;
   const canRemove = isRemovable(currentEdit.source) && loaded && periods.length > 0;
+  const tickAllPeriods =
+    !removing && mode === "timeline" && periods.length > 1 ? (
+      <TickAllPeriods all={allTicked} onClick={tickAll} />
+    ) : null;
   // Change | Remove, on the panel's heading line (owner 2026-11-13), for both
   // views: in the Frame view Remove takes out the chosen frame or dates; in
   // the Timeline the timeline splits into pieces per frame to tick.
   const changeRemoveSwitch = canRemove ? (
     <>
       {removing && mode === "timeline" && <TickAllPieces />}
+      {tickAllPeriods}
       <div
         role="radiogroup"
         aria-label="Change or remove"
@@ -335,7 +353,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         onCommentChange={setEditComment}
         formFields
         dateBounds={dateBounds}
-        headerControls={changeRemoveSwitch}
+        headerControls={changeRemoveSwitch ?? tickAllPeriods ?? undefined}
         hideMetadata={removing}
         frameFooter={removing ? <FrameRemovalSummary /> : undefined}
         timeline={
@@ -414,5 +432,19 @@ export function SaveApproval() {
       />
       Approve timeline changes
     </label>
+  );
+}
+
+/** Tick all / Untick all the Change timeline's periods, beside Change | Remove. */
+function TickAllPeriods({ all, onClick }: { all: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-xs text-zinc-700 underline-offset-2 hover:underline"
+      data-change-tick-all={all ? "clear" : "all"}
+    >
+      {all ? "Untick all" : "Tick all"}
+    </button>
   );
 }

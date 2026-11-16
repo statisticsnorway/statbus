@@ -44,7 +44,7 @@ export function useEditAnchor(
     currentEdit.anchorFrom === undefined
       ? shown
       : periods.findIndex((p) => p.valid_from === currentEdit.anchorFrom);
-  const anchor = editAnchor(held, ticked);
+  const anchor = editAnchor(held, ticked, shown);
   const period = anchor >= 0 ? periods[anchor] : undefined;
   const anchorFrom = period?.valid_from ?? null;
   // The anchor period's identity and contents: the form follows the anchor

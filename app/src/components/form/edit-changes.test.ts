@@ -103,6 +103,11 @@ describe("editAnchor", () => {
     expect(editAnchor(-1, [2])).toBe(2);
   });
 
+  it("takes the page's period when Tick all starts from nothing", () => {
+    expect(editAnchor(-1, [0, 1, 2], 1)).toBe(1);
+    expect(editAnchor(-1, [0, 2], 1)).toBe(0);
+  });
+
   it("has no anchor when nothing is ticked", () => {
     expect(editAnchor(1, [])).toBe(-1);
   });
