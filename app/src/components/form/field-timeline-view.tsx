@@ -181,6 +181,22 @@ interface FieldTimelineProps {
    * the user sees what the changes are measured against (owner 2026-11-16).
    */
   baseline?: number;
+  /**
+   * Approving the changes where they are shown (owner 2026-11-16): the
+   * periods whose change waits for approval get an Approve box on their card;
+   * `approved` holds those approved. Absent: nothing to approve.
+   */
+  approval?: {
+    periods: readonly number[];
+    approved: readonly number[];
+    onApprove: (index: number, on: boolean) => void;
+  };
+  /**
+   * Controls above the columns they act on (owner 2026-11-16: physical
+   * locality): `ticks` above the tick boxes (Tick all), `approve` above the
+   * values (Approve all).
+   */
+  columnControls?: { ticks?: React.ReactNode; approve?: React.ReactNode };
 }
 
 /** A frame with more values than this is folded to two (visibleSegments). */
@@ -208,6 +224,8 @@ export function FieldTimeline({
   scrollValues,
   changes,
   baseline,
+  approval,
+  columnControls,
 }: FieldTimelineProps) {
   const { timeFrames, selectedTimeFrame } = useTimeFrame();
   const describe = useDescribeValue();
@@ -330,6 +348,25 @@ export function FieldTimeline({
               <X className="h-4 w-4" />
             </button>
           )}
+        </div>
+      )}
+      {(columnControls?.ticks || columnControls?.approve) && (
+        <div
+          className={cn(
+            "grid shrink-0 items-end gap-x-2 pb-1 text-xs",
+            onToggle
+              ? "grid-cols-[minmax(3.5rem,auto)_1rem_1rem_1fr_1.25rem]"
+              : "grid-cols-[minmax(3.5rem,auto)_1rem_1fr_1.25rem]"
+          )}
+          data-timeline-column-controls=""
+        >
+          {/* Tick all ends at the tick boxes' column, right-aligned over it. */}
+          <div style={{ gridColumn: `1 / ${col.box + 1}` }} className="justify-self-end">
+            {columnControls.ticks}
+          </div>
+          <div style={{ gridColumn: col.value }} className="justify-self-end">
+            {columnControls.approve}
+          </div>
         </div>
       )}
       <div
@@ -593,6 +630,24 @@ export function FieldTimeline({
                 data-shown={i === shownIndex || undefined}
               >
                 {i === baseline && <ShownInFormMarker />}
+                {change && approval?.periods.includes(i) && (
+                  <label
+                    className={cn(
+                      "float-right ml-2 flex cursor-pointer items-center gap-1 rounded px-1 text-xs",
+                      approval.approved.includes(i)
+                        ? "text-zinc-600"
+                        : "bg-amber-100 text-amber-900"
+                    )}
+                    data-timeline-approve={approval.approved.includes(i) ? "approved" : "pending"}
+                  >
+                    <Checkbox
+                      checked={approval.approved.includes(i)}
+                      onCheckedChange={(on) => approval.onApprove(i, on === true)}
+                      aria-label={`Approve the change to ${p.valid_from} – ${formatEnd(p.valid_to)}`}
+                    />
+                    Approve
+                  </label>
+                )}
                 {change ? (
                   <PeriodChangeView period={p} change={change} />
                 ) : (

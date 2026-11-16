@@ -1,4 +1,4 @@
-import { editAnchor, editChanges, needsApproval } from "./edit-changes";
+import { changeKey, editAnchor, editChanges, needsApproval, unapprovedChanges } from "./edit-changes";
 import type { TimelinePeriod } from "./field-timeline";
 
 // LU 29's sector (owner 2026-11-16): 2024–2025 holds 4500 from survey, Live is
@@ -140,5 +140,25 @@ describe("needsApproval", () => {
 
   it("does not ask when nothing changes", () => {
     expect(needsApproval(new Map(), LIVE)).toBe(false);
+  });
+});
+
+describe("unapprovedChanges", () => {
+  // Each change the save makes to a period other than the form's own is
+  // approved where it is shown, on its card (owner 2026-11-16).
+  const changes = editChanges(sector, [0, 1], { sector_id: "6420" }, String(NLR));
+
+  it("lists every changed period except the one the form shows, by its change", () => {
+    expect(unapprovedChanges(changes, LIVE, {})).toEqual([0]);
+  });
+
+  it("drops a period once its change is approved", () => {
+    expect(unapprovedChanges(changes, LIVE, { 0: changeKey(changes.get(0)!) })).toEqual([]);
+  });
+
+  it("asks again when the period's change is no longer the one approved", () => {
+    const approved = { 0: changeKey(changes.get(0)!) };
+    const other = editChanges(sector, [0, 1], { sector_id: "1120" }, String(NLR));
+    expect(unapprovedChanges(other, LIVE, approved)).toEqual([0]);
   });
 });

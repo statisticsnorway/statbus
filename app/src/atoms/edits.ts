@@ -54,27 +54,26 @@ export const initialEditAtom: EditTarget = {
 export const currentEditAtom = atom<EditTarget>(initialEditAtom);
 
 /**
- * The changes a save of the open edit makes to ticked periods other than the
- * anchor (edit-changes' needsApproval), as a signature, or null when the save
- * needs no approval. Written by the edit's controls.
+ * The changed periods still waiting for approval (edit-changes'
+ * unapprovedChanges), by period index; empty when Save may go ahead. Written
+ * by the edit's controls.
  */
-export const editChangesNeedingApprovalAtom = atom<string | null>(null);
+export const editUnapprovedAtom = atom<number[]>([]);
 
 /**
- * The user approved the changes now highlighted ("Save with the highlighted
- * changes"). Any change to them (the ticks, the form's values, the data
- * source) takes the approval back, even when it returns to changes approved
- * before: an approval is for the set of changes in front of the user.
+ * The changes the user approved on their cards, by period index: the
+ * changeKey of the change approved there. An approval holds only while the
+ * period's change is still that change (owner 2026-11-16).
  */
-export const editApprovedAtom = atom<boolean>(false);
+export const editApprovedAtom = atom<Record<number, string>>({});
 
 export type EditTargetOptions = Omit<EditTarget, "fieldId">;
 
 export const setEditTargetAtom = atom(
   null,
   (get, set, fieldId: string | null, options?: EditTargetOptions) => {
-    set(editChangesNeedingApprovalAtom, null);
-    set(editApprovedAtom, false);
+    set(editUnapprovedAtom, []);
+    set(editApprovedAtom, {});
     set(currentEditAtom, () => ({
       fieldId: fieldId,
       frameIdent: options?.frameIdent ?? null,
@@ -104,8 +103,8 @@ export const setEditFrameAtom = atom(
 );
 
 export const exitEditModeAtom = atom(null, (get, set) => {
-  set(editChangesNeedingApprovalAtom, null);
-  set(editApprovedAtom, false);
+  set(editUnapprovedAtom, []);
+  set(editApprovedAtom, {});
   set(currentEditAtom, initialEditAtom);
 });
 

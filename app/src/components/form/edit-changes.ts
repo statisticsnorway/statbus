@@ -92,3 +92,22 @@ export function needsApproval(
 ): boolean {
   return [...changes.keys()].some((index) => index !== anchor);
 }
+
+/** A period's change as a value: an approval holds for exactly this change. */
+export const changeKey = (change: PeriodChange): string => JSON.stringify(change);
+
+/**
+ * The changed periods still waiting for approval: every period the save
+ * changes other than the anchor (the form's own), unless the user approved
+ * exactly its present change on its card (owner 2026-11-16). `approved` maps
+ * a period index to the changeKey approved there.
+ */
+export function unapprovedChanges(
+  changes: ReadonlyMap<number, PeriodChange>,
+  anchor: number,
+  approved: Readonly<Record<number, string>>
+): number[] {
+  return [...changes.entries()]
+    .filter(([index, change]) => index !== anchor && approved[index] !== changeKey(change))
+    .map(([index]) => index);
+}

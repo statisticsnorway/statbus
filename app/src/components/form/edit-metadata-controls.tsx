@@ -12,7 +12,7 @@ import {
 } from "@/components/time-frame-panel";
 import {
   editApprovedAtom,
-  editChangesNeedingApprovalAtom,
+  editUnapprovedAtom,
   useDetailsPageData,
   useEditManager,
 } from "@/atoms/edits";
@@ -35,7 +35,7 @@ import {
 } from "./remove-record-button";
 import { piecesInPeriod } from "./removal";
 import { cn } from "@/lib/utils";
-import { editChanges, needsApproval } from "./edit-changes";
+import { changeKey, editChanges, unapprovedChanges } from "./edit-changes";
 import { useFormValues } from "./use-form-values";
 import { useEditAnchor } from "./use-edit-anchor";
 
@@ -91,18 +91,32 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   const { anchor } = useEditAnchor(true, currentEdit.source);
   const changes = editChanges(periods, selected, formValues, currentEdit.dataSourceId);
   const changesKey = JSON.stringify([...changes.entries()]);
-  const approvalKey = needsApproval(changes, anchor) ? changesKey : null;
-  const setChangesNeedingApproval = useSetAtom(editChangesNeedingApprovalAtom);
-  const setApproved = useSetAtom(editApprovedAtom);
-  // Any change to the changes takes the approval back (editApprovedAtom).
+  // Each change to a period other than the form's own is approved on its
+  // card (owner 2026-11-16); Save waits for all of them (editUnapprovedAtom).
+  const [approved, setApproved] = useAtom(editApprovedAtom);
+  const unapproved = unapprovedChanges(changes, anchor, approved);
+  const unapprovedKey = unapproved.join(",");
+  const setUnapproved = useSetAtom(editUnapprovedAtom);
   useGuardedEffect(
-    () => {
-      setChangesNeedingApproval(approvalKey);
-      setApproved(false);
-    },
-    [approvalKey, setChangesNeedingApproval, setApproved],
-    "EditMetadataControls:changesNeedingApproval"
+    () => setUnapproved(unapprovedKey ? unapprovedKey.split(",").map(Number) : []),
+    [unapprovedKey, setUnapproved],
+    "EditMetadataControls:unapproved"
   );
+  const toApprove = [...changes.keys()].filter((i) => i !== anchor);
+  const approveChange = (index: number, on: boolean) =>
+    setApproved((prev) => {
+      const next = { ...prev };
+      const change = changes.get(index);
+      if (on && change) next[index] = changeKey(change);
+      else delete next[index];
+      return next;
+    });
+  const approveAll = (on: boolean) =>
+    setApproved(
+      on
+        ? Object.fromEntries(toApprove.map((i) => [i, changeKey(changes.get(i)!)]))
+        : {}
+    );
   const handleToggle = (index: number) => {
     const range = selectionRange(periods, toggleSelection(selected, index));
     setEditValidFrom(range?.validFrom ?? null);
@@ -198,7 +212,6 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   const changeRemoveSwitch = canRemove ? (
     <>
       {removing && mode === "timeline" && <TickAllPieces />}
-      {tickAllPeriods}
       <div
         role="radiogroup"
         aria-label="Change or remove"
@@ -353,7 +366,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         onCommentChange={setEditComment}
         formFields
         dateBounds={dateBounds}
-        headerControls={changeRemoveSwitch ?? tickAllPeriods ?? undefined}
+        headerControls={changeRemoveSwitch}
         hideMetadata={removing}
         frameFooter={removing ? <FrameRemovalSummary /> : undefined}
         timeline={
@@ -377,6 +390,25 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
             <div className="space-y-1" data-edit-timeline="">
               <FieldTimeline
                 periods={periods}
+                columnControls={{
+                  ticks: tickAllPeriods,
+                  approve:
+                    toApprove.length > 1 ? (
+                      <ApproveAll
+                        all={unapproved.length === 0}
+                        onClick={() => approveAll(unapproved.length > 0)}
+                      />
+                    ) : undefined,
+                }}
+                approval={
+                  removing
+                    ? undefined
+                    : {
+                        periods: toApprove,
+                        approved: toApprove.filter((i) => !unapproved.includes(i)),
+                        onApprove: approveChange,
+                      }
+                }
                 selected={selected}
                 onToggle={handleToggle}
                 changes={removing ? undefined : changes}
@@ -396,49 +428,27 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
 }
 
 /**
- * Whether the open edit's Save waits for the user's approval: the save changes
- * a ticked period other than the one the form shows, and the user has not
- * approved exactly these changes (owner 2026-11-16).
+ * Whether the open edit's Save waits for approvals: changes to ticked periods
+ * other than the form's own that the user has not approved on their cards
+ * (owner 2026-11-16).
  */
 export function useSaveApproval() {
-  const pending = useAtomValue(editChangesNeedingApprovalAtom);
-  const [approved, setApproved] = useAtom(editApprovedAtom);
-  return {
-    needed: pending != null,
-    approved: pending != null && approved,
-    blocked: pending != null && !approved,
-    approve: (on: boolean) => setApproved(on),
-  };
+  const unapproved = useAtomValue(editUnapprovedAtom);
+  return { blocked: unapproved.length > 0, count: unapproved.length };
 }
 
 /**
- * The approval beside Cancel and Save when Save would change ticked periods
- * besides the one the form shows: the timeline highlights those changes, and
- * Save stays disabled until the user approves them here (owner 2026-11-16).
- * It sits with the buttons and is highlighted while pending, so it reads as
- * the step before Save. Any change to the ticks or the values afterwards
- * takes the approval back.
+ * Beside Cancel and Save while changes wait for approval: says how many are
+ * left, so the disabled Save explains itself. The approving is done on each
+ * change's card in the timeline (owner 2026-11-16).
  */
 export function SaveApproval() {
-  const { needed, approved, approve } = useSaveApproval();
-  if (!needed) return null;
+  const { blocked, count } = useSaveApproval();
+  if (!blocked) return null;
   return (
-    <label
-      className={cn(
-        "flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-sm",
-        approved
-          ? "border-zinc-200 text-zinc-800"
-          : "border-amber-400 bg-amber-50 text-amber-900"
-      )}
-      data-save-approval={approved ? "approved" : "pending"}
-    >
-      <Checkbox
-        checked={approved}
-        onCheckedChange={(on) => approve(on === true)}
-        aria-label="Approve timeline changes to save"
-      />
-      Approve timeline changes to save
-    </label>
+    <p className="text-sm text-amber-800" data-save-approval="pending">
+      Approve {count === 1 ? "the change" : `${count} changes`} in the timeline to save
+    </p>
   );
 }
 
@@ -452,6 +462,20 @@ function TickAllPeriods({ all, onClick }: { all: boolean; onClick: () => void })
       data-change-tick-all={all ? "clear" : "all"}
     >
       {all ? "Untick all" : "Tick all"}
+    </button>
+  );
+}
+
+/** Approve all / Unapprove all the timeline's changes, above the change cards. */
+function ApproveAll({ all, onClick }: { all: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-xs text-amber-900 underline-offset-2 hover:underline"
+      data-approve-all={all ? "clear" : "all"}
+    >
+      {all ? "Unapprove all" : "Approve all"}
     </button>
   );
 }
