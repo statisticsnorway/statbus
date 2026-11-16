@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import {
+  ArrowUpCircle,
   BarChart3,
   ChevronRight,
   Database,
@@ -21,6 +22,14 @@ export default function AdminPage() {
       href: "/admin/users",
       icon: Users,
     },
+    {
+      title: "Upgrades",
+      description: "Manage software updates",
+      href: "admin/upgrades",
+      icon: ArrowUpCircle,
+    },
+  ];
+  const customSections = [
     {
       title: "External Identifiers",
       description: "View, create and manage external identifier types",
@@ -60,41 +69,60 @@ export default function AdminPage() {
   ];
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-col px-2 py-8 md:py-12">
+    <main className="mx-auto flex w-full max-w-5xl flex-col px-2 py-8 md:py-12">
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl mb-3">Admin</h1>
-          <p>Manage users and customize Statbus</p>
+          <h1 className="text-2xl mb-3">Administration</h1>
         </div>
-        
-          <div className="flex flex-col gap-4">
-            <div className="grid gap-6 auto-rows-fr md:grid-cols-3">
-              {adminSections.map((section) => {
-                const Icon = section.icon;
-                return (
-                  <Link
-                    key={section.href}
-                    href={section.href}
-                    
-                  >
-                    <Card className="h-full overflow-hidden hover:border-gray-400">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 bg-gray-100 border-b px-3 py-2">
-                        <CardTitle className="text-sm font-normal flex gap-2 items-center">
-                          <Icon className="h-4 w-4" />
-                          {section.title}
-                        </CardTitle>
-                        <ChevronRight className="w-4 h-4" />
-                      </CardHeader>
-                      <CardContent className="px-4 py-3 text-sm">
-                        {section.description}
-                      </CardContent>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-6 auto-rows-fr md:grid-cols-3">
+            {adminSections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <Link key={section.href} href={section.href}>
+                  <Card className="h-full overflow-hidden hover:border-gray-400">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 bg-gray-100 border-b px-3 py-2">
+                      <CardTitle className="text-sm font-normal flex gap-2 items-center">
+                        <Icon className="h-4 w-4" />
+                        {section.title}
+                      </CardTitle>
+                      <ChevronRight className="w-4 h-4" />
+                    </CardHeader>
+                    <CardContent className="px-4 py-3 text-sm">
+                      {section.description}
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
-     
+        </div>
+        <div>
+          <h1 className="text-2xl mb-3">Customization</h1>
+        </div>
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-6 auto-rows-fr md:grid-cols-3">
+            {customSections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <Link key={section.href} href={section.href}>
+                  <Card className="h-full overflow-hidden hover:border-gray-400">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 bg-gray-100 border-b px-3 py-2">
+                      <CardTitle className="text-sm font-normal flex gap-2 items-center">
+                        <Icon className="h-4 w-4" />
+                        {section.title}
+                      </CardTitle>
+                      <ChevronRight className="w-4 h-4" />
+                    </CardHeader>
+                    <CardContent className="px-4 py-3 text-sm">
+                      {section.description}
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </main>
   );
