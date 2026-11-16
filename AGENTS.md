@@ -34,7 +34,7 @@ STATBUS is SSB's statistical business registry: PostgreSQL 18+, PostgREST 12+, N
 - While working: `hug task note ID "evidence"` and `hug task check ID N` when check N has evidence. Finish: `hug task done ID` when every check is ticked; it stays on the board.
 - New work: `hug task new "short title" --type TYPE --goal "..." --purpose "..." --principle "..." --details "..." --accept "observable check"`. Types: feature, bug, chore, spike, docs. Titles stay under 80 characters; detail goes in the goal.
 - `hug task sync` shares task edits through the remote; take and done sync themselves.
-- `.backlog/` is the read-only Backlog.md archive the tasks were imported from on 2026-11-16.
+- The old Backlog.md board was imported into hug on 2026-11-16 and removed from the tree; its board documents are in `doc/backlog-docs/`.
 
 ## Commands and configuration
 
