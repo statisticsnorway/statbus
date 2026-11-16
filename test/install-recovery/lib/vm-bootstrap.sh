@@ -249,12 +249,13 @@ _hcloud_server_ip() {
 # immediately before it is captured for the VM's --commit pin. run.sh's own
 # preflight_head_on_origin checks this ONCE at the very top of a run, before
 # any VM is provisioned — but VM provisioning + any earlier scenarios in a
-# multi-scenario run take many minutes, during which a busy team session's
-# Backlog.md auto-commits (every board edit creates one) can advance local
+# multi-scenario run take many minutes, during which a new local commit (any
+# commit not yet pushed) can advance local
 # HEAD past what that top-level check saw (the exact race two burned VM runs
 # demonstrated on 4-flagless-selfheal-at-target: run 1's local HEAD was a
 # just-landed board-edit commit; run 2's local HEAD moved again between the
-# push and this capture point). This is the SAME check, repeated at the
+# push and this capture point; the board then committed to the code branch, it
+# now lives on hug/tasks). This is the SAME check, repeated at the
 # actual point of no return — right before `git rev-parse HEAD` gets baked
 # into what the VM checks out. Deliberately NOT shared code with run.sh's own
 # copy: run.sh has zero lib dependencies by design (kept lightweight for
@@ -283,7 +284,7 @@ _assert_head_still_on_origin() {
     echo "  REFUSING: HEAD ($sha) is not on origin — the VM cannot resolve it." >&2
     echo "════════════════════════════════════════════════════════════════" >&2
     echo "  HEAD moved past what run.sh's top-level preflight checked (STATBUS-184 —" >&2
-    echo "  a busy session's Backlog.md auto-commits can land during VM provisioning" >&2
+    echo "  a new local commit can land during VM provisioning" >&2
     echo "  or an earlier scenario's run time). Push, then re-run:" >&2
     echo "      git push" >&2
     echo "════════════════════════════════════════════════════════════════" >&2

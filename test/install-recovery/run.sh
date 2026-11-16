@@ -316,8 +316,8 @@ mkdir -p "$HARNESS_ROOT/tmp"
 
 # ── STATBUS-132: fail fast if the sb build commit is not on origin ──────────────
 # dev.sh rebuilds ./sb embedding `git rev-parse HEAD`; the VM's clone has ONLY
-# origin. If HEAD is a LOCAL commit (Backlog.md board edits create one on every
-# ticket edit, so HEAD routinely sits ahead of origin between code pushes), the
+# origin. If HEAD is a LOCAL commit (any commit not yet pushed; task edits no
+# longer commit here, they go to the hug/tasks branch), the
 # uploaded sb's embedded commit is unresolvable on the VM and the VM-side
 # freshness check dies late with "fatal: bad object" — AFTER provisioning +
 # bootstrap + install, i.e. a paid Hetzner VM + ~10 min to discover something
