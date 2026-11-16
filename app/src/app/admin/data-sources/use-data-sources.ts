@@ -10,7 +10,8 @@ const fetcher: Fetcher<Tables<"data_source">[], string> = async (
     const { data, error } = await client
       .from("data_source")
       .select("*")
-      .order("enabled", { ascending: false });
+      .order("enabled", { ascending: false })
+      .order("custom", { ascending: false });
 
     if(error) {
         throw new Error(error.message, {cause: error})

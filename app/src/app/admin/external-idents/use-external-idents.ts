@@ -9,6 +9,7 @@ const fetcher: Fetcher<Tables<"external_ident_type">[], string> = async (
   const { data, error } = await client
     .from("external_ident_type")
     .select("*")
+    .order("enabled", { ascending: false })
     .order("priority");
 
   if (error) {

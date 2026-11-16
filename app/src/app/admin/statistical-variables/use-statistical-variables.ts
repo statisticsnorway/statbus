@@ -7,6 +7,7 @@ const fetcher: Fetcher<Tables<"stat_definition">[], string> = async (key) => {
   const { data, error } = await client
     .from("stat_definition")
     .select("*")
+    .order("enabled", { ascending: false })
     .order("priority");
 
   if (error) {
