@@ -10,6 +10,13 @@ export default async function GettingStartedPage() {
         We will assist you in selecting an activity standard and you will get to
         upload your first region data set.
       </p>
+      <p>
+        If you need to add more users or customize your setup, this can be done
+        in{" "}
+        <Link className="underline" href="/admin">
+          Admin & Customization
+        </Link>
+      </p>
 
       <Link className="block underline" href="/getting-started/country">
         Start
