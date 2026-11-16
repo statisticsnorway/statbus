@@ -4,11 +4,14 @@ import React, { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { usePermission } from "@/atoms/auth";
+import { AvailableColumns } from "./availiable-columns";
 
 export default function ImportPage() {
   const router = useRouter();
   const [newJobs, setNewJobs] = useState<number[]>([]);
-  
+  const { canAccessAdminTools } = usePermission();
+
   useGuardedEffect(() => {
     let eventSource: EventSource | null = null;
     let reconnectTimer: NodeJS.Timeout | null = null;
@@ -105,11 +108,27 @@ export default function ImportPage() {
   
   return (
     <div className="space-y-6 text-center">
-      <h1 className="text-center text-2xl">Welcome</h1>
+      <h1 className="text-center text-2xl">Import units</h1>
       <p>
-        In this onboarding guide we will try to help you get going with Statbus.
+        Before you start uploading your units, check that the columns and values
+        below match your file.
       </p>
-      
+      <div className="space-y-1 text-left">
+        <AvailableColumns />
+        <p className="text-center text-xs text-gray-500">
+          {canAccessAdminTools ? (
+            <>
+              Customize these in{" "}
+              <Link className="underline" href="/admin">
+                Admin & Customization
+              </Link>
+            </>
+          ) : (
+            "Contact an administratior to customize these."
+          )}
+        </p>
+      </div>
+
       {newJobs.length > 0 && (
         <div className="p-4 bg-green-50 border border-green-200 rounded-md">
           <p className="font-medium text-green-800">

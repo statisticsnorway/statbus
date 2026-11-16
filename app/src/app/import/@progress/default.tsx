@@ -37,7 +37,7 @@ export default function ImportStatus() {
 
   return (
     <nav>
-      <h2 className="text-2xl font-normal mb-12 text-center">Import</h2>
+      <h2 className="text-2xl font-normal mb-12 text-center">Import steps</h2>
       <ul className="text-sm">
         <h3 className="mb-4">Formal</h3>
         <ul className="text-sm ml-2">
