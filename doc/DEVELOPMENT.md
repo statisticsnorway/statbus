@@ -209,7 +209,7 @@ pnpm run dev
 ```
 
 Access the application:
-- **Frontend**: http://localhost:3000
+- **Frontend**: the address `pnpm run dev` prints (this checkout's `APP_DEV_PORT`)
 - **API via Caddy**: http://localhost:3010/rest/
 - **Supabase Studio**: http://localhost:3001
 
@@ -446,7 +446,7 @@ cd app
 pnpm run dev        # Start dev server with Turbopack
 ```
 
-The dev server runs on **http://localhost:3000** with:
+The dev server runs on this checkout's slot port, `APP_DEV_PORT` in `.env` (`3000 + offset*10 + 7`: 3017 for slot offset 1, 3037 for offset 3), and prints the address to open: `http://<SITE_DOMAIN>:<APP_DEV_PORT>`, or `https://<SITE_DOMAIN>:<CADDY_HTTPS_PORT>` after `./dev.sh https on`, where the slot's Caddy serves it over HTTP/2. It provides:
 - Hot module replacement
 - TypeScript checking
 - Fast refresh
@@ -514,7 +514,7 @@ See [app/CONVENTIONS.md](app/CONVENTIONS.md) for detailed frontend conventions.
 ### API Request Flow
 
 **Development Mode** (`pnpm run dev` on host):
-1. Browser accesses `http://localhost:3000`
+1. Browser accesses the address `pnpm run dev` prints
 2. Client makes API calls to `/rest/*`
 3. Next.js dev server proxies to Caddy (`http://localhost:3010/rest/*`)
 4. Caddy handles auth cookie conversion

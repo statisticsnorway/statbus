@@ -115,7 +115,7 @@ Changing a migration hash with `IntentionallyFixBrokenImmutableMigrationEnvVar` 
 Run from `app/`:
 
 ```bash
-pnpm run dev           # Local development with Turbopack
+pnpm run dev           # Local development with Turbopack, on this checkout's APP_DEV_PORT
 pnpm run build
 pnpm run lint          # Includes no-explicit-any gate
 pnpm run format        # Prettier check
@@ -138,7 +138,9 @@ Over plain http a browser opens at most six connections to one site, so several 
 ./dev.sh https off           # back to plain http
 ```
 
-Then open `https://local.statbus.org:3011` (`https://<SITE_DOMAIN>:<CADDY_HTTPS_PORT>`). Caddy serves pages from `pnpm run dev` on the host when it runs and falls back to the app container otherwise, so restart `pnpm run dev` after `on` or `off`. Restart Firefox once after the first trust. Firefox trust uses NSS `certutil` (`brew install nss`, or `apt install libnss3-tools`).
+Then open `https://local.statbus.org:3011` (`https://<SITE_DOMAIN>:<CADDY_HTTPS_PORT>`; `pnpm run dev` prints it). Caddy serves pages from `pnpm run dev` on the host when it runs and falls back to the app container otherwise, so restart `pnpm run dev` after `on` or `off`. Restart Firefox once after the first trust. Firefox trust uses NSS `certutil` (`brew install nss`, or `apt install libnss3-tools`).
+
+Each checkout's dev server has its own port in its slot's port block, `APP_DEV_PORT = 3000 + offset*10 + 7` in the generated `.env` (slot offset 1: 3017, offset 3: 3037), and its slot's Caddy forwards to that port. Two checkouts can therefore run `pnpm run dev` at once, each served by its own Caddy over HTTP/2.
 
 ## Deployment modes, slots, and connections
 
