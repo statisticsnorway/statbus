@@ -43,7 +43,6 @@ on:
   push:
     branches: [master]
     paths-ignore:
-      - '.backlog/**'
       - 'doc/db/table/**'
       - 'doc/db/view/**'
       - 'doc/db/function/**'

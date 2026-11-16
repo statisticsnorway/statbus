@@ -15,8 +15,8 @@
 # failure direction is strict: over-inclusive matching would treat MORE commits as
 # needing no tests, i.e. wave untested code into a release. So an entry
 # matches a changed file only when the file's repo-root-relative path (as
-# `git diff --name-only` prints it) BEGINS with that entry: `.backlog/`
-# matches `.backlog/tasks/x.md` and never `app/src/.backlog-widget.ts`.
+# `git diff --name-only` prints it) BEGINS with that entry: `doc/db/table/`
+# matches `doc/db/table/x.md` and never `app/src/doc/db/table-widget.ts`.
 # One entry per line; blank lines and lines starting with # are ignored.
 #
 # THE IMAGES GATE NEVER RIDES, whatever this file says — that stays true.
@@ -59,7 +59,6 @@
 # under ops/, which is absent here on purpose), and a test asserts that it
 # matches no entry in its own list. Each new entry ships as its own argued,
 # ratified addition — hand-authored `doc/` is deliberately NOT included here.
-.backlog/
 # Generated database reference only; no Go/app build or test reads these outputs.
 # Constrained to the three subdirectories dev.sh generate-doc-db regenerates
 # (dev.sh:2964-2968): a hand-authored file anywhere else under doc/db/ must

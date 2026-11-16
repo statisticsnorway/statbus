@@ -19,7 +19,6 @@ on:
     branches-ignore:
       - 'ops/**'  # Ignore any branch prefixed with ops/
     paths-ignore:
-      - '.backlog/**'
       - 'doc/db/table/**'
       - 'doc/db/view/**'
       - 'doc/db/function/**'

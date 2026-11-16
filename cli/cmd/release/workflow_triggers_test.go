@@ -173,8 +173,8 @@ func TestPathsIgnoreMatchesExemptList_STATBUS224(t *testing.T) {
 	}
 
 	// MAPPING, stated explicitly because the two dialects differ: the Go
-	// matcher's entry is an anchored path PREFIX (`.backlog/` matches every file
-	// beneath it), while GitHub's filter is a GLOB (`.backlog/**`). A directory
+	// matcher's entry is an anchored path PREFIX (`doc/db/table/` matches every file
+	// beneath it), while GitHub's filter is a GLOB (`doc/db/table/**`). A directory
 	// entry `X/` therefore corresponds to exactly `X/**`; a non-directory entry
 	// corresponds to itself.
 	want := make([]string, 0, len(exempt))

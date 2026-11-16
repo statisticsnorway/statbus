@@ -22,24 +22,24 @@ import (
 )
 
 // TestFileIsCIExempt_AnchoredPrefixNotSubstring pins paths that substring
-// containment WOULD wrongly exempt: vendor/.backlog/thing.md, the
+// containment WOULD wrongly exempt: vendor/doc/db/table/thing.md, the
 // git-quoted path, and both doc-vs-docker cases. Swapping this helper to
 // strings.Contains turns those four red immediately (verified).
 func TestFileIsCIExempt_AnchoredPrefixNotSubstring(t *testing.T) {
-	exempt := []string{".backlog/"}
+	exempt := []string{"doc/db/table/"}
 	for _, tc := range []struct {
 		file string
 		want bool
 		why  string
 	}{
-		{".backlog/tasks/statbus-219 - x.md", true, "a real board file"},
-		{".backlog/docs/doc-030.md", true, "board docs are board files"},
-		{"app/src/.backlog-widget.ts", false, "app code merely carrying the name is not board content"},
-		{"vendor/.backlog/thing.md", false, "SUBSTRING CONTAINMENT WOULD EXEMPT THIS — an exempt directory nested elsewhere is not the exempt directory"},
+		{"doc/db/table/public_upgrade.md", true, "a generated reference file"},
+		{"doc/db/table/sub/x.md", true, "anything beneath the exempt directory"},
+		{"app/src/doc/db/table-widget.ts", false, "app code merely carrying the name is not generated reference"},
+		{"vendor/doc/db/table/thing.md", false, "SUBSTRING CONTAINMENT WOULD EXEMPT THIS — an exempt directory nested elsewhere is not the exempt directory"},
 		{"cli/cmd/release/release.go", false, "ordinary code"},
-		{".backlogger/notes.md", false, "a sibling directory sharing the prefix without the separator"},
+		{"doc/db/tables/notes.md", false, "a sibling directory sharing the prefix without the separator"},
 		{"", false, "an empty path is never exempt"},
-		{`"\303\251.backlog/x.md"`, false, "a git-quoted path (non-ASCII) must fall on the safe side"},
+		{`"\303\251doc/db/table/x.md"`, false, "a git-quoted path (non-ASCII) must fall on the safe side"},
 	} {
 		if got := fileIsCIExempt(tc.file, exempt); got != tc.want {
 			t.Errorf("fileIsCIExempt(%q) = %v, want %v — %s", tc.file, got, tc.want, tc.why)
@@ -68,16 +68,16 @@ func TestFileIsCIExempt_AnchoredPrefixNotSubstring(t *testing.T) {
 // quantified. One non-exempt file anywhere in the diff forbids the ride, no
 // matter how much board text accompanies it (AC#4's unit-level half).
 func TestChangedFilesAllExempt_OneOffenderForbidsTheRide(t *testing.T) {
-	exempt := []string{".backlog/"}
+	exempt := []string{"doc/db/table/"}
 
 	allExempt, justifying, offenders := changedFilesAllExempt(
-		[]string{".backlog/tasks/a.md", ".backlog/tasks/b.md"}, exempt)
+		[]string{"doc/db/table/a.md", "doc/db/table/b.md"}, exempt)
 	if !allExempt || len(justifying) != 2 || len(offenders) != 0 {
 		t.Errorf("all-board diff: got allExempt=%v justifying=%v offenders=%v, want exempt with 2 justifying", allExempt, justifying, offenders)
 	}
 
 	allExempt, _, offenders = changedFilesAllExempt(
-		[]string{".backlog/tasks/a.md", "cli/cmd/release/release.go", ".backlog/tasks/b.md"}, exempt)
+		[]string{"doc/db/table/a.md", "cli/cmd/release/release.go", "doc/db/table/b.md"}, exempt)
 	if allExempt {
 		t.Error("a diff containing cli/cmd/release.go must NOT be exempt — one non-exempt file forbids the ride however much board text surrounds it")
 	}
@@ -179,7 +179,7 @@ func rideFixture(t *testing.T, boardCommits int) (string, string, string) {
 	codeSHA := runGitInCmd(t, dir, "rev-parse", "HEAD")
 
 	for i := 0; i < boardCommits; i++ {
-		writeAndCommit(t, dir, "board", filepath.Join(".backlog", "tasks", "t"+string(rune('a'+i))+".md"))
+		writeAndCommit(t, dir, "board", filepath.Join("doc", "db", "table", "t"+string(rune('a'+i))+".md"))
 	}
 	return dir, runGitInCmd(t, dir, "rev-parse", "HEAD"), codeSHA
 }
@@ -218,7 +218,7 @@ func TestFindExemptRide_BoardOnlyCommitsRideTheAncestor(t *testing.T) {
 		t.Errorf("Justifying = %v, want the 3 board files that justified the ride", ride.Justifying)
 	}
 	for _, f := range ride.Justifying {
-		if !strings.HasPrefix(f, ".backlog/") {
+		if !strings.HasPrefix(f, "doc/db/") {
 			t.Errorf("justifying file %q is not exempt — the ride must only ever be justified by exempt paths", f)
 		}
 	}
@@ -241,9 +241,9 @@ func TestFindExemptRide_EmDashedBoardFilenamesStillRide(t *testing.T) {
 
 	// A filename in the repo's real board style: em-dash, spaces, ticket prefix.
 	writeAndCommit(t, dir, "board",
-		filepath.Join(".backlog", "tasks", "statbus-219 - board-push-ci-decouple — a two-line ticket edit stalls a cut.md"))
+		filepath.Join("doc", "db", "function", "public_søk — år (text).md"))
 	writeAndCommit(t, dir, "board",
-		filepath.Join(".backlog", "docs", "doc-030 - design ruling — STATBUS-219.md"))
+		filepath.Join("doc", "db", "view", "public_enhet — oversikt.md"))
 	tip := runGitInCmd(t, dir, "rev-parse", "HEAD")
 
 	stubWorkflowSeams(t, greenAt(code), trivialComplete)
@@ -257,7 +257,7 @@ func TestFindExemptRide_EmDashedBoardFilenamesStillRide(t *testing.T) {
 		t.Errorf("ride target = %s, want %s", ride.Commit, code)
 	}
 	for _, f := range ride.Justifying {
-		if !strings.HasPrefix(f, ".backlog/") {
+		if !strings.HasPrefix(f, "doc/db/") {
 			t.Errorf("justifying path %q did not arrive raw — a quoted or mangled path must never count as exempt", f)
 		}
 		if strings.HasPrefix(f, `"`) {
@@ -276,7 +276,7 @@ func TestFindExemptRide_NonExemptChangeRefuses(t *testing.T) {
 	dir, _, code := rideFixture(t, 2)
 	// A real code change lands on top of the board commits.
 	writeAndCommit(t, dir, "code change", "cli/internal/upgrade/service.go")
-	writeAndCommit(t, dir, "more board", ".backlog/tasks/zz.md")
+	writeAndCommit(t, dir, "more board", "doc/db/table/zz.md")
 	tip := runGitInCmd(t, dir, "rev-parse", "HEAD")
 
 	stubWorkflowSeams(t, greenAt(code), trivialComplete)
@@ -376,7 +376,7 @@ func TestFindExemptRide_MissingExemptListRefuses(t *testing.T) {
 func TestFindExemptRide_WalkIsBounded(t *testing.T) {
 	dir, _, _ := rideFixture(t, 0)
 	for i := 0; i < ciExemptRideWalkBound+5; i++ {
-		writeAndCommit(t, dir, "board", filepath.Join(".backlog", "tasks", fmt.Sprintf("b%d.md", i)))
+		writeAndCommit(t, dir, "board", filepath.Join("doc", "db", "table", fmt.Sprintf("b%d.md", i)))
 	}
 	tip := runGitInCmd(t, dir, "rev-parse", "HEAD")
 

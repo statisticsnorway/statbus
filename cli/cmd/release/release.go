@@ -1566,7 +1566,7 @@ func loadCIExemptPaths(projDir string) ([]string, error) {
 // over-inclusive matching would treat MORE commits
 // as needing no tests, so a sloppy match waves UNTESTED CODE into a release.
 // Every ambiguity therefore resolves toward NOT exempt:
-//   - `.backlog/` matches `.backlog/tasks/x.md`, never `app/src/.backlog-x.ts`
+//   - `doc/db/table/` matches `doc/db/table/x.md`, never `app/src/doc/db/table-x.ts`
 //     (which substring containment would have wrongly exempted).
 //   - an entry without a trailing slash matches that exact file, or that
 //     directory's contents — never a sibling sharing its name as a prefix
@@ -1687,8 +1687,9 @@ func findExemptRide(projDir, workflow, tipFull string) (*exemptRide, string, *an
 	for i, candidate := range ancestors {
 		// -z IS LOAD-BEARING, NOT HYGIENE. Without it `git diff --name-only`
 		// QUOTES any path with non-ASCII or special characters
-		// (".backlog/…-\342\200\224-….md"), and this repo's board filenames carry
-		// em-dashes — so on precisely the board commits this ride exists to
+		// ("doc/db/function/…-\342\200\224-….md"), and exempt filenames can carry
+		// non-ASCII (the old board's em-dashes, generated names in any language) — so on
+		// precisely the commits this ride exists to
 		// unblock, every quoted path would fail the anchored-prefix match, be
 		// classed non-exempt, and the ride would be inert. Verified on a real
 		// board commit: 2 of 3 paths came back quoted. -z emits raw bytes

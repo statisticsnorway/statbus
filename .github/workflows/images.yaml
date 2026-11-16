@@ -31,7 +31,7 @@ on:
 # commit must still have real, pullable images, unconditionally — deployment
 # would fail on a stale manifest otherwise. But when a push's ENTIRE diff
 # since its parent touches only ops/release/ci-exempt-paths.txt's exempt
-# paths (today: .backlog/ — board activity), rebuilding from source proves
+# paths (today: the generated doc/db/ reference), rebuilding from source proves
 # nothing a byte-for-byte copy of the parent's already-published images
 # wouldn't also prove. `decide-exempt-only` below makes that call; on a
 # match, `retag` copies app, worker, db and proxy's existing multi-arch
