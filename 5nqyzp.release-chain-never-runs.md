@@ -1,0 +1,144 @@
+---
+id: "5nqyzp"
+title: >-
+  release chain never runs the demo-state proof
+  (5-install-source-image-identity-proof); it is re-run by hand for every candidate
+status: "done"
+assignee: []
+created_date: '2026-10-05 20:15'
+labels:
+  - release
+  - testing
+  - upgrade
+dependencies: []
+references:
+  - STATBUS-436
+  - STATBUS-447
+  - STATBUS-450
+priority: medium
+origin: "backlog:STATBUS-451"
+aliases: ["STATBUS-451"]
+type: "feature"
+import_type_inference: "default: no explicit bug/docs/chore/spike label"
+backlog_status: "Done"
+created: "2026-10-05 20:15"
+---
+
+## Issue
+
+The owner's objection (2026-10-05): rehearsals run by hand duplicate the release machinery. The scenario `test/install-recovery/scenarios/5-install-source-image-identity-proof.sh` is the only test that starts from a broken box like demo:
+- a real v2026.09.2 install
+- image tags removed
+- the old upgrade service looping on the false "mixed tags" refusal
+
+It then installs the candidate through the official installer, on two paths:
+- `CANDIDATE_PATH=scheduled`: `./sb upgrade schedule` + `./sb install` inline dispatch
+- `CANDIDATE_PATH=operator`: currently a copied cloud-install recipe, not literal execution of `./cloud.sh install`. The correction must call the actual sourceable production install handler with isolated harness transport.
+
+It carries `HARNESS_SKIP_DEFAULT`, so the LXD fault fleet skips it (`test/install-recovery/lxd/run-forks.sh:103`). The rc.15 fleet (run 37357586680) ran 24 scenarios without it. So for every candidate an agent provisions two Hetzner VMs by hand (`./dev.sh test-install-recovery …` with `INSTALL_TARGET_TAG=<rc>`). Nothing makes that happen, nothing records the result next to the gates, and the release gate does not require it.
+
+Measured cost on rc.15 (2026-10-05):
+- scheduled path: 18:27–18:40 UTC (13 min, including VM create/delete)
+- operator path: 18:27–18:45 UTC (18 min)
+
+The script's `OLD_LOOP_BUDGET_S=4500` (75 min) is a cap, not the duration. The loop observation exits as soon as the old daemon has refused twice, or after 300 s with no journal output. The cap exists because the old v2026.09.2 daemon processes a discovery backlog at about 12 s per release before it attempts the upgrade. The first version of the proof gave up after 180 s with zero refusals.
+
+Value it delivered on rc.15: the scheduled path showed STATBUS-450 at 18:40, 10 minutes before the arc harness did (18:50). The operator path is the only automated proof of the owner's demo repair command.
+
+## Work
+
+1. Decide placement: a step in the LXD fault fleet (it already provisions candidate-addressed guests on the shared host, and `run-smoke.sh` already exports `INSTALL_TARGET_TAG=$TAG`), or a separate orchestrator job alongside the fleet.
+2. Run both `CANDIDATE_PATH` values against the RC tag.
+3. Make both mandatory rows part of the existing full-fleet orchestrator result. The existing stable gate in `cli/cmd/release/release.go` already requires a successful whole-suite run for the exact commit, so reuse that gate rather than adding a new per-route gate list.
+4. Remove the manual rehearsal step from the release checklist and the agent runbook once the automated run has passed on one real candidate.
+
+## Acceptance criteria
+<!-- AC:BEGIN -->
+- [x] #1 Cutting an RC runs the demo-state proof on both paths automatically, against that RC tag, with no agent action.
+- [x] #2 Its result appears with the other gates (run link and pass/fail), and the stable release gate refuses to promote without a pass.
+- [x] #3 Proven on one real RC: both paths pass in the chain, and no hand-launched rehearsal is needed.
+<!-- AC:END -->
+
+## Grounded implementation plan, 2026-10-06 15:26 UTC
+
+Mouse's source-only investigation tmp/451-integration-investigation.md and the coordinator's bounded authorization tmp/451-implementation-authorization.md were read fully. Existing generic checkpoint selection is unsuitable: it selects a prior-release standalone base, while this proof requires actual09.2 private/prerelease. Classify the two wrappers/shared proof as pristine hardened-nothing-installed and use the existing historical installer helper. Export the exact named candidate tag from the current fork driver. Two small default-discovered wrappers select the one scenario body; keep its explicit diagnostic selector excluded to avoid a third run.
+
+The operator proof will call actual cloud.sh cmd_install in an isolated controller subshell with a single harness registry entry and only SSH transport adaptation, using the real candidate artifact verifier/pinned installer during future acceptance. This covers the production install handler, not the outer CLI parser or public HTTP installer download. Scheduled proof keeps real registration/readiness/schedule/official installer inline dispatch. No copied product implementation, registry redesign, fabricated ledger rows or new VM matrix.
+
+Both cells must fetch the artifact-owned full40 SHA through the actual serving proxy/Host and exact release metadata, repeat after scheduler ticks, require their own completed candidate row and capture guest-local callback evidence with positive candidate control. Superseded is not a substitute for completed. No external Slack/webhook and no quiet STATBUS-442 policy repair. Existing comparison rows/log artifacts and stable full-suite exact-commit gate suffice.
+
+Shark session_shark_1791300358117_80eb1d53d2a32a64, GPT6.1Sol low, is assigned ONLY this bounded source implementation from pushed488f7569496c0f831d189686be4225e1730df2a0 in an isolated worktree. No master/index writes, push, DB/cloud/CI dispatch or installs. Observe baseline and tmp prototype before permanent edits, use existing offline driver/checkpoint/handler fixtures, freeze explicit commits for independent exact-pin review. Real images/guests are tested only by the next normal named RC chain. ACs remain unchecked and manual runbook steps remain until both actual automatic paths pass. The historical lost-write/false-completed demo producer is not recreated by this wiring; lower-layer real Go/PG coverage and later official D deployment remain distinct. Early-held convergence must be mapped separately to an existing arc before claiming its guest acceptance. Norway remains held.
+
+## Observed local progress and next handoff, 2026-10-06 15:37 UTC
+
+The coordinator read Shark's actual tmp prototype and existing driver/checkpoint logs. Baseline resolver selected installed-v2026.09.2-standalone, which is the wrong starting checkpoint for this proof. The real sourceable cloud handler, under controlled refusing transports, refused artifact failure before install, then used pinned version/trust arguments and its actual poststeps. Existing baseline driver/checkpoint logs are old PASS controls, not called RED. Current actual-driver fixtures show two separate rows/logs, both-pass status0, either-route failure and missing-result status1. Current resolver maps both paths to hardened-nothing-installed and the existing historical helper captures09.2/private/prerelease setup. These local fixtures do not run installs or prove a candidate guest result.
+
+Shark remains the sole implementation owner, with final full40 frozen pin, explicit command exits, source/path accounting and provenance/callback controls still required. Independent Sloth session_sloth_1791301012517_d1a6323720dab34f, GPT6.1Sol xhigh, is preparing guides/scope now. Final own detached review and MERGE/BLOCK report tmp/451-independent-review.md require the coordinator's exact frozen authorization, never approval of mutable source. All ACs remain unchecked, no guest dispatch or product442 policy change, and no merge/push while the actual CI/readiness boundary remains unmet.
+
+## Frozen implementation read, 2026-10-06 15:41 UTC
+
+Clean original final source is `7cf241db8dc45ee3f6de47dd45bad12f165501ac`, from exact488f, in the owned451-source worktree. Original commits are bcadcc4ea7008018aa350f95113a74b18f8f7643 and7cf241db8dc45ee3f6de47dd45bad12f165501ac. Coordinator independently read clean status, full commit/scope accounting, diff check, all six full-pin command exits0, combined frozen runner/log and the entire78-line root handoff `tmp/451-implementation-report.md`. Ten paths, +391/-42. Existing LXD child summary gains only15 lines, no new workflow matrix or gate protocol. Main cloud.sh, Go, SQL, product ledger policy and manual runbook are unchanged.
+
+Driver independent route-failure and missing-result controls, actual handler artifact refusal/poststeps, full responding SHA/exact metadata/no-store and both callback routes' positive/missing/old-success controls passed as local fixtures. This is not guest acceptance or proof that a superseded candidate is acceptable. Sloth received the coordinator's exact immutable review authorization at15:38 and is independently reviewing its own detached source. No integration is authorized before its full explicit verdict. The next real named RC must still supply both automatic PASS rows and actual serving/callback/ledger evidence.
+
+## Independent BLOCK and bounded correction, 2026-10-06 15:48 UTC
+
+Coordinator read the complete155-line Sloth report tmp/451-independent-review.md: BLOCK original7cf. The adapter calls actual cmd_install in an OR-list, so Bash disables errexit throughout the production handler. An actual required config/app transport failure47 is swallowed: helper exits0, starts the service and prints install complete. A direct call to the same real handler exits47 and stops. Both reviewer and Shark reproduced this exact difference; original source and logs remain preserved.
+
+Only source-image-proof-helpers.sh and the existing cloud-registry fixture are authorized for the correction. Keep direct bare-handler error semantics, retain output/cleanup with EXIT status preservation, and add the actual failing-poststep control alongside success/artifact-refusal controls. No product cloud.sh, new protocol/gate/matrix, Go/SQL or ledger-policy changes. New clean full40 and coordinator-authorized Sloth re-review must explicitly pass the formerly failing route before integration. Original local PASS checks are not merge approval. All real named-RC ACs remain unchecked.
+
+## Corrected immutable source verified, 2026-10-06 15:56 UTC
+
+Shark froze608e031ce99493951d75b010c9ec8be2164df1af, parent original blocked7cf, with only two authorized paths +35/-6. Coordinator verified clean HEAD/parent, exact scope/diff check, read the whole correction/helper and exact frozen checks runner/log/exit0. Corrected helper and direct handler both exit47 with byte-identical complete failure output, stop before service-start/completion, retain success0 and artifact-refusal1/no transport. Existing cloud/static checks all0. The direct bare invocation preserves real Bash error semantics; the small EXIT cleanup saves original stdout only to avoid writing the captured log back into itself while replaying diagnostics. No product protocol or installer change.
+
+Sloth received corrected immutable authorization15:53:44. Explicit independent report tmp/451-independent-review-608.md remains required before integration. Original tmp/451-independent-review.md and original7cf divergence are preserved. This checkpoint is source/local verification only; all automatic named-RC ACs and owner holds remain unchanged.
+
+## Corrected independent MERGE read, 2026-10-06 16:00 UTC
+
+Coordinator read FULL116-line tmp/451-independent-review-608.md: explicit MERGE exact608e031ce99493951d75b010c9ec8be2164df1af. The reviewer independently replayed its byte-unchanged original probe, observed helper47/direct47 with complete byte-identical output exactly once, no later service-start/completion, success0/refusal1/installer-failure1/wrong-binary1 and owned staging cleanup. Current cloud fixture/static/source checks pass, original BLOCK/probe remain byte-identical, and eight unchanged source blobs retain their original independent review attribution. This is approval of the complete bounded ten-path source range, not permission to skip real gates.
+
+Full78-line corrected implementation handoff was also read at owned451-source/tmp/451-followup/completion-report.md. It supersedes old7cf readiness, retains prototype mistakes and original RED, and reports no source edits after corrected freeze. The initial diagnostic self-append and unavailable local cleanup state were corrected before final source; its generated repeated scratch output was reclaimed after retaining a sample, without altering original independent evidence.
+
+Next integrate ONLY bcadcc4ea7008018aa350f95113a74b18f8f7643,7cf241db8dc45ee3f6de47dd45bad12f165501ac and608e031ce99493951d75b010c9ec8be2164df1af, prove patch IDs/final ten-path equality and unrelated source preservation. No source push until narrow known CI fixture/diagnostic defects are reviewed and ALL CI is freshly idle. All451 ACs still require normal named-RC actual automatic both-cell PASS, with own completed row, serving provenance and local callback evidence. Norway and owner demo remain held.
+
+## Reviewed source integrated, 2026-10-06 16:04 UTC
+
+After notes859daf0e3, all3 approved source commits were cherry-picked conflict-free as59e764cbf0971fbc740dafbacf7017be1136dd77,4cc7c5a27102e2d571d76a0132bd76bfcc024047 and3b63516304817407c5c1638be8c27e7b898162a0. Stable patch IDs respectively cc9d62b85e50e311559dd6338cb7a464c1797d02,181ce07c384d5c8606fdadfc3b7412d46e19f88a andca3cb3bd7ba6dd82bc587f8eac04fda9651d3098 match originals. All10 paths and complete non-backlog source equal the independently reviewed608 tree; changed-path inventory/diff/cached checks pass. Proof tmp/451-reviewed-source-integration-20261006.log and451-reviewed-source-proof-20261006.log. No push or runtime install at this checkpoint. Original blocked history and review evidence remain preserved. Actual RC both-cell acceptance still pending, all ACs unchecked.
+
+## First combined push and observed harness failure, 2026-10-06 16:43 UTC
+
+Pushed ff31419a87fdc46d1fc8efd555833f2af05ea56d once after all paginated active CI states were idle at 16:37:04, with no event filter. Full remote SHA verified. This includes the independently approved 451 range, managed fixture guard and actual 454 producer correction. Evidence: tmp/454-combined-reviewed-push-20261006.log and tmp/454-ci-idle-before-push-20261006T1636-*.json. No production install or named-candidate acceptance.
+
+Harness Selftest 37497122181 actually failed at Prove harness failure paths. Read its complete 29-line failure log and job/step JSON: tmp/454-harness-ff31419a8-failed-20261006.{log,json}. The existing process-log-registration test reports shared scenario lines 82, 89, 152, 155 and 431. All later harness steps were skipped. The bootstrap's missing unpublished image and source-build fallback are not the failing assertion. App, Go, Images and Notify succeeded; Fast 37497710543 was still running at 16:42. No all-green credit or another push while it runs.
+
+Snake's new isolated worktree /Users/jhf/ssb/statbus-451-log-registration-followup, branch agent/451-log-registration-followup, is based on exact ff314. The direct safe existing registration test reproduces all five reports, exit 1. Real collection evidence distinguishes host identity/callback artifacts in RUN_DIR, copied by run-forks and uploaded by the workflow, from the guest callback logfile outside statbus/tmp. The latter needs genuine native harness_register_log before its arm write. Native registration requires VM IP and an absolute guest path, so falsely registering host paths would be wrong.
+
+Authorized only a narrow ignored prototype, then observation-supported scenario/scanner correction and a tiny behavioral fixture if necessary. Preserve detached-launch checks and genuine guest collection coverage across existing payload conventions. No filename/token exemption, fake registration comment, extension rename, general parser or registry redesign. Required controls: retained host artifact, unregistered guest rejection, registered guest acceptance and unregistered detached rejection, plus relevant direct offline 451 checks. No dev.sh bootstrap, DB, network, guest or broad Go operations. Sheep prepares independent review only, awaiting the coordinator's immutable final pin before tests/verdict. No new source integrated or approved yet. Actual both-cell RC ACs remain unchecked.
+
+At 16:49 UTC the coordinator read the actual prototype logs and 13-write inventory. Scanner, host retention and native registration-before-write controls pass; unregistered guest, quoted guest and detached writes are rejected. The bounded source is one callback registration, foreground guest-payload scope correction and an offline fixture. Detached-launch checking is byte-identical. Existing related offline checks pass. Preserved full scanner/scenario ShellCheck failures are inherited, scoped changed-line checks pass; the initial validation driver remains honestly failed on that global lint. These checks are not real guest acceptance. Clean final pin/report and explicit independent Sheep verdict are still required. Fast 37497710543 was still executing SQL at 16:47, with floor/livedb pending, so no further push or all-green claim.
+
+At 16:50 UTC read the full 123-line implementation report and actual freeze proof: clean 5ad886fb5db72b1239c8f8a9b1192ff5b92331ca, exact base ff314, only three approved files, +106/-3. Coordinator authorized Sheep at 16:50:11 to independently review only that immutable source with bounded offline checks. Full explicit tmp/451-log-registration-review.md MERGE/BLOCK is required before integration. No hosted or real guest PASS inferred from local controls, no new source integrated yet. Native tasks now explicitly retain the simpler future one-arc early-held proof and all owner/candidate gates.
+
+At 16:59:06 UTC the coordinator read the FULL131-line final independent report: explicit MERGE for bounded source integration at exact5ad. The earlier ready checkpoint was correctly not treated as approval. The reviewer independently preserved all13 existing log statements and15 detached launches, reproduced original RED1 and corrected GREEN0, verified real host collection/native guest manifest order, and retained global lint/aggregate failures and LXD shim/runtime limitations. Full report tmp/451-log-registration-review.md.
+
+At 17:00:09 UTC integrated only5ad as dd1142e5fb70bb2253131f3bf751bda3d023f50f. Stable patch9e52b7889e586b288c522e6937482eab0a0bba4d matches and COMPLETE non-backlog source equals the independently reviewed5ad tree. Only the three approved paths changed, index empty, unrelated448 hash and untracked.yarn preserved. Evidence tmp/451-log-reviewed-integration-20261006T1700.log. No push or guest acceptance yet at this checkpoint.
+
+The remaining prior-source Fast run37497710543 is completed/success: actual102 shared+1 isolated SQL tests, daemon floor, upgrade/install livedb packages and live Docker probes passed. Saved final job JSON tmp/454-fast-ff314-20261006T1701.json and full2988-line hosted log tmp/454-fast-ff314-final-full-20261006.log. Its source still has the failed Harness guard, so no all-green or RC credit. Next is fresh ALL-CI-idle, one reviewed correction push and normal exact-source CI, followed by named-candidate real guests. All451 runtime ACs remain unchecked.
+
+At 17:04:50 UTC all paginated active CI states were empty, without an event filter. Pushed reviewed correction/evidence b594a2f012fc4acd9acd5cd2ac3314f6f3b76e4d ONCE and verified the full remote SHA. Evidence tmp/451-log-reviewed-push-20261006T1704.log and451-log-ci-idle-20261006T1704-*. At 17:07:25 launched the sole existing normal observer445135q1at,540s deadline, expected six named workflows and attributed Fast success. Output tmp/452-ci-b594a2f01*. Current observation pending, not all-green or named-RC acceptance. No production operation, duplicate push or observer.
+
+At17:10 UTC actual corrected Harness37500765074 completed SUCCESS. Full job steps and retained log show the process-log registration check and host/guest/quoted/detached positive/negative controls passed, then gapless install mutex and all remaining harness steps passed. Evidence tmp/451-harness-b594-final-20261006.{json,log}, lines505-533. App/Go/Images/Notify also SUCCESS at exactb594. Fast37501348438 still active, build-sb phase at17:10, no SQL/floor/livedb credit yet. Current native task remains corrected-source CI; no candidate guest AC is checked from this harness pass.
+
+At17:16:25 observer445135q1at reached its540s process deadline, exit124. Fresh actual Fast37501348438 still has SQL in progress and preceding steps successful, floor/livedb pending. This is NOT a hosted failure. With no other monitor active, sole continuation999309cpfk started17:16:39,600s deadline. No hosted rerun/dispatch or push. Evidence tmp/452-fast-b594-20261006T1716.json. Current fallback sched_e8d1a3d4 due17:26:53 reads real state before any next action.
+
+At17:22:57 UTC continuation999309cpfk completed0. All six expected source workflows passed at exactb594: Harness37500765074, App37500765070, Images37500765132, Notify37500765178, Go37500765195 and attributed Fast37501348438. Read final actual Fast jobs/logs:102 shared+1 isolated SQL passed, real daemon-floor oracle passed, upgrade163.507s/install3.244s livedb packages and separate Docker probes passed. SQL failure diagnostics correctly skipped because SQL passed, not credited as exercised. Evidence tmp/452-fast-b594-final-20261006.{json,log} and tmp/452-ci-b594a2f01-latest.json. All451 actual named-candidate guest ACs remain unchecked. Source green does not resolve other release blockers or authorize a production install. Original failed sources and monitoring deadline remain retained.
+
+## Actual automatic named-candidate proof, observed UTC October 7, 2026 00:15
+
+The normal checked cut of `v2026.10.0-rc.17`, full `24ed72065a25e925aeac09189f0be29990403d31`, automatically ran BOTH mandatory cells in fault fleet37543545837 through release-fleet37542050305, with no hand-launched rehearsal. Operator1110s/rc0 and scheduled1109s/rc0 are PASS in retained comparison artifact11450424639, digest `ce9d43cbd9510d40423c8b8ab29e3897e9ea4c19c3e51b19a79e369acf1408c7`. Primary job112542005832 lines809-826 maps both rows and exposes the comparison table. Full saved evidence: `tmp/overnight-rc17-source-identity-evidence.md` and `tmp/451-actual-rc17-evidence-addendum.md`.
+
+Operator actually executes sourced production `cloud.sh cmd_install`; scheduled uses the legitimate schedule and official installer. Both prove their own completed candidate row, preserved data/health, resident binary, responding artifact full24ed and exact rc17 metadata over five rounds, plus guest-local event|version callbacks. Both serve the same immutable app image `sha256:50d0e2d895b37743b79def08740d456e9110d7f480477c7a1aaeb811b366a430`. Callback output is NOT a full environment/SHA/row-id envelope; four-round row/restart assertions ran but not every raw value is individually printed.
+
+The unchanged `checkInstallRecoveryHarnessGate` at release.go1902-1909 requires the full LXD workflow to succeed at the exact commit. Existing `TestLXDFleetGate_WorkflowResultAndBypass` preserves failed/pending/unknown refusal and was included in the complete ordinary Go gate. Result exposure is actual guest-run evidence; refusal wiring is inspected source and synthetic test evidence, not a live stable promotion attempt. Its explicit compatibility bypass was never used.
+
+AC1/AC3 now have real automatic-RC proof; AC2 has actual result mapping plus the unchanged tested exact-commit gate. The duplicated manual rehearsal is no longer part of the release path, so this wiring ticket is Done. The fleet itself genuinely FAILED25PASS/oneERROR and selected arcs FAILED32PASS/threeFAIL. Those other failures remain blocking for rc17 readiness and stable promotion. No owner demo/Norway installation, blanket candidate approval, security waiver or future-candidate acceptance is inferred from these two cell passes.
