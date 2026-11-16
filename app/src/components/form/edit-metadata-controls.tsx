@@ -412,25 +412,32 @@ export function useSaveApproval() {
 }
 
 /**
- * The approval left of Cancel when Save would change ticked periods besides
- * the anchor: the timeline highlights those changes, and Save stays disabled
- * until the user approves them here (owner 2026-11-16). Any change to the
- * ticks or the values afterwards takes the approval back.
+ * The approval beside Cancel and Save when Save would change ticked periods
+ * besides the one the form shows: the timeline highlights those changes, and
+ * Save stays disabled until the user approves them here (owner 2026-11-16).
+ * It sits with the buttons and is highlighted while pending, so it reads as
+ * the step before Save. Any change to the ticks or the values afterwards
+ * takes the approval back.
  */
 export function SaveApproval() {
   const { needed, approved, approve } = useSaveApproval();
   if (!needed) return null;
   return (
     <label
-      className="mr-auto flex cursor-pointer items-center gap-2 text-sm text-zinc-800"
+      className={cn(
+        "flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-sm",
+        approved
+          ? "border-zinc-200 text-zinc-800"
+          : "border-amber-400 bg-amber-50 text-amber-900"
+      )}
       data-save-approval={approved ? "approved" : "pending"}
     >
       <Checkbox
         checked={approved}
         onCheckedChange={(on) => approve(on === true)}
-        aria-label="Approve timeline changes"
+        aria-label="Approve timeline changes to save"
       />
-      Approve timeline changes
+      Approve timeline changes to save
     </label>
   );
 }
