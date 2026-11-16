@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-12T00:59:00Z'
-updated_date: '2026-11-16T16:05:00Z'
+updated_date: '2026-11-16T16:54:00Z'
 labels:
   - performance
   - db
@@ -33,6 +33,9 @@ After every recalculation the facet reduce rebuilt the whole facet table, whatev
 Considered and not pursued: building the staging index once after the fill (about 2 % of a full recalculation, and index DDL inside the running pipeline).
 
 Closing review: the design is recorded on the procedures (COMMENT ON) and in doc/derive-pipeline.md; no memory change.
+
+## Remaining (the only step before Done)
+After the next release candidate is installed on Norway (rune): time a 3-unit edit's statistical_unit_facet_reduce and a 50 % change there, against the previous release on rune; write both in the release notes and here (AC #2), then set Done. Local reference numbers to compare with are in the notes (2026-11-15).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
