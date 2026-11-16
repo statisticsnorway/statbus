@@ -87,8 +87,9 @@ export function ExternalIdentTypeForm({
                   response={state}
                   value={isEdit ? externalIdentType.code : ""}
                 />
-                <span className="text-xs text-gray-500 pl-1">
-                  Used as column name in CSV files
+                <span className="text-xs text-gray-500 pl-1 pt-1 block">
+                  Used as column name in CSV files (no spaces or capital
+                  letters)
                 </span>
               </div>
             </div>

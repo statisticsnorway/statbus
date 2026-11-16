@@ -80,8 +80,9 @@ export function StatDefinitionForm({
                   response={state}
                   value={isEdit ? statDefinition.code : ""}
                 />
-                <span className="text-xs text-gray-400 pl-1">
-                  Used as column name in CSV files
+                <span className="text-xs text-gray-400 pl-1 pt-1 block">
+                  Used as column name in CSV files (no spaces or capital
+                  letters)
                 </span>
               </div>
             </div>
