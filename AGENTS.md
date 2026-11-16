@@ -26,12 +26,15 @@ STATBUS is SSB's statistical business registry: PostgreSQL 18+, PostgREST 12+, N
 - Commit and push ordinary changes to master without waiting for idle CI or asking permission, unless the user requested a review-only diff. Inspect CI for that exact SHA afterwards. Release gates are separate.
 - Read GitHub Actions `status` and `conclusion` explicitly using `gh run list --json status,conclusion`. Do not rely on `gh run watch --exit-status`.
 
-## Backlog
+## Tasks: hug
 
-- Backlog is the durable ticket tracker. Each ticket's scope, acceptance criteria, status, and evidence live in its Markdown file under `.backlog/tasks/`, not only in todos or agent prompts.
-- Use the Backlog MCP or `backlog` CLI to create and update tickets. Read with either tool or `rg`. Do not hand-edit structured ticket sections, look up tickets in a browser, or guess tracker URLs.
-- Set `In Progress` when work starts, including delegation. After verification, set `Done` with `backlog task edit <id> -s "Done"` and leave it on the board. Do not use `backlog task complete` for newly finished work.
-- Use `--append-notes` to add evidence. `--notes` replaces existing notes. Use `--check-ac <n>` to mark verified criteria.
+- hug is the durable ticket tracker. Tasks live on the git branch `hug/tasks`, checked out at `.hug/tasks/` (run `hug task init` once per checkout). Each task's goal, acceptance checks, status and evidence live there, not only in todos or agent prompts. Old ids such as `STATBUS-626` work as aliases.
+- Use the `hug task` CLI or the hug MCP (`hug mcp`, tools `task_*`). Read with either or `rg`. Change tasks only through these commands, never by editing `.hug/tasks/` files, because another agent may be writing.
+- Start: `hug task next`, then `hug task take ID --model MODEL` (the model you are; a person: `--model human`), then `hug task show ID`. Take also covers delegation.
+- While working: `hug task note ID "evidence"` and `hug task check ID N` when check N has evidence. Finish: `hug task done ID` when every check is ticked; it stays on the board.
+- New work: `hug task new "short title" --type TYPE --goal "..." --purpose "..." --principle "..." --details "..." --accept "observable check"`. Types: feature, bug, chore, spike, docs. Titles stay under 80 characters; detail goes in the goal.
+- `hug task sync` shares task edits through the remote; take and done sync themselves.
+- `.backlog/` is the read-only Backlog.md archive the tasks were imported from on 2026-11-16.
 
 ## Commands and configuration
 

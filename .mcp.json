@@ -1,13 +1,11 @@
 {
   "mcpServers": {
-    "backlog": {
+    "hug": {
       "type": "stdio",
-      "command": "backlog",
+      "command": "hug",
       "args": [
-        "mcp",
-        "start"
-      ],
-      "env": {}
+        "mcp"
+      ]
     }
   }
 }

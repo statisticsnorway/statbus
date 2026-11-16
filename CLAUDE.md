@@ -9,9 +9,9 @@ This project uses **Claude Code's built-in team functionality** (the multi-agent
 
 Why the name matters: the team name is a single global namespace (`~/.claude-veridit/teams/<name>/config.json`). A generic name like `team` collides with other concurrent Claude Code sessions on this machine — a parallel project's same-named team clobbers our roster and cross-delivers messages. A project-specific name keeps each session's team isolated. Foreman bootstrap: `TeamCreate({team_name: "statbus", ...})`.
 
-### Task board — Backlog.md, NOT the harness Task* list
+### Task board: hug, not the harness Task* list
 
-The team's task board is **Backlog.md** (the `mcp__backlog__task_*` tools). The harness `TaskCreate` is **blocked** by `.claude/hooks/require-backlog-tasks.sh` — the harness `Task*` list is volatile (it does not survive `/clear` or compaction and is not the shared source of truth). Coordinate via Backlog.md tasks (create / assign / note / close with the backlog MCP) plus `SendMessage`. Full workflow: the BACKLOG WORKFLOW section below.
+The team's task board is **hug** (`hug task` CLI, or the hug MCP `task_*` tools). The harness `TaskCreate` is **blocked** by `.claude/hooks/require-hug-tasks.sh`: the harness `Task*` list does not survive `/clear` or compaction and is not the shared source of truth. Coordinate via hug tasks (take / note / check / done) plus `SendMessage`. Workflow: the Tasks section of AGENTS.md and the hug section below.
 
 ### Roles (read only yours)
 
@@ -132,31 +132,21 @@ Silent acceptance is reserved for **valid stored data** — there is no missingn
 
 When designing per-step import validation, classify every input scenario into one of these three categories. If unsure, default to warning over silence.
 
-<!-- BACKLOG.MD MCP GUIDELINES START -->
-
-<CRITICAL_INSTRUCTION>
-
-## BACKLOG WORKFLOW INSTRUCTIONS
-
-This project uses Backlog.md MCP for all task and project management activities.
-
-**CRITICAL GUIDANCE**
-
-- If your client supports MCP resources, read `backlog://workflow/overview` to understand when and how to use Backlog for this project.
-- If your client only supports tools or the above request fails, call `backlog.get_backlog_instructions()` to load the tool-oriented overview. Use the `instruction` selector when you need `task-creation`, `task-execution`, or `task-finalization`.
-
-- **First time working here?** Read the overview resource IMMEDIATELY to learn the workflow
-- **Already familiar?** You should have the overview cached ("## Backlog.md Overview (MCP)")
-- **When to read it**: BEFORE creating tasks, or when you're unsure whether to track work
-
-These guides cover:
-- Decision framework for when to create tasks
-- Search-first workflow to avoid duplicates
-- Links to detailed guides for task creation, execution, and finalization
-- MCP tools reference
-
-You MUST read the overview resource to understand the complete workflow. The information is NOT summarized here.
-
-</CRITICAL_INSTRUCTION>
-
-<!-- BACKLOG.MD MCP GUIDELINES END -->
+## Tasks: hug
+Track all work with hug tasks (on the git branch "hug/tasks", at .hug/tasks/).
+Start: hug task next, then hug task take ID --model MODEL (the model you are, e.g.
+claude-opus-5-5 or gpt-6.1-sol; a person: --model human; --as NAME adds your agent
+or session name, optional), then hug task show ID.
+While working: hug task check ID N with evidence, hug task note ID "evidence".
+Finish: hug task done ID when every acceptance check is ticked.
+New work: hug task new "short title" --goal "..." --purpose "..." --principle "..." --details "..." --accept "observable check".
+Describe a task with Goal (where we aim), Purpose (why), Principle (what we do
+and do not do), Relevant details, then Acceptance. Titles stay under 80
+characters; detail goes in the Goal.
+Epics: hug task set ID --parent EPIC; hug task promote ID N turns item N into
+its own task. hug task ls --epic EPIC shows an epic and its children.
+MCP tools (hug mcp): task_list, task_show, task_new, task_next, task_take (model
+required, agent optional),
+task_done, task_update (actions set, check, promote, note, move, dep, drop).
+Old backlog ids (TASK-123) work as aliases.
+Never edit .hug/tasks/ files by hand while another agent may be writing; use the commands.

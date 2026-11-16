@@ -1,9 +1,9 @@
 #!/bin/bash
-# test-require-backlog-tasks.sh — smoke tests for the hook.
-# Run with: bash .claude/hooks/test-require-backlog-tasks.sh
+# test-require-hug-tasks.sh — smoke tests for the hook.
+# Run with: bash .claude/hooks/test-require-hug-tasks.sh
 set -u
 
-HOOK="$(dirname "$0")/require-backlog-tasks.sh"
+HOOK="$(dirname "$0")/require-hug-tasks.sh"
 fail=0
 pass=0
 
@@ -22,9 +22,9 @@ assert_decision() {
   fi
 }
 
-# The harness TaskCreate is blocked; the Backlog MCP create is the way.
+# The harness TaskCreate is blocked; the hug MCP create is the way.
 assert_decision "harness TaskCreate"          "deny"          '{"tool_name":"TaskCreate","tool_input":{"title":"x"}}'
-assert_decision "backlog task_create (mcp)"   "allow-default" '{"tool_name":"mcp__backlog__task_create","tool_input":{"title":"x"}}'
+assert_decision "hug task_new (mcp)"          "allow-default" '{"tool_name":"mcp__hug__task_new","tool_input":{"title":"x"}}'
 
 # Other harness Task* tools are NOT touched by this hook.
 assert_decision "TaskUpdate"                  "allow-default" '{"tool_name":"TaskUpdate","tool_input":{}}'

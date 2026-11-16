@@ -1,11 +1,11 @@
 #!/bin/bash
-# test-remind-backlog-after-commit.sh — behavioral checks for
-# remind-backlog-after-commit.sh. Run directly: exits 0 all-green, 1 on any
+# test-remind-hug-after-commit.sh — behavioral checks for
+# remind-hug-after-commit.sh. Run directly: exits 0 all-green, 1 on any
 # failure, printing per-case verdicts.
 
 set -uo pipefail
 
-HOOK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/remind-backlog-after-commit.sh"
+HOOK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/remind-hug-after-commit.sh"
 fail=0
 
 check() {
@@ -31,8 +31,8 @@ check "git -C commit fires" \
   '{"tool_name":"Bash","tool_input":{"command":"git -C /some/dir commit -m x"}}' FIRE
 check "compound add+commit fires" \
   '{"tool_name":"Bash","tool_input":{"command":"git add a.go && git commit -m x && git push"}}' FIRE
-check "backlog-sync commit skips" \
-  '{"tool_name":"Bash","tool_input":{"command":"git add .backlog/tasks/ && git commit -m board"}}' NO-FIRE
+check "commit in the task worktree skips" \
+  '{"tool_name":"Bash","tool_input":{"command":"git -C .hug/tasks commit -m board"}}' NO-FIRE
 check "non-commit git skips" \
   '{"tool_name":"Bash","tool_input":{"command":"git log --oneline"}}' NO-FIRE
 check "prose mentioning commit skips" \
@@ -43,6 +43,6 @@ check "non-Bash tool skips" \
   '{"tool_name":"Edit","tool_input":{"file_path":"/x"}}' NO-FIRE
 check "env kill-switch disables" \
   '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"}}' NO-FIRE \
-  "HOOK_ENABLED_REMIND_BACKLOG_AFTER_COMMIT=0"
+  "HOOK_ENABLED_REMIND_HUG_AFTER_COMMIT=0"
 
 exit $fail
