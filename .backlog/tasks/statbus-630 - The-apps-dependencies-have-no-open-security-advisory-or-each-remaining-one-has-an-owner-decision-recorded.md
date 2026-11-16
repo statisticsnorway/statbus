@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-15T16:14:00Z'
-updated_date: '2026-11-16T13:06:00Z'
+updated_date: '2026-11-16T13:42:00Z'
 labels:
   - security
   - app
@@ -53,4 +53,8 @@ Six Dependabot alerts were open on master after STATBUS-593 (2026-11-15). Each f
 2026-11-16 owner (13:00): merge Mermaid 12 with today's look; the diagram is still slow, a faster one is a separate project to discuss later. Landed on master as d28df2738 (cherry-pick of the reviewed branch commit a97cad00f onto cdfc31bb3, no conflicts); branch statbus-630-mermaid12 deleted. Rechecked on master: katex 0.18.10, Jest 354/354, tsc pass, pnpm audit leaves only deepmerge (low). AC3's second half (the ER diagram in the owner's browser on the real /doc/er page) still to see; the side-by-side render of the real diagram is in tmp/630/mermaid.
 
 2026-11-16 AC4 owner decision (13:05): accept deepmerge GHSA-gcqx-w48m-w2h4 (low) as dev-only. No fixed release exists; pnpm why deepmerge shows it only under jest -> jest-config (devDependencies), not in production dependencies or images. Dependabot alert 730 dismissed as tolerable_risk with that reason. gh api dependabot/alerts now lists no open alert.
+
+2026-11-16 CI for the Mermaid merge d28df2738: app build & lint 43871800240 success (the workflow that lints, type-checks, runs Jest and builds the app), plus Go Test 43871800346, Images 43871800541, Harness 43871800419, Push on master 43871800087, Notify 43871800142 all success. Fast Tests runs the SQL suite against the database and does not exercise the app's dependencies, so it is not the gate for this change (owner 13:25).
+
+2026-11-16 correction (owner 13:41): the ER page on the real app draws in about 5-8 s on Mermaid 12 (dev server log: GET /doc/er 200 in 5.1 s, then the draw; owner's eye ~8 s). The 41 s / 84 s / 175 s I reported came from a standalone test page that loaded Mermaid's whole ESM build chunk by chunk from a local file server, not from the app's bundle: wrong as a measure of the app, and not grounds for 'still slow'. The owner's earlier ~5 s was the old app container (Mermaid 11), since no dev server ran for this checkout after the crash.
 <!-- SECTION:NOTES:END -->
