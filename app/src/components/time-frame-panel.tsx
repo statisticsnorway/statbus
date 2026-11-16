@@ -183,6 +183,8 @@ export interface TimeFramePanelProps {
   dateBounds?: DateBounds;
   /** Shown below the Frame view's menu and dates: what the chosen period does (Remove mode's summary). */
   frameFooter?: React.ReactNode;
+  /** Shown under the data source: an edit's note that the ticked periods have different ones. */
+  dataSourceNote?: React.ReactNode;
 }
 
 /** The first and last day a change can cover; to "infinity" for no end. */
@@ -228,6 +230,7 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
     hideMetadata,
     dateBounds,
     frameFooter,
+    dataSourceNote,
   } = props;
   const groups = groupTimeFrames(timeFrames, { forMenu: false });
   const modes = timeline ? TIME_FRAME_PANEL_MODES : [];
@@ -373,6 +376,7 @@ export function TimeFramePanel(props: TimeFramePanelProps) {
               ))}
             </SelectContent>
           </Select>
+          {dataSourceNote}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-comment`} className={headingClass}>

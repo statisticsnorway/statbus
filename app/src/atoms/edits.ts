@@ -39,6 +39,13 @@ export interface EditTarget {
   view?: "frame" | "timeline";
   /** In the Frame view: dated by the frame (default) or by specific dates. */
   validityChoice?: "frame" | "dates";
+  /**
+   * The user chose the data source, or wrote the comment, in this edit. Until
+   * then a save keeps each ticked period's own (edit-payload's keptColumns),
+   * so ticking periods with different sources never overwrites them.
+   */
+  dataSourceChosen?: boolean;
+  commentChosen?: boolean;
 }
 
 export const initialEditAtom: EditTarget = {
@@ -108,6 +115,14 @@ export const setEditDataSourceIdAtom = atom(
   }
 );
 
+/** The user's own choice of data source (the panel's menu): the save writes it. */
+export const chooseEditDataSourceIdAtom = atom(
+  null,
+  (get, set, dataSourceId: string | null) => {
+    set(currentEditAtom, (prev) => ({ ...prev, dataSourceId, dataSourceChosen: true }));
+  }
+);
+
 /** Turns Remove mode on (no pieces ticked), sets its ticks, or turns it off (null). */
 export const setEditRemovingAtom = atom(
   null,
@@ -142,7 +157,7 @@ export const setEditValidityChoiceAtom = atom(
 export const setEditCommentAtom = atom(
   null,
   (get, set, comment: string | null) => {
-    set(currentEditAtom, (prev) => ({ ...prev, editComment: comment }));
+    set(currentEditAtom, (prev) => ({ ...prev, editComment: comment, commentChosen: true }));
   }
 );
 
@@ -154,6 +169,7 @@ export const useEditManager = () => {
   const doSetValidFrom = useSetAtom(setEditValidFromDateAtom);
   const doSetValidTo = useSetAtom(setEditValidToDateAtom);
   const doSetDataSourceId = useSetAtom(setEditDataSourceIdAtom);
+  const chooseEditDataSourceId = useSetAtom(chooseEditDataSourceIdAtom);
   const doSetEditComment = useSetAtom(setEditCommentAtom);
   const setEditRemoving = useSetAtom(setEditRemovingAtom);
   const setEditView = useSetAtom(setEditViewAtom);
@@ -200,6 +216,7 @@ export const useEditManager = () => {
     setEditValidFrom,
     setEditValidTo,
     setEditDataSourceId,
+    chooseEditDataSourceId,
     setEditComment,
     setEditRemoving,
     setEditView,

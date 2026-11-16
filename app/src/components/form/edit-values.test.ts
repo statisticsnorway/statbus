@@ -48,6 +48,8 @@ describe("editStartValues", () => {
       },
       dataSourceId: 5,
       differing: [],
+      differences: {},
+      dataSourceRuns: [],
     });
   });
 
@@ -56,6 +58,16 @@ describe("editStartValues", () => {
       values: { email_address: null, web_address: "https://my.home.com" },
       dataSourceId: null,
       differing: ["email_address"],
+      differences: {
+        email_address: [
+          { value: "john@doe.com", valid_from: "2025-01-01", valid_to: "2025-12-31" },
+          { value: null, valid_from: "2026-01-01", valid_to: "infinity" },
+        ],
+      },
+      dataSourceRuns: [
+        { value: 5, valid_from: "2025-01-01", valid_to: "2025-12-31" },
+        { value: null, valid_from: "2026-01-01", valid_to: "infinity" },
+      ],
     });
   });
 
@@ -73,6 +85,42 @@ describe("editStartValues", () => {
       values: { email_address: null, web_address: "https://my.home.com" },
       dataSourceId: null,
       differing: [],
+      differences: {},
+      dataSourceRuns: [],
     });
+  });
+});
+
+// Legal unit 29's Sector (owner 2026-11-16): 4500 in 2024 and 2025, a real row
+// without a sector from 2026. An empty row is a value (none), unlike a hole.
+describe("editStartValues differences", () => {
+  const sector = [
+    period("2024-01-01", "2024-12-31", { sector_id: 57 }, 4),
+    period("2025-01-01", "2025-12-31", { sector_id: 57 }, 4),
+    period("2026-01-01", "infinity", { sector_id: null }, 2),
+  ];
+
+  it("lists each differing column's values over the ticked stretch, oldest first", () => {
+    const start = editStartValues(sector, [0, 1, 2]);
+    expect(start?.differing).toEqual(["sector_id"]);
+    expect(start?.differences).toEqual({
+      sector_id: [
+        { value: 57, valid_from: "2024-01-01", valid_to: "2025-12-31" },
+        { value: null, valid_from: "2026-01-01", valid_to: "infinity" },
+      ],
+    });
+  });
+
+  it("lists the data source per stretch when the ticked periods have different ones", () => {
+    expect(editStartValues(sector, [1, 2])?.dataSourceRuns).toEqual([
+      { value: 4, valid_from: "2025-01-01", valid_to: "2025-12-31" },
+      { value: 2, valid_from: "2026-01-01", valid_to: "infinity" },
+    ]);
+  });
+
+  it("has no differences when the ticked periods agree", () => {
+    const start = editStartValues(sector, [0, 1]);
+    expect(start?.differences).toEqual({});
+    expect(start?.dataSourceRuns).toEqual([]);
   });
 });

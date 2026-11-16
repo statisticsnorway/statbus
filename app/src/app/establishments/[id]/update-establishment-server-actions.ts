@@ -8,6 +8,7 @@ import {
   resolveSchemaByType,
 } from "@/components/form/helper-functions";
 import { describeInvalidForm } from "@/components/form/metadata-validation";
+import { editFormForValidation, updatePayload } from "@/components/form/edit-payload";
 
 export async function updateEstablishment(
   id: string,
@@ -17,7 +18,9 @@ export async function updateEstablishment(
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
   const schema = resolveSchemaByType(schemaType);
-  const validatedFields = schema.safeParse(formData);
+  // A kept column is validated with its start value and left out of the update (edit-payload).
+  const { form: validatedForm, kept } = editFormForValidation(formData);
+  const validatedFields = schema.safeParse(validatedForm);
   if (!validatedFields.success) {
     return describeInvalidForm(validatedFields.error);
   }
@@ -67,8 +70,9 @@ export async function updateEstablishment(
     // Extract image-related fields that shouldn't be sent to database
     const { image, delete_image, ...dataFields } = validatedFields.data;
     
+    // Without the columns the form keeps: each ticked period keeps its own (edit-payload).
     const payload = { 
-      ...dataFields, 
+      ...updatePayload(dataFields, kept), 
       ...metadata,
       ...(imageId !== undefined && { image_id: imageId })
     };

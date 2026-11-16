@@ -14,6 +14,8 @@ import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
 import { RemoveRecordAction } from "./remove-record-button";
 import { useEditStartValues } from "./use-edit-start-values";
+import { DIFFERS } from "./edit-payload";
+import { DiffersNote } from "./differing-values";
 
 /**
  * A field's value in the form: while editing, the ticked stretch's own value
@@ -60,13 +62,15 @@ export function EditableFieldGroup({
 
   const isEditing = currentEdit?.fieldId === fieldGroupId;
 
-  // The edit writes every field over the ticked stretch, so the fields start
-  // from that stretch's own values and data source, not the page's (Live's).
-  // A field the user leaves alone then keeps its value (owner 2026-11-13).
+  // A field starts from the ticked stretch's own value (owner 2026-11-13). A
+  // field whose ticked periods differ starts as "Differs": Save keeps each
+  // period's own value until the user sets one (owner 2026-11-16).
   const start = useEditStartValues(isEditing, editSource);
   const valueOf: FieldValueOf = (column, shown) =>
     isEditing && start && column in start.values
-      ? (start.values[column] as string | number | null)
+      ? start.differing.includes(column)
+        ? DIFFERS
+        : (start.values[column] as string | number | null)
       : shown;
   // Remove mode (the Timeline's Change | Remove switch): the fields are not
   // changed, so they are greyed, and the red Remove takes Save's place.
@@ -147,16 +151,11 @@ export function EditableFieldGroup({
       </fieldset>
 
       {isEditing && !removing && start && start.differing.length > 0 && (
-        <p
-          className="text-sm text-amber-800"
-          data-edit-differing={start.differing.join(",")}
-        >
-          The ticked periods hold different values for{" "}
-          {start.differing.map((c) => c.replace(/_/g, " ")).join(", ")}. Saving
-          gives
-          {start.differing.length > 1 ? " each" : " it"} the value shown over
-          the whole stretch.
-        </p>
+        <div className="space-y-0.5" data-edit-differing={start.differing.join(",")}>
+          {start.differing.map((column) => (
+            <DiffersNote key={column} column={column} start={start} current={DIFFERS} label={column.replace(/_/g, " ")} />
+          ))}
+        </div>
       )}
 
       {isEditing && (

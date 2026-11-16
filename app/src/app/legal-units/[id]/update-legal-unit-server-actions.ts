@@ -15,6 +15,7 @@ import {
 import { describeInvalidForm, type EditSchema } from "@/components/form/metadata-validation";
 import { capToExistence, unitExistence, type UnitRow } from "@/components/form/unit-existence";
 import { removalPatch } from "@/components/form/removal";
+import { editFormForValidation, updatePayload } from "@/components/form/edit-payload";
 
 export async function getEditMetadata(client: Awaited<ReturnType<typeof getServerRestClient>>) {
   const { data } = await client.rpc("auth_status", {}, { get: true });
@@ -44,7 +45,9 @@ export async function updateLegalUnit(
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
   const schema = resolveSchemaByType(schemaType);
-  const validatedFields = schema.safeParse(formData);
+  // A kept column is validated with its start value and left out of the update (edit-payload).
+  const { form: validatedForm, kept } = editFormForValidation(formData);
+  const validatedFields = schema.safeParse(validatedForm);
   if (!validatedFields.success) {
     return describeInvalidForm(validatedFields.error);
   }
@@ -91,8 +94,9 @@ export async function updateLegalUnit(
     // Extract image-related fields that shouldn't be sent to database
     const { image, delete_image, ...dataFields } = validatedFields.data;
 
+    // Without the columns the form keeps: each ticked period keeps its own (edit-payload).
     const payload = {
-      ...dataFields,
+      ...updatePayload(dataFields, kept),
       ...metadata,
       ...(imageId !== undefined && { image_id: imageId }),
     };
@@ -353,7 +357,9 @@ export async function upsertTemporalRecord({
   naturalKeys = [],
 }: upsertTemporalRecordParams): Promise<UpdateResponse> {
   const client = await getServerRestClient();
-  const validatedFields = schemaType.safeParse(formData);
+  // A kept column is validated with its start value and left out of the update (edit-payload).
+  const { form: validatedForm, kept } = editFormForValidation(formData);
+  const validatedFields = schemaType.safeParse(validatedForm);
 
   if (!validatedFields.success) {
     return describeInvalidForm(validatedFields.error);
@@ -374,6 +380,9 @@ export async function upsertTemporalRecord({
     const { error: metadataError, metadata } = await getEditMetadata(client);
     if (metadataError) return metadataError;
     const payload = { ...validatedFields.data, ...metadata };
+    // An update leaves out the columns the form keeps; each ticked period keeps
+    // the rest (edit-payload). An insert (a new record) writes every field.
+    const updateFields = { ...updatePayload(validatedFields.data, kept), ...metadata };
     let overlapQuery = client
       .from(tableName)
       .select("*")
@@ -394,7 +403,7 @@ export async function upsertTemporalRecord({
       // inside [valid_from, valid_to]; a portion reaching beyond it is clipped.
       let updateQuery = client
         .from(`${tableName}__for_portion_of_valid`)
-        .update(payload);
+        .update(updateFields);
 
       for (const key in naturalKeyValues) {
         updateQuery = updateQuery.eq(key, naturalKeyValues[key]);

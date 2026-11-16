@@ -19,10 +19,36 @@ export interface EditStartValues {
   values: Record<string, unknown>;
   dataSourceId: number | null;
   differing: string[];
+  /**
+   * Each differing column's values over the ticked stretch, as runs of equal
+   * value, oldest first: what the form shows instead of one value, and what a
+   * save setting the column replaces (owner 2026-11-16).
+   */
+  differences: Record<string, ValueRun[]>;
+  /** The data sources over the ticked stretch when they differ, as runs; empty when they agree. */
+  dataSourceRuns: ValueRun[];
+}
+
+/** A stretch of consecutive ticked periods sharing one value. */
+export interface ValueRun {
+  value: unknown;
+  valid_from: string;
+  valid_to: string;
 }
 
 const same = (a: unknown, b: unknown) =>
   JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+function runs(periods: readonly TimelinePeriod[], valueOf: (p: TimelinePeriod) => unknown): ValueRun[] {
+  const out: ValueRun[] = [];
+  for (const p of periods) {
+    const value = valueOf(p) ?? null;
+    const last = out[out.length - 1];
+    if (last && same(last.value, value)) last.valid_to = p.valid_to;
+    else out.push({ value, valid_from: p.valid_from, valid_to: p.valid_to });
+  }
+  return out;
+}
 
 export function editStartValues(
   periods: readonly TimelinePeriod[],
@@ -34,20 +60,23 @@ export function editStartValues(
   // value nor makes one differ. Only ticked holes: the edit starts empty.
   const valued = chosen.filter((p) => !p.empty);
   if (valued.length === 0)
-    return { values: { ...chosen[0].values }, dataSourceId: null, differing: [] };
+    return { values: { ...chosen[0].values }, dataSourceId: null, differing: [], differences: {}, dataSourceRuns: [] };
   const [first, ...rest] = valued;
   const newest = valued[valued.length - 1];
   const values: Record<string, unknown> = {};
   const differing: string[] = [];
+  const differences: Record<string, ValueRun[]> = {};
   for (const [column, value] of Object.entries(first.values)) {
-    if (!rest.every((p) => same(p.values[column], value)))
+    if (!rest.every((p) => same(p.values[column], value))) {
       differing.push(column);
+      differences[column] = runs(valued, (p) => p.values[column]);
+    }
     values[column] = newest.values[column] ?? null;
   }
-  const dataSourceId = rest.every(
+  const sourcesAgree = rest.every(
     (p) => p.data_source_id === first.data_source_id
-  )
-    ? first.data_source_id
-    : null;
-  return { values, dataSourceId, differing };
+  );
+  const dataSourceId = sourcesAgree ? first.data_source_id : null;
+  const dataSourceRuns = sourcesAgree ? [] : runs(valued, (p) => p.data_source_id);
+  return { values, dataSourceId, differing, differences, dataSourceRuns };
 }

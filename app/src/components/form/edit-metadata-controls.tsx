@@ -28,9 +28,14 @@ import {
 } from "./remove-record-button";
 import { piecesInPeriod } from "./removal";
 import { cn } from "@/lib/utils";
+import { editStartValues } from "./edit-values";
+import { EditStartFields } from "./edit-start-fields";
+import { DataSourceDiffersNote, useReplaceDifferingConfirmation } from "./differing-values";
 
 interface EditMetadataControlsProps {
   fieldId: string;
+  /** The edited field's name for the user (a single field's label), used when a save asks about its values. */
+  label?: string;
 }
 
 /**
@@ -44,11 +49,12 @@ interface EditMetadataControlsProps {
  * source and Comment are stored with a change. A save that reaches into a
  * relative or fixed frame asks first.
  */
-export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
+export function EditMetadataControls({ fieldId, label }: EditMetadataControlsProps) {
   const { dataSources } = useDetailsPageData();
   const {
     currentEdit,
     setEditDataSourceId,
+    chooseEditDataSourceId,
     setEditComment,
     setEditValidFrom,
     setEditValidTo,
@@ -67,6 +73,16 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   // and Advanced views and the Timeline view always agree.
   const { periods, loaded } = useFieldTimeline(currentEdit.source);
   const selected = periodsInRange(periods, currentEdit.validFrom, currentEdit.validTo);
+  // What the ticked stretch holds (editStartValues): posted with the save so
+  // each period keeps what the user leaves alone (EditStartFields), and asked
+  // about when the save replaces values that differ (owner 2026-11-16).
+  const start = loaded && periods.length > 0 ? editStartValues(periods, selected) : null;
+  const editColumn =
+    currentEdit.source && !Array.isArray(currentEdit.source.column) ? currentEdit.source.column : null;
+  const replaceConfirmation = useReplaceDifferingConfirmation(start, !!currentEdit.dataSourceChosen, {
+    data_source_id: "Data source",
+    ...(editColumn && label ? { [editColumn]: label } : {}),
+  });
   const handleToggle = (index: number) => {
     const range = selectionRange(periods, toggleSelection(selected, index));
     setEditValidFrom(range?.validFrom ?? null);
@@ -202,7 +218,11 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   // confirmed so it passes; Cancel stores nothing.
   const { ask, dialog } = useFixedFrameConfirmation();
   const anchorRef = useRef<HTMLDivElement>(null);
-  const confirmedRef = useRef(false);
+  // The save's questions, asked in turn: replacing values that differ between
+  // the ticked periods, then reaching into a past frame. A confirmed question
+  // submits again with its step passed (confirmedRef).
+  const confirmedRef = useRef<"none" | "replace" | "all">("none");
+  const askReplace = replaceConfirmation.ask;
   // A date outside the unit's existence (dateOutsideBounds) holds the save: the
   // field already says why, so nothing is sent.
   const dateBounds =
@@ -223,24 +243,33 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
           event.stopImmediatePropagation();
           return;
         }
-        if (confirmedRef.current) {
-          confirmedRef.current = false;
+        if (confirmedRef.current === "all") {
+          confirmedRef.current = "none";
           return;
+        }
+        const hold = () => {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        };
+        if (confirmedRef.current === "none") {
+          const heldForReplace = askReplace(data, () => {
+            confirmedRef.current = "replace";
+            form.requestSubmit();
+          });
+          if (heldForReplace) return hold();
         }
         // The period submitted is the form's own valid_from/valid_to fields.
         const held = ask(from, to, () => {
-          confirmedRef.current = true;
+          confirmedRef.current = "all";
           form.requestSubmit();
         });
-        if (held) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-        }
+        if (held) return hold();
+        confirmedRef.current = "none";
       };
       form.addEventListener("submit", onSubmit, { capture: true });
       return () => form.removeEventListener("submit", onSubmit, { capture: true });
     },
-    [ask, boundsFrom, boundsTo],
+    [ask, askReplace, boundsFrom, boundsTo],
     "EditMetadataControls:askBeforeFixedFrameSave"
   );
 
@@ -248,7 +277,9 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
     <>
       <Separator className="mt-1" />
       <div ref={anchorRef} hidden />
+      {!removing && <EditStartFields start={start} />}
       {dialog}
+      {replaceConfirmation.dialog}
       <TimeFramePanel
         idPrefix={fieldId}
         timeFrames={timeFrames}
@@ -265,7 +296,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         dataSources={dataSources}
         dataSourceCode={dataSourceCode}
         onDataSourceChange={(code) =>
-          setEditDataSourceId(dataSources.find((d) => d.code === code)?.id?.toString() ?? null)
+          chooseEditDataSourceId(dataSources.find((d) => d.code === code)?.id?.toString() ?? null)
         }
         comment={currentEdit.editComment ?? null}
         onCommentChange={setEditComment}
@@ -274,6 +305,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         headerControls={changeRemoveSwitch}
         hideMetadata={removing}
         frameFooter={removing ? <FrameRemovalSummary /> : undefined}
+        dataSourceNote={<DataSourceDiffersNote start={start} chosen={!!currentEdit.dataSourceChosen} />}
         timeline={
           removing ? (
             <RemovalTimeline />

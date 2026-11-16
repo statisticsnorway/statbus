@@ -16,6 +16,8 @@ import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
 import { useEditStartValues } from "./use-edit-start-values";
 import { RemoveRecordAction } from "./remove-record-button";
+import { DIFFERS } from "./edit-payload";
+import { DiffersNote } from "./differing-values";
 
 interface EditableFieldWithMetadataProps {
   fieldId: string;
@@ -69,12 +71,18 @@ export const EditableFieldWithMetadata = ({
     handleCancel: baseHandleCancel,
   } = useEditableFieldState(value, response, isEditing, exitEditMode);
   // The input starts from the ticked stretch's own value, so Save keeps it
-  // unless the user changes it (owner 2026-11-13).
+  // unless the user changes it (owner 2026-11-13). When the ticked periods
+  // differ it starts empty with "Differs" shown, and Save keeps each period's
+  // own value until the user types one (owner 2026-11-16).
   const column =
     editSource && !Array.isArray(editSource.column) ? editSource.column : null;
-  useEditStartValues(isEditing, editSource, (start) => {
+  const start = useEditStartValues(isEditing, editSource, (start) => {
     if (column && column in start.values)
-      setCurrentValue(String(start.values[column] ?? ""));
+      setCurrentValue(
+        start.differing.includes(column)
+          ? DIFFERS
+          : String(start.values[column] ?? "")
+      );
   });
 
   const handleCancel = () => {
@@ -118,14 +126,19 @@ export const EditableFieldWithMetadata = ({
         </div>
         <Input
           ref={inputRef}
-          className={`font-medium disabled:opacity-80 bg-white border-zinc-300`}
+          className={`font-medium disabled:opacity-80 bg-white border-zinc-300 placeholder:text-amber-800`}
           disabled={!isEditing || removing}
-          value={currentValue}
+          value={currentValue === DIFFERS ? "" : currentValue}
+          placeholder={currentValue === DIFFERS ? "Differs" : undefined}
           onChange={(e) => setCurrentValue(e.target.value)}
-          name={fieldName || fieldId}
           autoComplete="off"
         />
+        {/* The posted value: DIFFERS keeps each period's own (edit-payload). */}
+        <input type="hidden" name={fieldName || fieldId} value={currentValue} />
       </div>
+      {isEditing && !removing && column && (
+        <DiffersNote column={column} start={start} current={String(currentValue)} />
+      )}
       {isEditing && (
         <div className="space-y-2">
           {hiddenFields &&
@@ -133,7 +146,7 @@ export const EditableFieldWithMetadata = ({
               <input key={name} type="hidden" name={name} value={value} />
             ))}
 
-          <EditMetadataControls fieldId={fieldId} />
+          <EditMetadataControls fieldId={fieldId} label={label} />
           <div className="flex justify-end space-x-2">
             <Button
               className="h-8"
