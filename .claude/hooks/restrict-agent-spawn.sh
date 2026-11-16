@@ -495,7 +495,7 @@ WHY: the cost-aware team pattern has one spawner (the foreman) and a fixed roste
 
 WHAT TO DO:
   - LEGWORK (reads, greps, SSH, log tails, summaries): SendMessage(to: 'operator', ...).
-  - TESTS: SendMessage(to: 'tester', ...) or assign a Backlog.md task to 'tester'.
+  - TESTS: SendMessage(to: 'tester', ...) or assign a hug task to 'tester' (hug task set ID --assignee tester).
   - DIAGNOSIS and targeted fixes: SendMessage(to: 'mechanic', ...).
   - DESIGN or architectural work: SendMessage(to: 'engineer', ...).
   - NEW ROLE (truly needed): SendMessage(to: '${LEAD_NAME}', ...) and ask.${context_suffix}
