@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-15T16:14:00Z'
-updated_date: '2026-11-16T13:02:00Z'
+updated_date: '2026-11-16T13:06:00Z'
 labels:
   - security
   - app
@@ -38,7 +38,7 @@ Six Dependabot alerts were open on master after STATBUS-593 (2026-11-15). Each f
 - [x] #1 Zod 4.6.6 or later is the only zod in the app's graph; every form schema and the URL query parsers keep their accepted and refused inputs and error messages, shown by tests on the real schemas, and the frontend typecheck, lint, tests and build pass
 - [x] #2 minimatch and glob resolve to patched versions, and lint, Jest, rimraf and the Excel export still work, shown by their real runs
 - [ ] #3 KaTeX resolves to 0.18.2 or later through Mermaid 12, and the ER diagram renders in the owner's browser
-- [ ] #4 deepmerge: the owner's decision (accept as Jest-only, or replace) is recorded here
+- [x] #4 deepmerge: the owner's decision (accept as Jest-only, or replace) is recorded here
 - [ ] #5 gh api dependabot/alerts lists no open alert, or only the ones with a recorded owner decision; CI is green on that SHA
 <!-- AC:END -->
 
@@ -51,4 +51,6 @@ Six Dependabot alerts were open on master after STATBUS-593 (2026-11-15). Each f
 2026-11-15 AC3 (KaTeX via Mermaid 12) on branch statbus-630-mermaid12 (a97cad00f), NOT on master, waiting for the owner to see the diagram: mermaid 12.3.0, katex 0.18.10. The ER page sets layout dagre, theme default, look classic. Finding: the page asked for ELK, but Mermaid 11 had no ELK loader and drew with dagre. Real ER diagram (generate_mermaid_er_diagram, 68 KB, ~270 tables) drawn in Firefox: Mermaid 11 41 s; Mermaid 12 + ELK 175 s, colours and layout changed; Mermaid 12 pinned to dagre/default/classic 84 s, same look and same 49995x8200 SVG as Mermaid 11. Before/after pages in tmp/630/mermaid/ (m11.html, m12.html, m12-classic.html; served with python3 -m http.server from that directory). Jest 354/354, tsc, lint, build pass on the branch; audit leaves only deepmerge.
 
 2026-11-16 owner (13:00): merge Mermaid 12 with today's look; the diagram is still slow, a faster one is a separate project to discuss later. Landed on master as d28df2738 (cherry-pick of the reviewed branch commit a97cad00f onto cdfc31bb3, no conflicts); branch statbus-630-mermaid12 deleted. Rechecked on master: katex 0.18.10, Jest 354/354, tsc pass, pnpm audit leaves only deepmerge (low). AC3's second half (the ER diagram in the owner's browser on the real /doc/er page) still to see; the side-by-side render of the real diagram is in tmp/630/mermaid.
+
+2026-11-16 AC4 owner decision (13:05): accept deepmerge GHSA-gcqx-w48m-w2h4 (low) as dev-only. No fixed release exists; pnpm why deepmerge shows it only under jest -> jest-config (devDependencies), not in production dependencies or images. Dependabot alert 730 dismissed as tolerable_risk with that reason. gh api dependabot/alerts now lists no open alert.
 <!-- SECTION:NOTES:END -->
