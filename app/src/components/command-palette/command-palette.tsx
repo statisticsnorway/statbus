@@ -540,7 +540,7 @@ export function CommandPalette() {
                       keywords={["users", "customize", "external", "ident", "variable", "size", "status", "source"]}
                     >
                       <Settings className="mr-2 h-4 w-4" />
-                      <span>Admin Settings</span>
+                      <span>Admin & Customization</span>
                     </CommandItem>
                     <CommandItem
                       onSelect={() => navigate("/admin/upgrades")}

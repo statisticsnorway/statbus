@@ -12,7 +12,7 @@ export default function AdminPageLayout({
   readonly children: ReactNode;
 }) {
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-col px-2 py-8 md:py-12">
+    <main className="mx-auto flex w-full max-w-5xl flex-col px-2 py-8 md:py-12">
       <div className="space-y-4">
         <div className="mb-3 flex items-center">
           <Link
