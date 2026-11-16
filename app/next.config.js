@@ -22,6 +22,11 @@ if (process.env.NODE_ENV !== 'production' && !process.env.ENV_LOADED) {
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+// The host this checkout's dev server is reached on: the slot's SITE_DOMAIN from ../.env
+// (local.statbus.org for slot local, test.statbus.org for slot test). Two slots on one
+// host would share their auth cookies, so each slot has its own name (STATBUS-631).
+const devSiteDomain = process.env.SITE_DOMAIN || 'local.statbus.org';
+
 // Report DEBUG and PUBLIC_DEBUG status once per process lifecycle, if they are true.
 if (!process.env.DEBUG_STATUS_REPORTED) {
   if (process.env.DEBUG === 'true') {
@@ -53,7 +58,7 @@ const nextConfig = {
   // output: 'standalone' is primarily for production builds.
   // Set it conditionally to avoid potential interference with dev server features like proxying.
   ...(isDevelopment && {
-    allowedDevOrigins: ['local.statbus.org'],
+    allowedDevOrigins: [devSiteDomain],
   }),
 };
 
@@ -76,7 +81,7 @@ if (isDevelopment) {
       : `http://${originalBrowserRestUrl}`;
 
     const localAppPort = process.env.PORT || 3000;
-    const actualLocalAppUrl = `http://local.statbus.org:${localAppPort}`;
+    const actualLocalAppUrl = `http://${devSiteDomain}:${localAppPort}`;
     process.env.INTERNAL_LOCAL_APP_URL = actualLocalAppUrl;
 
     // Plain-http setups: the browser calls this server's /rest, which proxies to Caddy.
