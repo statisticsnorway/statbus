@@ -4,7 +4,7 @@ title: >-
   upgrade-docs-coherence: diagrams ↔ code ↔ tests reconciled as one whole —
   timeline + recovery-model carry post-192/193 reality, every cell cross-linked,
   drift gated
-status: "done"
+state: "done"
 assignee:
   - architect
 created_date: '2026-07-25 19:21'

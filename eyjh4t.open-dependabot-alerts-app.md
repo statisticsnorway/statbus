@@ -3,7 +3,7 @@ id: "eyjh4t"
 title: >-
   Open Dependabot alerts on app/pnpm-lock.yaml are resolved or recorded as
   having no fix
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-10-05 18:12'
 updated_date: '2026-10-17 16:53'

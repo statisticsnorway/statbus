@@ -3,7 +3,7 @@ id: "qp70fw"
 title: >-
   install.sh hands the upgrade lock to ./sb install without releasing it, so a
   looping old daemon cannot refuse the repair
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-10-05 10:20'
 updated_date: '2026-10-20 20:47'

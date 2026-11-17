@@ -3,7 +3,7 @@ id: "6jyf1w"
 title: >-
   install-inline scheduled upgrade fails after the binary swap: the re-exec
   adopts the upgrade mutex, then crash recovery locks against itself
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-10-05 19:00'
 labels:

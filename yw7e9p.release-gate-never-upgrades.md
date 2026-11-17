@@ -3,7 +3,7 @@ id: "yw7e9p"
 title: >-
   Release gate never upgrades from the releases the fleet actually runs, so
   older-source upgrade bugs reach candidates unseen
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-10-03 14:55'
 updated_date: '2026-10-05 09:38'

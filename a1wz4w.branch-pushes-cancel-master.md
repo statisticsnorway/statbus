@@ -1,7 +1,7 @@
 ---
 id: "a1wz4w"
 title: Branch pushes cancel master CI through shared app and Go concurrency groups
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-10-06 14:49'
 updated_date: '2026-10-07 10:38'

@@ -2,7 +2,7 @@
 id: "0w3zgq"
 title: >-
   release check: run every prerelease gate, tag nothing, write nothing; prerelease = check + tag
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-09-14 10:14'
 updated_date: '2026-09-14 12:56'

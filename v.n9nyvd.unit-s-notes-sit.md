@@ -1,7 +1,7 @@
 ---
 id: n9nyvd
 title: "A unit's notes sit in the side column of every unit page as a sticky note"
-status: "doing"
+state: "doing"
 type: feature
 priority: ""
 assignee: ["rabbit"]

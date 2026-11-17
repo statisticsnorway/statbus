@@ -3,7 +3,7 @@ id: "yc8h6v"
 title: >-
   Source image capture must use Docker container identity, not Compose display
   strings
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-09-30 13:03'
 updated_date: '2026-10-20 20:33'

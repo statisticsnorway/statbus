@@ -1,7 +1,7 @@
 ---
 id: 2se9vc
 title: "The eye picks the period others are compared with, on the field's timeline too"
-status: "doing"
+state: "doing"
 type: feature
 priority: ""
 assignee: ["rabbit"]

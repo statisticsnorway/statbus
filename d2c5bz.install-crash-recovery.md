@@ -3,7 +3,7 @@ id: "d2c5bz"
 title: >-
   Install crash recovery regenerates config without migrating legacy secrets, so
   a 09.2-era box stops mid-upgrade
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-10-03 10:05'
 updated_date: '2026-10-05 09:38'

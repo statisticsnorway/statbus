@@ -3,7 +3,7 @@ id: "rkfa4j"
 title: >-
   drain-before-upgrade: the upgrade lets the worker finish its sentence —
   bounded drain, falling back to the now-safe interruption
-status: "todo"
+state: "todo"
 assignee: []
 created_date: '2026-08-27 16:14'
 labels:

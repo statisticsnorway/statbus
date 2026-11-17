@@ -3,7 +3,7 @@ id: "eb3hwe"
 title: >-
   Inline scheduled-upgrade dispatch claims with post-382 SQL against a pre-382
   schema and stops at 42703
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-10-02 12:10'
 updated_date: '2026-10-02 16:16'

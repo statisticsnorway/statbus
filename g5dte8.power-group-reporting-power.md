@@ -1,7 +1,7 @@
 ---
 id: "g5dte8"
 title: 'power-group-reporting: Power Group reporting & navigation API (DB/API)'
-status: "todo"
+state: "todo"
 assignee: []
 created_date: '2026-06-30 11:28'
 updated_date: '2026-06-30 15:29'

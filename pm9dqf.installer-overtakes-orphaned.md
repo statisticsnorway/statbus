@@ -4,7 +4,7 @@ title: >-
   installer overtakes an orphaned in_progress row; the new daemon's flagless
   recovery then marks that older version completed, so the ledger and footer
   report the wrong running version
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-10-06 08:45'
 updated_date: '2026-10-15 16:11'

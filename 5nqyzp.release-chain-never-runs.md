@@ -3,7 +3,7 @@ id: "5nqyzp"
 title: >-
   release chain never runs the demo-state proof
   (5-install-source-image-identity-proof); it is re-run by hand for every candidate
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-10-05 20:15'
 labels:

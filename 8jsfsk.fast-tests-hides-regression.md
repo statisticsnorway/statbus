@@ -1,7 +1,7 @@
 ---
 id: "8jsfsk"
 title: Fast Tests hides regression diffs after the split result layout
-status: "done"
+state: "done"
 assignee: []
 created_date: 2026-10-06 15:03
 updated_date: '2026-11-08T17:58:00Z'

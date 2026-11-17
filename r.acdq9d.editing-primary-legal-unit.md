@@ -1,7 +1,7 @@
 ---
 id: acdq9d
 title: "Editing a primary legal unit warns inside the edit form, beside Save"
-status: "doing"
+state: "doing"
 type: feature
 priority: ""
 assignee: ["rabbit"]

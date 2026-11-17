@@ -2,7 +2,7 @@
 id: "wwrsy5"
 title: >-
   CI on master: one run in flight, newest push wins, exempt-path pushes queue nothing; Fast Tests gets the same diff-since-green coverage as go-test
-status: "done"
+state: "done"
 assignee: []
 created_date: '2026-09-07 20:25'
 updated_date: '2026-09-14 09:46'

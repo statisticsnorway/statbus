@@ -1,7 +1,7 @@
 ---
 id: "twe0xe"
 title: 'harness process-log-registration lint fails on 3-postswap-mid-tx-kill.sh:89'
-status: "done"
+state: "done"
 assignee: []
 created_date: ''
 updated_date: '2026-10-17 16:07'
