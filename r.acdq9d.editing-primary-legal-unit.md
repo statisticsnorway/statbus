@@ -28,7 +28,7 @@ Box: app/src/app/legal-units/[id]/@primaryUnitInfo/default.tsx. Owner's options:
 ## Depends on
 
 ## Acceptance
-- [ ] On a primary legal unit, opening an edit of a field the enterprise takes from it shows the warning to the left of Cancel and Save, in yellow/orange
+- [x] On a primary legal unit, opening an edit of a field the enterprise takes from it shows the warning to the left of Cancel and Save, in yellow/orange
 - [ ] The side box under the menu is gone from the legal unit and establishment pages
 - [ ] On a legal unit that is not primary, or a field the enterprise does not take, no warning shows
 - [ ] [Owner] Decides tick box (Save waits) or notice only
