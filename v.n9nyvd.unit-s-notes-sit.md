@@ -32,7 +32,7 @@ public.unit_notes holds one notes text per unit (unique on establishment, legal 
 - [x] Every legal unit and establishment page shows the unit's notes under the menu; the box grows with the text
 - [x] A unit without notes offers 'Add a note' there; saving stores one unit_notes row with the editor and time
 - [x] Editing a note from any of the unit's pages updates the same row
-- [ ] The box is sticky-note yellow, and a pencil at the right of its heading adds or edits the note (no text links)
+- [x] The box is sticky-note yellow, and a pencil at the right of its heading adds or edits the note (no text links)
 - [ ] Under the note the box names who last wrote it and when; a regular user editing a note someone else wrote saves it, and the row then names that user and the new time
 
 ## Notes
