@@ -6,6 +6,8 @@ import { notesWrite } from "./unit-notes";
 describe("notesWrite", () => {
   const unit = { column: "legal_unit_id" as const, id: 29 };
   const editor = { userId: 4, at: "2026-11-17T19:20:00.000Z" };
+  // The edit_at the box loaded: a save applies only if the row still has it.
+  const loaded = "2026-11-17T18:00:00.123456+00:00";
   it("inserts the unit's first note", () => {
     expect(notesWrite(null, "Called them 3 Nov.\nNew address soon.", unit, editor)).toEqual({
       kind: "insert",
@@ -15,17 +17,22 @@ describe("notesWrite", () => {
   it("writes nothing for an empty first note", () => {
     expect(notesWrite(null, "   ", unit, editor)).toEqual({ kind: "none" });
   });
-  it("updates a changed note, keeping quotes, commas and line breaks, naming its editor and time", () => {
-    expect(notesWrite({ id: 7, notes: "old" }, ' said "yes", then\r\nleft ', unit, editor)).toEqual({
+  it("updates a changed note, keeping quotes, commas and line breaks, naming its editor and time, if no one saved since it was loaded", () => {
+    expect(notesWrite({ id: 7, notes: "old", edit_at: loaded }, ' said "yes", then\r\nleft ', unit, editor)).toEqual({
       kind: "update",
       id: 7,
+      loadedEditAt: loaded,
       changes: { notes: 'said "yes", then\r\nleft', edit_by_user_id: 4, edit_at: "2026-11-17T19:20:00.000Z" },
     });
   });
   it("writes nothing when the note is unchanged", () => {
-    expect(notesWrite({ id: 7, notes: "same" }, "same\n", unit, editor)).toEqual({ kind: "none" });
+    expect(notesWrite({ id: 7, notes: "same", edit_at: loaded }, "same\n", unit, editor)).toEqual({ kind: "none" });
   });
-  it("deletes the row when the note is emptied", () => {
-    expect(notesWrite({ id: 7, notes: "old" }, "", unit, editor)).toEqual({ kind: "delete", id: 7 });
+  it("deletes the row when the note is emptied, if no one saved since it was loaded", () => {
+    expect(notesWrite({ id: 7, notes: "old", edit_at: loaded }, "", unit, editor)).toEqual({
+      kind: "delete",
+      id: 7,
+      loadedEditAt: loaded,
+    });
   });
 });

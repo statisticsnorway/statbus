@@ -52,34 +52,60 @@ export function UnitNotesBox({ column, unitId }: { column: NotesUnitColumn; unit
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set when a save found the note changed by someone else since it was
+  // loaded: the box has reloaded their text, and the draft is kept.
+  const [conflict, setConflict] = useState(false);
   const begin = () => {
     setText(stored);
     setError(null);
+    setConflict(false);
     setEditing(true);
   };
 
   const save = async () => {
     if (!client || !currentUser) return;
-    const write = notesWrite(data ? { id: data.id, notes: data.notes } : null, text, { column, id: unitId }, {
-      userId: currentUser.uid,
-      at: new Date().toISOString(),
-    });
+    const write = notesWrite(
+      data ? { id: data.id, notes: data.notes, edit_at: data.edit_at } : null,
+      text,
+      { column, id: unitId },
+      { userId: currentUser.uid, at: new Date().toISOString() }
+    );
     setSaving(true);
     setError(null);
+    // An update or delete applies only to the version loaded (edit_at), and
+    // returns the rows it touched: none means someone else saved meanwhile.
     const result =
       write.kind === "insert"
-        ? await client.from("unit_notes").insert(write.row as never)
+        ? await client.from("unit_notes").insert(write.row as never).select("id")
         : write.kind === "update"
-          ? await client.from("unit_notes").update(write.changes as never).eq("id", write.id)
+          ? await client
+              .from("unit_notes")
+              .update(write.changes as never)
+              .eq("id", write.id)
+              .eq("edit_at", write.loadedEditAt)
+              .select("id")
           : write.kind === "delete"
-            ? await client.from("unit_notes").delete().eq("id", write.id)
-            : { error: null };
+            ? await client
+                .from("unit_notes")
+                .delete()
+                .eq("id", write.id)
+                .eq("edit_at", write.loadedEditAt)
+                .select("id")
+            : { error: null, data: [{}] };
     setSaving(false);
+    const firstNoteTaken = write.kind === "insert" && result.error?.code === "23505";
+    const changedMeanwhile = write.kind !== "insert" && !result.error && (result.data?.length ?? 0) === 0;
+    if (firstNoteTaken || changedMeanwhile) {
+      await mutate();
+      setConflict(true);
+      return;
+    }
     if (result.error) {
       setError(result.error.message);
       return;
     }
     await mutate();
+    setConflict(false);
     setEditing(false);
   };
 
@@ -106,6 +132,17 @@ export function UnitNotesBox({ column, unitId }: { column: NotesUnitColumn; unit
       </div>
       {editing ? (
         <div className="space-y-2">
+          {conflict && (
+            <div className="rounded border border-amber-300 bg-amber-50 p-2 text-xs" data-unit-notes-conflict="">
+              <p className="font-medium text-amber-900">
+                {data
+                  ? `${writer ?? "Someone"} saved this note at ${format(new Date(data.edit_at), "yyyy-MM-dd HH:mm")} while you were editing. Their text:`
+                  : "Someone removed this note while you were editing."}
+              </p>
+              {data && <p className="mt-1 whitespace-pre-wrap break-words text-zinc-900">{data.notes}</p>}
+              <p className="mt-1 text-amber-900">Your text is kept below. Save replaces theirs; Cancel keeps it.</p>
+            </div>
+          )}
           <textarea
             className="block w-full resize-y rounded border border-yellow-200 bg-white p-2 text-sm [field-sizing:content] min-h-20"
             value={text}
@@ -123,6 +160,7 @@ export function UnitNotesBox({ column, unitId }: { column: NotesUnitColumn; unit
               onClick={() => {
                 setEditing(false);
                 setError(null);
+                setConflict(false);
               }}
             >
               Cancel
