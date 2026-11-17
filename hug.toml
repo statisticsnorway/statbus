@@ -7,3 +7,7 @@ email = ["jorgen@veridit.no"]
 [people.eriksoeb]
 name = "Erik Søberg"
 email = ["eriksoeb@gmail.com"]
+
+[people.hhz]
+name = "hhssb"
+email = ["hhz@ssb.no"]
