@@ -3,10 +3,12 @@ import type { TimeFrame } from "@/lib/time-frame";
 /**
  * A field's timeline: its values over time for one unit, as the edit form's
  * Timeline view shows them. One period per stretch where the field's value
- * (all its columns, for a field group such as an address) stayed the same,
- * oldest first. Rows that differ only in other columns merge; a gap where the
- * unit did not exist splits. An edit picks one stretch of periods and gets
- * that stretch's dates (selectionRange).
+ * (all its columns, for a field group such as an address) and its data source
+ * stayed the same, oldest first. A save writes its data source over every
+ * ticked period, so a change of source is a change the user must see on its
+ * own card (editChanges). Rows that differ only in other columns merge; a gap
+ * where the unit did not exist splits. An edit picks one stretch of periods
+ * and gets that stretch's dates (selectionRange).
  *
  * Dates are ISO yyyy-mm-dd, valid_to inclusive, "infinity" for open-ended.
  */
@@ -57,7 +59,7 @@ export function fieldTimeline(
     a.valid_from < b.valid_from ? -1 : a.valid_from > b.valid_from ? 1 : 0
   );
   const key = (r: TimelineSourceRow) =>
-    JSON.stringify(columns.map((c) => r[c] ?? null));
+    JSON.stringify([...columns.map((c) => r[c] ?? null), r.data_source_id ?? null]);
   const periods: (TimelinePeriod & { key: string })[] = [];
   for (const row of ordered) {
     const last = periods[periods.length - 1];

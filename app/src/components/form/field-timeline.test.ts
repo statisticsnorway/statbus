@@ -107,6 +107,24 @@ describe("fieldTimeline", () => {
     });
   });
 
+  // EDIT PAGES AS (LU 29) sector, 2026-11-17: 2024 from nlr (2), 2025 from
+  // survey (4), same sector. A save writes its data source over every ticked
+  // period, so each data source is its own period: one card for both would
+  // hide that 2024's source changes.
+  it("splits adjacent rows of the same value that came from different data sources", () => {
+    const periods = fieldTimeline(
+      [
+        { valid_from: "2024-01-01", valid_to: "2024-12-31", sector_id: 57, data_source_id: 2 },
+        { valid_from: "2025-01-01", valid_to: "2025-12-31", sector_id: 57, data_source_id: 4 },
+      ],
+      ["sector_id"]
+    );
+    expect(periods.map((p) => [p.valid_from, p.valid_to, p.data_source_id])).toEqual([
+      ["2024-01-01", "2024-12-31", 2],
+      ["2025-01-01", "2025-12-31", 4],
+    ]);
+  });
+
   it("compares a field group on all its columns", () => {
     const rows: TimelineSourceRow[] = [
       {
