@@ -4,7 +4,7 @@ title: "Editing a primary legal unit warns inside the edit form, beside Save"
 status: todo
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: ["app", "edit"]
 created: 2026-11-17
 updated: 2026-11-17
