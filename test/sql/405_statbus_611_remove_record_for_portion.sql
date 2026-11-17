@@ -21,6 +21,7 @@ SET client_min_messages = warning;
 
 \echo "A legal unit from 2024 with a postal location (PO Box 100 2024-2025, PO Box 200 from 2026) and a contact"
 SELECT id AS admin_id FROM auth.user WHERE email = 'test.admin@statbus.org' \gset
+SELECT id AS regular_id FROM auth.user WHERE email = 'test.regular@statbus.org' \gset
 INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at)
 VALUES ('ENT 405', :admin_id, now()) RETURNING id AS ent_id \gset
 INSERT INTO public.legal_unit (enterprise_id, name, status_id, primary_for_enterprise, edit_by_user_id, edit_at, valid_from)
@@ -36,16 +37,50 @@ VALUES ('2024-01-01', 'infinity', 'physical', 'Storgata 1', (SELECT id FROM publ
 INSERT INTO public.contact (valid_from, valid_to, phone_number, legal_unit_id, edit_by_user_id, edit_at)
 VALUES ('2024-01-01', 'infinity', '+47 100', :lu_id, :admin_id, now())
 RETURNING id AS contact_id \gset
+-- The activity and statistic are written by the regular user who removes part
+-- of them: a split keeps the rest under its own writer, and a regular user may
+-- write only rows naming himself (the case of another writer's row is task
+-- febdra).
+INSERT INTO public.activity (valid_from, valid_to, type, category_id, legal_unit_id, edit_by_user_id, edit_at)
+VALUES ('2024-01-01', 'infinity', 'primary', (SELECT id FROM public.activity_category WHERE enabled ORDER BY path LIMIT 1), :lu_id, :regular_id, now())
+RETURNING id AS activity_id \gset
+INSERT INTO public.stat_for_unit (valid_from, valid_to, stat_definition_id, value_int, legal_unit_id, edit_by_user_id, edit_at)
+VALUES ('2024-01-01', 'infinity', (SELECT id FROM public.stat_definition WHERE code = 'employees'), 12, :lu_id, :regular_id, now())
+RETURNING id AS stat_id \gset
+
+\echo "Another legal unit with the same kinds of records, which no removal may touch"
+INSERT INTO public.legal_unit (enterprise_id, name, status_id, primary_for_enterprise, edit_by_user_id, edit_at, valid_from)
+VALUES (:ent_id, 'BYSTANDER 405 AS', (SELECT id FROM public.status WHERE code = 'active'), false, :admin_id, now(), '2024-01-01')
+RETURNING id AS other_lu_id \gset
+INSERT INTO public.location (valid_from, valid_to, type, address_part1, country_id, legal_unit_id, edit_by_user_id, edit_at)
+VALUES ('2024-01-01', 'infinity', 'postal', 'PO Box 300', (SELECT id FROM public.country WHERE iso_2 = 'NO'), :other_lu_id, :admin_id, now());
+INSERT INTO public.contact (valid_from, valid_to, phone_number, legal_unit_id, edit_by_user_id, edit_at)
+VALUES ('2024-01-01', 'infinity', '+47 300', :other_lu_id, :admin_id, now());
+INSERT INTO public.activity (valid_from, valid_to, type, category_id, legal_unit_id, edit_by_user_id, edit_at)
+VALUES ('2024-01-01', 'infinity', 'primary', (SELECT id FROM public.activity_category WHERE enabled ORDER BY path LIMIT 1), :other_lu_id, :admin_id, now());
+INSERT INTO public.stat_for_unit (valid_from, valid_to, stat_definition_id, value_int, legal_unit_id, edit_by_user_id, edit_at)
+VALUES ('2024-01-01', 'infinity', (SELECT id FROM public.stat_definition WHERE code = 'employees'), 30, :other_lu_id, :admin_id, now());
 
 CREATE TEMP VIEW unit_records AS
-SELECT 'location ' || type AS record, valid_from, valid_until, address_part1 AS value
-  FROM public.location WHERE legal_unit_id = :lu_id
+SELECT legal_unit_id AS unit, 'location ' || type AS record, valid_from, valid_until, address_part1 AS value
+  FROM public.location WHERE legal_unit_id IN (:lu_id, :other_lu_id)
 UNION ALL
-SELECT 'contact', valid_from, valid_until, phone_number FROM public.contact WHERE legal_unit_id = :lu_id
-ORDER BY record, valid_from;
+SELECT legal_unit_id, 'contact', valid_from, valid_until, phone_number
+  FROM public.contact WHERE legal_unit_id IN (:lu_id, :other_lu_id)
+UNION ALL
+SELECT legal_unit_id, 'activity ' || type, valid_from, valid_until, 'category set'
+  FROM public.activity WHERE legal_unit_id IN (:lu_id, :other_lu_id)
+UNION ALL
+SELECT legal_unit_id, 'stat employees', valid_from, valid_until, value_int::text
+  FROM public.stat_for_unit WHERE legal_unit_id IN (:lu_id, :other_lu_id)
+ORDER BY unit, record, valid_from;
 GRANT SELECT ON unit_records TO PUBLIC;
 
-SELECT * FROM unit_records;
+\set this_unit 'unit = ' :lu_id
+\set other_unit 'unit = ' :other_lu_id
+SELECT record, valid_from, valid_until, value FROM unit_records WHERE :this_unit;
+CREATE TEMP TABLE other_before AS SELECT * FROM unit_records WHERE :other_unit;
+GRANT SELECT ON other_before TO PUBLIC;
 
 CALL test.set_user_from_email('test.regular@statbus.org');
 SELECT current_user, current_setting('safeupdate.enabled') AS safeupdate_enabled;
@@ -54,16 +89,29 @@ SELECT current_user, current_setting('safeupdate.enabled') AS safeupdate_enabled
 UPDATE public.location__for_portion_of_valid
    SET id = NULL, valid_from = '2025-01-01', valid_until = '2026-01-01'
  WHERE id = :postal_id;
-SELECT * FROM unit_records WHERE record = 'location postal';
+SELECT record, valid_from, valid_until, value FROM unit_records WHERE :this_unit AND record = 'location postal';
 
 \echo "Remove a period inside an open-ended row: the row is split around it"
 UPDATE public.location__for_portion_of_valid
    SET id = NULL, valid_from = '2026-03-01', valid_until = '2026-06-01'
  WHERE id = :postal_id;
-SELECT * FROM unit_records WHERE record = 'location postal';
+SELECT record, valid_from, valid_until, value FROM unit_records WHERE :this_unit AND record = 'location postal';
+
+\echo "Remove the primary activity in 2025 only: it is split into 2024 and 2026-"
+UPDATE public.activity__for_portion_of_valid
+   SET id = NULL, valid_from = '2025-01-01', valid_until = '2026-01-01'
+ WHERE id = :activity_id;
+SELECT record, valid_from, valid_until, value FROM unit_records WHERE :this_unit AND record = 'activity primary';
+
+\echo "Remove the employees statistic in 2025 only: it is split into 2024 and 2026-"
+UPDATE public.stat_for_unit__for_portion_of_valid
+   SET id = NULL, valid_from = '2025-01-01', valid_until = '2026-01-01'
+ WHERE id = :stat_id;
+SELECT record, valid_from, valid_until, value FROM unit_records WHERE :this_unit AND record = 'stat employees';
 
 \echo "The physical location and the contact are unchanged"
-SELECT * FROM unit_records WHERE record <> 'location postal';
+SELECT record, valid_from, valid_until, value FROM unit_records
+ WHERE :this_unit AND record IN ('location physical', 'contact');
 
 \echo "Remove the contact entirely (no period): every row of it goes"
 UPDATE public.contact__for_portion_of_valid SET id = NULL WHERE id = :contact_id;
@@ -75,6 +123,14 @@ UPDATE public.location__for_portion_of_valid
    SET id = NULL, address_part1 = 'PO Box 999', valid_from = '2024-01-01', valid_until = '2025-01-01'
  WHERE id = :postal_id;
 ROLLBACK TO SAVEPOINT ambiguous;
-SELECT * FROM unit_records WHERE record = 'location postal';
+SELECT record, valid_from, valid_until, value FROM unit_records WHERE :this_unit AND record = 'location postal';
+
+\echo "The other legal unit's records are exactly as before every removal"
+SELECT count(*) AS other_unit_rows,
+       (SELECT count(*) FROM (SELECT * FROM unit_records WHERE :other_unit
+                              EXCEPT SELECT * FROM other_before) changed) AS changed_rows,
+       (SELECT count(*) FROM (SELECT * FROM other_before
+                              EXCEPT SELECT * FROM unit_records WHERE :other_unit) lost) AS lost_rows
+  FROM other_before;
 
 ROLLBACK;
