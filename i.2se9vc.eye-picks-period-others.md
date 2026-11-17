@@ -1,13 +1,16 @@
 ---
 id: 2se9vc
 title: "The eye picks the period others are compared with, on the field's timeline too"
-status: todo
+status: "doing"
 type: feature
 priority: ""
 assignee: ["rabbit"]
 labels: ["app", "edit"]
 created: 2026-11-17
 updated: 2026-11-17
+model: "claude-opus-5-5"
+branch: "statbus-628-all-forms"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
