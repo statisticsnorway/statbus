@@ -147,7 +147,12 @@ export const StatisticalUnitTableRow = ({
             return (
               <TableCell
                 key={`cell-${bodyCellSuffix(unit, column)}`}
-                className={getCellClassName(column)}
+                className={cn(
+                  getCellClassName(column),
+                  "sticky left-0 z-[1]",
+                  isInBasket ? "bg-gray-100" : "bg-white"
+                )}
+                data-pinned-edge="left"
               >
                 <div className="flex items-center space-x-3 leading-tight">
                   <StatisticalUnitIcon
@@ -623,7 +628,11 @@ export const StatisticalUnitTableRow = ({
             );
         }
       })}
-      <TableCell key="column-action" className="py-2 p-1 text-right sticky right-0 bg-white">
+      <TableCell
+        key="column-action"
+        className="py-2 p-1 text-right sticky right-0 bg-white"
+        data-pinned-edge="right"
+      >
         <SearchResultTableRowDropdownMenu unit={unit} />
       </TableCell>
     </TableRow>

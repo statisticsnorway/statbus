@@ -37,6 +37,8 @@ export function StatisticalUnitTableHeader({
                   name="name"
                   label="Name"
                   key={`h-cell-${headerCellSuffix(column)}`}
+                  className="sticky left-0 z-[1] bg-gray-50"
+                  data-pinned-edge="left"
                 >
                   <small className="flex">
                     {externalIdentTypes.map(({ name }: Tables<'external_ident_type_enabled'>) => name).join(" | ")}
@@ -239,7 +241,10 @@ export function StatisticalUnitTableHeader({
               );
           }
         })}
-        <TableHead className="sticky right-0 bg-gray-50" />
+        <TableHead
+          className="sticky right-0 bg-gray-50"
+          data-pinned-edge="right"
+        />
       </TableRow>
     </TableHeader>
   );
