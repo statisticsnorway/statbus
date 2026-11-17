@@ -41,35 +41,10 @@ export default function PrimaryUnitInfo() {
     return;
   }
 
+  // A primary establishment's role is told beside Save in its edit forms
+  // (PrimaryUnitNotice); this column offers only making it primary.
   return (
     <div className="p-2 mt-2">
-      {establishment.primary_for_legal_unit && legalUnit && (
-        <InfoBox className="text-sm">
-          <p>
-            This is the primary establishment for the legal unit{" "}
-            <Link className="underline" href={`/legal-units/${legalUnit.id}`}>
-              {legalUnit.name}
-            </Link>
-          </p>
-        </InfoBox>
-      )}
-      {establishment.primary_for_enterprise && (
-        <InfoBox className="text-sm">
-          <p>
-            This is the primary establishment for the enterprise{" "}
-            <Link
-              className="underline"
-              href={`/enterprises/${establishment.enterprise_id}`}
-            >
-              {establishment.name}
-            </Link>
-            .
-          </p>
-          <p>
-            Changes you make to this establishment will affect the enterprise.
-          </p>
-        </InfoBox>
-      )}
 
       {!establishment.primary_for_legal_unit &&
         establishment.legal_unit_id &&

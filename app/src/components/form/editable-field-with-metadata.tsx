@@ -16,6 +16,7 @@ import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
 import { RemoveRecordAction } from "./remove-record-button";
 import { SaveApproval, useSaveApproval } from "./edit-metadata-controls";
+import { PrimaryUnitNotice } from "./primary-unit-notice";
 import { useEditAnchor } from "./use-edit-anchor";
 
 interface EditableFieldWithMetadataProps {
@@ -138,6 +139,7 @@ export const EditableFieldWithMetadata = ({
 
           <EditMetadataControls fieldId={fieldId} />
           <div className="flex items-center justify-end space-x-2">
+            <PrimaryUnitNotice />
             {!removing && <SaveApproval />}
             <Button
               className="h-8"

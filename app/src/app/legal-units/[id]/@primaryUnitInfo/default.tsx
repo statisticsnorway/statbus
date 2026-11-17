@@ -1,5 +1,4 @@
 "use client";
-import { InfoBox } from "@/components/info-box";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { setPrimaryLegalUnit } from "../update-legal-unit-server-actions";
@@ -36,23 +35,10 @@ export default function PrimaryUnitInfo() {
   const primaryLegalUnit = hierarchy?.enterprise?.legal_unit?.find(
     (lu) => lu.primary_for_enterprise
   );
+  // A primary legal unit's role is told beside Save in its edit forms
+  // (PrimaryUnitNotice); this column offers only making it primary.
   return (
     <div className="p-2 mt-2">
-      {legalUnit.primary_for_enterprise && (
-        <InfoBox className="text-sm">
-          <p>
-            This legal unit is the primary legal unit for the enterprise &nbsp;
-            <Link
-              className="underline"
-              href={`/enterprises/${legalUnit.enterprise_id}`}
-            >
-              {legalUnit.name}
-            </Link>
-            .
-          </p>
-          <p>Changes you make to this legal unit will affect the enterprise.</p>
-        </InfoBox>
-      )}
       {!legalUnit.primary_for_enterprise && (
         <div className="text-sm bg-gray-100 border-2 border-grey-200 ">
           <form
