@@ -20,7 +20,7 @@ import { useTimeFrame } from "@/atoms/app-derived";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useChangeEditFrame } from "./use-start-edit";
-import { ChangedSource, FieldTimeline, PeriodChangeView, useFieldTimeline } from "./field-timeline-view";
+import { ChangedSource, FieldTimeline, PeriodChangeView, useEditTimeline } from "./field-timeline-view";
 import { opensInTimeline, periodOn, periodsInRange, selectionRange, toggleSelection } from "./field-timeline";
 import { TimelineSkeleton, useUnitExistence } from "./timeline-skeleton-view";
 import { skeletonPieces, skeletonSelectionRange } from "./timeline-skeleton";
@@ -75,10 +75,11 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
   const mode: TimeFramePanelMode = currentEdit.view ?? "frame";
   const choice: ValidityChoice = currentEdit.validityChoice ?? "frame";
 
-  // The field's timeline, when the field names its rows. The edit's dates are
-  // the ticked stretch; the ticks are read back from the dates, so the frame
-  // and Advanced views and the Timeline view always agree.
-  const { periods, loaded } = useFieldTimeline(currentEdit.source);
+  // The field's timeline cut at frame edges (useEditTimeline). The edit's dates
+  // are the ticked stretch; the ticks are read back from the dates, so the
+  // Frame view and the Timeline view always agree, and an edit of one frame
+  // ticks only that frame's part of a longer value.
+  const { periods, loaded } = useEditTimeline(currentEdit.source);
   const selected = periodsInRange(periods, currentEdit.validFrom, currentEdit.validTo);
   // What a save does to each ticked period (owner 2026-11-16): the form holds
   // the anchor's values (useEditAnchor), and a save writes them over every

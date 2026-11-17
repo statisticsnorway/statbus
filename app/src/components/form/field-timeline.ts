@@ -190,6 +190,24 @@ export function frameSegments(
 }
 
 /**
+ * The periods an edit's Timeline ticks: the field's periods cut at frame
+ * edges, one per value per frame, as Remove's pieces are. A tick means that
+ * piece changes, so an edit of the Live frame ticks only Live's part of a
+ * value that also holds in earlier frames, and those earlier parts show
+ * unchanged (owner 2026-11-17).
+ */
+export function editPeriods(
+  periods: readonly TimelinePeriod[],
+  frames: readonly TimeFrame[]
+): TimelinePeriod[] {
+  return frameSegments(periods, frames).map((s) => ({
+    ...periods[s.period],
+    valid_from: s.valid_from,
+    valid_to: s.valid_to,
+  }));
+}
+
+/**
  * The selection after the user ticks or unticks a period's box. The selection
  * is always one unbroken stretch, as the edit's dates are: ticking extends it
  * to the ticked period; unticking an end shrinks it by one; unticking a

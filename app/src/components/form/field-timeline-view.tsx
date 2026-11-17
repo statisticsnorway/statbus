@@ -26,6 +26,7 @@ import { useUnitExistence } from "./timeline-skeleton-view";
 import { withGaps } from "./timeline-gaps";
 import {
   describeValues,
+  editPeriods,
   fieldTimeline,
   foldableFrames,
   frameMarker,
@@ -87,6 +88,18 @@ export function useFieldTimeline(source: EditFieldSource | undefined) {
     [data, columns, existence]
   );
   return { periods, loaded: !!data, error, isLoading, refresh: mutate };
+}
+
+/**
+ * The field's timeline as an edit ticks it (editPeriods): its periods cut at
+ * frame edges, so a tick is exactly one value in one frame. The edit's
+ * controls, its anchor and its save read these same periods.
+ */
+export function useEditTimeline(source: EditFieldSource | undefined) {
+  const { periods: all, loaded } = useFieldTimeline(source);
+  const { timeFrames } = useTimeFrame();
+  const periods = useMemo(() => editPeriods(all, timeFrames), [all, timeFrames]);
+  return { periods, loaded };
 }
 
 /** The frame's marker on a timeline row (frameMarker): kind above year for Live and Previous. */

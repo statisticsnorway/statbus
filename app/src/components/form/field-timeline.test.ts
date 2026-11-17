@@ -3,6 +3,7 @@ import {
   framesOverlapping,
   opensInTimeline,
   periodsInRange,
+  editPeriods,
   selectionRange,
   frameSegments,
   foldableFrames,
@@ -508,5 +509,26 @@ describe("frameMarker", () => {
         withYear(frame("y_2023", "fixed", "2023-01-01", "2023-12-31"), 2023)
       )
     ).toEqual({ label: "2023", year: null });
+  });
+});
+
+// Owner review 2026-11-17 13:22, LU 29 Name: "EDIT PAGES ASA" 2024 – Present,
+// edit opened on the Live frame (2026-01-01 – Present). The edit's Timeline
+// must tick only Live's part, so 2024 and 2025 show unchanged and unticked.
+describe("editPeriods", () => {
+  const spanning = fieldTimeline(
+    [{ valid_from: "2024-01-01", valid_to: "infinity", name: "EDIT PAGES ASA", data_source_id: 4 }],
+    ["name"]
+  );
+  it("cuts a value spanning several frames into one period per frame", () => {
+    expect(editPeriods(spanning, frames).map((p) => [p.valid_from, p.valid_to, p.values.name])).toEqual([
+      ["2024-01-01", "2024-12-31", "EDIT PAGES ASA"],
+      ["2025-01-01", "2025-12-31", "EDIT PAGES ASA"],
+      ["2026-01-01", "infinity", "EDIT PAGES ASA"],
+    ]);
+  });
+  it("ticks only the Live piece for an edit of the Live frame", () => {
+    const pieces = editPeriods(spanning, frames);
+    expect(periodsInRange(pieces, "2026-01-01", null)).toEqual([2]);
   });
 });

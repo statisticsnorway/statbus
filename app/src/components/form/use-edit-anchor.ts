@@ -3,7 +3,7 @@
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useEditManager } from "@/atoms/edits";
 import { useTimeFrame } from "@/atoms/app-derived";
-import { useFieldTimeline } from "./field-timeline-view";
+import { useEditTimeline } from "./field-timeline-view";
 import { periodOn, periodsInRange, type TimelinePeriod } from "./field-timeline";
 import { editAnchor } from "./edit-changes";
 import type { EditFieldSource } from "./read-edit-range";
@@ -35,7 +35,7 @@ export function useEditAnchor(
 ): EditAnchor {
   const { currentEdit, setEditDataSourceId, setEditAnchor } = useEditManager();
   const { selectedTimeFrame } = useTimeFrame();
-  const { periods } = useFieldTimeline(isEditing ? source : undefined);
+  const { periods } = useEditTimeline(isEditing ? source : undefined);
   const ticked = isEditing
     ? periodsInRange(periods, currentEdit.validFrom, currentEdit.validTo)
     : [];
