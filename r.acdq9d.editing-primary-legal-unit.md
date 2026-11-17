@@ -23,15 +23,15 @@ Owner review 2026-11-17: the yellow 'This legal unit is the primary legal unit f
 Physical locality: the warning sits where the action it qualifies is taken. Shown only when it applies.
 
 ## Relevant details
-Box: app/src/app/legal-units/[id]/@primaryUnitInfo/default.tsx. Owner's options: a tick box 'Yes, I know I'm editing the primary and it changes the enterprise' that Save waits for, or the same text as a yellow/orange notice. Which fields the enterprise takes from its primary legal unit decides where it shows.
+Boxes: app/src/app/legal-units/[id]/@primaryUnitInfo/default.tsx and app/src/app/establishments/[id]/@primaryUnitInfo/default.tsx, shown in the side column of every legal unit and establishment page (Identification, Contact, Demographic, Classifications, Statistical variables, History, Links, Inspect). Every field the edit forms show reaches the enterprise through its primary legal unit (timeline_enterprise_def). Owner's choice, open on 2026-11-17: a tick box 'Yes, I know I'm editing the primary and it changes the enterprise' that Save waits for, or the same text as a yellow/orange notice. Built first as the notice.
 
 ## Depends on
 
 ## Acceptance
 - [x] On a primary legal unit, opening an edit of a field the enterprise takes from it shows the warning to the left of Cancel and Save, in yellow/orange
-- [x] The side box under the menu is gone from the legal unit and establishment pages
+- [x] The side box saying the unit is primary is gone from every legal unit and establishment page that showed it (all eight tabs share the side column)
 - [x] On a legal unit that is not primary, or a field the enterprise does not take, no warning shows
-- [ ] [Owner] Decides tick box (Save waits) or notice only
+- [ ] With the owner's choice recorded in Relevant details: as a notice, Save stays enabled beside it; as a tick box, Save waits until it is ticked and the tick clears when the edit closes
 
 ## Notes
 
