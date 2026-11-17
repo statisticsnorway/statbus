@@ -30,3 +30,5 @@ Reproduction (tmp/611-rls-probe4..6.sql, logs; clone of statbus_test_template; j
 - [ ] The edit form, as a regular user, saves a 2025-only change on a record another user wrote (headless, database restored after)
 
 ## Notes
+
+2026-11-17 23:42 discussion with the owner, paused until tomorrow (Rabbit). Owner: (1) a regular user editing only rows they wrote makes no sense to him; the RLS as it stands does not express the security model he intended, so the model itself is to be discussed before any fix. (2) sql_saga inserts, updates and deletes rows itself during a merge (splits, kept pieces), and edit_by_user_id/edit_at are passed to temporal_merge as ephemeral columns, so any trigger or policy that stamps or checks the writer must be designed with that machinery in mind. Rabbit's proposal (WITH CHECK true plus a trigger stamping writer and time only when data columns change) is NOT agreed; parked. Related: notes (n9nyvd) use edit_at as the version for the save race; a database stamp of edit_at on unit_notes waits for this discussion. Nothing built yet.
