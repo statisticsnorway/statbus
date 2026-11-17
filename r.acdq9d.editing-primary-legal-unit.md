@@ -34,3 +34,5 @@ Box: app/src/app/legal-units/[id]/@primaryUnitInfo/default.tsx. Owner's options:
 - [ ] [Owner] Decides tick box (Save waits) or notice only
 
 ## Notes
+
+2026-11-17 13:44 built on branch (Rabbit) as a notice (no tick box yet: the owner's choice is open). PrimaryUnitNotice beside Cancel/Save in all three edit wrappers; the LU and EST side-column primary boxes removed (the 'Set as primary' box for non-primary units stays). Headless tmp/acdq9d-check.log + tmp/acdq9d/: LU 29 Name and Sector show 'Primary for the enterprise EDIT PAGES AS: this change also changes the enterprise.'; EST 51 shows 'Primary for the legal unit EDIT PAGES AS: ...'; EST 17 (not primary) shows no notice; no page shows the old side box. tsc ok, lint 0 errors, jest 435 (tmp/acdq9d-checks.log). Open: which fields the enterprise takes. All the forms' fields come through the primary LU in timeline_enterprise_def (name, activities, locations, contact, legal form, sector, unit size, status, stats), so the notice shows on every field of a primary unit.
