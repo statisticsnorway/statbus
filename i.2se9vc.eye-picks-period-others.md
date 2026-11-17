@@ -31,7 +31,7 @@ Popover: field-timeline-view.tsx (read-only, no onToggle). Edit: the anchor's ey
 - [x] Opening a field's timeline shows a black eye on the period of the page's time frame and grey eyes on the others
 - [x] Every other period marks the columns and the data source that differ from the reference, and shows nothing extra where they agree
 - [x] Clicking a grey eye makes that period the reference and the marks follow it
-- [x] In the edit's Timeline the same eye moves the anchor, and the form takes that period's values
+- [x] In the edit's Timeline, clicking a grey eye moves the anchor, and the form takes that period's values
 
 ## Notes
 
