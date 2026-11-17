@@ -1,13 +1,18 @@
 ---
 id: xz3jej
 title: "Erik's sample report: legal units whose top establishment has another activity"
-state: todo
+state: "doing"
 type: docs
 priority: ""
-assignee: []
+assignee: ["hibiscus"]
 labels: []
 created: 2026-11-18
 updated: 2026-11-18
+doing_since: "2026-11-18T00:59"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -30,3 +35,7 @@ PR #328: doc/integration/javascript/legal_units.html (+~300 lines) and doc/integ
 - [ ] The PR is merged or closed on GitHub as decided, with a comment that links this task
 
 ## Notes
+
+
+## History
+- 2026-11-18T00:59 todo -> doing/active (take)
