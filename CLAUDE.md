@@ -138,7 +138,14 @@ Start: hug task next, then hug task take ID --model MODEL (the model you are, e.
 claude-opus-5-5 or gpt-6.1-sol; a person: --model human; --as NAME adds your agent
 or session name, optional), then hug task show ID.
 While working: hug task check ID N with evidence, hug task note ID "evidence".
-Finish: hug task done ID when every acceptance check is ticked.
+Finish: hug task done ID when every acceptance check is ticked. Done asks whether
+the instructions guided you well; answer honestly with --reflect "...": quote the
+instruction that misled you or left a gap and say what happened, or "nothing".
+Todos are your own next steps on the task you took, nothing else: details,
+evidence, waits and dependencies go in tasks (hug task note, hug task dep), never
+in todos, and another agent's work is never your todo. When your todos run out,
+finish the task and run hug task next: an empty todo list means take the next
+task, not blocked.
 New work: hug task new "short title" --goal "..." --purpose "..." --principle "..." --details "..." --accept "observable check".
 Describe a task with Goal (where we aim), Purpose (why), Principle (what we do
 and do not do), Relevant details, then Acceptance. Titles stay under 80
@@ -146,7 +153,7 @@ characters; detail goes in the Goal.
 Epics: hug task set ID --parent EPIC; hug task promote ID N turns item N into
 its own task. hug task ls --epic EPIC shows an epic and its children.
 MCP tools (hug mcp): task_list, task_show, task_new, task_next, task_take (model
-required, agent optional),
+and cwd required: your working folder, its branch is recorded; agent optional),
 task_done, task_update (actions set, check, promote, note, move, dep, drop).
 Old backlog ids (TASK-123) work as aliases.
 Never edit .hug/tasks/ files by hand while another agent may be writing; use the commands.

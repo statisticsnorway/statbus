@@ -27,17 +27,33 @@ STATBUS is SSB's statistical business registry: PostgreSQL 18+, PostgREST 12+, N
 - Read GitHub Actions `status` and `conclusion` explicitly using `gh run list --json status,conclusion`. Do not rely on `gh run watch --exit-status`.
 
 ## Tasks: hug
-
-- hug is the durable ticket tracker. Tasks live on the git branch `hug/tasks`, checked out at `.hug/tasks/` (run `hug task init` once per checkout). Each task's goal, acceptance checks, status and evidence live there, not only in todos or agent prompts. Old ids such as `STATBUS-626` work as aliases.
-- Use the `hug task` CLI or the hug MCP (`hug mcp`, tools `task_*`). Read with either or `rg`. Change tasks only through these commands, never by editing `.hug/tasks/` files, because another agent may be writing.
-- Start: `hug task next`, then `hug task take ID --model MODEL` (the model you are; a person: `--model human`), then `hug task show ID`. Take also covers delegation.
-- While working: `hug task note ID "evidence"` and `hug task check ID N` when check N has evidence. Finish: `hug task done ID` when every check is ticked; it stays on the board.
-- New work: `hug task new "short title" --type TYPE --goal "..." --purpose "..." --principle "..." --details "..." --accept "observable check"`. Types: feature, bug, chore, spike, docs. Titles stay under 80 characters; detail goes in the goal.
-- `hug task sync` shares task edits through the remote; take and done sync themselves.
-- The old Backlog.md board was imported into hug on 2026-11-16 and removed from the tree; its board documents are in `doc/backlog-docs/`.
-
+Track all work with hug tasks (on the git branch "hug/tasks", at .hug/tasks/).
+Start: hug task next, then hug task take ID --model MODEL (the model you are, e.g.
+claude-opus-5-5 or gpt-6.1-sol; a person: --model human; --as NAME adds your agent
+or session name, optional), then hug task show ID.
+While working: hug task check ID N with evidence, hug task note ID "evidence".
+Finish: hug task done ID when every acceptance check is ticked. Done asks whether
+the instructions guided you well; answer honestly with --reflect "...": quote the
+instruction that misled you or left a gap and say what happened, or "nothing".
+Todos are your own next steps on the task you took, nothing else: details,
+evidence, waits and dependencies go in tasks (hug task note, hug task dep), never
+in todos, and another agent's work is never your todo. When your todos run out,
+finish the task and run hug task next: an empty todo list means take the next
+task, not blocked.
+New work: hug task new "short title" --goal "..." --purpose "..." --principle "..." --details "..." --accept "observable check".
+Describe a task with Goal (where we aim), Purpose (why), Principle (what we do
+and do not do), Relevant details, then Acceptance. Titles stay under 80
+characters; detail goes in the Goal.
+Epics: hug task set ID --parent EPIC; hug task promote ID N turns item N into
+its own task. hug task ls --epic EPIC shows an epic and its children.
+MCP tools (hug mcp): task_list, task_show, task_new, task_next, task_take (model
+and cwd required: your working folder, its branch is recorded; agent optional),
+task_done, task_update (actions set, check, promote, note, move, dep, drop).
+Old backlog ids (TASK-123) work as aliases.
+Never edit .hug/tasks/ files by hand while another agent may be writing; use the commands.
 ## Commands and configuration
 
+- The old Backlog.md board was imported into hug on 2026-11-16 and removed from the tree; its board documents are in `doc/backlog-docs/`.
 - `./sb` is the Go operations CLI. `./dev.sh` handles development tasks. Do not use the retired `manage-statbus.sh`.
 - Edit `.env.config`, then run `./sb config generate`. Do not edit generated `.env`. Keep `.env.credentials` secure.
 - Inspect the database with `./sb psql < file.sql` or `echo "SELECT ..." | ./sb psql`.

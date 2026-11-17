@@ -23,7 +23,17 @@ FAIL=0
 run_hook() {
   local msg="$1"
   local f="$TMPDIR/msg.txt"
-  printf '%s' "$msg" > "$f"
+  # This suite tests the ticket-number rule; hug's Model: gate (called first by the
+  # hook) needs its trailer, so every message here carries one. The gate's own
+  # cases are at the end.
+  printf '%s\n\nModel: human\n' "$msg" > "$f"
+  bash "$HOOK" "$f" 2>/tmp/commit-msg.err
+}
+
+# hug's gate alone: a message exactly as given, no trailer added.
+run_hook_raw() {
+  local f="$TMPDIR/msg-raw.txt"
+  printf '%s' "$1" > "$f"
   bash "$HOOK" "$f" 2>/tmp/commit-msg.err
 }
 
@@ -243,6 +253,16 @@ assert_reject_staged "mixed ERROR+WARNING, only expected-error provided → REJE
   "fix: update mixed baseline
 
 expected-error: test/expected/check2.out:2 — intentional error for negative test."
+
+# hug's Model: trailer gate; runs only where it is installed (hug task install commit-msg).
+if [[ -x "$(git rev-parse --git-common-dir)/hooks/hug-commit-msg" ]]; then
+  exit_code=0; run_hook_raw $'docs: a message with no Model trailer\n' || exit_code=$?
+  if [[ $exit_code -ne 0 ]]; then PASS=$((PASS+1)); printf '[reject OK ] no Model: trailer → REJECT\n'
+  else FAIL=$((FAIL+1)); printf '[FAIL     ] no Model: trailer  (expected exit 1, got 0)\n'; fi
+  exit_code=0; run_hook_raw $'docs: a message\n\nModel: claude-opus-5-5/high\n' || exit_code=$?
+  if [[ $exit_code -eq 0 ]]; then PASS=$((PASS+1)); printf '[pass  OK ] Model: claude-opus-5-5/high → PASS\n'
+  else FAIL=$((FAIL+1)); printf '[FAIL     ] Model: claude-opus-5-5/high  (expected exit 0, got %d)\n' "$exit_code"; fi
+fi
 
 # ── Report ──────────────────────────────────────────────────────────────
 

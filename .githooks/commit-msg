@@ -1,4 +1,8 @@
 #!/bin/bash
+# hug's Model: trailer gate (hug task install commit-msg): every commit names the
+# model and effort that made it (Model: claude-opus-5-5/high), or Model: human.
+h="$(git rev-parse --git-common-dir)/hooks/hug-commit-msg"
+[ ! -x "$h" ] || "$h" "$@" || exit 1
 # commit-msg hook — reject ALL bare hash-digit ticket references in commit
 # messages.
 #
