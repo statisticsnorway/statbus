@@ -1,13 +1,18 @@
 ---
 id: j2g6wd
 title: "Lint every open task once hug stops linting done tasks"
-state: todo
+state: "doing"
 type: chore
 priority: ""
-assignee: []
+assignee: ["hibiscus"]
 labels: []
 created: 2026-11-18
 updated: 2026-11-18
+doing_since: "2026-11-18T00:40"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -29,3 +34,7 @@ Installed now: hug v0.7.50 (brew veridit/tap/hug). Open tasks with findings on 2
 - [ ] hug task lint reports no findings on any open task, except tasks another agent has taken, which are named in the notes
 
 ## Notes
+
+
+## History
+- 2026-11-18T00:40 todo -> doing/active (take)
