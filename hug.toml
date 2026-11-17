@@ -1,4 +1,5 @@
 layout = 2
+forbid_cite = [".jcode/scratch/"]
 
 [people.jorgen]
 name = "Jørgen H. Fjeld"
@@ -11,5 +12,3 @@ email = ["eriksoeb@gmail.com"]
 [people.hhz]
 name = "hhssb"
 email = ["hhz@ssb.no"]
-
-forbid_cite = [".jcode/scratch/"]
