@@ -26,6 +26,7 @@ import { useUnitExistence } from "./timeline-skeleton-view";
 import { withGaps } from "./timeline-gaps";
 import {
   describeValues,
+  differencesFrom,
   editPeriods,
   fieldTimeline,
   foldableFrames,
@@ -190,10 +191,13 @@ interface FieldTimelineProps {
   changes?: ReadonlyMap<number, PeriodChange>;
   /**
    * The edit's baseline when several periods are ticked: the period whose
-   * values the form shows, always marked with an eye (ShownInFormMarker) so
-   * the user sees what the changes are measured against (owner 2026-11-16).
+   * values the form shows, marked with the black eye (ReferenceEye). The
+   * other ticked periods carry a grey eye; clicking one moves the baseline
+   * there (onBaseline) and the form takes that period's values (owner
+   * 2026-11-16, 2026-11-17).
    */
   baseline?: number;
+  onBaseline?: (index: number) => void;
   /**
    * Approving the changes where they are shown (owner 2026-11-16): the
    * periods whose change waits for approval get an Approve box on their card;
@@ -237,6 +241,7 @@ export function FieldTimeline({
   scrollValues,
   changes,
   baseline,
+  onBaseline,
   approval,
   columnControls,
 }: FieldTimelineProps) {
@@ -248,6 +253,23 @@ export function FieldTimeline({
     selectedTimeFrame?.valid_on ?? selectedTimeFrame?.valid_from
   );
   const isSelected = (i: number) => selected.includes(i);
+  // Without an edit (the popover) the reader picks the reference with the
+  // eyes: it starts on the page's time frame, and every other period marks
+  // what differs from it (differencesFrom, owner 2026-11-17).
+  const [picked, setPicked] = useState<number | null>(null);
+  const reading = !onToggle;
+  const reference = reading ? (picked ?? shownIndex) : (baseline ?? -1);
+  const differences = useMemo(
+    () => (reading && periods.length > 1 ? differencesFrom(periods, reference) : []),
+    [reading, periods, reference]
+  );
+  const eyeFor = (i: number): "reference" | "other" | null => {
+    if (periods[i]?.empty) return null;
+    if (reading) return periods.length > 1 ? (i === reference ? "reference" : "other") : null;
+    if (baseline === undefined || !isSelected(i)) return null;
+    return i === baseline ? "reference" : "other";
+  };
+  const pickReference = (i: number) => (reading ? setPicked(i) : onBaseline?.(i));
   const segments = useMemo(
     () => frameSegments(periods, timeFrames),
     [periods, timeFrames]
@@ -642,7 +664,13 @@ export function FieldTimeline({
                 )}
                 data-shown={i === shownIndex || undefined}
               >
-                {i === baseline && <ShownInFormMarker />}
+                {eyeFor(i) && (
+                  <ReferenceEye
+                    active={eyeFor(i) === "reference"}
+                    editing={!reading}
+                    onPick={() => pickReference(i)}
+                  />
+                )}
                 {change && approval?.periods.includes(i) && (
                   <label
                     className={cn(
@@ -663,6 +691,8 @@ export function FieldTimeline({
                 )}
                 {change ? (
                   <PeriodChangeView period={p} change={change} />
+                ) : differences[i] && differences[i]!.columns.length > 0 ? (
+                  <DifferingValue values={p.values} differing={differences[i]!.columns} />
                 ) : (
                   <div
                     className={cn(
@@ -678,7 +708,17 @@ export function FieldTimeline({
                   {change?.dataSource ? (
                     <ChangedSource change={change.dataSource} />
                   ) : (
-                    source && <span> · {source}</span>
+                    source && (
+                      <span>
+                        {" · "}
+                        <span
+                          className={cn(differences[i]?.dataSource && "rounded bg-amber-100 px-0.5 text-amber-900")}
+                          data-timeline-differs={differences[i]?.dataSource ? "data_source" : undefined}
+                        >
+                          {source}
+                        </span>
+                      </span>
+                    )
                   )}
                   {p.edit_comment && (
                     <span className="block truncate italic">
@@ -697,34 +737,86 @@ export function FieldTimeline({
 }
 
 /**
- * The eye on the ticked period the form shows (the edit's baseline). It starts
- * as the page's time frame and moves as the user ticks and unticks, so it is
- * always marked; clicking it explains (owner 2026-11-16).
+ * The eye on a timeline card (owner 2026-11-16, 2026-11-17). Black on the
+ * reference: the period the others are compared with, which in an edit is the
+ * one the form shows. Grey on the others: clicking one makes it the reference.
+ * It starts on the page's time frame.
  */
-function ShownInFormMarker() {
+function ReferenceEye({
+  active,
+  editing,
+  onPick,
+}: {
+  active: boolean;
+  editing: boolean;
+  onPick: () => void;
+}) {
+  const help = editing
+    ? "The form holds this period's values. Save writes them over every ticked period; the other ticked periods show what they would lose, struck out. Click another period's eye to compare against it instead."
+    : "The other periods mark what differs from this one. Click another period's eye to compare against it instead.";
+  if (!active)
+    return (
+      <button
+        type="button"
+        onClick={onPick}
+        className="float-right ml-2 rounded-full p-0.5 text-zinc-300 hover:bg-white hover:text-zinc-600"
+        aria-label="Compare with this period"
+        title="Compare with this period"
+        data-timeline-eye="other"
+      >
+        <Eye className="h-4 w-4" />
+      </button>
+    );
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="float-right ml-2 rounded-full p-0.5 text-ssb-dark hover:bg-white"
-          aria-label="Shown in the form"
-          title="Shown in the form"
-          data-timeline-baseline=""
+          className="float-right ml-2 rounded-full p-0.5 text-zinc-900 hover:bg-white"
+          aria-label={editing ? "Shown in the form" : "Compared with this period"}
+          title={editing ? "Shown in the form" : "Compared with this period"}
+          data-timeline-eye="reference"
+          data-timeline-baseline={editing ? "" : undefined}
         >
           <Eye className="h-4 w-4" />
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-72 text-sm" align="end" data-timeline-baseline-help="">
-        <p className="font-medium">Shown in the form</p>
-        <p className="mt-1 text-zinc-600">
-          The form holds this period&apos;s values. Save writes them over every
-          ticked period; the other ticked periods show what they would lose,
-          struck out. It starts as the page&apos;s time frame and moves when
-          you untick it.
-        </p>
+        <p className="font-medium">{editing ? "Shown in the form" : "Compared with this period"}</p>
+        <p className="mt-1 text-zinc-600">{help}</p>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** A value with the columns that differ from the reference highlighted. */
+function DifferingValue({
+  values,
+  differing,
+}: {
+  values: Record<string, unknown>;
+  differing: readonly string[];
+}) {
+  const describe = useDescribeValue();
+  const parts = Object.entries(values).flatMap(([column, v]) => {
+    const text = describe.value({ [column]: v });
+    return text ? [{ column, text }] : [];
+  });
+  return (
+    <div className="break-words font-medium" data-timeline-differing="">
+      {parts.map((p, n) => (
+        <span key={p.column}>
+          {n > 0 && ", "}
+          <span
+            className={cn(differing.includes(p.column) && "rounded bg-amber-100 px-0.5 text-amber-900")}
+            data-timeline-differs={differing.includes(p.column) ? p.column : undefined}
+          >
+            {p.text}
+          </span>
+        </span>
+      ))}
+      {parts.length === 0 && <span className="italic text-zinc-400">Empty</span>}
+    </div>
   );
 }
 

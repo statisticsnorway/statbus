@@ -68,6 +68,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
     setEditRemoving,
     setEditView,
     setEditValidityChoice,
+    setEditAnchor,
   } = useEditManager();
   const { timeFrames, selectedTimeFrame } = useTimeFrame();
   const changeEditFrame = useChangeEditFrame();
@@ -414,6 +415,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
                 onToggle={handleToggle}
                 changes={removing ? undefined : changes}
                 baseline={!removing && anchor >= 0 && selected.length > 1 ? anchor : undefined}
+                onBaseline={(i) => setEditAnchor(periods[i]?.valid_from ?? null)}
               />
               <p className="text-xs text-zinc-600" data-edit-timeline-range="">
                 {currentEdit.validFrom

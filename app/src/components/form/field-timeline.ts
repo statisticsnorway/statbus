@@ -208,6 +208,33 @@ export function editPeriods(
 }
 
 /**
+ * What sets each period apart from the reference period (the black eye in
+ * the timeline, owner 2026-11-17): the columns whose value differs, and
+ * whether the data source differs. The reference itself, a hole, and every
+ * period when there is no reference (-1) compare nothing (null). The view
+ * marks these, so the reader does not have to spot the differences.
+ */
+export interface PeriodDifference {
+  columns: string[];
+  dataSource: boolean;
+}
+
+export function differencesFrom(
+  periods: readonly TimelinePeriod[],
+  reference: number
+): (PeriodDifference | null)[] {
+  const ref = periods[reference];
+  return periods.map((p, i) => {
+    if (!ref || i === reference || p.empty || ref.empty) return null;
+    const same = (a: unknown, b: unknown) => (a ?? null) === (b ?? null);
+    return {
+      columns: Object.keys(p.values).filter((c) => !same(p.values[c], ref.values[c])),
+      dataSource: !same(p.data_source_id, ref.data_source_id),
+    };
+  });
+}
+
+/**
  * The selection after the user ticks or unticks a period's box. The selection
  * is always one unbroken stretch, as the edit's dates are: ticking extends it
  * to the ticked period; unticking an end shrinks it by one; unticking a

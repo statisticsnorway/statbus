@@ -4,6 +4,7 @@ import {
   opensInTimeline,
   periodsInRange,
   editPeriods,
+  differencesFrom,
   selectionRange,
   frameSegments,
   foldableFrames,
@@ -530,5 +531,36 @@ describe("editPeriods", () => {
   it("ticks only the Live piece for an edit of the Live frame", () => {
     const pieces = editPeriods(spanning, frames);
     expect(periodsInRange(pieces, "2026-01-01", null)).toEqual([2]);
+  });
+});
+
+// Owner review 2026-11-17: in a field's timeline one period is the reference
+// (the eye) and the others mark what differs from it, column by column and in
+// the data source: "a game of find five differences" made easy.
+describe("differencesFrom", () => {
+  const address = fieldTimeline(
+    [
+      { valid_from: "2024-01-01", valid_to: "2024-12-31", address_part1: "Kampala Road 1", postcode: "8035", data_source_id: 2 },
+      { valid_from: "2025-01-01", valid_to: "2025-12-31", address_part1: "Kampala Road 2", postcode: "8035", data_source_id: 4 },
+      { valid_from: "2026-01-01", valid_to: "infinity", address_part1: "Kampala Road 2", postcode: "8035", data_source_id: 2 },
+    ],
+    ["address_part1", "postcode"]
+  );
+  it("names, for each other period, the columns and the data source that differ from the reference", () => {
+    expect(differencesFrom(address, 2)).toEqual([
+      { columns: ["address_part1"], dataSource: false },
+      { columns: [], dataSource: true },
+      null,
+    ]);
+  });
+  it("follows the reference when it moves", () => {
+    expect(differencesFrom(address, 0)).toEqual([
+      null,
+      { columns: ["address_part1"], dataSource: true },
+      { columns: ["address_part1"], dataSource: false },
+    ]);
+  });
+  it("compares nothing without a reference", () => {
+    expect(differencesFrom(address, -1)).toEqual([null, null, null]);
   });
 });
