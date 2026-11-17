@@ -4,7 +4,7 @@ title: "An import can carry unit notes, with the CSV checked in the browser firs
 state: todo
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: ["app", "import"]
 created: 2026-11-17
 updated: 2026-11-17
