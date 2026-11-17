@@ -14,7 +14,7 @@ worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
-A user editing a field of the enterprise's primary legal unit sees, inside that edit form next to Save, that the change will also change the enterprise, and acknowledges it before saving. The side box that says this on every page goes away.
+A user editing a field of the enterprise's primary legal unit sees, inside that edit form next to Save, that the change will also change the enterprise. The side box that says this on every page goes away.
 
 ## Purpose
 Owner review 2026-11-17: the yellow 'This legal unit is the primary legal unit for the enterprise ... Changes you make ... will affect the enterprise' box sits under the side menu on every page, also where nothing is being edited. It matters only while editing a field the enterprise takes from its primary legal unit, so it belongs at that Save.
