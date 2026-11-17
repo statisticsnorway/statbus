@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { EditStateResetter } from "./edit-state-resetter";
+import { UnitNotesForPage } from "@/components/unit-notes/unit-notes-for-page";
 
 export interface DetailsPageLayoutProps {
   readonly children: ReactNode;
@@ -21,6 +22,7 @@ export const DetailsPageLayout = ({
       <aside className="lg:w-3/12">
         {nav}
         {primaryUnitInfo}
+        <UnitNotesForPage />
       </aside>
       <div className="lg:w-9/12">
         <div className="flex-1">{children}</div>
