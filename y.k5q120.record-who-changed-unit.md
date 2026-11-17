@@ -4,7 +4,7 @@ title: "Record who changed unit data and when, across edits, removals and import
 state: todo
 type: spike
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: ["db", "edit", "import"]
 created: 2026-11-17
 updated: 2026-11-17
