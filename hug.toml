@@ -12,3 +12,6 @@ email = ["eriksoeb@gmail.com"]
 [people.hhz]
 name = "hhssb"
 email = ["hhz@ssb.no"]
+
+[models]
+"claude-opus-5-5" = ["low", "medium", "high", "xhigh", "max"]
