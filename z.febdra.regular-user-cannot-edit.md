@@ -14,19 +14,19 @@ updated: 2026-11-17
 A regular user changes or removes part of a unit record's period (an activity, statistic, contact or location) that another user wrote, and the save succeeds; the rows the change does not cover keep their own writer.
 
 ## Purpose
-Found 2026-11-17 while extending test 405 for hmgadt (Rabbit). Every partial edit or removal through a for_portion_of view splits rows; temporal_merge updates the kept piece with its original edit_by_user_id, and the *_regular_user_manage policies (WITH CHECK edit_by_user_id = auth.uid()) refuse it: 'new row violates row-level security policy for table "activity"'. So a regular user can only edit periods of rows they wrote themselves, or whole rows. Admins are not affected.
+A regular user maintaining the register must be able to correct part of any unit's history, not only the rows they wrote themselves. Found 2026-11-17 while extending test 405 for hmgadt (Rabbit); the owner says the row-level security as it stands does not express the security model he intended.
 
 ## Principle
 The row's edit_by_user_id records who wrote that row's values; a kept piece's values were written by its original writer, so it keeps that name. Permission to edit a unit's data does not depend on who wrote it last.
 
 ## Relevant details
-Reproduction (tmp/611-rls-probe4..6.sql, logs; clone of statbus_test_template; journal 2026-11-17 19:21): as test.regular, UPDATE activity__for_portion_of_valid SET category_id = X, edit_by_user_id = auth.uid(), edit_at = now(), valid_from = '2025-01-01', valid_until = '2026-01-01' (or 'infinity') on an admin-written row from 2024: RLS error. The same for SET id = NULL (removal), stat_for_unit and contact. Changing the whole row passes. location passes only through restricted_user's policy for region_id IS NULL (regular_user is a member of restricted_user). On the dev DB the same with rabbit-review (id 4). Locally 1 of 4 users is a regular_user; production share unknown. Fix options for the owner: (a) regular_user policies WITH CHECK true for the temporal tables, with the writer of new values set by the app/import (as today); (b) keep the check and let temporal_merge run kept-piece updates under a definer role; (c) other.
+Mechanism: every partial edit or removal through a for_portion_of view splits rows; temporal_merge updates the kept piece with its original edit_by_user_id, and the *_regular_user_manage policies (USING true, WITH CHECK edit_by_user_id = auth.uid()) refuse it: 'new row violates row-level security policy for table "activity"'. So a regular user can only edit periods of rows they wrote themselves, or whole rows. Admins are not affected. sql_saga inserts, updates and deletes rows itself during a merge, and passes edit_by_user_id/edit_at as ephemeral columns.
 
-## Depends on
+Reproduction (tmp/611-rls-probe4..6.sql, logs; clone of statbus_test_template; journal 2026-11-17 19:21): as test.regular, UPDATE activity__for_portion_of_valid SET category_id = X, edit_by_user_id = auth.uid(), edit_at = now(), valid_from = '2025-01-01', valid_until = '2026-01-01' (or 'infinity') on an admin-written row from 2024: RLS error. The same for SET id = NULL (removal), stat_for_unit and contact. Changing the whole row passes. location passes only through restricted_user's policy for region_id IS NULL (regular_user is a member of restricted_user). On the dev DB the same with rabbit-review (id 4). Locally 1 of 4 users is a regular_user; production share unknown. Fix ideas so far, none agreed: (a) regular_user policies WITH CHECK true for the temporal tables, with the writer of new values set by the app/import (as today) or by a trigger; (b) keep the check and let temporal_merge run kept-piece updates under a definer role; (c) other, from the owner's intended security model.
 
 ## Acceptance
 - [ ] A pg_regress test, RED before the fix: as a regular user, change and remove 2025 of an activity, a statistic, a contact and a location (with a region) that the admin wrote from 2024; each succeeds, the changed or removed period is as asked, and the kept pieces still name the admin
-- [ ] [Owner] Chooses the fix, recorded in this task's notes
+- [ ] [Owner] States the intended security model for regular users and chooses the fix, recorded in this task's notes: (a) changes the regular_user policies, (b) changes how temporal_merge writes kept pieces, other is defined there; the test above then encodes it
 - [ ] The edit form, as a regular user, saves a 2025-only change on a record another user wrote (headless, database restored after)
 
 ## Notes
