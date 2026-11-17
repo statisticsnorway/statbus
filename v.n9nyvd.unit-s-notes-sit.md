@@ -34,3 +34,5 @@ public.unit_notes holds one notes text per unit (unique on establishment, legal 
 - [ ] [Owner] Decides what an empty notes cell in an import does: keep the unit's note, or clear it
 
 ## Notes
+
+2026-11-17 13:48 side-column notes built on branch (Rabbit), commit 617f1f125. notesWrite (insert first / update / delete when emptied / none when unchanged) RED tmp/n9nyvd-red.log, GREEN tmp/n9nyvd-green.log; jest 440, tsc ok, lint 0 errors (tmp/n9nyvd-checks.log). UnitNotesBox in DetailsPageLayout's aside (all LU/EST/ENT tabs), reads/writes public.unit_notes via /rest under its RLS. Headless tmp/n9nyvd-check.log on LU 29: Add a note with comma, quotes and a line break stored exactly with edit_by_user_id 4; shown on Contact; edited there; emptied -> row deleted (DB ends as it began). Screenshot tmp/n9nyvd/added.png. Remaining: import notes column (#4, #5) and owner's empty-cell decision (#6).
