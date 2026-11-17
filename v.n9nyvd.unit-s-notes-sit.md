@@ -28,7 +28,7 @@ public.unit_notes holds one notes text per unit (unique on establishment, legal 
 ## Acceptance
 - [x] Every legal unit and establishment page shows the unit's notes under the menu; the box grows with the text
 - [x] A unit without notes offers 'Add a note' there; saving stores one unit_notes row with the editor and time
-- [ ] Editing a note from any of the unit's pages updates the same row
+- [x] Editing a note from any of the unit's pages updates the same row
 - [ ] An import with a notes column stores each row's note; a test file with doubled quotes, commas and line breaks inside quoted notes stores them exactly
 - [ ] An unterminated quote in the notes column fails that row with an error naming the row and column, and the rest of the file is unaffected
 - [ ] [Owner] Decides what an empty notes cell in an import does: keep the unit's note, or clear it
