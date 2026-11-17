@@ -31,3 +31,5 @@ Today the upload route (app/src/app/api/import/upload/route.ts) streams the file
 - [ ] An empty notes cell follows the job's strategy as settled; a test per strategy shows the stored notes
 
 ## Notes
+
+2026-11-17 23:33 (Rabbit) moved from n9nyvd: tmp/n9nyvd-unterminated-copy.log shows the upload's COPY (FORMAT csv) rejects the whole file on an unterminated quote ('unterminated CSV quoted field', line 5): the open quote swallows every following line, so no row-level isolation is possible after it. Owner 19:09: address it with Papa Parse in the browser, naming the line where the open quote starts (check #1).
