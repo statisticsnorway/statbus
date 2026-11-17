@@ -24,6 +24,7 @@ Files: samples/norway/legal_unit/statistical_units_legal_coords.csv and samples/
 
 ## Depends on
 
+- kvbebr
 ## Acceptance
 - [ ] [Owner] Decides where the coordinate files live and how Norway loads them; the answer is recorded in the notes
 - [ ] Norway's units carry the coordinates after the agreed load, shown by a count of units with physical coordinates on the Norway database
