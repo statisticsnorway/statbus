@@ -33,7 +33,7 @@ public.unit_notes holds one notes text per unit (unique on establishment, legal 
 - [x] Editing a note from any of the unit's pages updates the same row
 - [ ] An import with a notes column stores each row's note; a test file with doubled quotes, commas and line breaks inside quoted notes stores them exactly
 - [ ] An unterminated quote in the notes column fails that row with an error naming the row and column, and the rest of the file is unaffected
-- [ ] [Owner] Decides what an empty notes cell in an import does: keep the unit's note, or clear it
+- [ ] With the owner's choice for an empty notes cell recorded in this task's notes, an import applies it: 'keep' leaves the unit's existing note untouched; 'clear' deletes it (a test shows each)
 
 ## Notes
 
