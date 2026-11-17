@@ -3,3 +3,7 @@ layout = 2
 [people.jorgen]
 name = "Jørgen H. Fjeld"
 email = ["jorgen@veridit.no"]
+
+[people.eriksoeb]
+name = "Erik Søberg"
+email = ["eriksoeb@gmail.com"]
