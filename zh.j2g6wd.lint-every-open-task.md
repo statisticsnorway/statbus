@@ -9,10 +9,14 @@ labels: []
 created: 2026-11-18
 updated: 2026-11-18
 doing_since: "2026-11-18T00:40"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+waiting_on: "the hug release that stops linting done tasks (installed now: v0.7.50)"
+waiting_since: "2026-11-18T00:40"
+waiting_asked_by: "hibiscus"
+waiting_for: "jorgen"
 ---
 
 ## Goal
@@ -38,3 +42,4 @@ Installed now: hug v0.7.50 (brew veridit/tap/hug). Open tasks with findings on 2
 
 ## History
 - 2026-11-18T00:40 todo -> doing/active (take)
+- 2026-11-18T00:40 doing/active -> doing/waiting (wait)
