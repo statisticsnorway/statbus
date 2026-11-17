@@ -86,7 +86,7 @@ export function UnitNotesBox({ column, unitId }: { column: NotesUnitColumn; unit
   if (data === undefined) return null;
   return (
     <section
-      className="mt-4 rounded-sm border border-yellow-300 bg-yellow-100 p-3 text-sm text-zinc-900 shadow-sm"
+      className="mt-4 rounded-sm border border-yellow-200 bg-yellow-50 p-3 text-sm text-zinc-900 shadow-sm"
       data-unit-notes=""
     >
       <div className="mb-1 flex items-center justify-between">
@@ -94,7 +94,7 @@ export function UnitNotesBox({ column, unitId }: { column: NotesUnitColumn; unit
         {canEdit && !editing && (
           <button
             type="button"
-            className="rounded p-1 text-yellow-900/70 hover:bg-yellow-200 hover:text-yellow-950"
+            className="rounded p-1 text-yellow-900/70 hover:bg-yellow-100 hover:text-yellow-950"
             onClick={begin}
             aria-label={stored ? "Edit the note" : "Add a note"}
             title={stored ? "Edit the note" : "Add a note"}
@@ -107,7 +107,7 @@ export function UnitNotesBox({ column, unitId }: { column: NotesUnitColumn; unit
       {editing ? (
         <div className="space-y-2">
           <textarea
-            className="block w-full resize-y rounded border border-yellow-300 bg-yellow-50 p-2 text-sm [field-sizing:content] min-h-20"
+            className="block w-full resize-y rounded border border-yellow-200 bg-white p-2 text-sm [field-sizing:content] min-h-20"
             value={text}
             onChange={(e) => setText(e.target.value)}
             autoFocus
