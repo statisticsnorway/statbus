@@ -26,7 +26,7 @@ public.unit_notes holds one notes text per unit (unique on establishment, legal 
 - acdq9d
 
 ## Acceptance
-- [ ] Every legal unit and establishment page shows the unit's notes under the menu; the box grows with the text
+- [x] Every legal unit and establishment page shows the unit's notes under the menu; the box grows with the text
 - [ ] A unit without notes offers 'Add a note' there; saving stores one unit_notes row with the editor and time
 - [ ] Editing a note from any of the unit's pages updates the same row
 - [ ] An import with a notes column stores each row's note; a test file with doubled quotes, commas and line breaks inside quoted notes stores them exactly
