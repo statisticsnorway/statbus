@@ -27,7 +27,7 @@ Today the upload route (app/src/app/api/import/upload/route.ts) streams the file
 ## Acceptance
 - [ ] An upload whose notes column has an unterminated quote is refused in the browser before upload, naming the line where the open quote starts; nothing is sent
 - [ ] An import with a notes column stores each row's note; a test file with doubled quotes, commas and line breaks inside quoted notes stores them exactly
-- [ ] [Owner] Settles how the import strategies apply to unit_notes (a timeless table), recorded in this task's notes
+- [ ] [Owner] Settles, per import strategy, what an empty and a filled notes cell do to the unit's note (unit_notes is timeless), recorded in this task's notes; each settled mapping becomes one case of the per-strategy test in the next check
 - [ ] An empty notes cell follows the job's strategy as settled; a test per strategy shows the stored notes
 
 ## Notes
