@@ -3,7 +3,6 @@ id: "8jsfsk"
 title: Fast Tests hides regression diffs after the split result layout
 state: "done"
 assignee: []
-created_date: 2026-10-06 15:03
 updated_date: '2026-11-08T17:58:00Z'
 labels:
   - ci
@@ -15,11 +14,21 @@ priority: high
 origin: "backlog:STATBUS-454"
 aliases: ["STATBUS-454"]
 type: "feature"
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 created: "2026-10-06 15:03"
 updated: "2026-11-08T17:58:00Z"
 ---
+
+## Acceptance
+- [x] #1 #1 Observe the old file-reading payload producing no diff from an offline fixture with failure inventory/result files. The Docker wrapper and live producer are not claimed reproduced.
+- [x] #2 #2 Corrected diagnostic invokes the actual unchanged helper and prints both representative failing test diffs. No database access or mutation in this fixture.
+- [x] #3 #3 Changed workflow passes actionlint; independent exact-source review and patch/source proof before integration.
+- [x] #4 #4 Next exact-source CI retains its true test conclusion. A future failing run's diff step is useful without making the test pass or replacing actual schema-contract repair. (Owner closed this on 2026-10-07 as decision A: green runs after integration retain the true conclusion, and the failure-path payload is established by the AC2 fixture plus the TTY-free host-file reading in the closing review. The first real red run will exercise it in CI; that specific hosted observation is not claimed.)
+- [x] #5 Follow-up: absent host summary still prints and retains exact container summary/diff, preserving optional host cumulative TAP and nonzero collection errors, with regression RED before and GREEN after.
+- [x] #6 Follow-up: failure-scoped artifact upload is scheduled even after collection failure and before cleanup; scoped shell checks and whole-workflow actionlint pass.
+- [x] #7 Follow-up: root reviews committed exact source before push, then records exact-SHA full Fast CI sequence and any genuine hosted failure-path evidence without changing SQL thresholds.
+- [x] #8 Recover an earlier shared SQL374 mismatch from retained container per-test results when final summary is passing-only, shared summary unavailable and regression.diffs missing; retain all result bytes and exact named diff under the uploaded artifact root.
+- [x] #9 Extract container results as current runner, classify diff exit1 as expected mismatch and exit greater than1 as unexpected failure, retain collection errors, and handle host summary unreadable or absent without preventing per-test recovery.
+- [x] #10 Actual PG18 boundary: when a later passing isolated invocation removes BOTH regression.out and regression.diffs, the collector still recovers and prints the exact original shared mismatch from per-test results and retains all result bytes under the always-upload artifact root.
 
 ## Observed failure
 
@@ -118,23 +127,8 @@ Committed the evidence note as ff31419a87fdc46d1fc8efd555833f2af05ea56d and veri
 
 Observer 662097prn0 ended 1 on a real Harness Selftest failure, not a monitoring deadline. The failure is five log-registration reports in the 451 scenario, not the SQL producer/diagnostic. Complete job/step evidence is retained and a separate bounded 451 follow-up is delegated. At 16:42 the actual App, Go, Images and Notify workflows succeeded, while attributed Fast 37497710543 remains in progress. SQL, floor and managed livedb outcomes and real summary lifecycle are not yet credited. AC4 remains pending, and another source push must wait for every CI run to finish.
 
-## Acceptance
-<!-- AC:BEGIN -->
-- [x] #1 #1 Observe the old file-reading payload producing no diff from an offline fixture with failure inventory/result files. The Docker wrapper and live producer are not claimed reproduced.
-- [x] #2 #2 Corrected diagnostic invokes the actual unchanged helper and prints both representative failing test diffs. No database access or mutation in this fixture.
-- [x] #3 #3 Changed workflow passes actionlint; independent exact-source review and patch/source proof before integration.
-- [x] #4 #4 Next exact-source CI retains its true test conclusion. A future failing run's diff step is useful without making the test pass or replacing actual schema-contract repair. (Owner closed this on 2026-10-07 as decision A: green runs after integration retain the true conclusion, and the failure-path payload is established by the AC2 fixture plus the TTY-free host-file reading in the closing review. The first real red run will exercise it in CI; that specific hosted observation is not claimed.)
-- [x] #5 Follow-up: absent host summary still prints and retains exact container summary/diff, preserving optional host cumulative TAP and nonzero collection errors, with regression RED before and GREEN after.
-- [x] #6 Follow-up: failure-scoped artifact upload is scheduled even after collection failure and before cleanup; scoped shell checks and whole-workflow actionlint pass.
-- [x] #7 Follow-up: root reviews committed exact source before push, then records exact-SHA full Fast CI sequence and any genuine hosted failure-path evidence without changing SQL thresholds.
-- [x] #8 Recover an earlier shared SQL374 mismatch from retained container per-test results when final summary is passing-only, shared summary unavailable and regression.diffs missing; retain all result bytes and exact named diff under the uploaded artifact root.
-- [x] #9 Extract container results as current runner, classify diff exit1 as expected mismatch and exit greater than1 as unexpected failure, retain collection errors, and handle host summary unreadable or absent without preventing per-test recovery.
-- [x] #10 Actual PG18 boundary: when a later passing isolated invocation removes BOTH regression.out and regression.diffs, the collector still recovers and prints the exact original shared mismatch from per-test results and retains all result bytes under the always-upload artifact root.
-<!-- AC:END -->
-
 ## Implementation Notes
 
-<!-- SECTION:NOTES:BEGIN -->
 2026-11-08 follow-up after owner released serial rc03 tracked freeze: hosted Fast run 42500931828 at e6eb065f5 failed SQL374 (298688 ms), then diagnostic falsely reported no readable host summary although pg_regress announced /statbus/test container paths. Reusing this existing ticket, not creating a duplicate. Prior closure explicitly did not claim a hosted red diagnostic result. Authorized scope is fast-tests.yaml, one shell regression and its registration; no SQL/product/performance changes. Prepared patch and RED/GREEN evidence: tmp/serial-rc/fast-ci-diagnostics/. Root requests commit after tests, hold push for review.
 
 2026-11-08 implementation committed as 63c13a523ca1648aa98dcd6e3043c05438fad9d2, parent e6eb065f5d95114b554d1261273d20bb26959c42. Exactly fast-tests.yaml and new test/fast-ci-regression-diagnostics-test.sh changed, including test registration in Fast CI. Prepared patch source equality verified. Original workflow exact-body regression RED returned 2 at positive retained-byte assertion; old body returned misleading 0. Integrated seven-case regression GREEN, existing test/454-regression-summary-offline.sh GREEN (shared7/isolated9/parent9 retained, capture failures1/read error2), Bash ShellCheck and whole-workflow actionlint GREEN. Focused go test ./cmd -run TestFastPublishedImages|TestWorkflowRunMarkerMatchesCheckoutRef_STATBUS285|TestFastTestsExcludesFixtureBranch_STATBUS433 passed. Logs and fixtures retained under tmp/serial-rc/fast-ci-diagnostics/{integrated*,existing-454*,red-final*,green-final*}. No push: root review and exact-SHA full CI remain pending under AC7. No actual GitHub artifact upload or live SQL result production is claimed by shell doubles. Later isolated pg_regress children may overwrite/remove prior container diagnostics, so SQL374-specific diff survival is not guaranteed. SQL performance remains root-owned, no thresholds changed. Concurrent doc/performance/2026-11-combined-import-review.md edits are unrelated and preserved.
@@ -150,4 +144,3 @@ Verification: new exact-body regression RED against prior collector (exit2 at mi
 2026-11-08 17:37 UTC root reviewed complete committed workflow and regression at cbd98d6e1, including per-test tar stream, runner-owned extraction, exact diff status classification and always-upload before cleanup. Independently passed new actual-body regression, actual PG18 retained-result boundary replay, existing454 extracted actual-source regression, ShellCheck, Actionlint and focused actual Go workflow contracts. Logs tmp/serial-rc/root-diagnostic-{review,source-review,go-review}.log and root-diagnostic-existing454-pass.log. Two initial existing454 invocations omitted required arguments and correctly refused before testing, preserved separately. No source blocker. One ordinary master push follows, exact-SHA hosted sequence pending; actual artifact upload remains unobserved until a genuine SQL failure.
 
 2026-11-08 17:58 UTC actual hosted acceptance: reviewed/pushed745c1428202166f16995b39e4bd68a5e45d6abce. All six non-Fast workflows completed/success. Full Fast42506168812 completed/failure on genuine SQL374 first-pass timing, preserving primary failure. Diagnostic selftest passed; both actual container summary files were absent after passing isolated children. The collector recovered and printed the exact374 expected/actual diff, all6000correct roots but under10=false, then always-upload successfully published409files in artifact13628031707. Downloaded archive SHA256 d9756fed08734907b3617be393410b4ef1650b5c53a1d8f02d65ce6006c134e1 matches API/upload log. Extracted results.tar matches every downloaded result byte; the sole nonempty per-test diff is374. Raw result count136 includes133SQLoutputs and3generated artifacts. This is actual hosted failure-path/artifact acceptance, not fixture inference. Floor/LiveDB skipped due original SQL failure. Performance cause is separate STATBUS596 InProgress; no thresholds changed or overall-green claim. Exact source is already on master, ticket closure accompanies next focused investigation push.
-<!-- SECTION:NOTES:END -->

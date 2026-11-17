@@ -4,7 +4,6 @@ title: >-
   release check: run every prerelease gate, tag nothing, write nothing; prerelease = check + tag
 state: "done"
 assignee: []
-created_date: '2026-09-14 10:14'
 updated_date: '2026-09-14 12:56'
 labels:
   - release
@@ -14,8 +13,6 @@ priority: high
 type: "feature"
 origin: "backlog:STATBUS-366"
 aliases: ["STATBUS-366"]
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 backlog_type: "task"
 created: "2026-09-14 10:14"
 updated: "2026-09-14 12:56"

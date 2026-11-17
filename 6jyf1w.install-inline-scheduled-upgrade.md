@@ -5,7 +5,6 @@ title: >-
   adopts the upgrade mutex, then crash recovery locks against itself
 state: "done"
 assignee: []
-created_date: '2026-10-05 19:00'
 labels:
   - upgrade
   - install
@@ -19,8 +18,6 @@ priority: high
 origin: "backlog:STATBUS-450"
 aliases: ["STATBUS-450"]
 type: "feature"
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 created: "2026-10-05 19:00"
 ---
 
@@ -72,12 +69,10 @@ The revalidation (ID/Holder/Phase match, canonical inode equals the held inode) 
 Also consider: when the lock was adopted across the binary handoff, the narrative "The previous upgrade stopped unexpectedly. Recovery will run now." is false. It is a planned continuation. Say so.
 
 ## Acceptance criteria
-<!-- AC:BEGIN -->
 - [x] #1 A Go test drives the post-swap continuation with an adopted service lock at phase `new-sb-swapped` through recovery routing. It is RED on ebc77c5f5 (contention error) and GREEN with the fix. A sibling test proves a lock-less caller still refuses on real contention from another open file description.
 - [x] #2 No recovery-side path opens a second open file description on the canonical flag while `d.flagLock` holds it. The quiesce step no longer prints the false "STILL HELD" warning or waits 10 s, and `RecoveryBudgetGuard` counts the pass.
 - [x] #3 The STATBUS-436 rehearsal `CANDIDATE_PATH=scheduled` passes on the next candidate, along with `CANDIDATE_PATH=operator` (no retry).
 - [x] #4 Independent review MERGE before landing on master.
-<!-- AC:END -->
 
 ## Implementation Notes
 

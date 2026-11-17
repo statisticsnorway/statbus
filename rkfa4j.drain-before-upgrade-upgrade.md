@@ -5,7 +5,6 @@ title: >-
   bounded drain, falling back to the now-safe interruption
 state: "todo"
 assignee: []
-created_date: '2026-08-27 16:14'
 labels:
   - upgrade
   - worker
@@ -14,15 +13,12 @@ priority: medium
 type: "feature"
 origin: "backlog:DRAFT-002"
 aliases: ["DRAFT-002"]
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Draft"
 backlog_type: "enhancement"
 created: "2026-08-27 16:14"
 ---
 
 ## Goal
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
 AWAITING THE KING'S RULING (his question, 2026-08-27, leaving for the evening: "we can't run the upgrade now because work is pending — or what is a principal way to handle this?"). Architect's design, prepared for the evening walkthrough:
 
 THE ANSWER: his instinct is right, and its principled form is FINISH the work, not refuse the upgrade. Refusing is the wrong shape three ways (a long import makes a box permanently un-upgradeable; a recurring refusal invites a bypass flag on an upgrade guard; the box's own work would prevent its maintenance) — and decisively, refusing doesn't work: check-then-stop is a race, and making it reliable requires first stopping intake, i.e. quiescing — at which point you may as well proceed. Option (a) done properly BECOMES option (b).
@@ -34,4 +30,3 @@ VERIFY BEFORE BUILDING — we may already own most of it: the upgrade runs docke
 OPERATOR SURFACE (the deciding argument in the King's frame): "Finishing current work before upgrading…" is what any competent person would do and needs no explanation; "Cannot upgrade: work is pending" alarms and strands; "your import will be redone" invites a support question.
 
 HONEST PRIORITY: worth doing, NOT urgent — the wedge is closed by 264+265; this buys cleanliness (no manufactured interrupted work, faster convergence, unambiguous canary observation), honestly labelled as such. Nothing is at risk in waiting until after the stable ships.
-<!-- SECTION:DESCRIPTION:END -->

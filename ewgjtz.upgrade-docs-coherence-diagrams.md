@@ -7,7 +7,6 @@ title: >-
 state: "done"
 assignee:
   - architect
-created_date: '2026-07-25 19:21'
 updated_date: '2026-08-16 13:58'
 labels:
   - upgrade
@@ -23,15 +22,12 @@ references:
 origin: "backlog:STATBUS-196"
 aliases: ["STATBUS-196"]
 type: "feature"
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 created: "2026-07-25 19:21"
 updated: "2026-08-16 13:58"
 ---
 
 ## Goal
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
 > NORTH STAR (King, 2026-07-23): the upgrade diagrams, the code, and the tests are one coherent whole. The diagrams cover everything that needs covering. One place states what went wrong on Rune. Everything 071 claims is covered by a scenario. Nothing drifts.
 
 THE PROBLEM TODAY (probe-verified 2026-07-25):
@@ -45,16 +41,13 @@ THE WORK, five steps:
 3. CROSS-LINK, both ways. Every diagram element names its covering arc or scenario — or says "uncovered", plainly. Every arc and scenario names its diagram element. The 071 map is the join table; reference it, or move its durable content into the docs.
 4. THE RUNE STATEMENT. One named place in the recovery model says what went wrong on Rune, in two layers: the extinct wedge (root cause fixed — e76505eec skips --now in the fixup during an active upgrade; 61e79e265 lands the terminal UPDATE before the fixup, so the window no longer exists; cb7344dd6 adds the self-heal net) and the live class — a box that loops forever while nobody is told (covered by the budget/park arcs, the restart-bound asserts, and the 069 canary).
 5. THE DRIFT GATE. A structural check that fails loudly when a new terminal state, park writer, or recovery dispatch arm lands in cli/internal/upgrade without its diagram line. The gate watches the visible artifact: the doc diff.
-<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance
-<!-- AC:BEGIN -->
 - [x] #1 The timeline carries the park lifecycle and the serve-proven completed contract; architect-reviewed
 - [x] #2 The recovery model carries the parked-skip invariant and the watchdog-cover principle
 - [x] #3 Cross-links stand in both directions; "uncovered" is stated, never implied
 - [x] #4 The Rune two-layer statement stands in the recovery model with its fix citations
 - [x] #5 The drift gate exists and a probe proves it fires
-<!-- AC:END -->
 
 ## Comments
 
@@ -155,10 +148,8 @@ UNIT 5 (drift gate) COMMITTED 79c4772a0 (foreman, 2026-08-16; reviewed+approved 
 
 ## Final Summary
 
-<!-- SECTION:FINAL_SUMMARY:BEGIN -->
 All five steps delivered, each foreman-line-reviewed and committed; the King's north star — diagrams, code, and tests as one coherent whole, with nothing left free to drift — stands.
 
 UNIT 1 (8cc4cca1c): doc/upgrade-timeline.md carries the park lifecycle, the serve-proven completed contract, and the read-only window; three eras of prose drift fixed en route (pre-145 boot-migrate inversion, pre-164 names, pre-046 retry-forever). UNIT 2 (4ea57df17): doc/upgrade-recovery-model.md carries the parked-skip invariant (all three enforcement sites), the watchdog-cover principle, serve-proven at every writer, and the named Rune two-layer statement with its three fix SHAs (61e79e265 / e76505eec / cb7344dd6). UNIT 3 (c95e7de4a): cross-links both ways — the three diagram sources' TEST notes refreshed to the current arc/scenario truth (stale U5-era slugs replaced; two in-diagram era-contradictions corrected against proving runs 28976918080 et al.), the missing ninth install state added to the ladder table, and the new Coverage join table in test/install-recovery/README.md maps all 31 arcs + 15 scenarios to their diagram elements with every uncovered element named. UNIT 5 (79c4772a0): the drift gate — cli/internal/upgrade/diagram_drift_test.go, five checks (state literals, phase dispatch arms, recovery causes, single-park-writer pin, and the standing GateFires probe that re-proves the gate's own firing on every run); green in 0.4s in the CI Go gates; RED-demonstrated live on a synthetic drifting state before commit.
 
 Deltas found and dispositioned during the work, recorded on their own tickets: the STATBUS-197 claim-window gap cited honestly in the diagrams; the 071 map's ghost arc (archivebackup) noted durably on 071; the future code↔arc-assert drift-gate thought noted on STATBUS-201.
-<!-- SECTION:FINAL_SUMMARY:END -->

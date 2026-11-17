@@ -4,7 +4,6 @@ title: >-
   CI on master: one run in flight, newest push wins, exempt-path pushes queue nothing; Fast Tests gets the same diff-since-green coverage as go-test
 state: "done"
 assignee: []
-created_date: '2026-09-07 20:25'
 updated_date: '2026-09-14 09:46'
 labels:
   - ci
@@ -14,8 +13,6 @@ priority: high
 type: "feature"
 origin: "backlog:STATBUS-364"
 aliases: ["STATBUS-364"]
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 backlog_type: "task"
 created: "2026-09-07 20:25"
 updated: "2026-09-14 09:46"

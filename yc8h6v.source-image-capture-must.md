@@ -5,7 +5,6 @@ title: >-
   strings
 state: "done"
 assignee: []
-created_date: '2026-09-30 13:03'
 updated_date: '2026-10-20 20:33'
 labels:
   - upgrade
@@ -21,8 +20,6 @@ priority: high
 type: "feature"
 origin: "backlog:STATBUS-436"
 aliases: ["STATBUS-436"]
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 backlog_type: "bug"
 created: "2026-09-30 13:03"
 updated: "2026-10-20 20:33"
@@ -30,7 +27,6 @@ updated: "2026-10-20 20:33"
 
 ## Goal
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
 **Current status, 2026-10-01 10:29 UTC:** the identity/canary fix is merged as `b7890ddd4`, with the test-only follow-up merged as `6d4aef43e`. Both are ancestors of published master `4eba1149e`, the source prepared for the first candidate. Neither is in stable `v2026.09.3`. AC#4-6 remain open for the real old-daemon/official-installer guest proof, built-candidate guest proof, and supported demo repair with sustained observation. The diagnosis and initial prototype paragraphs below are dated history, not the current implementation state. Candidate CI provisions the on-demand `statbus-lxd-fleet` host itself (`ops/lxd-fleet/up.sh`, reaped after idle), so guest proof waits on candidate publication, not on a separate manual fleet-restoration approval.
 
 Demo's v2026.09.2 daemon repeatedly attempts the upgrade to stable v2026.09.3. The owner observed continual front-page/maintenance-page switching on 2026-09-30. Source inspection explains the redirect window: each claim briefly exposes an `in_progress` row with `started_at` set and no error, which the app's upgrade guard redirects to the maintenance page. This mechanism is source inference, not a captured browser trace. The refusal occurs before Caddy's maintenance flag is set, so neither that flag nor the upgrade lock file explains the redirect. Read-only server inspection confirms a false source-version mismatch: Docker Compose's display image string is an image ID, but the container's original image reference still names the correct source commit.
@@ -61,21 +57,17 @@ want common source tag "fe4a769a"
 The common-tag guard was introduced in `3d393d725`. Its function body and source-entry producer are identical in v2026.09.2, v2026.09.3 and current master `0ff6a590c`. There is no released fix for this display-reference confusion, nor a fix in master at that commit.
 
 There is a separate **released containment fix**: `5c1cb6046` is not an ancestor of v2026.09.2 but is included in v2026.09.3. The newer real source-capture error path parks the deterministic pre-destructive failure and removes its flag instead of repeatedly calling `failUpgrade`. That containment applies only after a v2026.09.3-or-newer binary runs, not to demo's resident v2026.09.2 daemon. Source inference suggests parking would stop the app's redirect window because the parked row carries an error, but it would not complete this upgrade. The official installer proof has not started: the on-demand LXD fleet box was reaped, and no reproduction guest exists. No installer outcome is claimed until a real guest run. Do not conflate idle parking with a completed upgrade.
-<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance
-<!-- AC:BEGIN -->
 - [x] #1 A regression reproduces the real condition: a container retains its named source `.Config.Image` and immutable image ID while Compose displays a `sha256:...` image string. Source capture succeeds using authoritative daemon identity, and the regression fails against the current implementation.
 - [x] #2 Capture and recovery retain their fail-closed behavior for genuine mixed source references, missing or ambiguous containers, invalid identities and incompatible immutable IDs. Neither checkout intent nor a current mutable image tag substitutes for the container's actual identity.
 - [x] #3 Related serving-version/canary paths are checked for the same display-reference confusion and, where affected, are corrected with behavioral regressions without weakening immutable source proof. The audit explicitly records affected/unaffected verdicts for the version check in `containers.go` (`extractImageTag(s.Image)`), `deriveServingEra` in `service.go` (target tag from `entry.Image`), and the serving-reference equality check in `service.go`.
 - [x] #4 A real LXD reproduction of the old released daemon loop exercises the official installer remedy and records whether it completes the upgrade, parks while serving the source, or refuses. Automatic retries do not continually re-enter maintenance after a deterministic refusal under the fixed program.
 - [x] #5 The product fix is independently reviewed and tested against its built candidate in a real LXD guest before being advertised as a released fix. Existing install/recovery safety invariants remain green.
 - [x] #6 Demo runs a release that contains this fix (v2026.10.1 or later), installed through a supported release-addressed path (`./cloud.sh install demo <version>`, run by the owner). Its upgrade row for that version is completed and its upgrade service is no longer retrying the old false refusal.
-<!-- AC:END -->
 
 ## Implementation Notes
 
-<!-- SECTION:NOTES:BEGIN -->
 Initial diagnosis is read-only. No production container, tag, service, credentials, ledger row or maintenance flag has been changed. A code worker has a partial signed prototype in an isolated checkout; it has not completed validation or independent review. Installer proof is blocked before any guest execution because the fleet box was reaped. The cause of the missing local tag metadata is not determined. Two additional schedulers observed at 02:26 and 04:37 UTC have not been attributed to an actor. Missing local tags explain the Compose display fallback by source inference, not an observed Docker metadata deletion event.
 
 Evidence reports are being collected under `tmp/demo-upgrade-incident-20260930.md` and `tmp/demo-installer-repair-proof-20260930.md`. Root observations above were captured by read-only SSH and are also present in the coordinator tool transcript.
@@ -147,4 +139,3 @@ The doc/observations protocol was removed as an invented manual step nobody coul
 
 ### Owner decision 2026-10-20 (AC6): accepted
 - Demo reached the fix through its own upgrade service (10.1-rc.01, 10.2 and 10.3 completed; each logged 'Recording immutable source image identities ... ok'; no retries, no restarts in 7 days). The owner accepts the upgrade-service route in place of ./cloud.sh install. Done.
-<!-- SECTION:NOTES:END -->

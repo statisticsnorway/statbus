@@ -3,7 +3,6 @@ id: "twe0xe"
 title: 'harness process-log-registration lint fails on 3-postswap-mid-tx-kill.sh:89'
 state: "done"
 assignee: []
-created_date: ''
 updated_date: '2026-10-17 16:07'
 labels: []
 dependencies: []
@@ -11,15 +10,12 @@ priority: low
 origin: "backlog:STATBUS-440"
 aliases: ["STATBUS-440"]
 type: "feature"
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 created: ""
 updated: "2026-10-17 16:07"
 ---
 
 ## Goal
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
 The harness lint is green on master, so a red lint is a real finding.
 
@@ -32,19 +28,14 @@ The lint checks that every process a harness scenario launches registers its log
 
 ### Closing review
 - **Memory:** none. **Documentation:** none. **Cleanup:** none.
-<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance
-<!-- AC:BEGIN -->
 - [x] #1 `./dev.sh test-harness` exits 0 on master and the scenario named in the finding no longer exists
-<!-- AC:END -->
 
 ## Implementation Notes
 
-<!-- SECTION:NOTES:BEGIN -->
 ### Closed 2026-10-17
 - `./dev.sh test-harness` exited 0 on master (tmp/harness-440.log). `test/install-recovery/scenarios/3-postswap-mid-tx-kill.sh` was deleted in 4a5d45913.
-<!-- SECTION:NOTES:END -->
 
 ## Issue
 

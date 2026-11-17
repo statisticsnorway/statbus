@@ -3,7 +3,6 @@ id: "g5dte8"
 title: 'power-group-reporting: Power Group reporting & navigation API (DB/API)'
 state: "todo"
 assignee: []
-created_date: '2026-06-30 11:28'
 updated_date: '2026-06-30 15:29'
 labels:
   - power-group
@@ -14,15 +13,12 @@ dependencies: []
 origin: "backlog:DRAFT-001"
 aliases: ["DRAFT-001"]
 type: "feature"
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Draft"
 created: "2026-06-30 11:28"
 updated: "2026-06-30 15:29"
 ---
 
 ## Goal
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
 DB/API only (UI is a separate team member's job). Concept: see `doc/power-groups.md`. A **Power Group** = a DAG of legal units bound by ownership/control via `legal_relationship`. The name is SETTLED — never "enterprise group" or "control group".
 
 PROBLEM: `statistical_unit_hierarchy('power_group', X)` today collapses the group to its root LU's single enterprise (via `statistical_unit_enterprise_id`), dropping every other member enterprise. A power group cannot be reported or navigated.
@@ -61,10 +57,8 @@ Cycle/multi: `power_group_membership` view is EMPTY for cycles → enumerate mem
 
 OPEN (resolve before promotion):
 - FRONTEND type touchpoints (requests.ts, database.types.ts, topology.tsx/topology-item.tsx, types.d.ts, power-groups/[id] stub). [pg-frontend never reported — gather inline]
-<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance
-<!-- AC:BEGIN -->
 - [ ] #1 power_group_hierarchy(pg_id, scope, valid_on, primary_only) returns Shape A with members spanning ALL member enterprises (not only the root LU's enterprise)
 - [ ] #2 statistical_unit_hierarchy('power_group', X) dispatches to power_group_hierarchy and no longer collapses to a single enterprise
 - [ ] #3 Shape B: enterprise/legal_unit/establishment hierarchies carry a lean power_group_link at the root and a power_group_membership sub-key on each legal_unit node, with NO member expansion
@@ -77,11 +71,9 @@ OPEN (resolve before promotion):
 - [ ] #10 tests 118 and 120 extended to assert statistical_unit_hierarchy('power_group', ...) JSON by intent; expected .out blessed
 - [ ] #11 TypeScript types added (PowerGroup, PowerGroupLink, PowerGroupMember, PowerGroupMembership, Influencer, Influencee) per the locked naming convention
 - [ ] #12 doc/power-groups.md updated: naming-rationale strengthening, Reporting & Navigation section, 0-indexed scenarios, per-member domestic/country + group type, and the unified primary (ex-konsern) definition
-<!-- AC:END -->
 
 ## Implementation Plan
 
-<!-- SECTION:PLAN:BEGIN -->
 # Implementation plan
 
 ## New SQL stubs (compose like the existing *_hierarchy fragments)
@@ -140,11 +132,9 @@ interface Influencee { influenced_id:number; type:string; percentage:number|null
 ## Tests & doc
 - 118 → assert Shape A (members across enterprises, 0-based levels, both edge directions). 120 → lifecycle incl. cycle (members from `legal_relationship`, root from `power_root`), multi-root, custom_root override. Add a Shape-B assertion (power_group_link at root + power_group_membership on a LU node).
 - `doc/power-groups.md`: strengthen naming rationale (memory `feedback_power_group_naming`); add a Reporting & Navigation section (the two shapes); re-base scenarios to 0; document unified `primary` + `primary_only`; note per-member `domestic`/country + group `type`.
-<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
-<!-- SECTION:NOTES:BEGIN -->
 # Grounding (verified vs the LIVE DB this session; doc/db/ is STALE — use `./sb psql`)
 
 ## Objects
@@ -167,4 +157,3 @@ Representable ONLY as ordinary `legal_unit` rows (both `legal_relationship` endp
 
 ## BFS singular-level proof (pg-engineer / decision #3)
 `import.process_power_group_link` BFS has a visited-guard ⇒ each unit recorded once at MIN depth; every incoming edge is then stamped with that one level ⇒ `power_level` is canonical-single per (group, LU) ⇒ SINGULAR `power_group_membership` is safe; diamonds live in the `influencers`/`influencees` edge arrays.
-<!-- SECTION:NOTES:END -->

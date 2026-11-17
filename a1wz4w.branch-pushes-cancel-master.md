@@ -3,7 +3,6 @@ id: "a1wz4w"
 title: Branch pushes cancel master CI through shared app and Go concurrency groups
 state: "done"
 assignee: []
-created_date: '2026-10-06 14:49'
 updated_date: '2026-10-07 10:38'
 labels:
   - ci
@@ -16,11 +15,16 @@ priority: high
 origin: "backlog:STATBUS-453"
 aliases: ["STATBUS-453"]
 type: "feature"
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 created: "2026-10-06 14:49"
 updated: "2026-10-07 10:38"
 ---
+
+## Acceptance
+
+- [x] #1 Master push and master dispatch group together; PR refs and other branch refs remain distinct, including the observed Dependabot branch. (Verified at source: both workflows carry `(event_name == 'pull_request' || github.ref != 'refs/heads/master') && format('<prefix>-{0}', github.ref) || '<prefix>-master'`, pinned by `cli/cmd/release/workflow_branch_concurrency_test.go`. NOT observed live: every app/go run since the fix has been a `push` to master, so no branch push has exercised the per-ref group in real CI yet. `github.ref` for a PR is `refs/pull/N/merge`, hence distinct per PR.)
+- [x] #2 Baseline reproduces the grouping collision; corrected expressions pass behavioral checks and actionlint, preserving newest-master-wins. (Baseline is the real cancellation: master run 37480974869/job112328682457 cancelled by the Dependabot branch push 37481254979 at 14:42:43. `cancel-in-progress: true` retained. actionlint checked by the test itself. Note: the check pins the expression string; it computes no group equality — see the North Star below for why that was accepted rather than papered over with a second model of GitHub's semantics.)
+- [x] #3 Independent exact-source review accepts the bounded correction; integrate with patch/source proof and no push during active CI.
+- [x] #4 Exact corrected master CI, including app and Go, finishes successfully. Preserve the original cancellation evidence rather than calling it a passing run. (App run37487037267 and Go run37487037416 both concluded success at exactly488f7569; every master push since, through bce5bf39, is green in both. The original cancellation remains recorded as a failure.)
 
 ## Observed failure
 
@@ -35,13 +39,6 @@ The app workflow permits non-ops branch pushes, but its concurrency expression p
 Keep the STATBUS-364 policy: pushes and manual dispatches to master share one group and newer master runs cancel older ones. PR groups remain scoped to their PR ref. Other branch pushes/manual dispatches must have their own ref-scoped groups, never master's group. No trigger filters, release-gate exemptions or cancel-in-progress policy need changing.
 
 Delegate a bounded source change in those two workflows, with one small real-expression behavior check using the existing workflow-test conventions. A check must establish actual group equality/inequality for representative events, not merely forbid a literal token.
-
-## Acceptance
-
-- [x] #1 Master push and master dispatch group together; PR refs and other branch refs remain distinct, including the observed Dependabot branch. (Verified at source: both workflows carry `(event_name == 'pull_request' || github.ref != 'refs/heads/master') && format('<prefix>-{0}', github.ref) || '<prefix>-master'`, pinned by `cli/cmd/release/workflow_branch_concurrency_test.go`. NOT observed live: every app/go run since the fix has been a `push` to master, so no branch push has exercised the per-ref group in real CI yet. `github.ref` for a PR is `refs/pull/N/merge`, hence distinct per PR.)
-- [x] #2 Baseline reproduces the grouping collision; corrected expressions pass behavioral checks and actionlint, preserving newest-master-wins. (Baseline is the real cancellation: master run 37480974869/job112328682457 cancelled by the Dependabot branch push 37481254979 at 14:42:43. `cancel-in-progress: true` retained. actionlint checked by the test itself. Note: the check pins the expression string; it computes no group equality — see the North Star below for why that was accepted rather than papered over with a second model of GitHub's semantics.)
-- [x] #3 Independent exact-source review accepts the bounded correction; integrate with patch/source proof and no push during active CI.
-- [x] #4 Exact corrected master CI, including app and Go, finishes successfully. Preserve the original cancellation evidence rather than calling it a passing run. (App run37487037267 and Go run37487037416 both concluded success at exactly488f7569; every master push since, through bce5bf39, is green in both. The original cancellation remains recorded as a failure.)
 
 ## North Star
 

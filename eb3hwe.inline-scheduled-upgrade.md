@@ -5,7 +5,6 @@ title: >-
   schema and stops at 42703
 state: "done"
 assignee: []
-created_date: '2026-10-02 12:10'
 updated_date: '2026-10-02 16:16'
 labels: []
 dependencies: []
@@ -13,11 +12,14 @@ priority: high
 origin: "backlog:STATBUS-441"
 aliases: ["STATBUS-441"]
 type: "feature"
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 created: "2026-10-02 12:10"
 updated: "2026-10-02 16:16"
 ---
+
+## Acceptance
+- [x] #1 An inline scheduled-upgrade dispatch from a box whose schema predates migration 20260923202403 claims and completes the upgrade (the 42703 class is gone), exercised by a logical/livedb test with a pre-382 schema fixture — not a full guest install.
+- [x] #2 The migration output appears in the dispatch's operator transcript before the claim line.
+- [x] #3 The daemon-driven path and the 09.3→candidate inline path keep their current behavior (no double-migration harm; migrate up no-ops when current).
 
 ## Issue
 
@@ -63,13 +65,6 @@ unaffected: the pre-upgrade snapshot is taken after the claim, the added
 column is nullable, and the old binary tolerates it. A migrate-first failure
 leaves the upgrade unclaimed — forward-only migration semantics, same as the
 step table's own failure mode.
-
-## Acceptance
-<!-- AC:BEGIN -->
-- [x] #1 An inline scheduled-upgrade dispatch from a box whose schema predates migration 20260923202403 claims and completes the upgrade (the 42703 class is gone), exercised by a logical/livedb test with a pre-382 schema fixture — not a full guest install.
-- [x] #2 The migration output appears in the dispatch's operator transcript before the claim line.
-- [x] #3 The daemon-driven path and the 09.3→candidate inline path keep their current behavior (no double-migration harm; migrate up no-ops when current).
-<!-- AC:END -->
 
 ## Implementation Notes
 

@@ -5,7 +5,6 @@ title: >-
   a 09.2-era box stops mid-upgrade
 state: "done"
 assignee: []
-created_date: '2026-10-03 10:05'
 updated_date: '2026-10-05 09:38'
 labels:
   - upgrade
@@ -21,11 +20,14 @@ priority: high
 origin: "backlog:STATBUS-444"
 aliases: ["STATBUS-444"]
 type: "feature"
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 created: "2026-10-03 10:05"
 updated: "2026-10-05 09:38"
 ---
+
+## Acceptance
+- [x] #1 The install crash-recovery path invokes config generation with legacy-secret migration, pinned by a behavioral test (recorded command line or seam), not a source grep.
+- [x] #2 Every `config generate` call site in cli/ has a recorded verdict (needs the flag / cannot see legacy secrets / old binary that lacks the flag), and those that need it pass it.
+- [x] #3 The STATBUS-436 scheduled-path guest proof passes against the candidate carrying the fix (this also closes 443 AC#3, 441 AC#2 and 436 AC#5).
 
 ## Issue
 
@@ -61,13 +63,6 @@ The 436 scheduled-path proof against v2026.10.0-rc.13 (2026-10-03 09:42–10:00 
 ## Principled fix
 
 Pass `--migrate-legacy-secrets` at the install crash-recovery `config generate`. That is an install/upgrade context, exactly what the flag is for, and it matches the service path. Audit every other `config generate` call site for the same exposure, and record a verdict per site.
-
-## Acceptance
-<!-- AC:BEGIN -->
-- [x] #1 The install crash-recovery path invokes config generation with legacy-secret migration, pinned by a behavioral test (recorded command line or seam), not a source grep.
-- [x] #2 Every `config generate` call site in cli/ has a recorded verdict (needs the flag / cannot see legacy secrets / old binary that lacks the flag), and those that need it pass it.
-- [x] #3 The STATBUS-436 scheduled-path guest proof passes against the candidate carrying the fix (this also closes 443 AC#3, 441 AC#2 and 436 AC#5).
-<!-- AC:END -->
 
 ## Implementation Notes
 

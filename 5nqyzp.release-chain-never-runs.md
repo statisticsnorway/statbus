@@ -5,7 +5,6 @@ title: >-
   (5-install-source-image-identity-proof); it is re-run by hand for every candidate
 state: "done"
 assignee: []
-created_date: '2026-10-05 20:15'
 labels:
   - release
   - testing
@@ -19,8 +18,6 @@ priority: medium
 origin: "backlog:STATBUS-451"
 aliases: ["STATBUS-451"]
 type: "feature"
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 created: "2026-10-05 20:15"
 ---
 
@@ -53,11 +50,9 @@ Value it delivered on rc.15: the scheduled path showed STATBUS-450 at 18:40, 10 
 4. Remove the manual rehearsal step from the release checklist and the agent runbook once the automated run has passed on one real candidate.
 
 ## Acceptance criteria
-<!-- AC:BEGIN -->
 - [x] #1 Cutting an RC runs the demo-state proof on both paths automatically, against that RC tag, with no agent action.
 - [x] #2 Its result appears with the other gates (run link and pass/fail), and the stable release gate refuses to promote without a pass.
 - [x] #3 Proven on one real RC: both paths pass in the chain, and no hand-launched rehearsal is needed.
-<!-- AC:END -->
 
 ## Grounded implementation plan, 2026-10-06 15:26 UTC
 

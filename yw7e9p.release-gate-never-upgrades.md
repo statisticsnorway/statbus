@@ -5,7 +5,6 @@ title: >-
   older-source upgrade bugs reach candidates unseen
 state: "done"
 assignee: []
-created_date: '2026-10-03 14:55'
 updated_date: '2026-10-05 09:38'
 labels:
   - release
@@ -22,11 +21,15 @@ priority: high
 origin: "backlog:STATBUS-445"
 aliases: ["STATBUS-445"]
 type: "feature"
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 created: "2026-10-03 14:55"
 updated: "2026-10-05 09:38"
 ---
+
+## Acceptance
+- [x] #1 Per-release config fixtures exist with recorded provenance, produced by each release's own generator.
+- [x] #2 A table-driven Go test runs every fixture through every install/upgrade/recovery config-generation entry point and asserts success plus secret migration.
+- [x] #3 Proven RED on master for the 09.2/09.0/08.0 fixtures through install crash recovery (STATBUS-444), and GREEN with the 444 fix.
+- [x] #4 When a new stable is released, its fixture is added. This is recorded as a step in doc/releases.md (the stable-promotion checklist).
 
 ## Issue
 
@@ -72,14 +75,6 @@ The class is narrow: **an old release's on-disk files meet new install, upgrade 
    - **old `.env` tag vs new HEAD:** the STATBUS-443 shim regression
 
    New old-era inputs join the same table when found.
-
-## Acceptance
-<!-- AC:BEGIN -->
-- [x] #1 Per-release config fixtures exist with recorded provenance, produced by each release's own generator.
-- [x] #2 A table-driven Go test runs every fixture through every install/upgrade/recovery config-generation entry point and asserts success plus secret migration.
-- [x] #3 Proven RED on master for the 09.2/09.0/08.0 fixtures through install crash recovery (STATBUS-444), and GREEN with the 444 fix.
-- [x] #4 When a new stable is released, its fixture is added. This is recorded as a step in doc/releases.md (the stable-promotion checklist).
-<!-- AC:END -->
 
 ## Implementation Notes
 

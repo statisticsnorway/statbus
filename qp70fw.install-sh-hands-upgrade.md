@@ -5,7 +5,6 @@ title: >-
   looping old daemon cannot refuse the repair
 state: "done"
 assignee: []
-created_date: '2026-10-05 10:20'
 updated_date: '2026-10-20 20:47'
 labels:
   - install
@@ -20,8 +19,6 @@ priority: high
 type: "feature"
 origin: "backlog:STATBUS-447"
 aliases: ["STATBUS-447"]
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 backlog_type: "bug"
 created: "2026-10-05 10:20"
 updated: "2026-10-20 20:47"
@@ -29,7 +26,6 @@ updated: "2026-10-20 20:47"
 
 ## Goal
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
 The official install command always gets its turn: when `install.sh` hands over to `./sb install`, no other party can take the upgrade lock in between, so a looping old daemon cannot refuse the repair meant to replace it.
 
@@ -49,21 +45,17 @@ Owner decision (2026-10-05): **remove the race, do not detect and kill.** A coun
 - **Memory:** "remove the race rather than detect and kill; a failure count describes the past, a kill hits the present" is a lesson worth keeping.
 - **Documentation:** none needed.
 - **Cleanup:** none.
-<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance
-<!-- AC:BEGIN -->
 - [x] #1 install.sh hands the held lock to `./sb install` with no release in between, and `./sb install` adopts the inherited descriptor (`install-gapless-handoff-test.sh`)
 - [x] #2 Scenario A (an alive looping holder at demo's cadence) completes in one installer run and fails on the old code; scenario B (a healthy holder after manual failures) waits and never kills (`install-gapless-handoff-test.sh`)
 - [x] #3 The STATBUS-436 operator rehearsal passes in a single installer run with no retry (rc.15 and rc.16)
 - [x] #4 cloud.sh prints the signing-key hint only on a signature-verification failure (`cafa33889`)
 - [x] #5 The owner's `./cloud.sh install demo <candidate>` repairs demo in one run: binary, checkout, resident daemon and containers at the candidate, the old loop stopped, `NRestarts` 0 (rc.16, 2026-10-06 08:29:50 UTC, recorded on STATBUS-452)
 - [x] #6 [Owner] Decide whether the 2026-10-06 rc.16 demo install proves AC5 without the 10-minute page observation, and record it in Implementation Notes. Accepted: check this and set Done. Not accepted: uncheck AC5 and add the 10-minute observation on the next demo install as a new criterion.
-<!-- AC:END -->
 
 ## Implementation Notes
 
-<!-- SECTION:NOTES:BEGIN -->
 ### Evidence
 - **AC1-2:** `install-gapless-handoff-test.sh` in Harness Selftest; green on master `cbaff1c5a` (CI `37469525031` among six workflows, 2026-10-06); re-run locally 2026-10-15, both scenarios pass.
 - **AC3:** `tmp/436-operator-rc15.PASS.log`, `tmp/436-operator-rc16.PASS.log`.
@@ -73,4 +65,3 @@ Owner decision (2026-10-05): **remove the race, do not detect and kill.** A coun
 
 ### Owner decision 2026-10-20: AC5 accepted without the 10-minute page observation
 The rc.16 demo install (2026-10-06) is the proof: one run, NRestarts 0. The fix is in, tested by scenario and green through the release gates. Revisit only if the loop shows up again in real use.
-<!-- SECTION:NOTES:END -->

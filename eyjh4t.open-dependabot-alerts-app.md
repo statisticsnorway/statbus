@@ -5,7 +5,6 @@ title: >-
   having no fix
 state: "done"
 assignee: []
-created_date: '2026-10-05 18:12'
 updated_date: '2026-10-17 16:53'
 labels:
   - security
@@ -18,15 +17,12 @@ priority: medium
 origin: "backlog:STATBUS-448"
 aliases: ["STATBUS-448"]
 type: "feature"
-import_type_inference: "default: no explicit bug/docs/chore/spike label"
-backlog_status: "Done"
 created: "2026-10-05 18:12"
 updated: "2026-10-17 16:53"
 ---
 
 ## Goal
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
 The app ships no dependency with a known, fixable vulnerability.
 
@@ -41,19 +37,15 @@ Dependabot raises alerts against app/pnpm-lock.yaml. A fixable alert is fixed by
 
 ### Closing review
 - **Memory:** none. **Documentation:** none. **Cleanup:** none.
-<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance
-<!-- AC:BEGIN -->
 - [x] #1 The lockfile resolves next >= 16.3.8 and handlebars >= 4.7.10
 - [x] #2 The app tests, typecheck, lint and build pass with the bumped lockfile
 - [x] #3 The alerts with no published fix (sprintf-js), and any left on purpose (katex through mermaid), are recorded in Implementation Notes with the reason
 - [x] #4 After the push, GitHub shows the next and handlebars alerts as fixed
-<!-- AC:END -->
 
 ## Implementation Notes
 
-<!-- SECTION:NOTES:BEGIN -->
 ### Fix (feee6f62f, 2026-10-17)
 - next ~16.3.8 (and eslint-config-next ~16.3.8), pinned to the 16.3 patch line. The caret range resolved 16.4.2, a minor release with more change than this security fix needs. The handlebars override is now ^4.7.10. The lockfile resolves next 16.3.8, eslint-config-next 16.3.8 and handlebars 4.7.10.
 - **Locally:** pnpm install --frozen-lockfile, tsc, lint, the app tests (24 suites, 202 tests) and pnpm run build all pass.
@@ -61,7 +53,6 @@ Dependabot raises alerts against app/pnpm-lock.yaml. A fixable alert is fixed by
 - Waiting: GitHub marks alerts 701-706 and 708-710 fixed after the push.
 
 - **GitHub, 2026-10-17 16:53:** alerts 701-706 (next) and 708-710 (handlebars) are 'fixed'. 697 (katex) and 699 (sprintf-js) stay open, as recorded above. CI at 91dfe3922: app build & lint, Go Test and Fast Tests all pass. In v2026.10.3-rc.01. Done.
-<!-- SECTION:NOTES:END -->
 
 ## Issue
 
