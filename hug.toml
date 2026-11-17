@@ -9,8 +9,8 @@ email = ["jorgen@veridit.no"]
 name = "Erik Søberg"
 email = ["eriksoeb@gmail.com"]
 
-[people.hhz]
-name = "hhssb"
+[people.hedda]
+name = "Hedda"
 email = ["hhz@ssb.no"]
 
 [models]
