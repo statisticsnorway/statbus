@@ -25,7 +25,7 @@ Installed now: hug v0.7.50 (brew veridit/tap/hug). Open tasks with findings on 2
 ## Depends on
 
 ## Acceptance
-- [ ] A hug release later than v0.7.50 is installed and hug task lint reports no done or dropped tasks
+- [ ] With a hug release later than v0.7.50 installed, hug task lint reports no findings on done or dropped tasks
 - [ ] hug task lint reports no findings on any open task, except tasks another agent has taken, which are named in the notes
 
 ## Notes
