@@ -1,11 +1,11 @@
 ---
 id: n9nyvd
-title: "A unit's notes sit in the side column of every unit page, and an import can carry them"
+title: "A unit's notes sit in the side column of every unit page as a sticky note"
 status: "doing"
 type: feature
 priority: ""
 assignee: ["rabbit"]
-labels: ["app", "import"]
+labels: ["app"]
 created: 2026-11-17
 updated: 2026-11-17
 model: "claude-opus-5-5"
@@ -14,27 +14,26 @@ worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
-A user reads, adds and edits a unit's notes from any of its pages, in the side column under the menu, and a register import can bring notes in from a notes column.
+A user reads, adds and edits a unit's notes from any of its pages, in a yellow sticky note in the side column under the menu, and sees who last wrote the note and when.
 
 ## Purpose
-Owner review 2026-11-17: once the primary-unit box moves into the edit form (acdq9d), its space can hold the unit's notes. They are then visible everywhere, grow with their content, and the first note can be added there. A notes column in the import lets an office bring the notes it keeps elsewhere.
+Owner review 2026-11-17: once the primary-unit box moves into the edit form (acdq9d), its space can hold the unit's notes. They are then visible everywhere, grow with their content, and the first note can be added there. Owner 19:09: it should look like a sticky note, be edited from a pencil at its right, and say who wrote it. Notes in imports are their own task (6btpmz).
 
 ## Principle
-Notes are timeless: one current text per unit, not dated by a time frame. A note is the user's own working aid. In a CSV the notes column is checked strictly; a broken quote or line break fails that row clearly.
+Notes are timeless: one current text per unit, not dated by a time frame. A note is the user's own working aid; the row's edit_by_user_id and edit_at name its last writer.
 
 ## Relevant details
-public.unit_notes holds one notes text per unit (unique on establishment, legal unit, enterprise, power group), edit_by_user_id and edit_at, with RLS; public.notes_for_unit(...) reads it. 0 rows locally. No import definition has a notes column yet. CSV traps: embedded quotes (doubled), commas, CR/LF and CRLF inside quoted fields, unterminated quotes, leading/trailing spaces, empty value (see the owner check below). The side column space comes from acdq9d.
+public.unit_notes holds one notes text per unit (unique on establishment, legal unit, enterprise, power group), created_at, edit_comment, edit_by_user_id (default auth.uid()) and edit_at (default statement_timestamp()), with RLS: a regular user writes only rows naming himself (WITH CHECK edit_by_user_id = auth.uid()), an admin any row. No trigger refreshes edit_by_user_id or edit_at on update (tmp/n9nyvd-editor-probe.log), so the app's update sets both. The side column space comes from acdq9d.
 
 ## Depends on
+- acdq9d
 
 ## Acceptance
 - [x] Every legal unit and establishment page shows the unit's notes under the menu; the box grows with the text
 - [x] A unit without notes offers 'Add a note' there; saving stores one unit_notes row with the editor and time
 - [x] Editing a note from any of the unit's pages updates the same row
-- [ ] An import with a notes column stores each row's note; a test file with doubled quotes, commas and line breaks inside quoted notes stores them exactly
-- [ ] An unterminated quote in the notes column fails that row with an error naming the row and column, and the rest of the file is unaffected
-- [ ] [Owner] Chooses keep or clear for an empty notes cell in an import, recorded in this task's notes
-- [ ] An import applies the owner's choice for an empty notes cell: 'keep' leaves the unit's existing note untouched, 'clear' deletes it; a test shows the chosen behaviour
+- [ ] The box is sticky-note yellow, and a pencil at the right of its heading adds or edits the note (no text links)
+- [ ] Under the note the box names who last wrote it and when; a regular user editing a note someone else wrote saves it, and the row then names that user and the new time
 
 ## Notes
 
