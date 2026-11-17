@@ -23,7 +23,6 @@ Notes are timeless: one current text per unit, not dated by a time frame. A note
 public.unit_notes holds one notes text per unit (unique on establishment, legal unit, enterprise, power group), edit_by_user_id and edit_at, with RLS; public.notes_for_unit(...) reads it. 0 rows locally. No import definition has a notes column yet. CSV traps: embedded quotes (doubled), commas, CR/LF and CRLF inside quoted fields, unterminated quotes, leading/trailing spaces, empty value (keep the note or clear it: to decide). Depends on acdq9d freeing the space.
 
 ## Depends on
-- acdq9d
 
 ## Acceptance
 - [x] Every legal unit and establishment page shows the unit's notes under the menu; the box grows with the text
