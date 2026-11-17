@@ -4,7 +4,7 @@ title: "A unit's notes sit in the side column of every unit page, and an import 
 status: todo
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: ["app", "import"]
 created: 2026-11-17
 updated: 2026-11-17
