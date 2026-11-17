@@ -4,7 +4,7 @@ title: "The eye picks the period others are compared with, on the field's timeli
 status: todo
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: ["app", "edit"]
 created: 2026-11-17
 updated: 2026-11-17
