@@ -44,8 +44,8 @@ export const LOCATION_COLUMNS = [
   "postplace",
   "region_id",
   "country_id",
-  "latitude",
-  "longitude",
+  "physical_latitude",
+  "physical_longitude",
   "altitude",
 ] as const;
 

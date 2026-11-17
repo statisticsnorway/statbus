@@ -18,26 +18,26 @@ const base = {
 describe("locationSchema", () => {
   it("reads empty region and coordinates as no value", () => {
     const parsed = locationSchema.safeParse(
-      form({ ...base, country_id: "167", region_id: "", latitude: "", longitude: "", altitude: "" })
+      form({ ...base, country_id: "167", region_id: "", physical_latitude: "", physical_longitude: "", altitude: "" })
     );
     expect(parsed.success).toBe(true);
     expect(parsed.success && parsed.data).toMatchObject({
       country_id: 167,
       region_id: null,
-      latitude: null,
-      longitude: null,
+      physical_latitude: null,
+      physical_longitude: null,
       altitude: null,
     });
   });
 
   it("keeps chosen region and coordinates as numbers", () => {
     const parsed = locationSchema.safeParse(
-      form({ ...base, country_id: "167", region_id: "171", latitude: "59.9", longitude: "10.7", altitude: "" })
+      form({ ...base, country_id: "167", region_id: "171", physical_latitude: "59.9", physical_longitude: "10.7", altitude: "" })
     );
     expect(parsed.success && parsed.data).toMatchObject({
       region_id: 171,
-      latitude: 59.9,
-      longitude: 10.7,
+      physical_latitude: 59.9,
+      physical_longitude: 10.7,
       altitude: null,
     });
   });
