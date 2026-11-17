@@ -1,7 +1,7 @@
 layout = 2
 forbid_cite = [".jcode/scratch/"]
 
-[people.jorgen]
+[people.jhf]
 name = "Jørgen H. Fjeld"
 email = ["jorgen@veridit.no"]
 

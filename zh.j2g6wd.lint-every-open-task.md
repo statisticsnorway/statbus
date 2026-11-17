@@ -16,7 +16,7 @@ worktree: "/Users/jhf/ssb/statbus"
 waiting_on: "the hug release that stops linting done tasks (installed now: v0.7.50)"
 waiting_since: "2026-11-18T00:40"
 waiting_asked_by: "hibiscus"
-waiting_for: "jorgen"
+waiting_for: "jhf"
 ---
 
 ## Goal
