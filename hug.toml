@@ -11,3 +11,5 @@ email = ["eriksoeb@gmail.com"]
 [people.hhz]
 name = "hhssb"
 email = ["hhz@ssb.no"]
+
+forbid_cite = [".jcode/scratch/"]
