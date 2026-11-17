@@ -34,7 +34,7 @@ public.unit_notes holds one notes text per unit (unique on establishment, legal 
 - [x] Editing a note from any of the unit's pages updates the same row
 - [x] The box is sticky-note yellow, and a pencil at the right of its heading adds or edits the note (no text links)
 - [x] Under the note the box names who last wrote it and when; a regular user editing a note someone else wrote saves it, and the row then names that user and the new time
-- [ ] Two users editing the same note: a save applies only over the version its editor loaded (edit_at); a save that finds a newer note or a first note added meanwhile shows the other's text, who and when, keeps the draft, and saves only when pressed again
+- [x] Two users editing the same note: a save applies only over the version its editor loaded (edit_at); a save that finds a newer note or a first note added meanwhile shows the other's text, who and when, keeps the draft, and saves only when pressed again
 
 ## Notes
 
