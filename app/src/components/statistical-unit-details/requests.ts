@@ -73,12 +73,17 @@ export async function getStatisticalUnitHierarchy(
         error: { ...error, name: "supabase-error" },
       };
     }
-    // Validate that data has the expected structure
+    // A hierarchy has its enterprise. public.statistical_unit_hierarchy returns
+    // {} (or nothing) when the unit does not exist on valid_on, e.g. a unit born
+    // in 2026 viewed in the Previous frame (2025): no hierarchy, not an error.
     if (data && "enterprise" in data) {
       return {
         hierarchy: data as StatisticalUnitHierarchy,
         error: null,
       };
+    }
+    if (!data || Object.keys(data as object).length === 0) {
+      return { hierarchy: null, error: null };
     } else {
       return {
         hierarchy: null,
