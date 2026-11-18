@@ -99,6 +99,7 @@ Evidence: 306 RED (tmp/test-xz3jej-306-red.log, relation missing) then GREEN (tm
 Norway restore through the app (tmp/hug/xz3jej-ui-check-final.out, screenshots tmp/hug/xz3jej-dashboard.png, xz3jej-search.png): card 11,010 estimated and exact; link opens search 'of total 11,010 results', first rows equal the SQL (tmp/hug/xz3jej-verify-api.out); the 'Data quality: Other activity' chip clears to 1,134,475; export of the filter gives 11,010 records; valid_on 2020-12-31 gives 0 = SQL. derive_used_tables 5.1 s whole step.
 App: jest new tests fail without the change (4) and pass with it; full jest 359/359; tsc and build pass; lint 0 errors (5 old warnings elsewhere). The export now honours the select and refuses unknown ones instead of ignoring them.
 Open for the owner: the table name; merge to master (CI's SQL suite runs only on master).
+2026-11-18 02:39 CI on the branch: 'app build & lint' run 44224429786 success at a498d06c5 (the SQL suite runs on master and release candidates only; it passed locally). The main checkout stays on the branch so the owner can see the card at https://local.statbus.org:3011/dashboard; statbus_local, the seed and the test template are at migration 20261118020902.
 ## History
 - 2026-11-18T00:59 todo -> doing/active (take)
 - 2026-11-18T01:37 doing/active -> doing/waiting (wait)
