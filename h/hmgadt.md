@@ -90,6 +90,7 @@ Owner 2026-11-10 21:30: other single-value fields already turn Save into a delet
 2026-11-18 03:40 (Rabbit): shipped in v2026.11.5-rc.01 (82c2da035); ladder rungs 1-8 green (orchestrator 44224042839). Remaining owner check waits for rc.01 on Norway.
 2026-11-18 05:52 (Rabbit): the North Star's 'the removal is recorded like any other edit' predates check 5 (owner 2026-11-17 19:09: a removal records no who/when; change tracking is k5q120). What holds: the removed period stays visible in the unit's history. Goal/Purpose/Principle filled from the task's own text. 'hug upgrade --apply' (old waiting_for layout) left to Hibiscus, since it rewrites the whole shared board.
 2026-11-18 06:54 (Rabbit): v2026.11.5-rc.02 (691e26810) carries this; ladder rungs 1-8 green (orchestrator 44247167926). Test on Norway with rc.02.
+2026-11-18 11:27 (Rabbit): owner reports Norway (rune) upgraded to v2026.11.5-rc.02. The owner check on Norway is now possible.
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
 - 2026-11-18T11:39 doing/waiting -> doing/asked (hug upgrade, 41hhgn: a question to a person is its own stage)
