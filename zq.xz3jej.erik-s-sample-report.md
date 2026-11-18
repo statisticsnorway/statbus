@@ -1,6 +1,6 @@
 ---
 id: xz3jej
-title: "Data quality: legal units whose largest establishment has another activity"
+title: "Data quality: legal units whose primary establishment has another activity"
 state: "doing"
 type: feature
 priority: ""
@@ -20,10 +20,10 @@ waiting_since: "2026-11-18T01:37"
 ---
 
 ## Goal
-The dashboard's Data quality section shows how many legal units have a largest establishment (most employees) whose primary activity differs from the legal unit's, and links to the search listing exactly those units, for the selected time frame.
+The dashboard's Data quality section shows how many legal units have a primary establishment whose primary activity differs from the legal unit's, and links to the search listing exactly those units, for the selected time frame.
 
 ## Purpose
-A legal unit's activity usually follows its main establishment; when they differ, one of the two is likely wrong. Erik asked this question in PR #328 (https://github.com/statisticsnorway/statbus/pull/328, rsbssbno, 2026-11-15) as a standalone HTML page.
+A legal unit's activity usually follows its primary establishment; when they differ, one of the two is likely wrong. Erik asked this question in PR #328 (https://github.com/statisticsnorway/statbus/pull/328, rsbssbno, 2026-11-15) as a standalone HTML page.
 
 ## Principle
 Built into StatBus, not beside it (owner 2026-11-18): it lives in the app, uses the signed-in session's JSON web token like every other page, and sits with the existing data-quality cards. No standalone pages, no API keys in local files, no ad hoc code under doc/integration. PR #328 is closed, not merged; its question is what is kept.
@@ -33,15 +33,16 @@ Existing pattern: app/src/app/dashboard/page.tsx, section 'Data quality', with M
 
 What the run of PR #328 showed on the Norway restore (local, 2026-11-18): 10,129 legal units have more than one establishment; 1,826 of them have a largest establishment with another activity (ties broken by lowest unit id). The rule for ties matters: 1,911 legal units have two or more establishments tied for the most employees, and 1,749 have a largest establishment with 0 employees. The page also fetched only 5,000 legal units and compared activities by name.
 
-Design (2026-11-18, for the owner's review): a PostgREST computed field, the pattern the owner built for unit existence (STATBUS-460, a64f4ad38: public.existence_from(statistical_unit) / existence_until(statistical_unit), filtered as existence_from=lte.<d>). A function on the row type, unnamed parameter so it is not an RPC, is a virtual column: the card counts with it, the search filters with it, and an AI or a person can write the URL: /rest/statistical_unit?unit_type=eq.legal_unit&activity_differs_from_main_establishment=is.true&existence_from=lte.<d>&existence_until=gt.<d>.
-- public.activity_differs_from_main_establishment(statistical_unit) RETURNS boolean, LANGUAGE sql, STABLE. NULL for any row that is not a legal unit with more than one included establishment; otherwise true when none of its main establishments has the legal unit's primary activity category (compared by id).
-- Main establishments: those, valid at the legal unit row's valid_from, with the most employees (stats_summary employees sum), when that most is above 0. Ties are not broken at random: if any tied main establishment shares the activity, the legal unit is not flagged. With 0 employees everywhere there is no main establishment and the result is NULL (not flagged).
-- On the Norway restore this rule flags 1,461 of the 8,380 legal units that have a main establishment (tmp/hug/xz3jej-rule.sql); the PR's page found 1,240 of its first 5,000.
-- App: app/src/app/dashboard/main-establishment-activity-card.tsx, a copy of missing-activity-category-card.tsx (estimated count, exact on request, selected frame through existence_from/until), placed in page.tsx's Data quality section and linking to /search?unit_type=legal_unit&activity_differs_from_main_establishment=true. The search learns that one filter the way Rabbit's unmerged STATBUS-625 card does for physical_location (statbus_test 09c52b2a1: url-search-params.ts, atoms/search.ts, useSearchUrlSync.ts, SearchResults.tsx); whichever lands second follows the first.
-- Not here: making reports configurable (which cards a country shows) and a way for others to add their own reports, both owner ideas 2026-11-18, each its own task.
+Design (owner 2026-11-18): a PostgREST computed field, the pattern the owner built for unit existence (STATBUS-460, a64f4ad38: public.existence_from(statistical_unit) / existence_until(statistical_unit), filtered as existence_from=lte.<d>). A function on the row type, unnamed parameter so it is not an RPC, is a virtual column: the card counts with it, the search filters with it, and an AI or a person can write the URL: /rest/statistical_unit?unit_type=eq.legal_unit&primary_establishment_activity_differs=is.true&existence_from=lte.<d>&existence_until=gt.<d>.
+- public.primary_establishment_activity_differs(statistical_unit) RETURNS boolean, LANGUAGE sql, STABLE. NULL for any row that is not a legal unit with a primary establishment (establishment.primary_for_legal_unit) valid at the row's valid_from; otherwise true when the two primary activity categories differ (compared by id).
+- Uses the primary as recorded; it does not pick one (owner 2026-11-18: choosing the primary is its own workflow, 2gpcs7; this check analyses given the primary).
+- Covers every legal unit with a primary establishment. Narrowing is a URL filter on the existing column, e.g. &included_establishment_count=gt.1 for Erik's variant; no second function.
+- On the Norway restore: 753,145 legal units have a primary establishment; 11,010 of them differ (tmp/hug/xz3jej-primary.sql).
+- App: app/src/app/dashboard/primary-establishment-activity-card.tsx, a copy of missing-activity-category-card.tsx (estimated count, exact on request, selected frame through existence_from/until), in page.tsx's Data quality section, linking to /search?unit_type=legal_unit&primary_establishment_activity_differs=true. The search learns that one filter the way Rabbit's unmerged STATBUS-625 card does for physical_location (statbus_test 09c52b2a1: url-search-params.ts, atoms/search.ts, useSearchUrlSync.ts, SearchResults.tsx); whichever lands second follows the first.
+- Not here: configurable reports and user-made reports (owner ideas 2026-11-18, own tasks when the owner says); fixing what the check finds is a later workflow (xhxnsy).
 
-Build plan, after the owner approves the rule (check 1), each step its own commit with the Model: trailer:
-1. SQL test first (test/sql/, next free number): legal units with one main establishment of another activity (flagged), same activity (not), a tie with one match (not), all establishments at 0 employees (NULL), a single establishment (NULL), an establishment of a later period (ignored). RED before the migration.
+Build plan, after the owner approves (check 1), each step its own commit with the Model: trailer:
+1. SQL test first (test/sql/, next free number): a legal unit whose primary establishment has another activity (true), the same activity (false), no primary establishment (NULL), an enterprise or establishment row (NULL), a primary establishment of another period (ignored). RED before the migration.
 2. Migration with up and down: the function, COMMENT ON stating the rule, grants as existence_from has. GREEN; fast suite; ./dev.sh generate-doc-db; ./sb types generate.
 3. Card and search filter, with a jest test that the URL filter reaches the query; tsc, lint, jest, build.
 4. Check on the local Norway data: card count equals the SQL count for the Live frame; the link lists the same legal units. Show the owner in Firefox before pushing.
@@ -49,8 +50,8 @@ Build plan, after the owner approves the rule (check 1), each step its own commi
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] Decides the rule: which establishments count (all, or only those with employees), how ties on employees are broken, and whether the legal unit is compared with its largest establishment or with the activity most of its employees work in; the answer is recorded in the notes
-- [ ] A SQL test asserts, for a fixed set of units, which legal units the rule lists, including a tie and an establishment with 0 employees
+- [ ] [Owner] Approves the rule: compare a legal unit's primary activity with its primary establishment's (primary_for_legal_unit), every legal unit with one, narrowing by URL filter; the answer is recorded in the notes
+- [ ] A SQL test asserts, for a fixed set of units, which legal units the rule lists, including one without a primary establishment and a primary establishment of another period
 - [ ] The Data quality section shows the card with the count for the selected time frame, and its link opens a search listing exactly those legal units (checked against the SQL on the local Norway data)
 - [ ] PR #328 is closed on GitHub with a comment that thanks Erik, says why (integrated in the app instead), and links this task
 
