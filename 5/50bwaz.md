@@ -1,15 +1,20 @@
 ---
 id: 50bwaz
 title: "Reset by Getting started steps; Getting started shows what is really set"
-state: todo
+state: "doing"
 type: bug
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzx"
 created: 2026-11-18
 updated: 2026-11-18
+doing_since: "2026-11-18T12:33"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "statbus-628-all-forms"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -34,3 +39,7 @@ public.reset(confirmed, scope reset_scope), scopes units|data|getting-started|al
 - [ ] [Owner] Confirms on the North Cyprus installation after the release: reset Units and Getting started, then Getting started from step 1 through the custom activity code upload
 
 ## Notes
+
+
+## History
+- 2026-11-18T12:33 todo -> doing/active (take)
