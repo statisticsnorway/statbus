@@ -37,5 +37,14 @@ PR #328: doc/integration/javascript/legal_units.html (+~300 lines) and doc/integ
 ## Notes
 
 
+2026-11-18 00:00 code review of PR #328 (head 2e1f3df23, one commit):
+- What it does: one /rest/statistical_unit call for legal units with included_establishment_count > 1 and used_for_counting, ordered by establishment count, limit 5000; then the establishments in batches, region and activity names; the top establishment is the one with the most employees (stats_summary.employees.sum); a row is listed when the legal unit's activity NAME differs from the top establishment's.
+- Safe rendering: cells use textContent, so unit names cannot inject HTML.
+- Finding 1 (key leak): config.example.js and the page say config.js is gitignored, but on master nothing ignores doc/integration/javascript/config.js (git check-ignore: not ignored). The ignore rule came with PR #325 (map/), not this PR. Following the instructions would commit an API key.
+- Finding 2: the page comment points at map/config.js, a leftover from PR #325; it loads ./config.js.
+- Finding 3: limit=5000 caps the legal units silently; on Norway (1.18M legal units) the page shows only the first 5000 by establishment count and says nothing about the cap.
+- Finding 4: no time frame: statistical_unit holds every period, so a unit can appear once per valid period; the query does not pick valid_on or the live frame.
+- Finding 5: activities are compared by display name, not by id; a tie in employees picks whichever establishment comes first.
+- Fits beside doc/integration/python and doc/integration/r (both read the API with a key from a local file).
 ## History
 - 2026-11-18T00:59 todo -> doing/active (take)
