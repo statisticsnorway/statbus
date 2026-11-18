@@ -11,6 +11,10 @@ updated: 2026-11-17
 model: "claude-opus-5-5"
 branch: "statbus-628-all-forms"
 worktree: "/Users/jhf/ssb/statbus_test"
+waiting_asked_by: "rabbit"
+waiting_on: "branch statbus-628-all-forms pushed to master and CI green, then done"
+waiting_since: "2026-11-18T01:04"
+stage: "waiting"
 ---
 
 ## Goal
@@ -43,3 +47,7 @@ public.unit_notes holds one notes text per unit (unique on establishment, legal 
 2026-11-17 19:17 owner review 19:09 built (Rabbit), commit fac21f02f. Box is sticky-note yellow (bg-yellow-100), a pencil at the right of the heading adds/edits (the 'Add a note'/'Edit note' links are gone), and under the text '<display name>, yyyy-MM-dd HH:mm' from edit_by_user_id/edit_at. Bug fixed: an edit only sent {notes}, so the row kept its first writer and time and a regular user could not save a note written by someone else (RLS WITH CHECK edit_by_user_id = auth.uid()); tmp/n9nyvd-editor-probe.log. notesWrite's update now carries edit_by_user_id and edit_at: RED tmp/n9nyvd-editor-red.log, GREEN tmp/n9nyvd-editor-green.log; jest 440, tsc 0, lint 0 errors. Headless tmp/n9nyvd-check2.mjs/.log + tmp/n9nyvd/lu28-*.png, lu29-owner-note.png: LU 29 shows the owner's note 'Jørgen Hermanrud Fjeld, 2026-11-17 20:03' (read only); on LU 28 the regular user added a note (row by 4), the row was then set to user 1 at 2026-01-02, the regular user edited it with no error and the row named 4 and today; emptied, row gone. Database ends as it began. Import split to 6btpmz.
 
 2026-11-17 23:32 (Rabbit) owner 23:20: yellow toned down to bg-yellow-50 / border-yellow-200, typing area white (4d9a11584). Owner 23:29: race on notes. Fixed in 076553008: edit_at is the note's version; update and delete send edit_at=eq.<loaded> and return the rows touched; none (or a 23505 on a first note) means someone else saved: the box reloads, shows their text, who and when in an amber box above the kept draft; Save then replaces theirs knowingly, Cancel keeps theirs. Prototype tmp/n9nyvd-race-probe.log (UPDATE 0 after another save). RED tmp/n9nyvd-race-red.log, GREEN tmp/n9nyvd-race-green.log; jest 440, tsc 0, lint 0 errors. Headless tmp/n9nyvd-race-check.mjs/.log + tmp/n9nyvd/race-A.png, race-B.png on LU 28 as the regular review user: A first-note race: conflict shown, row kept 'Theirs first', draft kept, second Save stored 'Mine first' by 4; B edit race: conflict, row kept 'Theirs second', Cancel shows theirs; C delete race: conflict, row kept. LU 28 cleaned, LU 29 (owner's note) untouched.
+
+
+## History
+- 2026-11-18T01:04 doing -> doing/waiting (wait)
