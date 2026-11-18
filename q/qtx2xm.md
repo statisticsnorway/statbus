@@ -54,3 +54,7 @@ Rows that break the import's rule (region with a non-domestic country), checked 
 - Which rules are hard (the database refuses) and which are warnings (stored, flagged), mirroring the import's fatal versus non-fatal split.
 - The same treatment for the other temporal tables the form edits (contact, activity, stat_for_unit, the units' own columns), after location.
 - Repair of the existing impossible rows in a forward migration before a hard rule lands (owner to decide: keep the region and set the domestic country, or drop the region).
+
+
+## Notes
+2026-11-18 13:26 (Rabbit): paused for 50bwaz (reset + factory defaults, owner's detour for the next rc); the owner's open question here comes right after it.
