@@ -68,3 +68,10 @@ Fast suite 145/145 (tmp/test-626-fast2.log). Remaining: AC2, the rune measuremen
 CI on b97d0035d (contains 75f9601cd), all completed/success: Fast Tests 43732527613 (pg_regress fast suite), Images 43732210396, Go Test 43732210265, app build & lint 43732210379, Harness Selftest 43732210433, Push on master 43732210444, Notify 43732210462.
 
 2026-11-16 statbus_local restored from a fresh Norway dump (./sb db download no: dbdumps/no_20261116_145944.pg_dump, 3.4 GB; 2,190,793 legal units), migrate up applied 5 migrations including 20261115134359 and 20261115143155 with no content-hash refusal. Full recalculation on the owner's laptop (shared, load 50-96): 14:40-15:04, 24 min; derive 12.3 s, flush 81.0 s, facet reduce 26.1 s (global). Afterwards all 362,824 facets equal statistical_unit_facet_def and none carries min/max.
+
+2026-11-18 14:28 rune (no.statbus.org, Norway, upgraded 10:50 UTC to migration 20261118041918): the owner edited one unit twice (Veridit as, the legal unit and its enterprise). Read-only from worker.tasks (tmp/hug/g71vzm-rune-timing.out, g71vzm-rune-first.out):
+- First edit after the upgrade: statistical_unit_facet_reduce 33.05 s, mode global, because the derive found no recorded before-rows yet (slot_rows_before 0) and so fell back to the whole merge. This happens once per installation after the upgrade.
+- Second edit: statistical_unit_facet_reduce 0.04 s, mode difference, 3 slots (slot_rows_before 584).
+- Previous release on rune, small edits (1-5 legal units, 2026-11-13 to 11-15): 23.3-26.3 s per facet reduce (10 runs).
+- The rest of the second edit: derive 2.61 s, flush 1.44 s, derive_used_tables 1.80 s, history reduce 1.68 s; collect_changes 9.83 s end to end.
+Still open for check 2: the 50 % change was not measured on rune (a production install), and the release notes are not yet written.
