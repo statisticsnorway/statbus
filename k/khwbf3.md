@@ -1,7 +1,7 @@
 ---
 id: khwbf3
 title: "The app sometimes stays on Loading application… and only a reload clears it"
-state: "doing"
+state: "done"
 type: bug
 priority: "high"
 assignee: ["hibiscus"]
@@ -10,14 +10,10 @@ group: ""
 rank: "zzzq"
 created: 2026-11-18
 updated: 2026-11-18
-doing_since: "2026-11-18T16:33"
-stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
-waiting_on: "the next stalled load: the owner says 'slow' while still on the page, and hibiscus reads its timeline and state through the browser bridge"
-waiting_since: "2026-11-18T16:33"
-waiting_asked_by: "hibiscus"
+done_at: "2026-11-18T22:08"
 ---
 
 ## Goal
@@ -78,6 +74,8 @@ landed e421c0c on master 2026-11-18: app: dev pages hydrate without waiting for 
 check 2: Cause named from the about:logging capture (tmp/stall/fxlog/ws-main-2006.moz_log): /_next/hmr upgrades routed to the app container never answer, fill Firefox's six HTTP/1.1 connections to the site, and Firefox's one-connecting-WebSocket-per-IP queue then holds every slot's live reload, which Next 16.4 dev hydration waits for. Fixed at that cause in 4a5b15b6f (route to the dev server only, WebSockets over HTTP/2). Driven-Firefox test tmp/stall/hang-route-repro.mjs: before 37.8 s / not within 40 s, after 0.6-2.1 s.
 landed 4a5b15b on master 2026-11-18: proxy: WebSockets over HTTP/2, and dev live reload only to the dev server…
 check 3: Owner's decision 2026-11-18 20:54: keep the reload paths as they are and close this task; if a stall happens again he opens a new task that references khwbf3. The reload paths do not fire on a normal load: the Refresh Page button shows only after an uncaught error (JotaiAppProvider.tsx ErrorBoundary), and the navigation machine hard-navigates only when router.push has not finished after 3 s (navigation-machine.ts handleSideEffectTimeout, NavigationManager.tsx hardNavigate). CI for the fix 4a5b15b6f all green (Fast Tests, Go Test, app build & lint, Images, Harness Selftest).
+Reflection (unanswered, 2026-11-18, hibiscus)
 ## History
 - 2026-11-18T16:33 todo -> doing/active (take)
 - 2026-11-18T16:33 doing/active -> doing/waiting (wait)
+- 2026-11-18T22:08 doing/waiting -> done (done); was doing_since: 2026-11-18T16:33; waiting_asked_by: hibiscus; waiting_on: the next stalled load: the owner says 'slow' while still on the page, and hibiscus reads its timeline and state through the browser bridge; waiting_since: 2026-11-18T16:33
