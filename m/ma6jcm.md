@@ -35,7 +35,7 @@ In development, sb config generate derives STATBUS_URL, BROWSER_REST_URL and SER
 
 ## Acceptance
 - [ ] In development, after sb config generate, SERVER_REST_URL, STATBUS_URL and BROWSER_REST_URL in .env name this checkout's SITE_DOMAIN and slot ports (Go test with a .env.config holding http://proxy:80 and another slot's port)
-- [ ] pnpm run dev refuses to start, naming the key and the expected value, when .env still holds an address the dev server can't reach
+- [ ] ~~pnpm run dev refuses to start, naming the key and the expected value, when .env still holds an address the dev server can't reach~~ (not relevant: addresses are derived on every config generate and never remembered, so no stale value can reach the dev server (owner 2026-11-18), rabbit, 2026-11-18)
 - [ ] In the test checkout, a fresh pnpm run dev after ./dev.sh https on signs in at https://local.statbus.org:3031 without hand edits
 - [ ] Two slots on the same host (local.statbus.org:3011 and :3031) stay signed in side by side: signing in on one leaves the other signed in (observed in Firefox)
 
