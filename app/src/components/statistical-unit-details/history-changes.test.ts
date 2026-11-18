@@ -1,41 +1,58 @@
 import { changedCells } from "./history-changes";
 
-// A history row says what changed from the row above it; the rest repeats.
-describe("changedCells", () => {
-  const keys = [(r: { name: string; size: string | null }) => r.name, (r: { name: string; size: string | null }) => r.size];
+// The history table lists a unit's versions newest first; a row says what
+// changed from the version below it, the next older one (cgtb4y).
+type Row = { name: string; size: string | null };
+const keys = [(r: Row) => r.name, (r: Row) => r.size];
 
-  it("marks every cell of the first row as changed", () => {
-    expect(changedCells([{ name: "A", size: "s" }], keys)).toEqual([[true, true]]);
+describe("changedCells", () => {
+  it("marks every cell of the oldest version as changed", () => {
+    expect(changedCells([{ name: "A", size: "s" }], keys, null)).toEqual([[true, true]]);
   });
 
-  it("marks only the cells that differ from the row above", () => {
+  it("marks only the cells that differ from the version below", () => {
     expect(
       changedCells(
         [
-          { name: "A", size: "s" },
-          { name: "B", size: "s" },
           { name: "B", size: null },
+          { name: "B", size: "s" },
+          { name: "A", size: "s" },
         ],
-        keys
+        keys,
+        null
       )
     ).toEqual([
-      [true, true],
-      [true, false],
       [false, true],
+      [true, false],
+      [true, true],
+    ]);
+  });
+
+  it("compares the last row of a page with the next older version, not yet shown", () => {
+    expect(
+      changedCells(
+        [
+          { name: "B", size: "m" },
+          { name: "B", size: "s" },
+        ],
+        keys,
+        { name: "A", size: "s" }
+      )
+    ).toEqual([
+      [false, true],
+      [true, false],
     ]);
   });
 
   it("compares objects by their content", () => {
     const k = [(r: { region: { code: string } }) => r.region];
-    expect(changedCells([{ region: { code: "1" } }, { region: { code: "1" } }], k)).toEqual([[true], [false]]);
+    expect(changedCells([{ region: { code: "1" } }, { region: { code: "1" } }], k, null)).toEqual([[false], [true]]);
   });
-});
 
-describe("changedCells without a key", () => {
   it("always shows a column that has no key (the row's own date)", () => {
-    expect(changedCells([{ a: 1 }, { a: 1 }], [undefined, (r: { a: number }) => r.a])).toEqual([
-      [true, true],
+    expect(changedCells([{ a: 1 }, { a: 1 }], [undefined, (r: { a: number }) => r.a], null)).toEqual([
       [true, false],
+      [true, true],
     ]);
   });
 });

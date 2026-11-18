@@ -3,7 +3,6 @@ import {
   getServerRestClient,
 } from "@/context/RestClientStore";
 import { PostgrestError } from "@supabase/postgrest-js";
-import { UnitHistory } from "./unit-history-table";
 import { whereExistsOn } from "@/lib/unit-existence";
 
 export async function getEnterpriseById(id: string) {
@@ -219,22 +218,4 @@ export async function getStatisticalUnitHistoryHighcharts(
       error: { ...postgrestError, name: "supabase-error" },
     };
   }
-}
-
-export async function getStatisticalUnitHistory(
-  unitId: number,
-  unitType: "enterprise" | "power_group" | "legal_unit" | "establishment"
-) {
-  const client = await getServerRestClient();
-  const { data, error } = await client
-    .from("statistical_unit")
-    .select(
-      `*,
-      physical_region(code,name),primary_activity_category(code,name),status(code,name),sector(code,name),legal_form(code,name)`
-    )
-    .eq("unit_id", unitId)
-    .eq("unit_type", unitType)
-    .order("valid_from")
-    .returns<UnitHistory[]>();
-  return { data, error };
 }

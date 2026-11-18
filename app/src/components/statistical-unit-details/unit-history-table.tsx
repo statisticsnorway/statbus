@@ -11,9 +11,18 @@ import { Tables } from "@/lib/database.types";
 import { useBaseData } from "@/atoms/base-data";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getBrowserRestClient } from "@/context/RestClientStore";
 import { UnitHistoryExportButton } from "./unit-history-export-button";
 import { changedCells } from "./history-changes";
+import {
+  HISTORY_PAGE_SIZE,
+  HistoryUnitType,
+  UnitHistoryPage,
+  fetchUnitHistoryPage,
+} from "./unit-history-page";
 
 type CodeName = { code: string | null; name: string } | null;
 
@@ -40,16 +49,46 @@ type Column = {
   compare?: (unit: UnitHistory) => unknown;
 };
 
+/**
+ * A unit's versions, newest first, a page at a time: the server renders the
+ * first page, and 'Show older' reads the next page from the browser.
+ */
 export default function UnitHistoryTable({
-  unitHistory,
+  firstPage,
   unitId,
   unitType,
 }: {
-  readonly unitHistory: UnitHistory[] | null;
+  readonly firstPage: UnitHistoryPage;
   readonly unitId: number;
-  readonly unitType: "legal_unit" | "establishment" | "enterprise";
+  readonly unitType: HistoryUnitType;
 }) {
   const { statDefinitions, statbusUsers } = useBaseData();
+  const [unitHistory, setUnitHistory] = useState(firstPage.versions);
+  const [nextOlder, setNextOlder] = useState(firstPage.nextOlder);
+  const [total, setTotal] = useState(firstPage.total);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderError, setOlderError] = useState<string | null>(null);
+
+  const showOlder = async () => {
+    setLoadingOlder(true);
+    setOlderError(null);
+    const client = await getBrowserRestClient();
+    const page = await fetchUnitHistoryPage(
+      client,
+      unitId,
+      unitType,
+      unitHistory.length
+    );
+    setLoadingOlder(false);
+    if (page.error) {
+      setOlderError(page.error.message);
+      return;
+    }
+    setUnitHistory((shown) => [...shown, ...page.versions]);
+    setNextOlder(page.nextOlder);
+    setTotal(page.total);
+  };
+  const olderCount = Math.min(HISTORY_PAGE_SIZE, total - unitHistory.length);
   const usersById = useMemo(
     () => new Map(statbusUsers.map((u) => [u.id, u.display_name])),
     [statbusUsers]
@@ -231,21 +270,22 @@ export default function UnitHistoryTable({
     [statDefinitions, usersById]
   );
 
-  // Cells repeating the row above are dimmed, so each row shows what changed (owner 2026-11-13).
   const changed = useMemo(
     () =>
       changedCells(
-        unitHistory ?? [],
-        columns.map((col) => col.compare)
+        unitHistory,
+        columns.map((col) => col.compare),
+        nextOlder
       ),
-    [unitHistory, columns]
+    [unitHistory, nextOlder, columns]
   );
-
-  if (!unitHistory) return null;
 
   return (
     <div className="space-y-2">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-600" data-testid="history-count">
+          Showing {unitHistory.length} of {total} versions, newest first
+        </p>
         <UnitHistoryExportButton unitId={unitId} unitType={unitType} />
       </div>
       <Table>
@@ -278,6 +318,22 @@ export default function UnitHistoryTable({
           ))}
         </TableBody>
       </Table>
+      {olderCount > 0 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={showOlder}
+            disabled={loadingOlder}
+          >
+            {loadingOlder && <Loader2 className="h-3 w-3 animate-spin" />}
+            Show {olderCount} older
+          </Button>
+          {olderError && (
+            <span className="text-sm text-red-600">{olderError}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
