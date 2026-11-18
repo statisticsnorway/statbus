@@ -25,7 +25,8 @@ func TestStatbusURLDefaultsToTheExternalAddress(t *testing.T) {
 	}{
 		{"standalone", "standalone", "statbus.example.no", "1", "https://statbus.example.no"},
 		{"private slot", "private", "ma.statbus.org", "2", "http://ma.statbus.org:3020"},
-		{"development", "development", "local.statbus.org", "1", "http://local.statbus.org:3010"},
+		// Development: https on the slot's Caddy, DEV_HTTPS's default (STATBUS-631).
+		{"development", "development", "local.statbus.org", "1", "https://local.statbus.org:3011"},
 	}
 
 	for _, c := range cases {

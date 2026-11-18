@@ -128,15 +128,17 @@ See [frontend conventions](../.claude/rules/frontend.md) for Jotai, request arch
 
 ### Local https
 
-Over plain http a browser opens at most six connections to one site, so several app tabs queue behind each other. Caddy's https port speaks HTTP/2, which shares one connection across all tabs:
+Over plain http a browser opens at most six connections to one site, so several app tabs queue behind each other. Caddy's https port speaks HTTP/2, which shares one connection across all tabs. That is why a development checkout uses https by default: `DEV_HTTPS=true` in `.env.config`, the one address choice it records. `./sb config generate` derives `STATBUS_URL`, `BROWSER_REST_URL` and `SERVER_REST_URL` from `SITE_DOMAIN`, the slot's ports and `DEV_HTTPS` on every run and writes them to `.env` only. The certificate needs trusting once per machine:
 
 ```bash
-./dev.sh https on            # trust Caddy's local certificate in every Firefox profile, point the browser API at https, restart proxy and app
+./dev.sh https on            # trust Caddy's local certificate in every Firefox profile, set DEV_HTTPS=true, restart proxy and app
 ./dev.sh https on --system   # also trust it in the macOS keychain or the Linux CA store (sudo), for Chrome, Safari and curl
-./dev.sh https status        # API address, certificate fingerprint, and which profiles trust it
+./dev.sh https status        # DEV_HTTPS, API address, certificate fingerprint, and which profiles trust it
 ./dev.sh https trust         # trust again after the proxy volume (and so Caddy's CA) was recreated
-./dev.sh https off           # back to plain http
+./dev.sh https off           # DEV_HTTPS=false: back to plain http
 ```
+
+Each slot on a machine needs its own `SITE_DOMAIN` (with an `/etc/hosts` entry), for example `local.statbus.org` and `test.statbus.org`. The sign-in cookies have the same names in every slot and browsers keep cookies per host name, not per port, so two slots on one domain sign each other out. `./sb config generate` and `./sb start` stop when another running slot already uses the domain.
 
 Then open `https://local.statbus.org:3011` (`https://<SITE_DOMAIN>:<CADDY_HTTPS_PORT>`; `pnpm run dev` prints it). Caddy serves pages from `pnpm run dev` on the host when it runs and falls back to the app container otherwise, so restart `pnpm run dev` after `on` or `off`. Restart Firefox once after the first trust. Firefox trust uses NSS `certutil` (`brew install nss`, or `apt install libnss3-tools`).
 

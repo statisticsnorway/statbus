@@ -442,7 +442,7 @@ cd app
 pnpm run dev        # Start dev server with Turbopack
 ```
 
-The dev server runs on this checkout's slot port, `APP_DEV_PORT` in `.env` (`3000 + offset*10 + 7`: 3017 for slot offset 1, 3037 for offset 3), and prints the address to open: `http://<SITE_DOMAIN>:<APP_DEV_PORT>`, or `https://<SITE_DOMAIN>:<CADDY_HTTPS_PORT>` after `./dev.sh https on`, where the slot's Caddy serves it over HTTP/2. It provides:
+The dev server runs on this checkout's slot port, `APP_DEV_PORT` in `.env` (`3000 + offset*10 + 7`: 3017 for slot offset 1, 3037 for offset 3), and prints the address to open: `https://<SITE_DOMAIN>:<CADDY_HTTPS_PORT>` with `DEV_HTTPS=true` (the default), where the slot's Caddy serves it over HTTP/2, or `http://<SITE_DOMAIN>:<APP_DEV_PORT>` after `./dev.sh https off`. It provides:
 - Hot module replacement
 - TypeScript checking
 - Fast refresh

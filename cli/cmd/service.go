@@ -16,6 +16,11 @@ func startServices(profile string) (result error) {
 		return err
 	}
 	projDir := config.ProjectDir()
+	// One SITE_DOMAIN per slot on a machine; see config.RefuseSharedSiteDomain
+	// for what this check is and is not.
+	if err := config.RefuseSharedSiteDomainInDir(projDir); err != nil {
+		return err
+	}
 	guard, err := upgrade.AcquireOperatorStartGuard(projDir, "operator:start")
 	if err != nil {
 		return err

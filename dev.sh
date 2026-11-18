@@ -3768,16 +3768,19 @@ EOS
               esac
           fi
       }
-      _https_set_browser_url() {
-          local url="$1"
-          local current; current=$(_dotenv_get .env.config BROWSER_REST_URL)
-          if [ "$current" = "$url" ]; then
-              echo ".env.config: BROWSER_REST_URL already $url"
+      _https_set_choice() {
+          # DEV_HTTPS in .env.config is the one recorded choice; config generate derives the
+          # addresses from it (cli/internal/config/dev_addresses.go, DevHttpsKey).
+          local want="$1"
+          local current; current=$(_dotenv_get .env.config DEV_HTTPS)
+          if [ "$current" = "$want" ]; then
+              echo ".env.config: DEV_HTTPS already $want"
           else
-              ./sb dotenv -f .env.config set BROWSER_REST_URL "$url"
-              echo ".env.config: BROWSER_REST_URL $current -> $url"
+              ./sb dotenv -f .env.config set DEV_HTTPS "$want"
+              echo ".env.config: DEV_HTTPS ${current:-(unset)} -> $want"
           fi
           ./sb config generate >/dev/null
+          echo ".env: BROWSER_REST_URL $(_dotenv_get .env BROWSER_REST_URL)"
           docker compose restart proxy >/dev/null
           # --no-deps: the app reads the new address; the database and worker keep running.
           docker compose up -d --no-deps app >/dev/null
@@ -3787,7 +3790,7 @@ EOS
       case "$HTTPS_CMD" in
         'on' )
           _https_trust "${1:-}"
-          _https_set_browser_url "$HTTPS_URL"
+          _https_set_choice true
           echo ""
           echo "Open: $HTTPS_URL"
           ;;
@@ -3795,11 +3798,12 @@ EOS
           _https_trust "${1:-}"
           ;;
         'off' )
-          _https_set_browser_url "http://${HTTPS_DOMAIN}:${HTTPS_HTTP_PORT}"
-          echo "Plain http again: http://${HTTPS_DOMAIN}:3000 (dev server) or http://${HTTPS_DOMAIN}:${HTTPS_HTTP_PORT}"
+          _https_set_choice false
+          echo "Plain http again: http://${HTTPS_DOMAIN}:$(_dotenv_get .env APP_DEV_PORT) (dev server) or http://${HTTPS_DOMAIN}:${HTTPS_HTTP_PORT}"
           ;;
         'status' )
-          echo "Browser API (.env.config): $(_dotenv_get .env.config BROWSER_REST_URL)"
+          echo "DEV_HTTPS (.env.config): $(_dotenv_get .env.config DEV_HTTPS)"
+          echo "Browser API (.env): $(_dotenv_get .env BROWSER_REST_URL)"
           if [ -f "$HTTPS_CERT" ]; then
               _https_export_cert >/dev/null 2>&1 || true
               echo "Caddy local root: $(openssl x509 -in "$HTTPS_CERT" -noout -fingerprint -sha256 | cut -d= -f2)"
@@ -3824,10 +3828,10 @@ EOS
           echo "Usage: ./dev.sh https <on|status|off|trust> [--system]"
           echo ""
           echo "  on [--system]     Trust Caddy's local certificate in Firefox (and with --system the OS store),"
-          echo "                    point the browser API at $HTTPS_URL, restart proxy and app"
+          echo "                    set DEV_HTTPS=true (the default; browser API at $HTTPS_URL), restart proxy and app"
           echo "  trust [--system]  Only (re)trust the certificate, e.g. after the proxy volume was recreated"
           echo "  status            Show the API address, the certificate, and where it is trusted"
-          echo "  off               Back to plain http"
+          echo "  off               Set DEV_HTTPS=false: back to plain http"
           if [ -n "$HTTPS_CMD" ]; then
               echo ""
               echo "Error: Unknown subcommand '$HTTPS_CMD'"

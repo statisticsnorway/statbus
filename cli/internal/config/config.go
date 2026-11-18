@@ -486,29 +486,36 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	dbMemLimit, dbMemLimitSource, dbMemDetectedBytes, dbMemDetectErr := resolveDbMemLimit(mode, operatorDbMemLimit, hasOperatorDbMemLimit)
 
 	offset, _ := strconv.Atoi(offsetStr)
-	basePort := 3000
-	httpPort := basePort + (offset * 10)
+	httpPort, httpsPort := slotCaddyPorts(offset)
 
-	// ONE derivation of the instance's real external address, shared by every
-	// external URL this function produces. STATBUS_URL used to be a hardcoded
-	// http://localhost:3010, so a standalone box's upgrade callback announced the
-	// developer's laptop to whoever read the notification (STATBUS-484).
-	defaultBrowserURL := externalURL(mode, siteDomain, httpPort)
-
-	var defaultServerURL string
+	var statbusURL, browserURL, serverURL string
 	if mode == "development" {
-		defaultServerURL = defaultBrowserURL
+		urls, notice, err := resolveDevAddresses(f, siteDomain, httpPort, httpsPort)
+		if err != nil {
+			return nil, err
+		}
+		if notice != "" {
+			fmt.Fprint(os.Stderr, notice)
+		}
+		statbusURL, browserURL, serverURL = urls.statbus, urls.browser, urls.server
 	} else {
-		defaultServerURL = "http://proxy:80"
+		// ONE derivation of the instance's real external address, shared by every
+		// external URL this function produces. STATBUS_URL used to be a hardcoded
+		// http://localhost:3010, so a standalone box's upgrade callback announced the
+		// developer's laptop to whoever read the notification (STATBUS-484).
+		defaultBrowserURL := externalURL(mode, siteDomain, httpPort)
+		statbusURL = gen("STATBUS_URL", defaultBrowserURL)
+		browserURL = gen("BROWSER_REST_URL", defaultBrowserURL)
+		serverURL = gen("SERVER_REST_URL", "http://proxy:80")
 	}
 
 	cfg := &ConfigEnv{
 		DeploymentSlotCode:       slotCode,
 		DeploymentSlotName:       slotName,
 		DeploymentSlotPortOffset: offsetStr,
-		StatbusURL:               gen("STATBUS_URL", defaultBrowserURL),
-		BrowserAPIURL:            gen("BROWSER_REST_URL", defaultBrowserURL),
-		ServerAPIURL:             gen("SERVER_REST_URL", defaultServerURL),
+		StatbusURL:               statbusURL,
+		BrowserAPIURL:            browserURL,
+		ServerAPIURL:             serverURL,
 		SeqServerURL:             gen("SEQ_SERVER_URL", "https://log.statbus.org"),
 		SeqAPIKey:                "",
 		SlackToken:               "",
@@ -656,11 +663,8 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 // accept an explicit checkout must never inherit the process working directory.
 func computeDerivedInDir(cfg *ConfigEnv, gitDir string) *Derived {
 	offset, _ := strconv.Atoi(cfg.DeploymentSlotPortOffset)
-	basePort := 3000
-	portOffset := basePort + (offset * 10)
-
-	caddyHttpPort := portOffset
-	caddyHttpsPort := portOffset + 1
+	caddyHttpPort, caddyHttpsPort := slotCaddyPorts(offset)
+	portOffset := caddyHttpPort
 	appPort := portOffset + 2
 	postgrestPort := portOffset + 3
 	caddyDbPort := portOffset + 4
@@ -1382,6 +1386,11 @@ func generateInDir(projDir, gitDir string, verbose bool) error {
 	// The isolated render behind GeneratedFilesMatch has projDir != gitDir and
 	// is a done-check, not a generate, so it stays quiet.
 	if projDir == gitDir {
+		// One SITE_DOMAIN per slot on a machine; see RefuseSharedSiteDomain
+		// for what this check is and is not.
+		if err := RefuseSharedSiteDomain(cfg.SiteDomain, "statbus-"+cfg.DeploymentSlotCode, gitDir); err != nil {
+			return err
+		}
 		fmt.Println(dbMemLimitReport(cfg))
 	}
 
