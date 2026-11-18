@@ -42,5 +42,6 @@ Popover: field-timeline-view.tsx (read-only, no onToggle). Edit: the anchor's ey
 2026-11-17 13:38 built on branch (Rabbit): differencesFrom (RED tmp/2se9vc-red.log, GREEN tmp/2se9vc-green-model.log; jest 435, tsc ok, lint 0 errors tmp/2se9vc-checks.log). Headless tmp/2se9vc-check.log + tmp/2se9vc/: LU 29 Physical Location popover on Live shows black eye on Live, grey on 2024/2025, 2024 marks address_part1 (Kampala Road 1), 2025 marks data source (survey); clicking 2024's eye makes it the reference and 2025 then marks address_part1 + data_source, 2026 marks address_part1. Name edit, Tick all: black eye on Live (form 'EDIT PAGES AS'); clicking 2024's grey eye moves the eye and the form to 'EDIT PAGES ASA'. DB unchanged.
 
 
+2026-11-18 00:57 owner approved in Firefox (Rabbit recording): LU 29 statistical variables, Employees timeline with the eye marking what differs and Live-only ticking. He needs no toggle to show the timeline without the difference highlights.
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
