@@ -57,6 +57,7 @@ Build plan, on branch statbus-xz3jej-primary-est-activity, each step its own com
 - [x] A SQL test asserts, on the demo data in 306, which legal units the quality check lists after a recalculation, and that the search's embed counts the same units
 - [x] The Data quality section shows the card with the count for the selected time frame, and its link opens a search listing exactly those legal units (checked against the SQL on the local Norway data)
 - [x] PR #328 is closed on GitHub with a comment that thanks Erik, says why (integrated in the app instead), and links this task
+- [ ] In the next release candidate on Norway (no.statbus.org), the others (Erik, Hedda) open the Data quality card Establishment Activity Differs, its search and its download, and their findings are recorded in the notes
 
 
 ## Notes
