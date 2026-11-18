@@ -21,11 +21,10 @@ updated: "2026-11-12T20:38:00Z"
 model: "claude-opus-5-5"
 branch: "statbus-628-all-forms"
 worktree: "/Users/jhf/ssb/statbus_test"
-stage: "asked"
-asked_by: "rabbit"
-asked_for: "jorgen"
-asked_since: "2026-11-18T01:04"
-asked_what: "owner looks at the new-record prototype on LU 31/28 contact"
+stage: "waiting"
+waiting_asked_by: "rabbit"
+waiting_on: "owner: check 3 on Norway rc.02 (add a physical location to 0404 GRUE TRAVKLUBB)"
+waiting_since: "2026-11-18T12:28"
 ---
 
 ## Acceptance
@@ -61,3 +60,4 @@ Checks 1 and 2: evidence 8c0fbe00c (new record stored where the unit exists, tes
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
 - 2026-11-18T11:39 doing/waiting -> doing/asked (hug upgrade, 41hhgn: a question to a person is its own stage)
+- 2026-11-18T12:28 doing/asked -> doing/waiting (wait); was asked_by: rabbit; asked_for: jorgen; asked_since: 2026-11-18T01:04; asked_what: owner looks at the new-record prototype on LU 31/28 contact
