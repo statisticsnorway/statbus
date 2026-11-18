@@ -33,3 +33,5 @@ Flow from the owner, 2026-11-18: Workflows page lists the workflows and which ar
 - [ ] Applying that job changes the data exactly as an import of the same rows would, with the edit recorded as made by the user who applied it
 
 ## Notes
+
+2026-11-18 14:54 the first workflow to build is 2gpcs7 (pick the primary unit by a variable); its result feeds the quality check xz3jej (on master 8aaf0262b, in the next release candidate). PR #328 closed with this explanation: https://github.com/statisticsnorway/statbus/pull/328
