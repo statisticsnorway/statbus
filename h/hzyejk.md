@@ -1,7 +1,7 @@
 ---
 id: "hzyejk"
 title: Every upgrade row links to its release, and a release says what it changes
-state: "doing"
+state: "done"
 assignee: ["rabbit"]
 labels:
   - upgrade
@@ -19,11 +19,7 @@ created: "2026-11-10T21:16:00Z"
 model: "claude-opus-5-5"
 branch: "statbus-607-release-link"
 worktree: "/Users/jhf/ssb/statbus_test"
-doing_since: "2026-11-18T05:16"
-stage: "waiting"
-waiting_on: "owner: check 4 (release notes content and author)"
-waiting_since: "2026-11-18T06:17"
-waiting_asked_by: "rabbit"
+done_at: "2026-11-18T17:52"
 ---
 
 ## Goal
@@ -68,3 +64,4 @@ First task after STATBUS-606 (owner, 2026-11-10).
 ## History
 - 2026-11-18T05:16 todo -> doing/active (take)
 - 2026-11-18T05:31 doing/active -> doing/waiting (wait)
+- 2026-11-18T17:52 doing/waiting -> done (done); was doing_since: 2026-11-18T05:16; waiting_asked_by: rabbit; waiting_on: owner: check 4 (release notes content and author); waiting_since: 2026-11-18T06:17
