@@ -56,6 +56,7 @@ Owner 2026-11-12 20:21 (reviewing /legal-units/28/contact, a unit with no contac
 
 2026-11-18 03:40 (Rabbit): shipped in v2026.11.5-rc.01 (82c2da035); ladder rungs 1-8 green (orchestrator 44224042839). Remaining owner check waits for rc.01 on Norway.
 2026-11-18 06:54 (Rabbit): v2026.11.5-rc.02 (691e26810) carries this; ladder rungs 1-8 green (orchestrator 44247167926). Test on Norway with rc.02.
+2026-11-18 11:27 (Rabbit): owner reports Norway (rune) upgraded to v2026.11.5-rc.02. The owner check on Norway is now possible.
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
 - 2026-11-18T11:39 doing/waiting -> doing/asked (hug upgrade, 41hhgn: a question to a person is its own stage)
