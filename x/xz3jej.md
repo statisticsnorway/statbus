@@ -11,7 +11,7 @@ rank: "zq"
 created: 2026-11-18
 updated: 2026-11-18
 doing_since: "2026-11-18T00:59"
-stage: "depends"
+stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
@@ -52,7 +52,6 @@ Build plan, on branch statbus-xz3jej-primary-est-activity, each step its own com
 
 ## Depends on
 
-- 2gpcs7
 ## Acceptance
 - [x] [Owner] Approves the rule: compare a legal unit's primary activity with its primary establishment's (primary_for_legal_unit), every legal unit with one, narrowing by URL filter; the answer is recorded in the notes
 - [x] A SQL test asserts, on the demo data in 306, which legal units the quality check lists after a recalculation, and that the search's embed counts the same units
