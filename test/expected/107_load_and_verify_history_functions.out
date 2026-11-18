@@ -14194,7 +14194,7 @@ statistical_unit_hierarchy
                     "name": "Active",
                     "custom": false,
                     "enabled": true,
-                    "priority": 1,
+                    "priority": 10,
                     "used_for_counting": true,
                     "assigned_by_default": true
                 },
@@ -14302,7 +14302,7 @@ statistical_unit_hierarchy
                             "name": "Active",
                             "custom": false,
                             "enabled": true,
-                            "priority": 1,
+                            "priority": 10,
                             "used_for_counting": true,
                             "assigned_by_default": true
                         },
@@ -14428,7 +14428,7 @@ statistical_unit_hierarchy
                                     "name": "Employees",
                                     "type": "int",
                                     "enabled": true,
-                                    "priority": 1,
+                                    "priority": 10,
                                     "frequency": "yearly",
                                     "description": "The number of people receiving an official salary with government reporting."
                                 }
@@ -14458,7 +14458,7 @@ statistical_unit_hierarchy
                                     "name": "Turnover",
                                     "type": "float",
                                     "enabled": true,
-                                    "priority": 2,
+                                    "priority": 20,
                                     "frequency": "yearly",
                                     "description": "The amount (Local Currency)"
                                 }
@@ -14516,7 +14516,7 @@ statistical_unit_hierarchy
                     "name": "Active",
                     "custom": false,
                     "enabled": true,
-                    "priority": 1,
+                    "priority": 10,
                     "used_for_counting": true,
                     "assigned_by_default": true
                 },
@@ -14624,7 +14624,7 @@ statistical_unit_hierarchy
                             "name": "Active",
                             "custom": false,
                             "enabled": true,
-                            "priority": 1,
+                            "priority": 10,
                             "used_for_counting": true,
                             "assigned_by_default": true
                         },
@@ -14750,7 +14750,7 @@ statistical_unit_hierarchy
                                     "name": "Employees",
                                     "type": "int",
                                     "enabled": true,
-                                    "priority": 1,
+                                    "priority": 10,
                                     "frequency": "yearly",
                                     "description": "The number of people receiving an official salary with government reporting."
                                 }
@@ -14780,7 +14780,7 @@ statistical_unit_hierarchy
                                     "name": "Turnover",
                                     "type": "float",
                                     "enabled": true,
-                                    "priority": 2,
+                                    "priority": 20,
                                     "frequency": "yearly",
                                     "description": "The amount (Local Currency)"
                                 }
@@ -14837,7 +14837,7 @@ statistical_unit_hierarchy
                     "name": "Active",
                     "custom": false,
                     "enabled": true,
-                    "priority": 1,
+                    "priority": 10,
                     "used_for_counting": true,
                     "assigned_by_default": true
                 },
@@ -14945,7 +14945,7 @@ statistical_unit_hierarchy
                             "name": "Active",
                             "custom": false,
                             "enabled": true,
-                            "priority": 1,
+                            "priority": 10,
                             "used_for_counting": true,
                             "assigned_by_default": true
                         },
@@ -15071,7 +15071,7 @@ statistical_unit_hierarchy
                                     "name": "Employees",
                                     "type": "int",
                                     "enabled": true,
-                                    "priority": 1,
+                                    "priority": 10,
                                     "frequency": "yearly",
                                     "description": "The number of people receiving an official salary with government reporting."
                                 }
@@ -15101,7 +15101,7 @@ statistical_unit_hierarchy
                                     "name": "Turnover",
                                     "type": "float",
                                     "enabled": true,
-                                    "priority": 2,
+                                    "priority": 20,
                                     "frequency": "yearly",
                                     "description": "The amount (Local Currency)"
                                 }
@@ -15354,7 +15354,7 @@ SELECT jsonb_pretty(
                  ]                         +
              ],                            +
              "name": "Employees",          +
-             "priority": 1,                +
+             "priority": 10,               +
              "is_current": true            +
          },                                +
          {                                 +
@@ -15398,7 +15398,7 @@ SELECT jsonb_pretty(
                  ]                         +
              ],                            +
              "name": "Turnover",           +
-             "priority": 2,                +
+             "priority": 20,               +
              "is_current": true            +
          },                                +
          {                                 +

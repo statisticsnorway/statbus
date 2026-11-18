@@ -425,10 +425,10 @@ SELECT * FROM facet_vs_truth;
  enterprise    | 11     |           2 |           2 | t
 (3 rows)
 
-\echo "--- STATBUS-538: reset(true, 'data') empties units and the facet staging ---"
-"--- STATBUS-538: reset(true, 'data') empties units and the facet staging ---"
+\echo "--- STATBUS-538: reset(true, 'units') empties units and the facet staging ---"
+"--- STATBUS-538: reset(true, 'units') empties units and the facet staging ---"
 \o /dev/null
-SELECT public.reset(true, 'data');
+SELECT public.reset(true, 'units');
 NOTICE:  drop cascades to view temp_lu_source_view
 NOTICE:  drop cascades to 8 other objects
 DETAIL:  drop cascades to view temp_loc_source_view_physical_location

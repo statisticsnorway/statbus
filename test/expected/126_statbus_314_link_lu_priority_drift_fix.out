@@ -44,9 +44,9 @@ SELECT idc.priority, idc.column_name, idc.purpose
  priority |         column_name         |   purpose    
 ----------+-----------------------------+--------------
         1 | primary_for_legal_unit      | internal
-        2 | legal_unit_tax_ident_raw    | source_input
-        3 | legal_unit_stat_ident_raw   | source_input
-       11 | legal_unit_person_ident_raw | source_input
+       11 | legal_unit_tax_ident_raw    | source_input
+       21 | legal_unit_stat_ident_raw   | source_input
+       31 | legal_unit_person_ident_raw | source_input
 (4 rows)
 
 SELECT idc.priority AS n
@@ -99,7 +99,7 @@ SELECT :casea1_n AS call_1, :casea2_n AS call_2, :baseline_n AS original_baselin
        (:casea1_n = :casea2_n AND :casea2_n = :baseline_n) AS all_identical;
  call_1 | call_2 | original_baseline | all_identical 
 --------+--------+-------------------+---------------
-      2 |      2 |                 2 | t
+     11 |     11 |                11 | t
 (1 row)
 
 -- CASE (c) -- DRIFTED STATE -> CONVERGES TO CORRECT: simulate a fleet box
@@ -123,9 +123,9 @@ SELECT idc.priority, idc.column_name
  ORDER BY idc.priority;
  priority |         column_name         
 ----------+-----------------------------
-       39 | legal_unit_tax_ident_raw
-       40 | legal_unit_stat_ident_raw
-       48 | legal_unit_person_ident_raw
+       48 | legal_unit_tax_ident_raw
+       58 | legal_unit_stat_ident_raw
+       68 | legal_unit_person_ident_raw
 (3 rows)
 
 -- Re-apply the repair migration's own file -- the shipped bytes -- the

@@ -3193,61 +3193,7 @@ SAVEPOINT before_reset;
 \a
 \echo "Checking that reset works"
 "Checking that reset works"
-SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'units'::public.reset_scope)) AS reset_unit;
-reset_unit
-{
-    "image": {
-        "deleted_count": 0
-    },
-    "person": {
-        "deleted_count": 0
-    },
-    "contact": {
-        "deleted_count": 0
-    },
-    "activity": {
-        "deleted_count": 1420
-    },
-    "location": {
-        "deleted_count": 1760
-    },
-    "enterprise": {
-        "deleted_count": 100
-    },
-    "legal_unit": {
-        "deleted_count": 100
-    },
-    "power_root": {
-        "deleted_count": 0
-    },
-    "unit_notes": {
-        "deleted_count": 0
-    },
-    "power_group": {
-        "deleted_count": 0
-    },
-    "tag_for_unit": {
-        "deleted_count": 0
-    },
-    "establishment": {
-        "deleted_count": 1305
-    },
-    "stat_for_unit": {
-        "deleted_count": 351
-    },
-    "external_ident": {
-        "deleted_count": 1405
-    },
-    "person_for_unit": {
-        "deleted_count": 0
-    },
-    "legal_relationship": {
-        "deleted_count": 1
-    }
-}
-(1 row)
-ROLLBACK TO SAVEPOINT before_reset;
-SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'units'::public.reset_scope)) AS reset_units;
 NOTICE:  drop cascades to view temp_stat_source_view_employees
 NOTICE:  drop cascades to view temp_lu_source_view
 NOTICE:  drop cascades to 7 other objects
@@ -3258,74 +3204,7 @@ drop cascades to view temp_act_source_view_secondary_activity
 drop cascades to view temp_contact_source_view
 drop cascades to view temp_stat_source_view_turnover
 drop cascades to view temp_es_source_view
-reset_data
-{
-    "image": {
-        "deleted_count": 0
-    },
-    "person": {
-        "deleted_count": 0
-    },
-    "contact": {
-        "deleted_count": 0
-    },
-    "activity": {
-        "deleted_count": 1420
-    },
-    "location": {
-        "deleted_count": 1760
-    },
-    "enterprise": {
-        "deleted_count": 100
-    },
-    "import_job": {
-        "deleted_count": 4
-    },
-    "legal_unit": {
-        "deleted_count": 100
-    },
-    "power_root": {
-        "deleted_count": 0
-    },
-    "unit_notes": {
-        "deleted_count": 0
-    },
-    "power_group": {
-        "deleted_count": 0
-    },
-    "tag_for_unit": {
-        "deleted_count": 0
-    },
-    "establishment": {
-        "deleted_count": 1305
-    },
-    "stat_for_unit": {
-        "deleted_count": 351
-    },
-    "external_ident": {
-        "deleted_count": 1405
-    },
-    "person_for_unit": {
-        "deleted_count": 0
-    },
-    "legal_relationship": {
-        "deleted_count": 1
-    }
-}
-(1 row)
-ROLLBACK TO SAVEPOINT before_reset;
-SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
-NOTICE:  drop cascades to view temp_stat_source_view_employees
-NOTICE:  drop cascades to view temp_lu_source_view
-NOTICE:  drop cascades to 7 other objects
-DETAIL:  drop cascades to view temp_loc_source_view_physical_location
-drop cascades to view temp_loc_source_view_postal_location
-drop cascades to view temp_act_source_view_primary_activity
-drop cascades to view temp_act_source_view_secondary_activity
-drop cascades to view temp_contact_source_view
-drop cascades to view temp_stat_source_view_turnover
-drop cascades to view temp_es_source_view
-reset_data
+reset_units
 {
     "image": {
         "deleted_count": 0
@@ -3404,12 +3283,9 @@ reset_getting_started
         "deleted_count": 417
     },
     "sector": {
+        "added_count": 0,
         "changed_count": 36,
         "deleted_count": 33
-    },
-    "status": {
-        "changed_count": 0,
-        "deleted_count": 0
     },
     "contact": {
         "deleted_count": 0
@@ -3423,10 +3299,6 @@ reset_getting_started
     "settings": {
         "deleted_count": 1
     },
-    "unit_size": {
-        "changed_count": 0,
-        "deleted_count": 0
-    },
     "enterprise": {
         "deleted_count": 100
     },
@@ -3434,6 +3306,7 @@ reset_getting_started
         "deleted_count": 4
     },
     "legal_form": {
+        "added_count": 0,
         "changed_count": 46,
         "deleted_count": 46
     },
@@ -3445,10 +3318,6 @@ reset_getting_started
     },
     "unit_notes": {
         "deleted_count": 0
-    },
-    "data_source": {
-        "changed_count": 6,
-        "deleted_count": 6
     },
     "power_group": {
         "deleted_count": 0
@@ -3465,23 +3334,11 @@ reset_getting_started
     "external_ident": {
         "deleted_count": 1405
     },
-    "legal_rel_type": {
-        "changed_count": 0,
-        "deleted_count": 0
-    },
     "region_version": {
         "changed_count": 0,
         "deleted_count": 0
     },
     "person_for_unit": {
-        "deleted_count": 0
-    },
-    "legal_reorg_type": {
-        "changed_count": 0,
-        "deleted_count": 0
-    },
-    "power_group_type": {
-        "changed_count": 0,
         "deleted_count": 0
     },
     "activity_category": {
@@ -3495,14 +3352,13 @@ reset_getting_started
     "legal_relationship": {
         "deleted_count": 1
     },
-    "foreign_participation": {
-        "changed_count": 0,
-        "deleted_count": 0
+    "activity_category_standard": {
+        "changed_count": 0
     }
 }
 (1 row)
 ROLLBACK TO SAVEPOINT before_reset;
-SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope)) AS reset_all;
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'customisation'::public.reset_scope)) AS reset_customisation;
 NOTICE:  drop cascades to view temp_stat_source_view_employees
 NOTICE:  drop cascades to view temp_lu_source_view
 NOTICE:  drop cascades to 7 other objects
@@ -3521,9 +3377,15 @@ NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
@@ -3536,18 +3398,43 @@ NOTICE:  Dropped index su_ss_employees_sum_asc_idx
 NOTICE:  Dropped index su_ss_employees_sum_desc_idx
 NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
 NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Dropped index su_ei_person_ident_idx
+NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ss_employees_sum_asc_idx
 NOTICE:  Dropped index su_ss_employees_sum_desc_idx
 NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
 NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
-reset_all
+NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
+reset_customisation
 {
     "tag": {
         "changed_count": 0,
@@ -3563,10 +3450,12 @@ reset_all
         "deleted_count": 417
     },
     "sector": {
+        "added_count": 0,
         "changed_count": 36,
         "deleted_count": 33
     },
     "status": {
+        "added_count": 0,
         "changed_count": 0,
         "deleted_count": 0
     },
@@ -3583,6 +3472,7 @@ reset_all
         "deleted_count": 1
     },
     "unit_size": {
+        "added_count": 0,
         "changed_count": 0,
         "deleted_count": 0
     },
@@ -3593,6 +3483,7 @@ reset_all
         "deleted_count": 4
     },
     "legal_form": {
+        "added_count": 0,
         "changed_count": 46,
         "deleted_count": 46
     },
@@ -3606,6 +3497,7 @@ reset_all
         "deleted_count": 0
     },
     "data_source": {
+        "added_count": 0,
         "changed_count": 6,
         "deleted_count": 6
     },
@@ -3625,6 +3517,7 @@ reset_all
         "deleted_count": 1405
     },
     "legal_rel_type": {
+        "added_count": 0,
         "changed_count": 0,
         "deleted_count": 0
     },
@@ -3636,13 +3529,17 @@ reset_all
         "deleted_count": 0
     },
     "stat_definition": {
+        "added_count": 0,
+        "changed_count": 1,
         "deleted_count": 0
     },
     "legal_reorg_type": {
+        "added_count": 0,
         "changed_count": 0,
         "deleted_count": 0
     },
     "power_group_type": {
+        "added_count": 0,
         "changed_count": 0,
         "deleted_count": 0
     },
@@ -3658,11 +3555,17 @@ reset_all
         "deleted_count": 1
     },
     "external_ident_type": {
+        "added_count": 0,
+        "changed_count": 1,
         "deleted_count": 0
     },
     "foreign_participation": {
+        "added_count": 0,
         "changed_count": 0,
         "deleted_count": 0
+    },
+    "activity_category_standard": {
+        "changed_count": 0
     }
 }
 (1 row)

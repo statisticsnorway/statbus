@@ -37,8 +37,8 @@ ON CONFLICT (path) DO NOTHING;
 
 \echo "Setup custom stat definitions and external ident types for Test 71"
 INSERT INTO public.stat_definition (code, name, type, frequency, description, enabled, priority) VALUES
-('men_employees', 'Number of Men Employees', 'int', 'yearly', 'Number of men employees in the unit', true, 10),
-('women_employees', 'Number of Women Employees', 'int', 'yearly', 'Number of women employees in the unit', true, 11)
+('men_employees', 'Number of Men Employees', 'int', 'yearly', 'Number of men employees in the unit', true, 1),
+('women_employees', 'Number of Women Employees', 'int', 'yearly', 'Number of women employees in the unit', true, 2)
 ON CONFLICT (code) DO UPDATE SET enabled = true; -- Ensure they are enabled for this test
 
 INSERT INTO public.external_ident_type (code, name, description, priority, enabled) VALUES

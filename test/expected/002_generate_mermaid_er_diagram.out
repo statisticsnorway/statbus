@@ -123,6 +123,14 @@ erDiagram
 		boolean enabled
 		date lasts_to
 	}
+	activity_category_standard_factory_default["activity_category_standard_factory_default"] {
+		character_varying(16) code
+		character_varying name
+		character_varying description
+		activity_category_code_behaviour code_pattern
+		boolean enabled
+		date lasts_to
+	}
 	activity_category_used["activity_category_used"] {
 		character_varying(16) standard_code
 		integer id
@@ -176,6 +184,10 @@ erDiagram
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+	}
+	data_source_factory_default["data_source_factory_default"] {
+		text code
+		text name
 	}
 	data_source_used["data_source_used"] {
 		integer id
@@ -240,6 +252,13 @@ erDiagram
 		integer priority
 		boolean enabled
 	}
+	external_ident_type_factory_default["external_ident_type_factory_default"] {
+		character_varying(128) code
+		character_varying(50) name
+		text description
+		integer priority
+		boolean enabled
+	}
 	foreign_participation["foreign_participation"] {
 		integer id
 		text code
@@ -248,6 +267,10 @@ erDiagram
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+	}
+	foreign_participation_factory_default["foreign_participation_factory_default"] {
+		text code
+		text name
 	}
 	image["image"] {
 		integer id
@@ -383,6 +406,10 @@ erDiagram
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}
+	legal_form_factory_default["legal_form_factory_default"] {
+		text code
+		text name
+	}
 	legal_form_used["legal_form_used"] {
 		integer id
 		text code
@@ -398,6 +425,12 @@ erDiagram
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+	}
+	legal_rel_type_factory_default["legal_rel_type_factory_default"] {
+		text code
+		text name
+		text description
+		boolean primary_influencer_only
 	}
 	legal_relationship["legal_relationship"] {
 		integer id
@@ -426,6 +459,11 @@ erDiagram
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+	}
+	legal_reorg_type_factory_default["legal_reorg_type_factory_default"] {
+		text code
+		text name
+		text description
 	}
 	legal_unit["legal_unit"] {
 		integer id
@@ -542,6 +580,10 @@ erDiagram
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}
+	power_group_type_factory_default["power_group_type_factory_default"] {
+		text code
+		text name
+	}
 	power_root["power_root"] {
 		integer id
 		integer power_group_id
@@ -617,6 +659,10 @@ erDiagram
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}
+	sector_factory_default["sector_factory_default"] {
+		ltree path
+		text name
+	}
 	sector_used["sector_used"] {
 		integer id
 		ltree path
@@ -635,6 +681,15 @@ erDiagram
 	}
 	stat_definition["stat_definition"] {
 		integer id
+		character_varying code
+		stat_type type
+		stat_frequency frequency
+		character_varying name
+		text description
+		integer priority
+		boolean enabled
+	}
+	stat_definition_factory_default["stat_definition_factory_default"] {
 		character_varying code
 		stat_type type
 		stat_frequency frequency
@@ -960,6 +1015,13 @@ erDiagram
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+	}
+	status_factory_default["status_factory_default"] {
+		character_varying code
+		text name
+		boolean assigned_by_default
+		boolean used_for_counting
+		integer priority
 	}
 	system_info["system_info"] {
 		text key
@@ -1361,6 +1423,10 @@ erDiagram
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+	}
+	unit_size_factory_default["unit_size_factory_default"] {
+		text code
+		text name
 	}
 	upgrade["upgrade"] {
 		integer id

@@ -256,9 +256,9 @@ ORDER BY unit_type, region;
 \echo "--- STATBUS-538: after two imports, facets equal statistical_unit ---"
 SELECT * FROM facet_vs_truth;
 
-\echo "--- STATBUS-538: reset(true, 'data') empties units and the facet staging ---"
+\echo "--- STATBUS-538: reset(true, 'units') empties units and the facet staging ---"
 \o /dev/null
-SELECT public.reset(true, 'data');
+SELECT public.reset(true, 'units');
 \o
 SET LOCAL ROLE postgres;
 SELECT (SELECT count(*) FROM public.legal_unit) AS legal_units,

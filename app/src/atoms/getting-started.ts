@@ -152,6 +152,21 @@ export const numberOfTotalActivityCodesAtomAsync = atomWithRefresh(async (get) =
 // GETTING STARTED HOOKS
 // ============================================================================
 
+/**
+ * Makes every Getting started step read the database again. Each step atom
+ * caches its first answer, so after anything that changes those rows behind
+ * the app's back (a reset, 50bwaz) the menu would keep ticking steps whose
+ * rows are gone.
+ */
+export const refreshGettingStartedAtom = atom(null, (_get, set) => {
+  set(settingsAtomAsync);
+  set(numberOfRegionsAtomAsync);
+  set(numberOfCustomActivityCodesAtomAsync);
+  set(numberOfCustomSectorsAtomAsync);
+  set(numberOfCustomLegalFormsAtomAsync);
+  set(numberOfTotalActivityCodesAtomAsync);
+});
+
 // A simple hook to manage the UI state of the wizard.
 // The data-fetching atoms are intended to be used directly by components.
 export const useGettingStartedUI = () => {

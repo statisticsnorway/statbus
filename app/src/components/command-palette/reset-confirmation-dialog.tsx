@@ -25,15 +25,18 @@ import { Enums } from "@/lib/database.types";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { useSetAtom } from "jotai";
 import { RESET } from "jotai/utils";
-import { gettingStartedUIStateAtom } from "@/atoms/getting-started";
+import { gettingStartedUIStateAtom, refreshGettingStartedAtom } from "@/atoms/getting-started";
 import { selectedTimeFrameAtom } from "@/atoms/app";
+import { refreshBaseDataAtom } from "@/atoms/base-data";
 
 export function ResetConfirmationDialog() {
   const router = useRouter();
   const setGettingStartedUIState = useSetAtom(gettingStartedUIStateAtom);
   const setSelectedTimeFrame = useSetAtom(selectedTimeFrameAtom);
+  const refreshGettingStarted = useSetAtom(refreshGettingStartedAtom);
+  const refreshBaseData = useSetAtom(refreshBaseDataAtom);
   const [open, setOpen] = useState(false);
-  const [scope, setScope] = useState<Enums<"reset_scope">>("data");
+  const [scope, setScope] = useState<Enums<"reset_scope">>("units");
   const [isLoading, setIsLoading] = useState(false);
 
   useGuardedEffect(
@@ -72,10 +75,13 @@ export function ResetConfirmationDialog() {
           title: "System Reset OK",
           description: "All data has been reset.",
         });
-        // Clear persisted client-side state to avoid inconsistencies after a
-        // server data reset. The page reload will handle re-fetching data.
+        // The app's cached Getting started steps and base data describe the
+        // database before the reset; read them again so every screen shows
+        // what is there now.
         setGettingStartedUIState(RESET);
         setSelectedTimeFrame(RESET);
+        refreshGettingStarted();
+        refreshBaseData();
         router.push("/");
       }
     } catch (error) {
@@ -108,12 +114,12 @@ export function ResetConfirmationDialog() {
               <SelectValue placeholder="Select scope" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="data">Units only</SelectItem>
+              <SelectItem value="units">Units</SelectItem>
               <SelectItem value="getting-started">
-                Units and classifications
+                Units and Getting started
               </SelectItem>
-              <SelectItem value="all">
-                Units, classifications and customizations
+              <SelectItem value="customisation">
+                Units, Getting started and Customisation
               </SelectItem>
             </SelectContent>
           </Select>

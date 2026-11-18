@@ -1,6 +1,6 @@
 
 
-SELECT public.reset(true, 'getting-started');
+SELECT public.reset(true, 'customisation');
 
 CREATE OR REPLACE PROCEDURE public.custom_setup_ma()
 LANGUAGE plpgsql
@@ -80,8 +80,8 @@ where custom = FALSE;
     INSERT INTO status
         (code, name, assigned_by_default, used_for_counting, priority, enabled, custom)
     VALUES
-        ('act', 'Active', TRUE, TRUE, 3, TRUE, TRUE),
-        ('inact', 'Inactive', FALSE, false, 4, TRUE, TRUE),
+        ('act', 'Active', TRUE, TRUE, 1, TRUE, TRUE),
+        ('inact', 'Inactive', FALSE, false, 2, TRUE, TRUE),
         ('veil', 'En veilleuse', FALSE, false, 3, TRUE, TRUE),
         ('cess', 'Cessation', FALSE, TRUE, 4, TRUE, TRUE),
         ('fus-abs', 'Fusion-Absrption', FALSE, TRUE, 5, TRUE, TRUE),

@@ -13,7 +13,7 @@
 Indexes:
     "external_ident_type_pkey" PRIMARY KEY, btree (id)
     "external_ident_type_code_key" UNIQUE CONSTRAINT, btree (code)
-    "external_ident_type_priority_key" UNIQUE CONSTRAINT, btree (priority)
+    "external_ident_type_enabled_priority_key" UNIQUE, btree (priority) WHERE enabled
 Check constraints:
     "shape_labels_consistency" CHECK (shape = 'regular'::external_ident_shape AND labels IS NULL OR shape = 'hierarchical'::external_ident_shape AND labels IS NOT NULL)
 Referenced by:

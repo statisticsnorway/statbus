@@ -40,8 +40,8 @@ ON CONFLICT (path) DO NOTHING;
 \echo "Setup custom stat definitions and external ident types for Test 71"
 "Setup custom stat definitions and external ident types for Test 71"
 INSERT INTO public.stat_definition (code, name, type, frequency, description, enabled, priority) VALUES
-('men_employees', 'Number of Men Employees', 'int', 'yearly', 'Number of men employees in the unit', true, 10),
-('women_employees', 'Number of Women Employees', 'int', 'yearly', 'Number of women employees in the unit', true, 11)
+('men_employees', 'Number of Men Employees', 'int', 'yearly', 'Number of men employees in the unit', true, 1),
+('women_employees', 'Number of Women Employees', 'int', 'yearly', 'Number of women employees in the unit', true, 2)
 ON CONFLICT (code) DO UPDATE SET enabled = true; -- Ensure they are enabled for this test
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
@@ -53,10 +53,10 @@ NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
@@ -71,10 +71,10 @@ NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 INSERT INTO public.external_ident_type (code, name, description, priority, enabled) VALUES
 ('nin_ident', 'National Identity Number', 'Custom NIN ident for test 71', 3, true)
 ON CONFLICT (code) DO UPDATE SET enabled = true; -- Ensure it's enabled
@@ -89,14 +89,14 @@ NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
 NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
+NOTICE:  Created btree index su_ei_nin_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_nin_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Dropped index su_ei_nin_ident_idx
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
@@ -109,14 +109,14 @@ NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
 NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
+NOTICE:  Created btree index su_ei_nin_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_nin_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 -- Disable stat_ident for this test to ensure nin_ident is picked up where applicable
 UPDATE public.external_ident_type SET enabled = false WHERE code = 'stat_ident';
 NOTICE:  Dropped index su_ei_nin_ident_idx
@@ -131,13 +131,13 @@ NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
 NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_asc_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_desc_idx
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_nin_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 \echo "Define custom import definitions for Test 71"
 "Define custom import definitions for Test 71"
 DO $$
@@ -310,8 +310,8 @@ END $$;
  action                               | import_row_action_type    |           |          |                              | plain    |              | 
  legal_unit_id                        | integer                   |           |          |                              | plain    |              | 
  establishment_id                     | integer                   |           |          |                              | plain    |              | 
- tax_ident_raw                        | text                      |           |          |                              | extended |              | 
  nin_ident_raw                        | text                      |           |          |                              | extended |              | 
+ tax_ident_raw                        | text                      |           |          |                              | extended |              | 
  person_ident_raw                     | text                      |           |          |                              | extended |              | 
  data_source_code_raw                 | text                      |           |          |                              | extended |              | 
  data_source_id                       | integer                   |           |          |                              | plain    |              | 
@@ -392,18 +392,18 @@ END $$;
  fax_number_raw                       | text                      |           |          |                              | extended |              | 
  fax_number                           | text                      |           |          |                              | extended |              | 
  contact_id                           | integer                   |           |          |                              | plain    |              | 
- employees_raw                        | text                      |           |          |                              | extended |              | 
- employees                            | integer                   |           |          |                              | plain    |              | 
- stat_for_unit_employees_id           | integer                   |           |          |                              | plain    |              | 
- turnover_raw                         | text                      |           |          |                              | extended |              | 
- turnover                             | numeric                   |           |          |                              | main     |              | 
- stat_for_unit_turnover_id            | integer                   |           |          |                              | plain    |              | 
  men_employees_raw                    | text                      |           |          |                              | extended |              | 
  men_employees                        | integer                   |           |          |                              | plain    |              | 
  stat_for_unit_men_employees_id       | integer                   |           |          |                              | plain    |              | 
  women_employees_raw                  | text                      |           |          |                              | extended |              | 
  women_employees                      | integer                   |           |          |                              | plain    |              | 
  stat_for_unit_women_employees_id     | integer                   |           |          |                              | plain    |              | 
+ employees_raw                        | text                      |           |          |                              | extended |              | 
+ employees                            | integer                   |           |          |                              | plain    |              | 
+ stat_for_unit_employees_id           | integer                   |           |          |                              | plain    |              | 
+ turnover_raw                         | text                      |           |          |                              | extended |              | 
+ turnover                             | numeric                   |           |          |                              | main     |              | 
+ stat_for_unit_turnover_id            | integer                   |           |          |                              | plain    |              | 
  tag_path_raw                         | text                      |           |          |                              | extended |              | 
  tag_path                             | ltree                     |           |          |                              | extended |              | 
  tag_id                               | integer                   |           |          |                              | plain    |              | 

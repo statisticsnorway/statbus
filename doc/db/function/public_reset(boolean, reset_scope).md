@@ -27,11 +27,10 @@ BEGIN
         RAISE EXCEPTION 'Action not confirmed.';
     END IF;
 
-    -- ================================================================
-    -- Scope: 'units' (and all broader scopes)
+    -- Scope: units (and every broader scope): the statistical units and the import jobs that made them
     -- ================================================================
 
-    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'getting-started', 'customisation') THEN
         SELECT COUNT(*) FROM public.activity INTO _activity_count;
         SELECT COUNT(*) FROM public.location INTO _location_count;
         SELECT COUNT(*) FROM public.contact INTO _contact_count;
@@ -105,11 +104,7 @@ BEGIN
             || jsonb_build_object('unit_notes', jsonb_build_object('deleted_count', _unit_notes_count));
     ELSE END CASE;
 
-    -- ================================================================
-    -- Scope: 'data' (adds import cleanup)
-    -- ================================================================
-
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'getting-started', 'customisation') THEN
         WITH deleted_import_job AS (
             DELETE FROM public.import_job WHERE id > 0 RETURNING *
         )
@@ -122,10 +117,10 @@ BEGIN
     ELSE END CASE;
 
     -- ================================================================
-    -- Scope: 'getting-started' (adds config/reference cleanup)
+    -- Scope: getting-started: the steps of the Getting started menu
     -- ================================================================
 
-    CASE WHEN scope IN ('getting-started', 'all') THEN
+    CASE WHEN scope IN ('getting-started', 'customisation') THEN
         -- Transient: delete custom definitions before data_source due to RESTRICT FK. See doc/data-model.md
         WITH deleted_import_definition AS (
             DELETE FROM public.import_definition WHERE custom RETURNING *
@@ -138,7 +133,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('getting-started', 'all') THEN
+    CASE WHEN scope IN ('getting-started', 'customisation') THEN
         WITH deleted_region AS (
             DELETE FROM public.region WHERE id > 0 RETURNING *
         )
@@ -150,7 +145,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('getting-started', 'all') THEN
+    CASE WHEN scope IN ('getting-started', 'customisation') THEN
         WITH deleted_settings AS (
             DELETE FROM public.settings WHERE only_one_setting = TRUE RETURNING *
         )
@@ -162,7 +157,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('getting-started', 'all') THEN
+    CASE WHEN scope IN ('getting-started', 'customisation') THEN
         WITH deleted_rv AS (
             DELETE FROM public.region_version WHERE custom RETURNING *
         ), changed_rv AS (
@@ -176,7 +171,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('getting-started', 'all') THEN
+    CASE WHEN scope IN ('getting-started', 'customisation') THEN
         WITH activity_category_to_delete AS (
             SELECT to_delete.id AS id_to_delete
                  , replacement.id AS replacement_id
@@ -220,182 +215,278 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('getting-started', 'all') THEN
-        WITH deleted_sector AS (
-            DELETE FROM public.sector WHERE custom RETURNING *
-        ), changed_sector AS (
-            UPDATE public.sector
-               SET enabled = TRUE
-             WHERE NOT custom
-               AND NOT enabled
-             RETURNING *
+    CASE WHEN scope IN ('getting-started', 'customisation') THEN
+        -- The activity category standards as shipped; restoring code_pattern
+        -- re-derives the codes (trigger recalculate_activity_category_codes).
+        WITH restored AS (
+            UPDATE public.activity_category_standard AS t
+               SET name = fd.name, description = fd.description, code_pattern = fd.code_pattern,
+                   enabled = fd.enabled, lasts_to = fd.lasts_to
+              FROM public.activity_category_standard_factory_default AS fd
+             WHERE t.code = fd.code
+               AND (t.name IS DISTINCT FROM fd.name OR t.description IS DISTINCT FROM fd.description
+                    OR t.code_pattern IS DISTINCT FROM fd.code_pattern OR t.enabled IS DISTINCT FROM fd.enabled
+                    OR t.lasts_to IS DISTINCT FROM fd.lasts_to)
+            RETURNING 1
         )
-        SELECT jsonb_build_object(
-            'sector', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_sector),
-                'changed_count', (SELECT COUNT(*) FROM changed_sector)
-            )
-        ) INTO changed;
+        SELECT jsonb_build_object('activity_category_standard', jsonb_build_object(
+            'changed_count', (SELECT count(*) FROM restored)
+        )) INTO changed;
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('getting-started', 'all') THEN
-        WITH deleted_legal_form AS (
-            DELETE FROM public.legal_form WHERE custom RETURNING *
-        ), changed_legal_form AS (
-            UPDATE public.legal_form
-               SET enabled = TRUE
-             WHERE NOT custom
-               AND NOT enabled
-             RETURNING *
+    CASE WHEN scope IN ('getting-started', 'customisation') THEN
+        -- sector: custom rows removed; system rows restored as shipped
+        -- (public.sector_factory_default): edited ones updated, missing ones added.
+        WITH deleted AS (
+            DELETE FROM public.sector WHERE custom RETURNING 1
+        ), restored AS (
+            UPDATE public.sector AS t
+               SET name = fd.name, enabled = TRUE
+              FROM public.sector_factory_default AS fd
+             WHERE NOT t.custom AND t.path = fd.path
+               AND (NOT t.enabled OR t.name IS DISTINCT FROM fd.name)
+            RETURNING 1
+        ), added AS (
+            INSERT INTO public.sector(path, name, enabled, custom)
+            SELECT fd.path, fd.name, TRUE, FALSE
+              FROM public.sector_factory_default AS fd
+             WHERE NOT EXISTS (SELECT 1 FROM public.sector AS t WHERE t.path = fd.path AND NOT t.custom)
+            RETURNING 1
         )
-        SELECT jsonb_build_object(
-            'legal_form', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_legal_form),
-                'changed_count', (SELECT COUNT(*) FROM changed_legal_form)
-            )
-        ) INTO changed;
+        SELECT jsonb_build_object('sector', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted),
+            'changed_count', (SELECT count(*) FROM restored),
+            'added_count', (SELECT count(*) FROM added)
+        )) INTO changed;
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('getting-started', 'all') THEN
-        WITH deleted_unit_size AS (
-            DELETE FROM public.unit_size WHERE custom RETURNING *
-        ), changed_unit_size AS (
-            UPDATE public.unit_size
-               SET enabled = TRUE
-             WHERE NOT custom
-               AND NOT enabled
-             RETURNING *
+    CASE WHEN scope IN ('getting-started', 'customisation') THEN
+        -- legal_form: custom rows removed; system rows restored as shipped
+        -- (public.legal_form_factory_default): edited ones updated, missing ones added.
+        WITH deleted AS (
+            DELETE FROM public.legal_form WHERE custom RETURNING 1
+        ), restored AS (
+            UPDATE public.legal_form AS t
+               SET name = fd.name, enabled = TRUE
+              FROM public.legal_form_factory_default AS fd
+             WHERE NOT t.custom AND t.code = fd.code
+               AND (NOT t.enabled OR t.name IS DISTINCT FROM fd.name)
+            RETURNING 1
+        ), added AS (
+            INSERT INTO public.legal_form(code, name, enabled, custom)
+            SELECT fd.code, fd.name, TRUE, FALSE
+              FROM public.legal_form_factory_default AS fd
+             WHERE NOT EXISTS (SELECT 1 FROM public.legal_form AS t WHERE t.code = fd.code AND NOT t.custom)
+            RETURNING 1
         )
-        SELECT jsonb_build_object(
-            'unit_size', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_unit_size),
-                'changed_count', (SELECT COUNT(*) FROM changed_unit_size)
-            )
-        ) INTO changed;
-        result := result || changed;
-    ELSE END CASE;
-
-    CASE WHEN scope IN ('getting-started', 'all') THEN
-        WITH deleted_data_source AS (
-            DELETE FROM public.data_source WHERE custom RETURNING *
-        ), changed_data_source AS (
-            UPDATE public.data_source
-               SET enabled = TRUE
-             WHERE NOT custom
-               AND NOT enabled
-             RETURNING *
-        )
-        SELECT jsonb_build_object(
-            'data_source', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_data_source),
-                'changed_count', (SELECT COUNT(*) FROM changed_data_source)
-            )
-        ) INTO changed;
-        result := result || changed;
-    ELSE END CASE;
-
-    CASE WHEN scope IN ('getting-started', 'all') THEN
-        WITH deleted_status AS (
-            DELETE FROM public.status WHERE custom RETURNING *
-        ), changed_status AS (
-            UPDATE public.status
-               SET enabled = TRUE
-             WHERE NOT custom
-               AND NOT enabled
-             RETURNING *
-        )
-        SELECT jsonb_build_object(
-            'status', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_status),
-                'changed_count', (SELECT COUNT(*) FROM changed_status)
-            )
-        ) INTO changed;
-        result := result || changed;
-    ELSE END CASE;
-
-    CASE WHEN scope IN ('getting-started', 'all') THEN
-        WITH deleted_foreign_participation AS (
-            DELETE FROM public.foreign_participation WHERE custom RETURNING *
-        ), changed_foreign_participation AS (
-            UPDATE public.foreign_participation
-               SET enabled = TRUE
-             WHERE NOT custom
-               AND NOT enabled
-             RETURNING *
-        )
-        SELECT jsonb_build_object(
-            'foreign_participation', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_foreign_participation),
-                'changed_count', (SELECT COUNT(*) FROM changed_foreign_participation)
-            )
-        ) INTO changed;
-        result := result || changed;
-    ELSE END CASE;
-
-    CASE WHEN scope IN ('getting-started', 'all') THEN
-        WITH deleted_legal_reorg_type AS (
-            DELETE FROM public.legal_reorg_type WHERE custom RETURNING *
-        ), changed_legal_reorg_type AS (
-            UPDATE public.legal_reorg_type
-               SET enabled = TRUE
-             WHERE NOT custom
-               AND NOT enabled
-             RETURNING *
-        )
-        SELECT jsonb_build_object(
-            'legal_reorg_type', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_legal_reorg_type),
-                'changed_count', (SELECT COUNT(*) FROM changed_legal_reorg_type)
-            )
-        ) INTO changed;
-        result := result || changed;
-    ELSE END CASE;
-
-    CASE WHEN scope IN ('getting-started', 'all') THEN
-        WITH deleted_power_group_type AS (
-            DELETE FROM public.power_group_type WHERE custom RETURNING *
-        ), changed_power_group_type AS (
-            UPDATE public.power_group_type
-               SET enabled = TRUE
-             WHERE NOT custom
-               AND NOT enabled
-             RETURNING *
-        )
-        SELECT jsonb_build_object(
-            'power_group_type', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_power_group_type),
-                'changed_count', (SELECT COUNT(*) FROM changed_power_group_type)
-            )
-        ) INTO changed;
-        result := result || changed;
-    ELSE END CASE;
-
-    CASE WHEN scope IN ('getting-started', 'all') THEN
-        WITH deleted_legal_rel_type AS (
-            DELETE FROM public.legal_rel_type WHERE custom RETURNING *
-        ), changed_legal_rel_type AS (
-            UPDATE public.legal_rel_type
-               SET enabled = TRUE
-             WHERE NOT custom
-               AND NOT enabled
-             RETURNING *
-        )
-        SELECT jsonb_build_object(
-            'legal_rel_type', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_legal_rel_type),
-                'changed_count', (SELECT COUNT(*) FROM changed_legal_rel_type)
-            )
-        ) INTO changed;
+        SELECT jsonb_build_object('legal_form', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted),
+            'changed_count', (SELECT count(*) FROM restored),
+            'added_count', (SELECT count(*) FROM added)
+        )) INTO changed;
         result := result || changed;
     ELSE END CASE;
 
     -- ================================================================
-    -- Scope: 'all' (adds configuration reset)
+    -- Scope: customisation: the /admin Customisation section restored to
+    -- its factory defaults. Users are never touched.
     -- ================================================================
 
-    CASE WHEN scope IN ('all') THEN
+    CASE WHEN scope = 'customisation' THEN
+        -- unit_size: custom rows removed; system rows restored as shipped
+        -- (public.unit_size_factory_default): edited ones updated, missing ones added.
+        WITH deleted AS (
+            DELETE FROM public.unit_size WHERE custom RETURNING 1
+        ), restored AS (
+            UPDATE public.unit_size AS t
+               SET name = fd.name, enabled = TRUE
+              FROM public.unit_size_factory_default AS fd
+             WHERE NOT t.custom AND t.code = fd.code
+               AND (NOT t.enabled OR t.name IS DISTINCT FROM fd.name)
+            RETURNING 1
+        ), added AS (
+            INSERT INTO public.unit_size(code, name, enabled, custom)
+            SELECT fd.code, fd.name, TRUE, FALSE
+              FROM public.unit_size_factory_default AS fd
+             WHERE NOT EXISTS (SELECT 1 FROM public.unit_size AS t WHERE t.code = fd.code AND NOT t.custom)
+            RETURNING 1
+        )
+        SELECT jsonb_build_object('unit_size', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted),
+            'changed_count', (SELECT count(*) FROM restored),
+            'added_count', (SELECT count(*) FROM added)
+        )) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope = 'customisation' THEN
+        -- data_source: custom rows removed; system rows restored as shipped
+        -- (public.data_source_factory_default): edited ones updated, missing ones added.
+        WITH deleted AS (
+            DELETE FROM public.data_source WHERE custom RETURNING 1
+        ), restored AS (
+            UPDATE public.data_source AS t
+               SET name = fd.name, enabled = TRUE
+              FROM public.data_source_factory_default AS fd
+             WHERE NOT t.custom AND t.code = fd.code
+               AND (NOT t.enabled OR t.name IS DISTINCT FROM fd.name)
+            RETURNING 1
+        ), added AS (
+            INSERT INTO public.data_source(code, name, enabled, custom)
+            SELECT fd.code, fd.name, TRUE, FALSE
+              FROM public.data_source_factory_default AS fd
+             WHERE NOT EXISTS (SELECT 1 FROM public.data_source AS t WHERE t.code = fd.code AND NOT t.custom)
+            RETURNING 1
+        )
+        SELECT jsonb_build_object('data_source', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted),
+            'changed_count', (SELECT count(*) FROM restored),
+            'added_count', (SELECT count(*) FROM added)
+        )) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope = 'customisation' THEN
+        -- foreign_participation: custom rows removed; system rows restored as shipped
+        -- (public.foreign_participation_factory_default): edited ones updated, missing ones added.
+        WITH deleted AS (
+            DELETE FROM public.foreign_participation WHERE custom RETURNING 1
+        ), restored AS (
+            UPDATE public.foreign_participation AS t
+               SET name = fd.name, enabled = TRUE
+              FROM public.foreign_participation_factory_default AS fd
+             WHERE NOT t.custom AND t.code = fd.code
+               AND (NOT t.enabled OR t.name IS DISTINCT FROM fd.name)
+            RETURNING 1
+        ), added AS (
+            INSERT INTO public.foreign_participation(code, name, enabled, custom)
+            SELECT fd.code, fd.name, TRUE, FALSE
+              FROM public.foreign_participation_factory_default AS fd
+             WHERE NOT EXISTS (SELECT 1 FROM public.foreign_participation AS t WHERE t.code = fd.code AND NOT t.custom)
+            RETURNING 1
+        )
+        SELECT jsonb_build_object('foreign_participation', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted),
+            'changed_count', (SELECT count(*) FROM restored),
+            'added_count', (SELECT count(*) FROM added)
+        )) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope = 'customisation' THEN
+        -- power_group_type: custom rows removed; system rows restored as shipped
+        -- (public.power_group_type_factory_default): edited ones updated, missing ones added.
+        WITH deleted AS (
+            DELETE FROM public.power_group_type WHERE custom RETURNING 1
+        ), restored AS (
+            UPDATE public.power_group_type AS t
+               SET name = fd.name, enabled = TRUE
+              FROM public.power_group_type_factory_default AS fd
+             WHERE NOT t.custom AND t.code = fd.code
+               AND (NOT t.enabled OR t.name IS DISTINCT FROM fd.name)
+            RETURNING 1
+        ), added AS (
+            INSERT INTO public.power_group_type(code, name, enabled, custom)
+            SELECT fd.code, fd.name, TRUE, FALSE
+              FROM public.power_group_type_factory_default AS fd
+             WHERE NOT EXISTS (SELECT 1 FROM public.power_group_type AS t WHERE t.code = fd.code AND NOT t.custom)
+            RETURNING 1
+        )
+        SELECT jsonb_build_object('power_group_type', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted),
+            'changed_count', (SELECT count(*) FROM restored),
+            'added_count', (SELECT count(*) FROM added)
+        )) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope = 'customisation' THEN
+        -- legal_reorg_type: custom rows removed; system rows restored as shipped
+        -- (public.legal_reorg_type_factory_default): edited ones updated, missing ones added.
+        WITH deleted AS (
+            DELETE FROM public.legal_reorg_type WHERE custom RETURNING 1
+        ), restored AS (
+            UPDATE public.legal_reorg_type AS t
+               SET name = fd.name, description = fd.description, enabled = TRUE
+              FROM public.legal_reorg_type_factory_default AS fd
+             WHERE NOT t.custom AND t.code = fd.code
+               AND (NOT t.enabled OR t.name IS DISTINCT FROM fd.name OR t.description IS DISTINCT FROM fd.description)
+            RETURNING 1
+        ), added AS (
+            INSERT INTO public.legal_reorg_type(code, name, description, enabled, custom)
+            SELECT fd.code, fd.name, fd.description, TRUE, FALSE
+              FROM public.legal_reorg_type_factory_default AS fd
+             WHERE NOT EXISTS (SELECT 1 FROM public.legal_reorg_type AS t WHERE t.code = fd.code AND NOT t.custom)
+            RETURNING 1
+        )
+        SELECT jsonb_build_object('legal_reorg_type', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted),
+            'changed_count', (SELECT count(*) FROM restored),
+            'added_count', (SELECT count(*) FROM added)
+        )) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope = 'customisation' THEN
+        -- legal_rel_type: custom rows removed; system rows restored as shipped
+        -- (public.legal_rel_type_factory_default): edited ones updated, missing ones added.
+        WITH deleted AS (
+            DELETE FROM public.legal_rel_type WHERE custom RETURNING 1
+        ), restored AS (
+            UPDATE public.legal_rel_type AS t
+               SET name = fd.name, description = fd.description, primary_influencer_only = fd.primary_influencer_only, enabled = TRUE
+              FROM public.legal_rel_type_factory_default AS fd
+             WHERE NOT t.custom AND t.code = fd.code
+               AND (NOT t.enabled OR t.name IS DISTINCT FROM fd.name OR t.description IS DISTINCT FROM fd.description OR t.primary_influencer_only IS DISTINCT FROM fd.primary_influencer_only)
+            RETURNING 1
+        ), added AS (
+            INSERT INTO public.legal_rel_type(code, name, description, primary_influencer_only, enabled, custom)
+            SELECT fd.code, fd.name, fd.description, fd.primary_influencer_only, TRUE, FALSE
+              FROM public.legal_rel_type_factory_default AS fd
+             WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type AS t WHERE t.code = fd.code AND NOT t.custom)
+            RETURNING 1
+        )
+        SELECT jsonb_build_object('legal_rel_type', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted),
+            'changed_count', (SELECT count(*) FROM restored),
+            'added_count', (SELECT count(*) FROM added)
+        )) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope = 'customisation' THEN
+        -- status: custom rows removed, system rows restored as shipped.
+        WITH deleted AS (
+            DELETE FROM public.status WHERE custom RETURNING 1
+        ), restored AS (
+            UPDATE public.status AS t
+               SET name = fd.name, assigned_by_default = fd.assigned_by_default,
+                   used_for_counting = fd.used_for_counting, priority = fd.priority, enabled = TRUE
+              FROM public.status_factory_default AS fd
+             WHERE NOT t.custom AND t.code = fd.code
+               AND (NOT t.enabled OR t.name IS DISTINCT FROM fd.name
+                    OR t.assigned_by_default IS DISTINCT FROM fd.assigned_by_default
+                    OR t.used_for_counting IS DISTINCT FROM fd.used_for_counting
+                    OR t.priority IS DISTINCT FROM fd.priority)
+            RETURNING 1
+        ), added AS (
+            INSERT INTO public.status(code, name, assigned_by_default, used_for_counting, priority, enabled, custom)
+            SELECT fd.code, fd.name, fd.assigned_by_default, fd.used_for_counting, fd.priority, TRUE, FALSE
+              FROM public.status_factory_default AS fd
+             WHERE NOT EXISTS (SELECT 1 FROM public.status AS t WHERE t.code = fd.code AND NOT t.custom)
+            RETURNING 1
+        )
+        SELECT jsonb_build_object('status', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted),
+            'changed_count', (SELECT count(*) FROM restored),
+            'added_count', (SELECT count(*) FROM added)
+        )) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope = 'customisation' THEN
         WITH deleted_tag AS (
             DELETE FROM public.tag WHERE custom RETURNING *
         ), changed_tag AS (
@@ -414,45 +505,64 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('all') THEN
-        WITH deleted_stat_definition AS (
-            DELETE FROM public.stat_definition WHERE true RETURNING *
+    CASE WHEN scope = 'customisation' THEN
+        -- stat_definition: rows not shipped removed; shipped rows restored as shipped
+        -- (public.stat_definition_factory_default): edited ones updated, missing ones added.
+        WITH deleted AS (
+            DELETE FROM public.stat_definition AS t
+             WHERE NOT EXISTS (SELECT 1 FROM public.stat_definition_factory_default AS fd WHERE fd.code = t.code)
+            RETURNING 1
+        ), restored AS (
+            UPDATE public.stat_definition AS t
+               SET type = fd.type, frequency = fd.frequency, name = fd.name, description = fd.description, priority = fd.priority, enabled = fd.enabled
+              FROM public.stat_definition_factory_default AS fd
+             WHERE t.code = fd.code AND (t.type IS DISTINCT FROM fd.type OR t.frequency IS DISTINCT FROM fd.frequency OR t.name IS DISTINCT FROM fd.name OR t.description IS DISTINCT FROM fd.description OR t.priority IS DISTINCT FROM fd.priority OR t.enabled IS DISTINCT FROM fd.enabled)
+            RETURNING 1
+        ), added AS (
+            INSERT INTO public.stat_definition(code, type, frequency, name, description, priority, enabled)
+            SELECT fd.code, fd.type, fd.frequency, fd.name, fd.description, fd.priority, fd.enabled
+              FROM public.stat_definition_factory_default AS fd
+             WHERE NOT EXISTS (SELECT 1 FROM public.stat_definition AS t WHERE t.code = fd.code)
+            RETURNING 1
         )
-        SELECT jsonb_build_object(
-            'stat_definition', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_stat_definition WHERE code NOT IN ('employees','turnover'))
-            )
-        ) INTO changed;
+        SELECT jsonb_build_object('stat_definition', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted),
+            'changed_count', (SELECT count(*) FROM restored),
+            'added_count', (SELECT count(*) FROM added)
+        )) INTO changed;
         result := result || changed;
-
-        INSERT INTO public.stat_definition(code, type, frequency, name, description, priority, enabled)
-        VALUES
-            ('employees', 'int', 'yearly', 'Employees', 'The number of people receiving an official salary with government reporting.', 1, true),
-            ('turnover', 'float', 'yearly', 'Turnover', 'The amount (Local Currency)', 2, true);
     ELSE END CASE;
 
-    CASE WHEN scope IN ('all') THEN
-        WITH deleted_external_ident_type AS (
-            DELETE FROM public.external_ident_type WHERE true RETURNING *
+    CASE WHEN scope = 'customisation' THEN
+        -- external_ident_type: rows not shipped removed; shipped rows restored as shipped
+        -- (public.external_ident_type_factory_default): edited ones updated, missing ones added.
+        WITH deleted AS (
+            DELETE FROM public.external_ident_type AS t
+             WHERE NOT EXISTS (SELECT 1 FROM public.external_ident_type_factory_default AS fd WHERE fd.code = t.code)
+            RETURNING 1
+        ), restored AS (
+            UPDATE public.external_ident_type AS t
+               SET name = fd.name, description = fd.description, priority = fd.priority, enabled = fd.enabled
+              FROM public.external_ident_type_factory_default AS fd
+             WHERE t.code = fd.code AND (t.name IS DISTINCT FROM fd.name OR t.description IS DISTINCT FROM fd.description OR t.priority IS DISTINCT FROM fd.priority OR t.enabled IS DISTINCT FROM fd.enabled)
+            RETURNING 1
+        ), added AS (
+            INSERT INTO public.external_ident_type(code, name, description, priority, enabled)
+            SELECT fd.code, fd.name, fd.description, fd.priority, fd.enabled
+              FROM public.external_ident_type_factory_default AS fd
+             WHERE NOT EXISTS (SELECT 1 FROM public.external_ident_type AS t WHERE t.code = fd.code)
+            RETURNING 1
         )
-        SELECT jsonb_build_object(
-            'external_ident_type', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_external_ident_type WHERE code NOT IN ('stat_ident','tax_ident','person_ident'))
-            )
-        ) INTO changed;
+        SELECT jsonb_build_object('external_ident_type', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted),
+            'changed_count', (SELECT count(*) FROM restored),
+            'added_count', (SELECT count(*) FROM added)
+        )) INTO changed;
         result := result || changed;
-
-        -- Fix 2: Include person_ident in baseline entries
-        INSERT INTO public.external_ident_type(code, name, priority, description, enabled)
-        VALUES
-            ('tax_ident', 'Tax Identifier', 1, 'Stable and country unique identifier used for tax reporting.', true),
-            ('stat_ident', 'Statistical Identifier', 2, 'Stable identifier generated by Statbus', true),
-            ('person_ident', 'Person Identifier', 10, 'Personal identification number (national ID, passport, etc.)', true);
     ELSE END CASE;
 
-    -- activity_category_standard is system seed data (isic_v4, nace_v2.1) and must
-    -- never be deleted by reset(). Custom activity_categories are already handled
-    -- by the 'getting-started' scope block above.
+    -- public.activity_category_standard rows are never deleted: they are the
+    -- system's standards, restored above to their factory defaults.
 
     RETURN result;
 END;

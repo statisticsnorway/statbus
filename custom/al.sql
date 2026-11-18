@@ -1,7 +1,7 @@
 
 --albania oct 2025 - jan 2026 mar 2026
 
-SELECT public.reset(true, 'getting-started');
+SELECT public.reset(true, 'customisation');
 
 CREATE OR REPLACE PROCEDURE public.custom_setup_al()
 LANGUAGE plpgsql

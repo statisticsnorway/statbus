@@ -194,7 +194,7 @@ SELECT jsonb_pretty(
                      "name": "Active",                                                                                            +
                      "custom": false,                                                                                             +
                      "enabled": true,                                                                                             +
-                     "priority": 1,                                                                                               +
+                     "priority": 10,                                                                                              +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
@@ -302,7 +302,7 @@ SELECT jsonb_pretty(
                              "name": "Active",                                                                                    +
                              "custom": false,                                                                                     +
                              "enabled": true,                                                                                     +
-                             "priority": 1,                                                                                       +
+                             "priority": 10,                                                                                      +
                              "used_for_counting": true,                                                                           +
                              "assigned_by_default": true                                                                          +
                          },                                                                                                       +
@@ -422,7 +422,7 @@ SELECT jsonb_pretty(
                                      "name": "Employees",                                                                         +
                                      "type": "int",                                                                               +
                                      "enabled": true,                                                                             +
-                                     "priority": 1,                                                                               +
+                                     "priority": 10,                                                                              +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The number of people receiving an official salary with government reporting."+
                                  }                                                                                                +
@@ -452,7 +452,7 @@ SELECT jsonb_pretty(
                                      "name": "Turnover",                                                                          +
                                      "type": "float",                                                                             +
                                      "enabled": true,                                                                             +
-                                     "priority": 2,                                                                               +
+                                     "priority": 20,                                                                              +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The amount (Local Currency)"                                                 +
                                  }                                                                                                +
@@ -493,7 +493,7 @@ SELECT jsonb_pretty(
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
                              "enabled": true,                                                                                     +
-                             "priority": 1,                                                                                       +
+                             "priority": 10,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
                          }                                                                                                        +
@@ -523,7 +523,7 @@ SELECT jsonb_pretty(
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
                              "enabled": true,                                                                                     +
-                             "priority": 2,                                                                                       +
+                             "priority": 20,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
                          }                                                                                                        +
@@ -576,7 +576,7 @@ SELECT jsonb_pretty(
                      "name": "Active",                                                                                    +
                      "custom": false,                                                                                     +
                      "enabled": true,                                                                                     +
-                     "priority": 1,                                                                                       +
+                     "priority": 10,                                                                                      +
                      "used_for_counting": true,                                                                           +
                      "assigned_by_default": true                                                                          +
                  },                                                                                                       +
@@ -696,7 +696,7 @@ SELECT jsonb_pretty(
                              "name": "Employees",                                                                         +
                              "type": "int",                                                                               +
                              "enabled": true,                                                                             +
-                             "priority": 1,                                                                               +
+                             "priority": 10,                                                                              +
                              "frequency": "yearly",                                                                       +
                              "description": "The number of people receiving an official salary with government reporting."+
                          }                                                                                                +
@@ -726,7 +726,7 @@ SELECT jsonb_pretty(
                              "name": "Turnover",                                                                          +
                              "type": "float",                                                                             +
                              "enabled": true,                                                                             +
-                             "priority": 2,                                                                               +
+                             "priority": 20,                                                                              +
                              "frequency": "yearly",                                                                       +
                              "description": "The amount (Local Currency)"                                                 +
                          }                                                                                                +
@@ -875,7 +875,7 @@ SELECT jsonb_pretty(
                      "name": "Active",                                                                                            +
                      "custom": false,                                                                                             +
                      "enabled": true,                                                                                             +
-                     "priority": 1,                                                                                               +
+                     "priority": 10,                                                                                              +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
@@ -983,7 +983,7 @@ SELECT jsonb_pretty(
                              "name": "Active",                                                                                    +
                              "custom": false,                                                                                     +
                              "enabled": true,                                                                                     +
-                             "priority": 1,                                                                                       +
+                             "priority": 10,                                                                                      +
                              "used_for_counting": true,                                                                           +
                              "assigned_by_default": true                                                                          +
                          },                                                                                                       +
@@ -1103,7 +1103,7 @@ SELECT jsonb_pretty(
                                      "name": "Employees",                                                                         +
                                      "type": "int",                                                                               +
                                      "enabled": true,                                                                             +
-                                     "priority": 1,                                                                               +
+                                     "priority": 10,                                                                              +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The number of people receiving an official salary with government reporting."+
                                  }                                                                                                +
@@ -1133,7 +1133,7 @@ SELECT jsonb_pretty(
                                      "name": "Turnover",                                                                          +
                                      "type": "float",                                                                             +
                                      "enabled": true,                                                                             +
-                                     "priority": 2,                                                                               +
+                                     "priority": 20,                                                                              +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The amount (Local Currency)"                                                 +
                                  }                                                                                                +
@@ -1174,7 +1174,7 @@ SELECT jsonb_pretty(
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
                              "enabled": true,                                                                                     +
-                             "priority": 1,                                                                                       +
+                             "priority": 10,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
                          }                                                                                                        +
@@ -1204,7 +1204,7 @@ SELECT jsonb_pretty(
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
                              "enabled": true,                                                                                     +
-                             "priority": 2,                                                                                       +
+                             "priority": 20,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
                          }                                                                                                        +
@@ -1228,7 +1228,7 @@ SELECT jsonb_pretty(
                      "name": "Active",                                                                                            +
                      "custom": false,                                                                                             +
                      "enabled": true,                                                                                             +
-                     "priority": 1,                                                                                               +
+                     "priority": 10,                                                                                              +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
@@ -1348,7 +1348,7 @@ SELECT jsonb_pretty(
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
                              "enabled": true,                                                                                     +
-                             "priority": 1,                                                                                       +
+                             "priority": 10,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
                          }                                                                                                        +
@@ -1378,7 +1378,7 @@ SELECT jsonb_pretty(
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
                              "enabled": true,                                                                                     +
-                             "priority": 2,                                                                                       +
+                             "priority": 20,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
                          }                                                                                                        +
@@ -1437,7 +1437,7 @@ SELECT jsonb_pretty(
                      "name": "Active",                                                                                            +
                      "custom": false,                                                                                             +
                      "enabled": true,                                                                                             +
-                     "priority": 1,                                                                                               +
+                     "priority": 10,                                                                                              +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
@@ -1545,7 +1545,7 @@ SELECT jsonb_pretty(
                              "name": "Active",                                                                                    +
                              "custom": false,                                                                                     +
                              "enabled": true,                                                                                     +
-                             "priority": 1,                                                                                       +
+                             "priority": 10,                                                                                      +
                              "used_for_counting": true,                                                                           +
                              "assigned_by_default": true                                                                          +
                          },                                                                                                       +
@@ -1665,7 +1665,7 @@ SELECT jsonb_pretty(
                                      "name": "Employees",                                                                         +
                                      "type": "int",                                                                               +
                                      "enabled": true,                                                                             +
-                                     "priority": 1,                                                                               +
+                                     "priority": 10,                                                                              +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The number of people receiving an official salary with government reporting."+
                                  }                                                                                                +
@@ -1695,7 +1695,7 @@ SELECT jsonb_pretty(
                                      "name": "Turnover",                                                                          +
                                      "type": "float",                                                                             +
                                      "enabled": true,                                                                             +
-                                     "priority": 2,                                                                               +
+                                     "priority": 20,                                                                              +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The amount (Local Currency)"                                                 +
                                  }                                                                                                +
@@ -1736,7 +1736,7 @@ SELECT jsonb_pretty(
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
                              "enabled": true,                                                                                     +
-                             "priority": 1,                                                                                       +
+                             "priority": 10,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
                          }                                                                                                        +
@@ -1766,7 +1766,7 @@ SELECT jsonb_pretty(
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
                              "enabled": true,                                                                                     +
-                             "priority": 2,                                                                                       +
+                             "priority": 20,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
                          }                                                                                                        +
@@ -1790,7 +1790,7 @@ SELECT jsonb_pretty(
                      "name": "Active",                                                                                            +
                      "custom": false,                                                                                             +
                      "enabled": true,                                                                                             +
-                     "priority": 1,                                                                                               +
+                     "priority": 10,                                                                                              +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
@@ -1910,7 +1910,7 @@ SELECT jsonb_pretty(
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
                              "enabled": true,                                                                                     +
-                             "priority": 1,                                                                                       +
+                             "priority": 10,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
                          }                                                                                                        +
@@ -1940,7 +1940,7 @@ SELECT jsonb_pretty(
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
                              "enabled": true,                                                                                     +
-                             "priority": 2,                                                                                       +
+                             "priority": 20,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
                          }                                                                                                        +
@@ -1999,7 +1999,7 @@ SELECT jsonb_pretty(
                      "name": "Active",                                                                                            +
                      "custom": false,                                                                                             +
                      "enabled": true,                                                                                             +
-                     "priority": 1,                                                                                               +
+                     "priority": 10,                                                                                              +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
@@ -2107,7 +2107,7 @@ SELECT jsonb_pretty(
                              "name": "Active",                                                                                    +
                              "custom": false,                                                                                     +
                              "enabled": true,                                                                                     +
-                             "priority": 1,                                                                                       +
+                             "priority": 10,                                                                                      +
                              "used_for_counting": true,                                                                           +
                              "assigned_by_default": true                                                                          +
                          },                                                                                                       +
@@ -2227,7 +2227,7 @@ SELECT jsonb_pretty(
                                      "name": "Employees",                                                                         +
                                      "type": "int",                                                                               +
                                      "enabled": true,                                                                             +
-                                     "priority": 1,                                                                               +
+                                     "priority": 10,                                                                              +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The number of people receiving an official salary with government reporting."+
                                  }                                                                                                +
@@ -2257,7 +2257,7 @@ SELECT jsonb_pretty(
                                      "name": "Turnover",                                                                          +
                                      "type": "float",                                                                             +
                                      "enabled": true,                                                                             +
-                                     "priority": 2,                                                                               +
+                                     "priority": 20,                                                                              +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The amount (Local Currency)"                                                 +
                                  }                                                                                                +
@@ -2298,7 +2298,7 @@ SELECT jsonb_pretty(
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
                              "enabled": true,                                                                                     +
-                             "priority": 1,                                                                                       +
+                             "priority": 10,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
                          }                                                                                                        +
@@ -2328,7 +2328,7 @@ SELECT jsonb_pretty(
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
                              "enabled": true,                                                                                     +
-                             "priority": 2,                                                                                       +
+                             "priority": 20,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
                          }                                                                                                        +
@@ -2352,7 +2352,7 @@ SELECT jsonb_pretty(
                      "name": "Active",                                                                                            +
                      "custom": false,                                                                                             +
                      "enabled": true,                                                                                             +
-                     "priority": 1,                                                                                               +
+                     "priority": 10,                                                                                              +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
@@ -2472,7 +2472,7 @@ SELECT jsonb_pretty(
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
                              "enabled": true,                                                                                     +
-                             "priority": 1,                                                                                       +
+                             "priority": 10,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
                          }                                                                                                        +
@@ -2502,7 +2502,7 @@ SELECT jsonb_pretty(
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
                              "enabled": true,                                                                                     +
-                             "priority": 2,                                                                                       +
+                             "priority": 20,                                                                                      +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
                          }                                                                                                        +

@@ -274,19 +274,13 @@ SAVEPOINT before_reset;
 
 \a
 \echo "Checking that reset works"
-SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'units'::public.reset_scope)) AS reset_unit;
-ROLLBACK TO SAVEPOINT before_reset;
-
-SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
-ROLLBACK TO SAVEPOINT before_reset;
-
-SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'units'::public.reset_scope)) AS reset_units;
 ROLLBACK TO SAVEPOINT before_reset;
 
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'getting-started'::public.reset_scope)) AS reset_getting_started;
 ROLLBACK TO SAVEPOINT before_reset;
 
-SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope)) AS reset_all;
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'customisation'::public.reset_scope)) AS reset_customisation;
 ROLLBACK TO SAVEPOINT before_reset;
 \a
 

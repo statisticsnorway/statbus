@@ -31,6 +31,8 @@ each role can see and modify.
   - Policies: `activity_category_access_admin_policy` (ALL → admin_user), `activity_category_access_read_policy` (SELECT → authenticated)
 - **`activity_category_standard`** — RLS ON
   - Policies: `activity_category_standard_admin_user_manage` (ALL → admin_user), `activity_category_standard_authenticated_read` (SELECT → authenticated), `activity_category_standard_regular_user_read` (SELECT → regular_user)
+- **`activity_category_standard_factory_default`** — RLS ON
+  - Policies: `activity_category_standard_factory_default_admin_user_read` (SELECT → admin_user), `activity_category_standard_factory_default_authenticated_read` (SELECT → authenticated), `activity_category_standard_factory_default_regular_user_read` (SELECT → regular_user)
 - **`activity_category_used`** — RLS ON
   - Policies: `activity_category_used_admin_user_manage` (ALL → admin_user), `activity_category_used_authenticated_read` (SELECT → authenticated), `activity_category_used_regular_user_read` (SELECT → regular_user)
 - **`contact`** — RLS ON
@@ -41,6 +43,8 @@ each role can see and modify.
   - Policies: `country_used_admin_user_manage` (ALL → admin_user), `country_used_authenticated_read` (SELECT → authenticated), `country_used_regular_user_read` (SELECT → regular_user)
 - **`data_source`** — RLS ON
   - Policies: `data_source_admin_user_manage` (ALL → admin_user), `data_source_authenticated_read` (SELECT → authenticated), `data_source_regular_user_read` (SELECT → regular_user)
+- **`data_source_factory_default`** — RLS ON
+  - Policies: `data_source_factory_default_admin_user_read` (SELECT → admin_user), `data_source_factory_default_authenticated_read` (SELECT → authenticated), `data_source_factory_default_regular_user_read` (SELECT → regular_user)
 - **`data_source_used`** — RLS ON
   - Policies: `data_source_used_admin_user_manage` (ALL → admin_user), `data_source_used_authenticated_read` (SELECT → authenticated), `data_source_used_regular_user_read` (SELECT → regular_user)
 - **`enterprise`** — RLS ON
@@ -51,8 +55,12 @@ each role can see and modify.
   - Policies: `external_ident_admin_user_manage` (ALL → admin_user), `external_ident_authenticated_read` (SELECT → authenticated), `external_ident_regular_user_manage` (ALL → regular_user)
 - **`external_ident_type`** — RLS ON
   - Policies: `external_ident_type_admin_user_manage` (ALL → admin_user), `external_ident_type_authenticated_read` (SELECT → authenticated), `external_ident_type_regular_user_read` (SELECT → regular_user)
+- **`external_ident_type_factory_default`** — RLS ON
+  - Policies: `external_ident_type_factory_default_admin_user_read` (SELECT → admin_user), `external_ident_type_factory_default_authenticated_read` (SELECT → authenticated), `external_ident_type_factory_default_regular_user_read` (SELECT → regular_user)
 - **`foreign_participation`** — RLS ON
   - Policies: `foreign_participation_admin_user_manage` (ALL → admin_user), `foreign_participation_authenticated_read` (SELECT → authenticated), `foreign_participation_regular_user_read` (SELECT → regular_user)
+- **`foreign_participation_factory_default`** — RLS ON
+  - Policies: `foreign_participation_factory_default_admin_user_read` (SELECT → admin_user), `foreign_participation_factory_default_authenticated_read` (SELECT → authenticated), `foreign_participation_factory_default_regular_user_read` (SELECT → regular_user)
 - **`image`** — RLS ON
   - Policies: `image_admin_user_manage` (ALL → admin_user), `image_authenticated_read` (SELECT → authenticated), `image_regular_user_manage` (ALL → regular_user)
 - **`import_data_column`** — RLS ON
@@ -71,14 +79,20 @@ each role can see and modify.
   - Policies: `import_step_admin_user_manage` (ALL → admin_user), `import_step_authenticated_read` (SELECT → authenticated), `import_step_regular_user_read` (SELECT → regular_user)
 - **`legal_form`** — RLS ON
   - Policies: `legal_form_admin_user_manage` (ALL → admin_user), `legal_form_authenticated_read` (SELECT → authenticated), `legal_form_regular_user_read` (SELECT → regular_user)
+- **`legal_form_factory_default`** — RLS ON
+  - Policies: `legal_form_factory_default_admin_user_read` (SELECT → admin_user), `legal_form_factory_default_authenticated_read` (SELECT → authenticated), `legal_form_factory_default_regular_user_read` (SELECT → regular_user)
 - **`legal_form_used`** — RLS ON
   - Policies: `legal_form_used_admin_user_manage` (ALL → admin_user), `legal_form_used_authenticated_read` (SELECT → authenticated), `legal_form_used_regular_user_read` (SELECT → regular_user)
 - **`legal_rel_type`** — RLS ON
   - Policies: `legal_rel_type_admin_user_manage` (ALL → admin_user), `legal_rel_type_authenticated_read` (SELECT → authenticated), `legal_rel_type_regular_user_read` (SELECT → regular_user)
+- **`legal_rel_type_factory_default`** — RLS ON
+  - Policies: `legal_rel_type_factory_default_admin_user_read` (SELECT → admin_user), `legal_rel_type_factory_default_authenticated_read` (SELECT → authenticated), `legal_rel_type_factory_default_regular_user_read` (SELECT → regular_user)
 - **`legal_relationship`** — RLS ON
   - Policies: `legal_relationship_admin_user_manage` (ALL → admin_user), `legal_relationship_authenticated_read` (SELECT → authenticated), `legal_relationship_regular_user_manage` (ALL → regular_user)
 - **`legal_reorg_type`** — RLS ON
   - Policies: `legal_reorg_type_admin_user_manage` (ALL → admin_user), `legal_reorg_type_authenticated_read` (SELECT → authenticated), `legal_reorg_type_regular_user_read` (SELECT → regular_user)
+- **`legal_reorg_type_factory_default`** — RLS ON
+  - Policies: `legal_reorg_type_factory_default_admin_user_read` (SELECT → admin_user), `legal_reorg_type_factory_default_authenticated_read` (SELECT → authenticated), `legal_reorg_type_factory_default_regular_user_read` (SELECT → regular_user)
 - **`legal_unit`** — RLS ON
   - Policies: `legal_unit_admin_user_manage` (ALL → admin_user), `legal_unit_authenticated_read` (SELECT → authenticated), `legal_unit_regular_user_manage` (ALL → regular_user)
 - **`location`** — RLS ON
@@ -93,6 +107,8 @@ each role can see and modify.
   - Policies: `power_group_admin_user_manage` (ALL → admin_user), `power_group_authenticated_read` (SELECT → authenticated), `power_group_regular_user_manage` (ALL → regular_user)
 - **`power_group_type`** — RLS ON
   - Policies: `power_group_type_admin_user_manage` (ALL → admin_user), `power_group_type_authenticated_read` (SELECT → authenticated), `power_group_type_regular_user_read` (SELECT → regular_user)
+- **`power_group_type_factory_default`** — RLS ON
+  - Policies: `power_group_type_factory_default_admin_user_read` (SELECT → admin_user), `power_group_type_factory_default_authenticated_read` (SELECT → authenticated), `power_group_type_factory_default_regular_user_read` (SELECT → regular_user)
 - **`power_root`** — RLS ON
   - Policies: `power_root_admin_user_manage` (ALL → admin_user), `power_root_authenticated_read` (SELECT → authenticated), `power_root_regular_user_manage` (ALL → regular_user)
 - **`quality_establishment_activity_differs`** — RLS ON
@@ -107,12 +123,16 @@ each role can see and modify.
   - Policies: `region_version_admin_user_manage` (ALL → admin_user), `region_version_authenticated_read` (SELECT → authenticated), `region_version_regular_user_read` (SELECT → regular_user)
 - **`sector`** — RLS ON
   - Policies: `sector_admin_user_manage` (ALL → admin_user), `sector_authenticated_read` (SELECT → authenticated), `sector_regular_user_read` (SELECT → regular_user)
+- **`sector_factory_default`** — RLS ON
+  - Policies: `sector_factory_default_admin_user_read` (SELECT → admin_user), `sector_factory_default_authenticated_read` (SELECT → authenticated), `sector_factory_default_regular_user_read` (SELECT → regular_user)
 - **`sector_used`** — RLS ON
   - Policies: `sector_used_admin_user_manage` (ALL → admin_user), `sector_used_authenticated_read` (SELECT → authenticated), `sector_used_regular_user_read` (SELECT → regular_user)
 - **`settings`** — RLS ON
   - Policies: `settings_admin_user_manage` (ALL → admin_user), `settings_authenticated_read` (SELECT → authenticated), `settings_regular_user_read` (SELECT → regular_user)
 - **`stat_definition`** — RLS ON
   - Policies: `stat_definition_admin_user_manage` (ALL → admin_user), `stat_definition_authenticated_read` (SELECT → authenticated), `stat_definition_regular_user_read` (SELECT → regular_user)
+- **`stat_definition_factory_default`** — RLS ON
+  - Policies: `stat_definition_factory_default_admin_user_read` (SELECT → admin_user), `stat_definition_factory_default_authenticated_read` (SELECT → authenticated), `stat_definition_factory_default_regular_user_read` (SELECT → regular_user)
 - **`stat_for_unit`** — RLS ON
   - Policies: `stat_for_unit_admin_user_manage` (ALL → admin_user), `stat_for_unit_authenticated_read` (SELECT → authenticated), `stat_for_unit_regular_user_manage` (ALL → regular_user)
 - **`statistical_history_facet_delta`** — RLS ON
@@ -129,6 +149,8 @@ each role can see and modify.
 - **`statistical_unit_staging`** — RLS OFF (exempt: internal staging table)
 - **`status`** — RLS ON
   - Policies: `status_admin_user_manage` (ALL → admin_user), `status_authenticated_read` (SELECT → authenticated), `status_regular_user_read` (SELECT → regular_user)
+- **`status_factory_default`** — RLS ON
+  - Policies: `status_factory_default_admin_user_read` (SELECT → admin_user), `status_factory_default_authenticated_read` (SELECT → authenticated), `status_factory_default_regular_user_read` (SELECT → regular_user)
 - **`system_info`** — RLS ON
   - Policies: `system_info_admin_manage` (ALL → admin_user), `system_info_authenticated_view` (SELECT → authenticated)
 - **`tag`** — RLS ON
@@ -153,6 +175,8 @@ each role can see and modify.
   - Policies: `unit_notes_admin_user_manage` (ALL → admin_user), `unit_notes_authenticated_read` (SELECT → authenticated), `unit_notes_regular_user_manage` (ALL → regular_user)
 - **`unit_size`** — RLS ON
   - Policies: `unit_size_admin_user_manage` (ALL → admin_user), `unit_size_authenticated_read` (SELECT → authenticated), `unit_size_regular_user_read` (SELECT → regular_user)
+- **`unit_size_factory_default`** — RLS ON
+  - Policies: `unit_size_factory_default_admin_user_read` (SELECT → admin_user), `unit_size_factory_default_authenticated_read` (SELECT → authenticated), `unit_size_factory_default_regular_user_read` (SELECT → regular_user)
 - **`upgrade`** — RLS ON
   - Policies: `upgrade_admin_manage` (ALL → admin_user), `upgrade_authenticated_view` (SELECT → authenticated)
 - **`upgrade_retention_caps`** — RLS ON

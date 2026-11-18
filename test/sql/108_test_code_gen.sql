@@ -378,7 +378,7 @@ SELECT id, slug, valid, validation_error FROM public.import_definition WHERE id 
 \echo "---"
 
 \echo "Calling reset to restore database to its initial state"
-SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope));
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'customisation'::public.reset_scope));
 
 \echo "Checking if tables have been restored to their original baseline state after reset"
 \echo ""

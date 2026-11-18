@@ -37,7 +37,7 @@ SELECT current_database() LIKE 'test_%' AS "IS_ISOLATED_TEST" \gset
 -- Clean up worker tasks first (may reference import jobs)
 DELETE FROM worker.tasks WHERE state IN ('completed', 'failed');
 -- Use the reset function to clean up all test data
--- 'data' scope removes: import_jobs, units, activities, locations, etc.
+-- 'units' scope removes: import_jobs, units, activities, locations, etc.
 -- but preserves configuration (regions, settings, activity categories)
-SELECT public.reset(true, 'data');
+SELECT public.reset(true, 'units');
 \endif

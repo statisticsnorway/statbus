@@ -1,7 +1,7 @@
 
 --Erik
 
-SELECT public.reset(true, 'getting-started');
+SELECT public.reset(true, 'customisation');
 
 CREATE OR REPLACE PROCEDURE public.custom_setup_ke()
 LANGUAGE plpgsql

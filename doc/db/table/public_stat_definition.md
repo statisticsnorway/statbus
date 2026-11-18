@@ -14,7 +14,7 @@ Indexes:
     "stat_definition_pkey" PRIMARY KEY, btree (id)
     "ix_stat_definition_type" btree (type)
     "stat_definition_code_key" UNIQUE CONSTRAINT, btree (code)
-    "stat_definition_priority_key" UNIQUE CONSTRAINT, btree (priority)
+    "stat_definition_enabled_priority_key" UNIQUE, btree (priority) WHERE enabled
 Referenced by:
     TABLE "stat_for_unit" CONSTRAINT "stat_for_unit_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE RESTRICT
 Policies:

@@ -324,6 +324,33 @@ export type Database = {
         },
         Relationships: []
       },
+      activity_category_standard_factory_default: {
+        Row: {
+          code: string
+          code_pattern: Database["public"]["Enums"]["activity_category_code_behaviour"]
+          description: string
+          enabled: boolean
+          lasts_to: string | null
+          name: string
+        },
+        Insert: {
+          code: string
+          code_pattern: Database["public"]["Enums"]["activity_category_code_behaviour"]
+          description: string
+          enabled: boolean
+          lasts_to?: string | null
+          name: string
+        },
+        Update: {
+          code?: string
+          code_pattern?: Database["public"]["Enums"]["activity_category_code_behaviour"]
+          description?: string
+          enabled?: boolean
+          lasts_to?: string | null
+          name?: string
+        },
+        Relationships: []
+      },
       activity_category_used: {
         Row: {
           code: string | null
@@ -562,6 +589,21 @@ export type Database = {
           id?: never
           name?: string
           updated_at?: string
+        },
+        Relationships: []
+      },
+      data_source_factory_default: {
+        Row: {
+          code: string
+          name: string
+        },
+        Insert: {
+          code: string
+          name: string
+        },
+        Update: {
+          code?: string
+          name?: string
         },
         Relationships: []
       },
@@ -1017,6 +1059,30 @@ export type Database = {
         },
         Relationships: []
       },
+      external_ident_type_factory_default: {
+        Row: {
+          code: string
+          description: string | null
+          enabled: boolean
+          name: string
+          priority: number
+        },
+        Insert: {
+          code: string
+          description?: string | null
+          enabled: boolean
+          name: string
+          priority: number
+        },
+        Update: {
+          code?: string
+          description?: string | null
+          enabled?: boolean
+          name?: string
+          priority?: number
+        },
+        Relationships: []
+      },
       foreign_participation: {
         Row: {
           code: string
@@ -1044,6 +1110,21 @@ export type Database = {
           id?: never
           name?: string
           updated_at?: string
+        },
+        Relationships: []
+      },
+      foreign_participation_factory_default: {
+        Row: {
+          code: string
+          name: string
+        },
+        Insert: {
+          code: string
+          name: string
+        },
+        Update: {
+          code?: string
+          name?: string
         },
         Relationships: []
       },
@@ -1595,6 +1676,21 @@ export type Database = {
         },
         Relationships: []
       },
+      legal_form_factory_default: {
+        Row: {
+          code: string
+          name: string
+        },
+        Insert: {
+          code: string
+          name: string
+        },
+        Update: {
+          code?: string
+          name?: string
+        },
+        Relationships: []
+      },
       legal_form_used: {
         Row: {
           code: string | null
@@ -1646,6 +1742,27 @@ export type Database = {
           name?: string
           primary_influencer_only?: boolean
           updated_at?: string
+        },
+        Relationships: []
+      },
+      legal_rel_type_factory_default: {
+        Row: {
+          code: string
+          description: string
+          name: string
+          primary_influencer_only: boolean
+        },
+        Insert: {
+          code: string
+          description: string
+          name: string
+          primary_influencer_only: boolean
+        },
+        Update: {
+          code?: string
+          description?: string
+          name?: string
+          primary_influencer_only?: boolean
         },
         Relationships: []
       },
@@ -1870,6 +1987,24 @@ export type Database = {
           id?: never
           name?: string
           updated_at?: string
+        },
+        Relationships: []
+      },
+      legal_reorg_type_factory_default: {
+        Row: {
+          code: string
+          description: string
+          name: string
+        },
+        Insert: {
+          code: string
+          description: string
+          name: string
+        },
+        Update: {
+          code?: string
+          description?: string
+          name?: string
         },
         Relationships: []
       },
@@ -2797,6 +2932,21 @@ export type Database = {
         },
         Relationships: []
       },
+      power_group_type_factory_default: {
+        Row: {
+          code: string
+          name: string
+        },
+        Insert: {
+          code: string
+          name: string
+        },
+        Update: {
+          code?: string
+          name?: string
+        },
+        Relationships: []
+      },
       power_root: {
         Row: {
           custom_root_legal_unit_id: number | null
@@ -3222,6 +3372,21 @@ export type Database = {
         },
         Relationships: []
       },
+      sector_factory_default: {
+        Row: {
+          name: string
+          path: string
+        },
+        Insert: {
+          name: string
+          path: string
+        },
+        Update: {
+          name?: string
+          path?: string
+        },
+        Relationships: []
+      },
       sector_used: {
         Row: {
           code: string | null
@@ -3453,6 +3618,36 @@ export type Database = {
           id?: number
           name?: string
           priority?: number | null
+          type?: Database["public"]["Enums"]["stat_type"]
+        },
+        Relationships: []
+      },
+      stat_definition_factory_default: {
+        Row: {
+          code: string
+          description: string | null
+          enabled: boolean
+          frequency: Database["public"]["Enums"]["stat_frequency"]
+          name: string
+          priority: number
+          type: Database["public"]["Enums"]["stat_type"]
+        },
+        Insert: {
+          code: string
+          description?: string | null
+          enabled: boolean
+          frequency: Database["public"]["Enums"]["stat_frequency"]
+          name: string
+          priority: number
+          type: Database["public"]["Enums"]["stat_type"]
+        },
+        Update: {
+          code?: string
+          description?: string | null
+          enabled?: boolean
+          frequency?: Database["public"]["Enums"]["stat_frequency"]
+          name?: string
+          priority?: number
           type?: Database["public"]["Enums"]["stat_type"]
         },
         Relationships: []
@@ -4522,6 +4717,30 @@ export type Database = {
           name?: string
           priority?: number
           updated_at?: string
+          used_for_counting?: boolean
+        },
+        Relationships: []
+      },
+      status_factory_default: {
+        Row: {
+          assigned_by_default: boolean
+          code: string
+          name: string
+          priority: number
+          used_for_counting: boolean
+        },
+        Insert: {
+          assigned_by_default: boolean
+          code: string
+          name: string
+          priority: number
+          used_for_counting: boolean
+        },
+        Update: {
+          assigned_by_default?: boolean
+          code?: string
+          name?: string
+          priority?: number
           used_for_counting?: boolean
         },
         Relationships: []
@@ -5947,6 +6166,21 @@ export type Database = {
           id?: never
           name?: string
           updated_at?: string
+        },
+        Relationships: []
+      },
+      unit_size_factory_default: {
+        Row: {
+          code: string
+          name: string
+        },
+        Insert: {
+          code: string
+          name: string
+        },
+        Update: {
+          code?: string
+          name?: string
         },
         Relationships: []
       },
@@ -15711,7 +15945,7 @@ export type Database = {
       power_group_root_status: "single" | "cycle" | "multi",
       release_builds_status_type: "building" | "ready" | "failed",
       release_status_type: "commit" | "prerelease" | "release",
-      reset_scope: "units" | "data" | "getting-started" | "all",
+      reset_scope: "units" | "getting-started" | "customisation",
       stat_frequency: 
           | "daily"
           | "weekly"
@@ -15966,7 +16200,7 @@ export const Constants = {
       power_group_root_status: ["single", "cycle", "multi"],
       release_builds_status_type: ["building", "ready", "failed"],
       release_status_type: ["commit", "prerelease", "release"],
-      reset_scope: ["units", "data", "getting-started", "all"],
+      reset_scope: ["units", "getting-started", "customisation"],
       stat_frequency: [
         "daily",
         "weekly",

@@ -2,7 +2,8 @@
 
 import React, { Suspense } from "react"; // Added Suspense
 import { useAtom } from 'jotai'; // Added useAtom
-import { numberOfCustomActivityCodesAtomAsync } from '@/atoms/getting-started'; // Added specific atom
+import { numberOfCustomActivityCodesAtomAsync, settingsAtomAsync } from '@/atoms/getting-started';
+import { RequiresActivityStandard } from "./requires-activity-standard";
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {
@@ -16,9 +17,10 @@ import { buttonVariants } from "@/components/ui/button";
 
 const CustomActivityCodesCountDisplay = () => {
   const [numberOfCustomActivityCategoryCodes, refreshCodesCount] = useAtom(numberOfCustomActivityCodesAtomAsync);
+  const [settings] = useAtom(settingsAtomAsync);
 
   return (
-    <>
+    <RequiresActivityStandard settings={settings}>
       {typeof numberOfCustomActivityCategoryCodes === 'number' && numberOfCustomActivityCategoryCodes > 0 && (
         <InfoBox>
           <div className="flex justify-between items-center">
@@ -41,7 +43,7 @@ const CustomActivityCodesCountDisplay = () => {
         nextPage="/getting-started/upload-regions"
         refreshRelevantCounts={async () => refreshCodesCount()}
       />
-    </>
+    </RequiresActivityStandard>
   );
 };
 

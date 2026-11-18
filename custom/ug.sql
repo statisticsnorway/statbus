@@ -1,6 +1,6 @@
 
 
-SELECT public.reset(true, 'getting-started');
+SELECT public.reset(true, 'customisation');
 
 CREATE OR REPLACE PROCEDURE public.custom_setup_ug()
 LANGUAGE plpgsql

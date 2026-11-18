@@ -149,7 +149,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.power_group_root_status`**: `single`, `cycle`, `multi`
 - **`public.release_builds_status_type`**: `building`, `ready`, `failed`
 - **`public.release_status_type`**: `commit`, `prerelease`, `release`
-- **`public.reset_scope`**: `units`, `data`, `getting-started`, `all`
+- **`public.reset_scope`**: `units`, `getting-started`, `customisation`
 - **`public.stat_frequency`**: `daily`, `weekly`, `biweekly`, `monthly`, `bimonthly`, `quarterly`, `semesterly`, `yearly`
 - **`public.stat_type`**: `int`, `float`, `string`, `bool`
 - **`public.statbus_role`**: `admin_user`, `regular_user`, `restricted_user`, `external_user`
@@ -300,6 +300,7 @@ The schema includes numerous helper views, often for UI dropdowns or specific da
 - `*__for_portion_of_valid*`: Helper view created by sql_saga for temporal REST updates (FOR PORTION OF).
 - `*_custom_only*`: Helper view for listing and loading custom classification data, separating it from system-provided data.
 - `*_staging*`: Internal staging table for bulk inserts, merged into main table at end of batch processing.
+- `*_factory_default*`: The table's rows as shipped with StatBus, keyed by code; `public.reset()` restores the system rows to them (activity category standards, sectors and legal forms at scope `getting-started`, the /admin customisations at `customisation`). Reset never changes these tables.
 
 
 ## Naming Conventions (from `CONVENTIONS.md`)

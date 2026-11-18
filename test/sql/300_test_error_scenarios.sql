@@ -346,7 +346,7 @@ BEGIN
     -- for 'custom_est_ident' in all relevant default import definitions, making them
     -- available for use in the import jobs below.
     INSERT INTO public.external_ident_type (code, name, description, priority)
-    VALUES ('custom_est_ident', 'Custom Establishment Identifier', 'A custom identifier type for testing establishment scenarios.', 20)
+    VALUES ('custom_est_ident', 'Custom Establishment Identifier', 'A custom identifier type for testing establishment scenarios.', 5)
     ON CONFLICT (code) DO NOTHING;
 
     -- Enterprise for LU1

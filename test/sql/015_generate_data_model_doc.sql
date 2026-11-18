@@ -42,7 +42,8 @@ DECLARE
         {"pattern": "%_active", "description": "Views that filter for currently active (temporal) records, e.g. `power_group_active`."},
         {"pattern": "%__for_portion_of_valid", "description": "Helper view created by sql_saga for temporal REST updates (FOR PORTION OF)."},
         {"pattern": "%_custom_only", "description": "Helper view for listing and loading custom classification data, separating it from system-provided data."},
-        {"pattern": "%_staging", "description": "Internal staging table for bulk inserts, merged into main table at end of batch processing."}
+        {"pattern": "%_staging", "description": "Internal staging table for bulk inserts, merged into main table at end of batch processing."},
+        {"pattern": "%_factory_default", "description": "The table''s rows as shipped with StatBus, keyed by code; `public.reset()` restores the system rows to them (activity category standards, sectors and legal forms at scope `getting-started`, the /admin customisations at `customisation`). Reset never changes these tables."}
     ]'::jsonb;
     v_enum_record RECORD;
     v_enum_markdown TEXT;

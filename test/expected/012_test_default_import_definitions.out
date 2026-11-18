@@ -183,8 +183,8 @@ NOTICE:  Inserted/Updated vat_ident
 SELECT code, name, priority, enabled FROM public.external_ident_type WHERE enabled = true ORDER BY priority;
      code     |          name          | priority | enabled 
 --------------+------------------------+----------+---------
- stat_ident   | Statistical Identifier |        2 | t
- person_ident | Person Identifier      |       10 | t
+ stat_ident   | Statistical Identifier |       20 | t
+ person_ident | Person Identifier      |       30 | t
  vat_ident    | VAT Identifier         |       35 | t
 (3 rows)
 
