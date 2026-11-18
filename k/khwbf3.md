@@ -43,7 +43,7 @@ Tools: the jcode browser bridge runs JavaScript in the owner's Firefox tab (page
 
 ## Acceptance
 - [x] A stalled load is caught with its own evidence: the browser timeline (navigation and resource timing, long tasks) read from the stalled tab, the Debug Inspector state and event journal, and the proxy log of the same minute; recorded in the notes
-- [ ] The cause is named from that evidence and fixed at that cause (no new rescue); a driven-Firefox test shows the stall with the cause present before the fix, and the page hydrating within 2 s after it
+- [x] The cause is named from that evidence and fixed at that cause (no new rescue); a driven-Firefox test shows the stall with the cause present before the fix, and the page hydrating within 2 s after it
 - [ ] [Owner] works a full day on the local slot in Firefox and says in this task's notes whether a load stalled; a stall is captured with a profile as new evidence and reopens the cause, a clean day lets the reload rescue in JotaiAppProvider.tsx be removed
 
 ## Notes
@@ -65,6 +65,7 @@ Next observation that separates the possibilities: a Firefox Profiler recording 
 - During the 23 s that Firefox held the local socket back, another tab's HMR WebSocket was pending: https://test.statbus.org:3031/_next/hmr (the owner's tab at test.statbus.org:3031/login), STATUS_START 15:37:35.98 to 15:38:06.29 without a response. local.statbus.org and test.statbus.org both resolve to 127.0.0.1.
 - Not yet shown: what held the local socket from 15:38:06 to 15:38:26, and whether Firefox's WebSocket admission rule (one connecting WebSocket at a time per remote host, RFC 6455 4.1) keys on the shared 127.0.0.1. Next step: reproduce in driven Firefox with a second page holding a connecting WebSocket to 127.0.0.1 on another port, and measure the local page's time to hydrate with and without it.
 check 1: Two stalls caught 2026-11-18: 15:33:41 (8 s; bridge timing, event journal, console, proxy log tmp/stall/proxy-1533.log) and 15:38:02 (24 s; Firefox Profiler tmp/stall/profile-1538.json.gz, proxy log tmp/stall/proxy-1538.log). Main thread idle until the /_next/hmr WebSocket opened; hydration 67-70 ms later.
+check 2: Cause: Next 16.4.5 dev enables experimental.reactDebugChannel, so hydration waits for the /_next/hmr WebSocket; Firefox connects one WebSocket per IP at a time and every local slot is 127.0.0.1, so a stuck socket in another tab (the owner's test.statbus.org:3031 tab in the 15:38 profile) held the page. Fix e421c0c1f sets reactDebugChannel: false in app/next.config.js (dev only). Driven-Firefox test tmp/stall/ws-block-repro.mjs with a page holding stuck wss://test.statbus.org:39999 sockets: before the fix 19.7 s then not shown within 40 s on 3 of 4 reloads (tmp/stall/repro-test.log); after it 1.7-2.3 s (tmp/stall/repro-test-fixed.log), baseline 0.8-1.6 s. Hot reload still updates in place (tmp/stall/hmr-check.mjs: 0 full reloads). WebSockets over HTTP/2 do not avoid the queue: a throwaway Caddy with GODEBUG=http2xconnect=1 served the socket as HTTP/2 CONNECT, and with the stuck socket present it still opened only after 18.5 s (tmp/stall/h2ws/).
 ## History
 - 2026-11-18T16:33 todo -> doing/active (take)
 - 2026-11-18T16:33 doing/active -> doing/waiting (wait)
