@@ -9,10 +9,13 @@ labels: ["db", "edit", "security"]
 created: 2026-11-17
 updated: 2026-11-17
 doing_since: "2026-11-18T01:04"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "statbus-628-all-forms"
 worktree: "/Users/jhf/ssb/statbus_test"
+waiting_on: "branch statbus-628-all-forms pushed to master and CI green, then done"
+waiting_since: "2026-11-18T01:22"
+waiting_asked_by: "rabbit"
 ---
 
 ## Goal
@@ -46,3 +49,4 @@ Reproduction (tmp/611-rls-probe4..6.sql, logs; clone of statbus_test_template; j
 2026-11-18 00:22 built (Rabbit), commit 47ebd9040 on statbus-628-all-forms. Migration 20261118000618: regular_user_manage policies back to WITH CHECK (true) (all tables that had the writer check, incl. import data tables), admin.add_rls_regular_user_can_edit creates them so, COMMENT ON edit_by_user_id on the 15 editable tables states it is the last writer, not a permission. Up/down/up on dev: down equals before, re-up equals up (tmp/febdra-state-{before,up,down,up2}.txt). Test 406 RED tmp/test-febdra-406-red.out (RLS error), GREEN tmp/test-febdra-406-green.log: regular user changes activity 2025 and contact from 2025, removes 2025 of a statistic and a located address, all admin-written; kept pieces name the admin, changed periods the regular user. Test 405 still green. Fast suite tmp/test-febdra-fast.log: 141/145, the 4 (102, 301, 302, 303) differ only in the policy text, re-blessed and green (tmp/test-febdra-reblessed.log). Form, headless as regular user rabbit-review on EST 51 primary activity (one row 2024-, writer set to admin), Live frame, other category, Save: before the migration the page shows 'new row violates row-level security policy for table "activity"' and nothing changes (tmp/febdra/est51-regular-live-save-red.json); after it saves: 2024-2026 old category by 1, 2026- new category by 4 (…-green.json); restored exactly both times.
 ## History
 - 2026-11-18T01:04 todo -> doing/active (take)
+- 2026-11-18T01:22 doing/active -> doing/waiting (wait)
