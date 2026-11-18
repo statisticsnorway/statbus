@@ -9,26 +9,29 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { PostgrestError } from "@supabase/postgrest-js";
 import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
 
-// Data quality (xz3jej): counts legal units that EXIST at the selected instant (lib/unit-existence.ts)
-// and whose primary establishment has another primary activity. The inner embed of the report
-// table public.primary_establishment_activity_differs is the same one the search adds for
-// ?primary_establishment_activity_differs=true, so the number matches the list the card opens.
-const REPORT_EMBED = "primary_establishment_activity_differs!inner()";
+// Quality check establishment_activity_differs (xz3jej): counts legal units that EXIST at the
+// selected instant (lib/unit-existence.ts) and that the check lists. The inner embed of
+// public.quality_establishment_activity_differs is the one the search adds for
+// ?quality=establishment_activity_differs, so the number matches the list the card opens.
+const QUALITY_EMBED = "quality_establishment_activity_differs!inner()";
 
-export const PrimaryEstablishmentActivityDiffersCard = () => {
+export const QualityEstablishmentActivityDiffersCard = () => {
   const { selectedTimeFrame } = useTimeFrame();
 
   const [data, setData] = useState<{
     count: number | null;
     error: PostgrestError | null;
-  }>({ count: null, error: null });
+  }>({
+    count: null,
+    error: null,
+  });
 
   const countLegalUnits = useCallback(
     async (validOn: string, count: "estimated" | "exact") => {
       const client = await getBrowserRestClient();
       return client
         .from("statistical_unit")
-        .select(REPORT_EMBED, { count })
+        .select(QUALITY_EMBED, { count })
         .eq("unit_type", "legal_unit")
         .lte(EXISTENCE_FROM, validOn)
         .gt(EXISTENCE_UNTIL, validOn)
@@ -46,7 +49,7 @@ export const PrimaryEstablishmentActivityDiffersCard = () => {
       );
     },
     [selectedTimeFrame, countLegalUnits],
-    "PrimaryEstablishmentActivityDiffersCard:fetchData"
+    "QualityEstablishmentActivityDiffersCard:fetchData"
   );
 
   const { count, error } = data;
@@ -62,14 +65,15 @@ export const PrimaryEstablishmentActivityDiffersCard = () => {
 
   return (
     <DashboardCard
-      title="Primary Establishment Has Another Activity"
+      title="Establishment Activity Differs"
+      description="Legal units whose primary establishment has another primary activity"
       icon={<AlertTriangle className="h-4" />}
       failed={!!error || (count ?? 0) > 0}
     >
       <EstimatedCount
         estimatedCount={count}
         onGetExact={handleGetExact}
-        cacheKey={`primary-establishment-activity-differs-${selectedTimeFrame?.valid_on ?? "default"}`}
+        cacheKey={`quality-establishment-activity-differs-${selectedTimeFrame?.valid_on ?? "default"}`}
       />
     </DashboardCard>
   );

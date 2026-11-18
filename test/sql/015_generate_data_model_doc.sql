@@ -139,8 +139,8 @@ DECLARE
             '{"schema": "public", "name": "statistical_history", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "statistical_history_facet", "type": "VIEW"}'::jsonb
         )),
-        (4, 2, 5, 'Derivations for data-quality reports on the dashboard (xz3jej)', 'One table per check, filled after statistical_unit is published (`worker.derive_used_tables`) and joined from it one-to-one by a NOT ENFORCED foreign key, so the dashboard card and the search use the same inner embed.', jsonb_build_array(
-            '{"schema": "public", "name": "primary_establishment_activity_differs", "class": "derived"}'::jsonb
+        (4, 2, 5, 'Quality: checks that list units to look at (xz3jej)', 'Quality is the area of checks that list units to look at, as reports count them. Each check is a table `quality_<check>`, filled by the reports phase''s step `worker.derive_quality` after statistical_unit is published, and joined from it one-to-one by a NOT ENFORCED foreign key, so the dashboard''s Data quality card and the search (`?quality=<check>`) use the same inner embed.', jsonb_build_array(
+            '{"schema": "public", "name": "quality_establishment_activity_differs", "class": "derived"}'::jsonb
         )),
         (4, 2, 6, 'Pipeline Weights', 'Configuration for pipeline step ordering and progress tracking.', jsonb_build_array(
             '{"schema": "worker", "name": "pipeline_step_weight", "class": "infrastructure"}'::jsonb,

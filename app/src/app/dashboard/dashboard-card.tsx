@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 export const DashboardCard = ({
   title,
+  description,
   icon,
   text,
   children,
@@ -11,6 +12,8 @@ export const DashboardCard = ({
   className,
 }: {
   readonly title: string;
+  /** What the card counts, in full; shown when the pointer rests on the card's title. */
+  readonly description?: string;
   readonly icon: ReactNode;
   readonly text?: string;
   readonly children?: ReactNode;
@@ -25,7 +28,7 @@ export const DashboardCard = ({
           failed ? "border-orange-400 bg-orange-100" : ""
         )}
       >
-        <CardTitle className="text-xs font-medium">{title}</CardTitle>
+        <CardTitle className="text-xs font-medium" title={description}>{title}</CardTitle>
         {icon}
       </CardHeader>
       <CardContent className="space-y-3 px-3 py-3">

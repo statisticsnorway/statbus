@@ -242,14 +242,14 @@ describe("composeExportSql", () => {
     expect(countSql).toContain("< '150'::jsonb");
   });
 
-  it("keeps the rows the search's data-quality select keeps (xz3jej)", () => {
+  it("keeps the rows a quality check keeps (xz3jej)", () => {
     const params = new URLSearchParams({
-      select: "*,primary_establishment_activity_differs!inner()",
+      select: "*,quality_establishment_activity_differs!inner()",
       unit_type: "in.(legal_unit)",
     });
     const { selectSql, countSql } = composeExportSql(params, config);
-    const condition = `EXISTS (SELECT 1 FROM public.primary_establishment_activity_differs AS r
-    WHERE r.unit_type = su.unit_type AND r.unit_id = su.unit_id AND r.valid_range = su.valid_range)`;
+    const condition = `EXISTS (SELECT 1 FROM public."quality_establishment_activity_differs" AS q
+    WHERE q.unit_type = su.unit_type AND q.unit_id = su.unit_id AND q.valid_range = su.valid_range)`;
     expect(whereConditions(params)).toEqual([
       condition,
       `su."unit_type" = ANY('{"legal_unit"}')`,
@@ -258,10 +258,13 @@ describe("composeExportSql", () => {
     expect(countSql).toContain(condition);
   });
 
-  it("reads select=* as every row and refuses any other select", () => {
+  it("reads select=* as every row and refuses any other select, an unknown quality check too", () => {
     expect(whereConditions(new URLSearchParams({ select: "*" }))).toEqual([]);
     expect(() =>
       whereConditions(new URLSearchParams({ select: "name" }))
+    ).toThrow(ExportQueryError);
+    expect(() =>
+      whereConditions(new URLSearchParams({ select: "*,quality_unknown_check!inner()" }))
     ).toThrow(ExportQueryError);
   });
 });

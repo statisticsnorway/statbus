@@ -112,6 +112,7 @@ DECLARE
         'worker.derive_units_phase',
         'worker.derive_statistical_unit_facet',
         'worker.derive_statistical_unit_facet_partition',
+        'worker.derive_quality',
         'worker.derive_used_tables',
         'worker.statistical_history_facet_delta_reduce',
         'worker.notify_task_changed',

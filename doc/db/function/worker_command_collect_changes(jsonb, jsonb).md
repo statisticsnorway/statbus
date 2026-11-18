@@ -221,6 +221,14 @@ BEGIN
             p_child_mode => 'serial'
         );
 
+        -- Quality checks read the published statistical_unit; worker.derive_quality runs them all.
+        PERFORM worker.spawn(
+            p_command => 'derive_quality',
+            p_payload => v_payload,
+            p_parent_id => v_phase2_id,
+            p_child_mode => 'serial'
+        );
+
         PERFORM worker.spawn(
             p_command => 'statistical_history_facet_delta_reduce',
             p_payload => v_payload,

@@ -1,12 +1,12 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.primary_establishment_activity_differs_derive()
+CREATE OR REPLACE FUNCTION public.quality_establishment_activity_differs_derive()
  RETURNS void
  LANGUAGE plpgsql
 AS $function$
 BEGIN
-    RAISE DEBUG 'Running primary_establishment_activity_differs_derive()';
-    MERGE INTO public.primary_establishment_activity_differs AS target
-    USING public.primary_establishment_activity_differs_def AS source
+    RAISE DEBUG 'Running quality_establishment_activity_differs_derive()';
+    MERGE INTO public.quality_establishment_activity_differs AS target
+    USING public.quality_establishment_activity_differs_def AS source
     ON target.unit_type = source.unit_type
    AND target.unit_id = source.unit_id
    AND target.valid_range = daterange(source.valid_from, source.valid_until)
@@ -25,7 +25,7 @@ BEGIN
                 source.legal_unit_activity_category_id, source.primary_establishment_id,
                 source.primary_establishment_activity_category_id)
     WHEN NOT MATCHED BY SOURCE THEN DELETE;
-    ANALYZE public.primary_establishment_activity_differs;
+    ANALYZE public.quality_establishment_activity_differs;
 END;
 $function$
 ```

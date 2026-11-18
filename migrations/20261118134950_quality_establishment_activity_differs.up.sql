@@ -1,24 +1,377 @@
--- Migration 20261118020902 down: remove the primary establishment activity report (xz3jej).
--- The four routines return to their definitions before the up migration (\sf dumps).
+-- Migration 20261118134950: quality, the first check: a legal unit whose primary establishment has
+-- another primary activity (xz3jej)
+--
+-- Quality is the area of checks that list units to look at, as opposed to reports, which count
+-- them. Each check is a table public.quality_<check>, filled after every recalculation by
+-- worker.derive_quality in the reports phase, and joined from statistical_unit by a NOT ENFORCED
+-- foreign key so PostgREST embeds it as an ordinary one-to-one relationship:
+--   /rest/statistical_unit?select=*,quality_establishment_activity_differs!inner()&unit_type=eq.legal_unit
+-- The dashboard's Data quality section counts that, and the search lists it as
+-- /search?quality=establishment_activity_differs.
 BEGIN;
 
-CREATE OR REPLACE PROCEDURE worker.derive_used_tables(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
+CREATE TABLE public.quality_establishment_activity_differs (
+    unit_type public.statistical_unit_type NOT NULL,
+    unit_id integer NOT NULL,
+    valid_from date NOT NULL,
+    valid_until date NOT NULL,
+    valid_range daterange NOT NULL GENERATED ALWAYS AS (daterange(valid_from, valid_until)) STORED,
+    legal_unit_activity_category_id integer,
+    primary_establishment_id integer NOT NULL,
+    primary_establishment_activity_category_id integer,
+    CONSTRAINT quality_establishment_activity_differs_pkey
+        PRIMARY KEY (unit_type, unit_id, valid_range),
+    CONSTRAINT quality_establishment_activity_differs_statistical_unit_fkey
+        FOREIGN KEY (unit_type, unit_id, PERIOD valid_range)
+        REFERENCES public.statistical_unit (unit_type, unit_id, PERIOD valid_range) NOT ENFORCED
+);
+
+COMMENT ON TABLE public.quality_establishment_activity_differs IS
+  'Quality check (xz3jej): one row per legal_unit row of statistical_unit whose primary activity category differs from that of its primary establishment (timeline_establishment.primary_for_legal_unit) valid at the row''s valid_from, compared by id, a missing activity on one side counting as a difference. Uses the primary as recorded and never picks one. Filled from quality_establishment_activity_differs_def by quality_establishment_activity_differs_derive(), which worker.derive_quality calls after statistical_unit is published. The dashboard''s Data quality card counts it and the search lists it as select=*,quality_establishment_activity_differs!inner().';
+COMMENT ON COLUMN public.quality_establishment_activity_differs.valid_range IS
+  'The statistical_unit row''s period. With unit_type and unit_id it is both the primary key and the foreign key to statistical_unit, so PostgREST sees a one-to-one relationship and embeds it as a plain join; another primary key makes it one-to-many, aggregated as JSON per row.';
+COMMENT ON CONSTRAINT quality_establishment_activity_differs_statistical_unit_fkey ON public.quality_establishment_activity_differs IS
+  'NOT ENFORCED: describes the link for PostgREST and readers; nothing checks it, so derive rewrites statistical_unit freely and the table is made right again by the next worker.derive_quality. Until then a row whose statistical_unit period changed drops out of the inner join. A TRUNCATE of statistical_unit must name this table and say CASCADE: TRUNCATE refuses a NOT ENFORCED key otherwise, even with both tables listed (PostgreSQL 18).';
+COMMENT ON COLUMN public.quality_establishment_activity_differs.legal_unit_activity_category_id IS
+  'The legal unit''s primary activity category (statistical_unit.primary_activity_category_id), NULL when it has none.';
+COMMENT ON COLUMN public.quality_establishment_activity_differs.primary_establishment_id IS
+  'The establishment recorded as the legal unit''s primary at valid_from.';
+COMMENT ON COLUMN public.quality_establishment_activity_differs.primary_establishment_activity_category_id IS
+  'The primary establishment''s primary activity category at valid_from, NULL when it has none.';
+
+CREATE VIEW public.quality_establishment_activity_differs_def
+WITH (security_invoker = on) AS
+SELECT su.unit_type,
+       su.unit_id,
+       su.valid_from,
+       su.valid_until,
+       su.primary_activity_category_id AS legal_unit_activity_category_id,
+       te.unit_id AS primary_establishment_id,
+       te.primary_activity_category_id AS primary_establishment_activity_category_id
+FROM public.statistical_unit AS su
+JOIN public.timeline_establishment AS te
+  ON te.legal_unit_id = su.unit_id
+ AND te.primary_for_legal_unit
+ AND te.valid_from <= su.valid_from AND su.valid_from < te.valid_until
+WHERE su.unit_type = 'legal_unit'
+  AND su.primary_activity_category_id IS DISTINCT FROM te.primary_activity_category_id;
+
+COMMENT ON VIEW public.quality_establishment_activity_differs_def IS
+  'The rule of the quality check public.quality_establishment_activity_differs, read from statistical_unit and timeline_establishment.';
+
+GRANT SELECT ON public.quality_establishment_activity_differs_def TO authenticated, regular_user, admin_user;
+
+CREATE FUNCTION public.quality_establishment_activity_differs_derive()
+RETURNS void
+LANGUAGE plpgsql
+AS $quality_establishment_activity_differs_derive$
+BEGIN
+    RAISE DEBUG 'Running quality_establishment_activity_differs_derive()';
+    MERGE INTO public.quality_establishment_activity_differs AS target
+    USING public.quality_establishment_activity_differs_def AS source
+    ON target.unit_type = source.unit_type
+   AND target.unit_id = source.unit_id
+   AND target.valid_range = daterange(source.valid_from, source.valid_until)
+    WHEN MATCHED AND (
+        target.legal_unit_activity_category_id IS DISTINCT FROM source.legal_unit_activity_category_id
+        OR target.primary_establishment_id IS DISTINCT FROM source.primary_establishment_id
+        OR target.primary_establishment_activity_category_id IS DISTINCT FROM source.primary_establishment_activity_category_id
+    ) THEN UPDATE SET
+        legal_unit_activity_category_id = source.legal_unit_activity_category_id,
+        primary_establishment_id = source.primary_establishment_id,
+        primary_establishment_activity_category_id = source.primary_establishment_activity_category_id
+    WHEN NOT MATCHED BY TARGET THEN INSERT
+        (unit_type, unit_id, valid_from, valid_until, legal_unit_activity_category_id,
+         primary_establishment_id, primary_establishment_activity_category_id)
+        VALUES (source.unit_type, source.unit_id, source.valid_from, source.valid_until,
+                source.legal_unit_activity_category_id, source.primary_establishment_id,
+                source.primary_establishment_activity_category_id)
+    WHEN NOT MATCHED BY SOURCE THEN DELETE;
+    ANALYZE public.quality_establishment_activity_differs;
+END;
+$quality_establishment_activity_differs_derive$;
+
+COMMENT ON FUNCTION public.quality_establishment_activity_differs_derive() IS
+  'Makes the quality check public.quality_establishment_activity_differs equal to its _def view (insert, update, delete); called by worker.derive_quality.';
+
+SELECT admin.add_rls_regular_user_can_read('public.quality_establishment_activity_differs'::regclass);
+
+-- The quality step of the reports phase: runs every quality check after statistical_unit is
+-- published. A new check adds its _derive() call and its name here.
+CREATE PROCEDURE worker.derive_quality(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'worker', 'pg_temp'
+AS $derive_quality$
+BEGIN
+    PERFORM public.quality_establishment_activity_differs_derive();
+
+    p_info := jsonb_build_object('checks', jsonb_build_array(
+        'quality_establishment_activity_differs'
+    ));
+END;
+$derive_quality$;
+
+COMMENT ON PROCEDURE worker.derive_quality(jsonb, jsonb) IS
+  'The reports phase''s quality step: runs every quality check (public.quality_<check>_derive()) after statistical_unit is published. SECURITY DEFINER like the other derive steps, because it writes RLS-protected tables for whichever role enqueued the recalculation.';
+
+INSERT INTO worker.command_registry (command, handler_procedure, description, queue) VALUES
+    ('derive_quality', 'worker.derive_quality',
+     'Run every quality check (public.quality_*) on the published statistical_unit', 'analytics');
+
+-- The progress bar's rows per phase are exactly the steps worker.command_collect_changes spawns,
+-- in spawn order (test 371): derive_quality comes after the facet reduce. Weight 1: the one check
+-- takes about 5 s of a full Norway recalculation (local 2026-11-18), weights are seconds / 10.
+UPDATE worker.pipeline_step_weight SET seq = 8 WHERE step = 'statistical_history_facet_delta_reduce';
+INSERT INTO worker.pipeline_step_weight (phase, step, weight, seq) VALUES
+    ('is_deriving_reports', 'derive_quality', 1, 7);
+
+CREATE OR REPLACE PROCEDURE worker.command_collect_changes(IN p_payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
- SECURITY DEFINER
  SET search_path TO 'public', 'worker', 'pg_temp'
 AS $procedure$
+DECLARE
+    v_row RECORD;
+    v_est_ids int4multirange := '{}'::int4multirange;
+    v_lu_ids int4multirange := '{}'::int4multirange;
+    v_ent_ids int4multirange := '{}'::int4multirange;
+    v_pg_ids int4multirange := '{}'::int4multirange;
+    v_valid_range datemultirange := '{}'::datemultirange;
+    v_valid_from DATE;
+    v_valid_until DATE;
+    v_task_id BIGINT;
+    v_phase1_id BIGINT;
+    v_phase2_id BIGINT;
+    v_payload JSONB;
+    v_direct_mode BOOLEAN;
+    v_all_units BOOLEAN;
 BEGIN
-    PERFORM public.activity_category_used_derive();
-    PERFORM public.region_used_derive();
-    PERFORM public.sector_used_derive();
-    PERFORM public.data_source_used_derive();
-    PERFORM public.legal_form_used_derive();
-    PERFORM public.country_used_derive();
+    -- Lock the pending-flag singleton before the drain snapshot. Publishers
+    -- (worker.publish_base_change_wakeup) update the same row, so a change
+    -- committed after this snapshot sets the flag only after the clear below,
+    -- and the flag stays TRUE for the next collector.
+    PERFORM 1 FROM worker.base_change_log_has_pending FOR UPDATE;
 
-    p_info := jsonb_build_object('refreshed', jsonb_build_array(
-        'activity_category_used', 'region_used', 'sector_used',
-        'data_source_used', 'legal_form_used', 'country_used'
-    ));
+    v_direct_mode :=
+        p_payload ? 'establishment_id_ranges'
+        OR p_payload ? 'legal_unit_id_ranges'
+        OR p_payload ? 'enterprise_id_ranges'
+        OR p_payload ? 'power_group_id_ranges';
+
+    -- STATBUS-538: "everything" is one convention, carried through unchanged
+    -- so every step decides from its own arguments: NULL for all four
+    -- *_id_ranges means all units (worker.derive_statistical_unit's full
+    -- branch), and valid_from = -infinity, valid_until = infinity means all
+    -- time (the report derives then rebuild their whole per-slot cache).
+    -- worker.enqueue_derive_statistical_unit_all() schedules exactly this.
+    v_all_units := v_direct_mode
+        AND NULLIF(p_payload->>'establishment_id_ranges', '') IS NULL
+        AND NULLIF(p_payload->>'legal_unit_id_ranges', '') IS NULL
+        AND NULLIF(p_payload->>'enterprise_id_ranges', '') IS NULL
+        AND NULLIF(p_payload->>'power_group_id_ranges', '') IS NULL;
+
+    IF v_all_units THEN
+        -- All units: ids stay NULL, time defaults to all time. The full
+        -- derive covers every logged change, so the log is drained too.
+        v_est_ids := NULL;
+        v_lu_ids := NULL;
+        v_ent_ids := NULL;
+        v_pg_ids := NULL;
+        v_valid_range := COALESCE(
+            NULLIF(p_payload->>'valid_ranges', '')::datemultirange,
+            '{[-infinity,infinity)}'::datemultirange
+        );
+        DELETE FROM worker.base_change_log WHERE true; -- every row: a full-range derive supersedes all logged changes
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
+    ELSIF v_direct_mode THEN
+        -- Caller supplied explicit ranges. A NULL / JSON-null value for a
+        -- given key means "all ids of that kind" — synthesise from base
+        -- tables, because worker.derive_statistical_unit reads a NULL kind
+        -- next to explicit kinds as none.
+        v_est_ids := COALESCE(
+            NULLIF(p_payload->>'establishment_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.establishment),
+                '{}'::int4multirange
+            )
+        );
+        v_lu_ids := COALESCE(
+            NULLIF(p_payload->>'legal_unit_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.legal_unit),
+                '{}'::int4multirange
+            )
+        );
+        v_ent_ids := COALESCE(
+            NULLIF(p_payload->>'enterprise_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.enterprise),
+                '{}'::int4multirange
+            )
+        );
+        v_pg_ids := COALESCE(
+            NULLIF(p_payload->>'power_group_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.power_group),
+                '{}'::int4multirange
+            )
+        );
+        v_valid_range := COALESCE(
+            NULLIF(p_payload->>'valid_ranges', '')::datemultirange,
+            '{}'::datemultirange
+        );
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
+    ELSE
+        -- Drain-log mode: unchanged from 20260319124229.
+        FOR v_row IN DELETE FROM worker.base_change_log WHERE true RETURNING * LOOP -- every row: the drain takes all logged changes
+            v_est_ids := v_est_ids + v_row.establishment_ids;
+            v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
+            v_ent_ids := v_ent_ids + v_row.enterprise_ids;
+            v_pg_ids := v_pg_ids + v_row.power_group_ids;
+            v_valid_range := v_valid_range + v_row.valid_ranges;
+        END LOOP;
+
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE WHERE has_pending;
+    END IF;
+
+    IF v_all_units
+       OR v_est_ids != '{}'::int4multirange
+       OR v_lu_ids != '{}'::int4multirange
+       OR v_ent_ids != '{}'::int4multirange
+       OR v_pg_ids != '{}'::int4multirange THEN
+
+        -- Get own task_id for spawning children
+        SELECT id INTO v_task_id
+        FROM worker.tasks
+        WHERE state = 'processing' AND worker_pid = pg_backend_pid()
+        ORDER BY id DESC LIMIT 1;
+
+        IF v_all_units THEN
+            p_info := jsonb_build_object(
+                'affected_establishment_count', (SELECT count(*) FROM public.establishment),
+                'affected_legal_unit_count', (SELECT count(*) FROM public.legal_unit),
+                'affected_enterprise_count', (SELECT count(*) FROM public.enterprise),
+                'affected_power_group_count', (SELECT count(*) FROM public.power_group)
+            );
+        ELSE
+            p_info := jsonb_build_object(
+                'affected_establishment_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_est_ids) AS r),
+                'affected_legal_unit_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_lu_ids) AS r),
+                'affected_enterprise_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_ent_ids) AS r),
+                'affected_power_group_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_pg_ids) AS r)
+            );
+        END IF;
+
+        IF v_valid_range = '{}'::datemultirange THEN
+            SELECT COALESCE(range_agg(vr)::datemultirange, '{}'::datemultirange)
+            INTO v_valid_range
+            FROM (
+                SELECT valid_range AS vr FROM public.establishment AS est WHERE v_est_ids @> est.id
+                UNION ALL
+                SELECT valid_range AS vr FROM public.legal_unit AS lu WHERE v_lu_ids @> lu.id
+            ) AS units;
+        END IF;
+
+        v_valid_from := lower(v_valid_range);
+        v_valid_until := upper(v_valid_range);
+
+        v_payload := jsonb_build_object(
+            'valid_from', v_valid_from,
+            'valid_until', v_valid_until
+        );
+
+        v_phase1_id := worker.spawn(
+            p_command => 'derive_units_phase',
+            p_payload => v_payload,
+            p_parent_id => v_task_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'derive_statistical_unit',
+            p_payload => jsonb_build_object(
+                'establishment_id_ranges', v_est_ids::text,
+                'legal_unit_id_ranges', v_lu_ids::text,
+                'enterprise_id_ranges', v_ent_ids::text,
+                'power_group_id_ranges', v_pg_ids::text,
+                'valid_from', v_valid_from,
+                'valid_until', v_valid_until
+            ),
+            p_parent_id => v_phase1_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'derive_statistical_history_facet_delta',
+            p_payload => v_payload,
+            p_parent_id => v_phase1_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'statistical_unit_flush_staging',
+            p_payload => v_payload,
+            p_parent_id => v_phase1_id,
+            p_child_mode => 'serial'
+        );
+
+        -- BLOCK D: derive_used_tables runs AFTER statistical_unit_flush_staging
+        -- has published activity/region/sector/… paths to public.statistical_unit.
+        -- Previously these were invoked inline from worker.derive_statistical_unit,
+        -- which ran before the flush — the views filtering on *_path IS NOT NULL
+        -- returned 0 rows and *_used stayed empty on first-import cycles.
+        PERFORM worker.spawn(
+            p_command => 'derive_used_tables',
+            p_payload => v_payload,
+            p_parent_id => v_phase1_id,
+            p_child_mode => 'serial'
+        );
+
+        v_phase2_id := worker.spawn(
+            p_command => 'derive_reports_phase',
+            p_payload => v_payload,
+            p_parent_id => v_task_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'derive_statistical_unit_facet',
+            p_payload => v_payload,
+            p_parent_id => v_phase2_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'statistical_unit_facet_reduce',
+            p_payload => v_payload,
+            p_parent_id => v_phase2_id,
+            p_child_mode => 'serial'
+        );
+
+        -- Quality checks read the published statistical_unit; worker.derive_quality runs them all.
+        PERFORM worker.spawn(
+            p_command => 'derive_quality',
+            p_payload => v_payload,
+            p_parent_id => v_phase2_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
+            p_command => 'statistical_history_facet_delta_reduce',
+            p_payload => v_payload,
+            p_parent_id => v_phase2_id,
+            p_child_mode => 'serial'
+        );
+    ELSE
+        p_info := jsonb_build_object(
+            'affected_establishment_count', 0,
+            'affected_legal_unit_count', 0,
+            'affected_enterprise_count', 0,
+            'affected_power_group_count', 0
+        );
+        PERFORM pg_notify('worker_status',
+            json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text);
+    END IF;
 END;
 $procedure$
 ;
@@ -74,6 +427,7 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_unit_facet'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet_delta'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_period'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.quality_establishment_activity_differs'::regclass);
     --
     -- ########### add_rls_regular_user_can_edit ###########
     PERFORM admin.add_rls_regular_user_can_edit('public.image'::regclass);
@@ -147,6 +501,12 @@ BEGIN
         SELECT COUNT(*) FROM public.image INTO _image_count;
         SELECT COUNT(*) FROM public.unit_notes INTO _unit_notes_count;
 
+        -- statistical_unit is emptied together with quality_establishment_activity_differs, which
+        -- references it by a NOT ENFORCED foreign key: TRUNCATE refuses such a key without CASCADE,
+        -- even with both tables listed. CASCADE is kept to this statement so that a new enforced
+        -- key to any table in the list below still stops reset instead of emptying its table.
+        TRUNCATE public.statistical_unit, public.quality_establishment_activity_differs CASCADE;
+
         TRUNCATE
             public.activity,
             public.location,
@@ -171,7 +531,6 @@ BEGIN
             public.timepoints,
             public.timesegments,
             public.timesegments_years,
-            public.statistical_unit,
             public.statistical_unit_facet,
             public.statistical_unit_facet_staging,
             public.statistical_unit_facet_dirty_hash_slots,
@@ -629,7 +988,10 @@ BEGIN
             EXECUTE format('INSERT INTO statistical_unit_new (%s) SELECT %s FROM public.statistical_unit_def WHERE unit_type = %L AND unit_id BETWEEN %s AND %s', v_col_list, v_col_list, 'power_group', v_start_id, v_end_id);
         END LOOP; END IF;
 
-        TRUNCATE public.statistical_unit;
+        -- quality_establishment_activity_differs points at the rows replaced here and is refilled by
+        -- the next worker.derive_quality. It references statistical_unit by a NOT ENFORCED foreign
+        -- key, which TRUNCATE refuses without CASCADE even with both tables listed.
+        TRUNCATE public.statistical_unit, public.quality_establishment_activity_differs CASCADE;
         EXECUTE format('INSERT INTO public.statistical_unit (%s) SELECT %s FROM statistical_unit_new', v_col_list, v_col_list);
         ANALYZE public.statistical_unit;
     ELSE
@@ -655,9 +1017,8 @@ END;
 $procedure$
 ;
 
-DROP FUNCTION public.primary_establishment_activity_differs_derive();
-DROP VIEW public.primary_establishment_activity_differs_def;
-DROP TABLE public.primary_establishment_activity_differs;
+-- Fill the quality check from the statistical_unit already derived on this database.
+SELECT public.quality_establishment_activity_differs_derive();
 
 NOTIFY pgrst, 'reload schema';
 

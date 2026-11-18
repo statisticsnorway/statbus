@@ -50,7 +50,7 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_unit_facet'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet_delta'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_period'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.primary_establishment_activity_differs'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.quality_establishment_activity_differs'::regclass);
     --
     -- ########### add_rls_regular_user_can_edit ###########
     PERFORM admin.add_rls_regular_user_can_edit('public.image'::regclass);

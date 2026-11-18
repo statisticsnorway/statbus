@@ -206,10 +206,10 @@ A sparse delta table holds only changes: `statistical_history_facet_delta` per c
 - `statistical_history_facet(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, name_change_count, legal_form_id, physical_country_id, unit_size_id, status_id, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, unit_size_change_count, status_change_count, stats_summary, exists_moved_in_count, exists_moved_out_count, countable_moved_in_count, countable_moved_out_count)`
   - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
 
-### Derivations for data-quality reports on the dashboard (xz3jej)
-One table per check, filled after statistical_unit is published (`worker.derive_used_tables`) and joined from it one-to-one by a NOT ENFORCED foreign key, so the dashboard card and the search use the same inner embed.
+### Quality: checks that list units to look at (xz3jej)
+Quality is the area of checks that list units to look at, as reports count them. Each check is a table `quality_<check>`, filled by the reports phase's step `worker.derive_quality` after statistical_unit is published, and joined from it one-to-one by a NOT ENFORCED foreign key, so the dashboard's Data quality card and the search (`?quality=<check>`) use the same inner embed.
 
-- `primary_establishment_activity_differs(unit_type, unit_id, legal_unit_activity_category_id, primary_establishment_id, primary_establishment_activity_category_id, valid_from, valid_until, valid_range)` (temporal) — **derived**
+- `quality_establishment_activity_differs(unit_type, unit_id, legal_unit_activity_category_id, primary_establishment_id, primary_establishment_activity_category_id, valid_from, valid_until, valid_range)` (temporal) — **derived**
   - Key FKs: unit_id, unit_type, valid_range.
   - Enums: `unit_type` (`public.statistical_unit_type`).
 

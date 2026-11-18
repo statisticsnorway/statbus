@@ -2916,7 +2916,7 @@ export type Database = {
           }
         ]
       },
-      primary_establishment_activity_differs: {
+      quality_establishment_activity_differs: {
         Row: {
           legal_unit_activity_category_id: number | null
           primary_establishment_activity_category_id: number | null
@@ -2949,49 +2949,49 @@ export type Database = {
         },
         Relationships: [
           {
-            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
             isOneToOne: true
             referencedRelation: "statistical_unit"
             referencedColumns: ["unit_id", "unit_type", "valid_range"]
           },
           {
-            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
             isOneToOne: true
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
             isOneToOne: true
             referencedRelation: "country_used_def"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
             isOneToOne: true
             referencedRelation: "data_source_used_def"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
             isOneToOne: true
             referencedRelation: "legal_form_used_def"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
             isOneToOne: true
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
             isOneToOne: true
             referencedRelation: "sector_used_def"
@@ -8951,7 +8951,7 @@ export type Database = {
           }
         ]
       },
-      primary_establishment_activity_differs_def: {
+      quality_establishment_activity_differs_def: {
         Row: {
           legal_unit_activity_category_id: number | null
           primary_establishment_activity_category_id: number | null
@@ -14885,7 +14885,7 @@ export type Database = {
           isSetofReturn: true
         }
       },
-      primary_establishment_activity_differs_derive: {
+      quality_establishment_activity_differs_derive: {
         Args: Record<string, never>
         Returns: unknown
       },

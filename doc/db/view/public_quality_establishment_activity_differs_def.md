@@ -1,5 +1,5 @@
 ```sql
-                                  View "public.primary_establishment_activity_differs_def"
+                                  View "public.quality_establishment_activity_differs_def"
                    Column                   |         Type          | Collation | Nullable | Default | Storage | Description 
 --------------------------------------------+-----------------------+-----------+----------+---------+---------+-------------
  unit_type                                  | statistical_unit_type |           |          |         | plain   | 
@@ -24,4 +24,4 @@ Options: security_invoker=on
 
 ```
 
-**Comment:** The rule of public.primary_establishment_activity_differs, read from statistical_unit and timeline_establishment.
+**Comment:** The rule of the quality check public.quality_establishment_activity_differs, read from statistical_unit and timeline_establishment.

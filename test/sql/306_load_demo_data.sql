@@ -132,56 +132,57 @@ SELECT unit_type
  GROUP BY unit_type;
 \x
 
--- Data quality (xz3jej): legal units whose primary establishment has another primary activity,
--- as public.primary_establishment_activity_differs lists them after each derive. Block 1 gives
+-- Quality (xz3jej): legal units whose primary establishment has another primary activity, as the
+-- quality check public.quality_establishment_activity_differs lists them after each recalculation
+-- (worker.derive_quality). Block 1 gives
 -- every legal unit a formal establishment with the same activity, so the list starts empty; the
 -- steps below give one establishment another activity, then its legal unit the same one.
-\echo "Data quality: legal units with a primary establishment, and how many the check lists"
+\echo "Quality: legal units with a primary establishment, and how many the check lists"
 SELECT count(*) AS legal_units_with_primary_establishment,
-       (SELECT count(*) FROM public.primary_establishment_activity_differs) AS listed
+       (SELECT count(*) FROM public.quality_establishment_activity_differs) AS listed
 FROM public.statistical_unit AS su
 WHERE su.unit_type = 'legal_unit'
   AND EXISTS (SELECT 1 FROM public.timeline_establishment AS te
               WHERE te.legal_unit_id = su.unit_id AND te.primary_for_legal_unit
                 AND te.valid_from <= su.valid_from AND su.valid_from < te.valid_until);
 
-\echo "Data quality: the establishment of EQUATOR GLOBE SOLUTIONS gets activity 4752 instead of 5610"
+\echo "Quality: the establishment of EQUATOR GLOBE SOLUTIONS gets activity 4752 instead of 5610"
 UPDATE public.activity
 SET category_id = (SELECT id FROM public.activity_category_enabled WHERE code = '4752')
 WHERE establishment_id = (SELECT id FROM public.establishment WHERE name = 'EQUATOR GLOBE SOLUTIONS')
   AND type = 'primary';
 CALL worker.process_tasks(p_queue => 'analytics');
 
-\echo "Data quality: the check lists that legal unit, with both activities"
+\echo "Quality: the check lists that legal unit, with both activities"
 SELECT lu.name AS legal_unit,
        lu_ac.code AS legal_unit_activity,
        es.name AS primary_establishment,
        es_ac.code AS primary_establishment_activity
-FROM public.primary_establishment_activity_differs AS r
+FROM public.quality_establishment_activity_differs AS r
 JOIN public.legal_unit AS lu ON lu.id = r.unit_id AND lu.valid_from <= r.valid_from AND r.valid_from < lu.valid_until
 JOIN public.establishment AS es ON es.id = r.primary_establishment_id AND es.valid_from <= r.valid_from AND r.valid_from < es.valid_until
 LEFT JOIN public.activity_category AS lu_ac ON lu_ac.id = r.legal_unit_activity_category_id
 LEFT JOIN public.activity_category AS es_ac ON es_ac.id = r.primary_establishment_activity_category_id
 ORDER BY lu.name;
 
-\echo "Data quality: the search's inner join lists the same legal units that exist today"
+\echo "Quality: the search's inner join lists the same legal units that exist today"
 SELECT su.name
 FROM public.statistical_unit AS su
-JOIN public.primary_establishment_activity_differs AS r
+JOIN public.quality_establishment_activity_differs AS r
   ON r.unit_type = su.unit_type AND r.unit_id = su.unit_id AND r.valid_range = su.valid_range
 WHERE su.unit_type = 'legal_unit'
   AND public.existence_from(su) <= CURRENT_DATE AND CURRENT_DATE < public.existence_until(su)
 ORDER BY su.name;
 
-\echo "Data quality: the legal unit EQUATOR GLOBE SOLUTIONS gets activity 4752 too"
+\echo "Quality: the legal unit EQUATOR GLOBE SOLUTIONS gets activity 4752 too"
 UPDATE public.activity
 SET category_id = (SELECT id FROM public.activity_category_enabled WHERE code = '4752')
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'EQUATOR GLOBE SOLUTIONS')
   AND type = 'primary';
 CALL worker.process_tasks(p_queue => 'analytics');
 
-\echo "Data quality: the check lists no legal unit again"
-SELECT count(*) AS listed FROM public.primary_establishment_activity_differs;
+\echo "Quality: the check lists no legal unit again"
+SELECT count(*) AS listed FROM public.quality_establishment_activity_differs;
 
 
 ROLLBACK TO before_loading_units;

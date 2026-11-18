@@ -8,7 +8,7 @@ import { RegionCard } from "@/app/dashboard/region-card";
 import { MissingRegionCard } from "@/app/dashboard/missing-region-card";
 import { MissingPhysicalLocationCard } from "@/app/dashboard/missing-physical-location-card";
 import { MissingActivityCategoryCard } from "@/app/dashboard/missing-activity-category-card";
-import { PrimaryEstablishmentActivityDiffersCard } from "@/app/dashboard/primary-establishment-activity-differs-card";
+import { QualityEstablishmentActivityDiffersCard } from "@/app/dashboard/quality-establishment-activity-differs-card";
 import { CustomActivityCategoryCard } from "@/app/dashboard/custom-activity-category-card";
 import { ActivityCategoryCard } from "@/app/dashboard/activity-category-card";
 import { StatisticalVariableCountCard } from "@/app/dashboard/statistical-variable-count-card";
@@ -109,11 +109,11 @@ export default function Dashboard() {
           </Suspense>
         </Link>
 
-        <Link href="/search?unit_type=legal_unit&primary_establishment_activity_differs=true">
+        <Link href="/search?unit_type=legal_unit&quality=establishment_activity_differs">
           <Suspense
-            fallback={<FallBackCard title="Primary Establishment Has Another Activity" />}
+            fallback={<FallBackCard title="Establishment Activity Differs" />}
           >
-            <PrimaryEstablishmentActivityDiffersCard />
+            <QualityEstablishmentActivityDiffersCard />
           </Suspense>
         </Link>
 

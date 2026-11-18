@@ -293,33 +293,45 @@ export function lastEditByUserDeriveStateUpdateFromValues(
   return result;
 }                               
 
-// Data quality (xz3jej): legal units whose primary establishment has another primary activity.
-// The app parameter primary_establishment_activity_differs=true becomes an inner embed of the
-// report table public.primary_establishment_activity_differs, which keeps only the
-// statistical_unit rows it lists. The table is joined one-to-one by its NOT ENFORCED foreign key
-// (see the table's COMMENT), so the embed adds no field to a row and stays a plain join.
-export const PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS = "primary_establishment_activity_differs";
-export const PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS_SELECT =
-  "*,primary_establishment_activity_differs!inner()";
+// Quality (xz3jej): checks that list units to look at. Each check is a table public.quality_<check>,
+// joined one-to-one from statistical_unit by a NOT ENFORCED foreign key (see the table's COMMENT).
+// The app parameter quality=<check> becomes the inner embed of that table, which keeps only the
+// statistical_unit rows the check lists and adds no field to a row. QUALITY_CHECKS names every
+// check the search knows; any other value is ignored.
+export const QUALITY = "quality";
 
-export function primaryEstablishmentActivityDiffersDeriveStateUpdateFromSearchParams(
-  urlSearchParams: URLSearchParams
-): SearchAction {
-  return primaryEstablishmentActivityDiffersDeriveStateUpdateFromValues(
-    urlSearchParams.get(PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS)
-  );
+export const QUALITY_CHECKS = {
+  establishment_activity_differs: {
+    label: "Primary establishment has another activity",
+    shortLabel: "Activity differs",
+  },
+} as const;
+
+export type QualityCheck = keyof typeof QUALITY_CHECKS;
+
+export function isQualityCheck(value: string | null): value is QualityCheck {
+  return value !== null && Object.prototype.hasOwnProperty.call(QUALITY_CHECKS, value);
 }
 
-export function primaryEstablishmentActivityDiffersDeriveStateUpdateFromValues(
-  value: string | null
+export function qualitySelect(check: QualityCheck): string {
+  return `*,quality_${check}!inner()`;
+}
+
+export function qualityDeriveStateUpdateFromSearchParams(
+  urlSearchParams: URLSearchParams
 ): SearchAction {
+  return qualityDeriveStateUpdateFromValues(urlSearchParams.get(QUALITY));
+}
+
+export function qualityDeriveStateUpdateFromValues(value: string | null): SearchAction {
+  const check = isQualityCheck(value) ? value : null;
   return {
     type: "set_query",
     payload: {
-      app_param_name: PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS,
+      app_param_name: QUALITY,
       api_param_name: "select",
-      api_param_value: value === "true" ? PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS_SELECT : null,
-      app_param_values: value === "true" ? [value] : [],
+      api_param_value: check ? qualitySelect(check) : null,
+      app_param_values: check ? [check] : [],
     },
   } as SearchAction;
 }

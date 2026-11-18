@@ -24,54 +24,64 @@ jest.mock("../app/search/search-requests", () => ({
 
 import { derivedApiSearchParamsAtom, filtersAtom } from "./search";
 import {
-  PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS,
-  PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS_SELECT,
-  primaryEstablishmentActivityDiffersDeriveStateUpdateFromSearchParams,
+  QUALITY,
+  qualityDeriveStateUpdateFromSearchParams,
 } from "../app/search/filters/url-search-params";
 
-// xz3jej: the dashboard card links to
-// /search?unit_type=legal_unit&primary_establishment_activity_differs=true. The search turns
-// that parameter into the inner embed of the report table, the same one the card counts with.
-describe("primary_establishment_activity_differs search filter", () => {
-  it("reads the app parameter from the URL", () => {
-    const action =
-      primaryEstablishmentActivityDiffersDeriveStateUpdateFromSearchParams(
-        new URLSearchParams(
-          "unit_type=legal_unit&primary_establishment_activity_differs=true"
-        )
-      );
+// xz3jej: a Data quality card links to /search?unit_type=legal_unit&quality=<check>. The search
+// turns that parameter into the inner embed of the check's table public.quality_<check>, the
+// same one the card counts with.
+describe("quality search filter", () => {
+  it("reads a known check from the URL", () => {
+    const action = qualityDeriveStateUpdateFromSearchParams(
+      new URLSearchParams(
+        "unit_type=legal_unit&quality=establishment_activity_differs"
+      )
+    );
     expect(action).toEqual({
       type: "set_query",
       payload: {
-        app_param_name: PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS,
+        app_param_name: QUALITY,
         api_param_name: "select",
-        api_param_value: "*,primary_establishment_activity_differs!inner()",
-        app_param_values: ["true"],
+        api_param_value: "*,quality_establishment_activity_differs!inner()",
+        app_param_values: ["establishment_activity_differs"],
       },
     });
   });
 
-  it("sends the inner embed to PostgREST with the other filters", () => {
+  it("ignores a check it does not know", () => {
+    const action = qualityDeriveStateUpdateFromSearchParams(
+      new URLSearchParams("quality=no_such_check")
+    );
+    expect(action).toEqual({
+      type: "set_query",
+      payload: {
+        app_param_name: QUALITY,
+        api_param_name: "select",
+        api_param_value: null,
+        app_param_values: [],
+      },
+    });
+  });
+
+  it("sends the check's inner embed to PostgREST with the other filters", () => {
     const store = createStore();
     store.set(filtersAtom, {
       unit_type: ["legal_unit"],
-      [PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS]: ["true"],
+      [QUALITY]: ["establishment_activity_differs"],
     });
     const params = store.get(derivedApiSearchParamsAtom);
     expect(params.get("select")).toBe(
-      PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS_SELECT
+      "*,quality_establishment_activity_differs!inner()"
     );
     expect(params.get("unit_type")).toBe("in.(legal_unit)");
     expect(params.get("existence_from")).toBe("lte.2026-11-18");
     expect(params.get("existence_until")).toBe("gt.2026-11-18");
   });
 
-  it("sends no select once the filter is cleared", () => {
+  it("sends no select once the check is cleared", () => {
     const store = createStore();
-    store.set(filtersAtom, {
-      unit_type: ["legal_unit"],
-      [PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS]: [],
-    });
+    store.set(filtersAtom, { unit_type: ["legal_unit"], [QUALITY]: [] });
     const params = store.get(derivedApiSearchParamsAtom);
     expect(params.has("select")).toBe(false);
     expect(params.get("unit_type")).toBe("in.(legal_unit)");

@@ -55,7 +55,7 @@ FROM ran FULL JOIN weighted USING (phase)
 ORDER BY ran.phase;
              phase             |                                                             ran_steps                                                              |                                                           weighted_steps                                                           | weights_match_steps 
 -------------------------------+------------------------------------------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------+---------------------
- is_deriving_reports           | {derive_statistical_unit_facet,statistical_unit_facet_reduce,statistical_history_facet_delta_reduce}                               | {derive_statistical_unit_facet,statistical_unit_facet_reduce,statistical_history_facet_delta_reduce}                               | t
+ is_deriving_reports           | {derive_statistical_unit_facet,statistical_unit_facet_reduce,derive_quality,statistical_history_facet_delta_reduce}                | {derive_statistical_unit_facet,statistical_unit_facet_reduce,derive_quality,statistical_history_facet_delta_reduce}                | t
  is_deriving_statistical_units | {collect_changes,derive_statistical_unit,derive_statistical_history_facet_delta,statistical_unit_flush_staging,derive_used_tables} | {collect_changes,derive_statistical_unit,derive_statistical_history_facet_delta,statistical_unit_flush_staging,derive_used_tables} | t
 (2 rows)
 
@@ -66,7 +66,7 @@ ORDER BY ran.phase;
 SELECT count(*) AS steps, bool_and(weight > 0) AS all_positive FROM public.pipeline_step_weight;
  steps | all_positive 
 -------+--------------
-     8 | t
+     9 | t
 (1 row)
 
 ROLLBACK;

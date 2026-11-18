@@ -34,6 +34,8 @@
  * what silently dropped 29,470 rows in Phase 1).
  */
 
+import { isQualityCheck } from "@/app/search/filters/url-search-params";
+
 export class ExportQueryError extends Error {
   constructor(message: string) {
     super(message);
@@ -69,15 +71,21 @@ const IGNORED_PARAMS = new Set(["limit", "offset", "format"]);
 
 /**
  * The search page's `select` values and the row filter each one means. The search sends no
- * select (PostgREST's `*`) unless a data-quality filter adds an inner embed, which keeps only
- * the statistical_unit rows its report table lists; the export keeps the same rows with the
- * same join. Any other select is refused, so an export never ignores a filter the list used.
+ * select (PostgREST's `*`) unless a quality check adds the inner embed of its table
+ * (quality=<check>), which keeps only the statistical_unit rows the check lists; the export keeps
+ * the same rows with the same join. Any other select is refused, so an export never ignores a
+ * filter the list used.
  */
-const SELECT_FILTERS: Record<string, string | null> = {
-  "*": null,
-  "*,primary_establishment_activity_differs!inner()": `EXISTS (SELECT 1 FROM public.primary_establishment_activity_differs AS r
-    WHERE r.unit_type = su.unit_type AND r.unit_id = su.unit_id AND r.valid_range = su.valid_range)`,
-};
+function selectFilter(value: string): string | null {
+  if (value === "*") return null;
+  const check = /^\*,quality_([a-z_]+)!inner\(\)$/.exec(value)?.[1] ?? null;
+  if (check && isQualityCheck(check)) {
+    const table = quoteIdent(`quality_${check}`);
+    return `EXISTS (SELECT 1 FROM public.${table} AS q
+    WHERE q.unit_type = su.unit_type AND q.unit_id = su.unit_id AND q.valid_range = su.valid_range)`;
+  }
+  throw new ExportQueryError(`Unsupported export select: ${value}`);
+}
 
 /**
  * statistical_unit columns usable in filters and ordering, by kind. The kind
@@ -435,10 +443,7 @@ export function whereConditions(params: URLSearchParams): string[] {
   for (const [key, value] of params.entries()) {
     if (key === "order" || IGNORED_PARAMS.has(key)) continue;
     if (key === "select") {
-      if (!(value in SELECT_FILTERS)) {
-        throw new ExportQueryError(`Unsupported export select: ${value}`);
-      }
-      const condition = SELECT_FILTERS[value];
+      const condition = selectFilter(value);
       if (condition) conditions.push(condition);
       continue;
     }
