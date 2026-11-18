@@ -30,7 +30,7 @@ waiting_since: "2026-11-18T12:28"
 ## Acceptance
 - [x] #1 Adding a location, contact, activity or statistic to a unit that starts inside the selected time frame opens Valid From on the unit's first day; a test of readEditRange with no rows for the field asserts it
 - [x] #2 Saving a new record whose period starts before the unit exists stores it from the unit's first day and no earlier, without an error; a test asserts the stored rows for a portion starting before the unit
-- [ ] #3 [Owner] On Norway after the release carrying this, adds a physical location to 0404 GRUE TRAVKLUBB (933130436) without changing Valid From. The answer is recorded in this ticket's notes: yes closes the ticket; no gives the error to investigate.
+- [x] #3 [Owner] On Norway after the release carrying this, adds a physical location to 0404 GRUE TRAVKLUBB (933130436) without changing Valid From. The answer is recorded in this ticket's notes: yes closes the ticket; no gives the error to investigate.
 
 ## North Star
 Adding a record to a unit (a location, contact, activity or statistic it does not have yet) opens on the period where the unit exists, and saving it stores it there, the same way an edit of an existing value does (STATBUS-604).
