@@ -13,7 +13,7 @@ stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
-waiting_on: "the hug release that stops linting done tasks (installed now: v0.7.50)"
+waiting_on: "the owner's decision on hug upgrade --apply (hug v0.7.53 is installed)"
 waiting_since: "2026-11-18T00:40"
 waiting_asked_by: "hibiscus"
 waiting_for: "jhf"
@@ -29,11 +29,12 @@ Today hug lints done and dropped tasks too, and the old imported board makes hun
 Wait for the hug release that skips done tasks, then fix the open tasks one by one with the owner. Tasks another agent has taken are theirs to fix. Done tasks are left as they are.
 
 ## Relevant details
-Installed now: hug v0.7.50 (brew veridit/tap/hug). Open tasks with findings on 2026-11-17: Rabbit's senzch, hmgadt, 00rnq5; the rest of the todo tasks were not yet counted. Check with: hug task lint (after the release, it covers only open tasks).
+Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see the notes of 2026-11-18 02:55. Check with: hug task lint <id> per task, and hug upgrade for the pending mechanical changes.
 
 ## Depends on
 
 ## Acceptance
+- [ ] [Owner] Decides whether to run hug upgrade --apply; the answer is recorded in the notes. Yes: run it, which moves the waits of yq5tr6, ezp3h0, mtw92d and hmgadt to asked and changes the memory hooks in the other projects' .jcode/config.toml, then re-lint. No: fix yq5tr6's old-layout field by hand and leave Rabbit's tasks to him.
 - [ ] With a hug release later than v0.7.50 installed, hug task lint reports no findings on done or dropped tasks
 - [ ] hug task lint reports no findings on any open task, except tasks another agent has taken, which are named in the notes
 
