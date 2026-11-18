@@ -28,7 +28,7 @@ A development checkout's generated addresses follow its slot, so a stale value c
 The test checkout still held SERVER_REST_URL=http://proxy:80 and STATBUS_URL=http://localhost:3013 from an earlier setup: the host dev server's auth check failed with ENOTFOUND proxy on every request, and the page reloaded to /login in a loop (owner 2026-11-16 13:06). BROWSER_REST_URL pointed at another slot's REST (localhost:3013). Each new checkout or reboot repeats the diagnosis.
 
 ## Principle
-In development the addresses are derived from SITE_DOMAIN and the slot, not remembered; a value that differs is an explicit operator override, never a leftover.
+In development the three addresses are always derived from SITE_DOMAIN, the slot's ports and DEV_HTTPS, never remembered; one SITE_DOMAIN per slot on a machine keeps sign-in cookies apart.
 
 ## Relevant details
 In development, sb config generate derives STATBUS_URL, BROWSER_REST_URL and SERVER_REST_URL from SITE_DOMAIN, the slot's ports and DEV_HTTPS (declared in .env.config, default true; https://<domain>:<CADDY_HTTPS_PORT> or http://<domain>:<CADDY_HTTP_PORT>). They are written to .env only. ./dev.sh https on/off sets DEV_HTTPS and regenerates. On first run, config generate drops the three address lines from .env.config and sets DEV_HTTPS from the old BROWSER_REST_URL scheme. Cookie names stay fixed; each slot on a machine has its own SITE_DOMAIN, checked through the proxy container label org.statbus.site_domain in every mode by config generate and sb start.
