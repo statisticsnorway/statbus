@@ -5893,7 +5893,6 @@ export type Database = {
           recreate: boolean
           release_builds_status: Database["public"]["Enums"]["release_builds_status_type"]
           release_status: Database["public"]["Enums"]["release_status_type"]
-          release_url: string | null
           rollback_finish_pending_at: string | null
           rolled_back_at: string | null
           scheduled_at: string | null
@@ -5929,7 +5928,6 @@ export type Database = {
           recreate?: boolean
           release_builds_status?: Database["public"]["Enums"]["release_builds_status_type"]
           release_status?: Database["public"]["Enums"]["release_status_type"]
-          release_url?: string | null
           rollback_finish_pending_at?: string | null
           rolled_back_at?: string | null
           scheduled_at?: string | null
@@ -5965,7 +5963,6 @@ export type Database = {
           recreate?: boolean
           release_builds_status?: Database["public"]["Enums"]["release_builds_status_type"]
           release_status?: Database["public"]["Enums"]["release_status_type"]
-          release_url?: string | null
           rollback_finish_pending_at?: string | null
           rolled_back_at?: string | null
           scheduled_at?: string | null

@@ -97,7 +97,6 @@ export interface Upgrade {
   state: UpgradeState;
   summary: string;
   changes: string | null;
-  release_url: string | null;
   has_migrations: boolean;
   from_commit_version: string | null;
   scheduled_at: string | null;
@@ -1242,6 +1241,18 @@ function ChangelogContent({ text }: { text: string }) {
   );
 }
 
+/**
+ * Where an upgrade row's name links: a tagged version (release or release
+ * candidate) to its GitHub release page, built from the tag the name shows;
+ * an untagged edge commit to the commit (hzyejk, STATBUS-607).
+ */
+function upgradeVersionHref(u: Upgrade): string {
+  const repo = "https://github.com/statisticsnorway/statbus";
+  return u.commit_tags.includes(u.display_name)
+    ? `${repo}/releases/tag/${u.display_name}`
+    : `${repo}/commit/${u.commit_sha}`;
+}
+
 function UpgradeCard({
   upgrade: u,
   status,
@@ -1273,6 +1284,7 @@ function UpgradeCard({
   const canRetry = scheduleAction === "rpc" && status !== "available";
   const restoreReattemptRequired = scheduleAction === "install";
   const installedAs = installedAsLabel(u.summary, u.display_name);
+  const versionHref = upgradeVersionHref(u);
 
   return (
     <Card
@@ -1288,18 +1300,14 @@ function UpgradeCard({
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
-              {u.release_url ? (
-                <a
-                  href={u.release_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:underline"
-                >
-                  {u.display_name}
-                </a>
-              ) : (
-                u.display_name
-              )}
+              <a
+                href={versionHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                {u.display_name}
+              </a>
               {u.release_status !== "commit" && (
                 <a
                   href={`https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}`}
@@ -1318,15 +1326,7 @@ function UpgradeCard({
                   Recommended
                 </Badge>
               )}
-              <a
-                href={
-                  u.release_status === "commit"
-                    ? `https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}`
-                    : `https://github.com/statisticsnorway/statbus/releases/tag/${u.commit_tags?.[0] ?? ""}`
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <a href={versionHref} target="_blank" rel="noopener noreferrer">
                 <Badge
                   variant="outline"
                   className={
@@ -1659,18 +1659,16 @@ function UpgradeCard({
                 )}
                 Dismiss
               </Button>
-              {u.release_url && (
-                <Button size="sm" variant="ghost" asChild>
-                  <a
-                    href={`https://github.com/statisticsnorway/statbus/issues/new?title=${encodeURIComponent(`Upgrade failed: ${u.display_name}`)}&body=${encodeURIComponent(`## Upgrade Failure Report\n\n**Version:** ${u.display_name}\n**Commit:** ${u.commit_sha}\n**From:** ${u.from_commit_version ?? "unknown"}\n**Error:** ${u.error}\n**Date:** ${u.started_at}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
-                    Report Issue
-                  </a>
-                </Button>
-              )}
+              <Button size="sm" variant="ghost" asChild>
+                <a
+                  href={`https://github.com/statisticsnorway/statbus/issues/new?title=${encodeURIComponent(`Upgrade failed: ${u.display_name}`)}&body=${encodeURIComponent(`## Upgrade Failure Report\n\n**Version:** ${u.display_name}\n**Commit:** ${u.commit_sha}\n**From:** ${u.from_commit_version ?? "unknown"}\n**Error:** ${u.error}\n**Date:** ${u.started_at}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                  Report Issue
+                </a>
+              </Button>
             </>
           )}
 

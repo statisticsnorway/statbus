@@ -9,7 +9,6 @@
  release_status             | release_status_type        |           | not null | 'commit'::release_status_type          | plain    |             |              | 
  summary                    | text                       |           | not null |                                        | extended |             |              | 
  changes                    | text                       |           |          |                                        | extended |             |              | 
- release_url                | text                       |           |          |                                        | extended |             |              | 
  has_migrations             | boolean                    |           | not null | false                                  | plain    |             |              | 
  discovered_at              | timestamp with time zone   |           | not null | clock_timestamp()                      | plain    |             |              | 
  scheduled_at               | timestamp with time zone   |           |          |                                        | plain    |             |              | When this version was asked for. An operator (./sb upgrade schedule) or the release channel sets it to request an upgrade; upgrade_notify_daemon_trigger turns a newly set value into NOTIFY upgrade_apply, and the upgrade daemon runs the request. A row that ./sb install inserts already completed carries its install time here (no trigger fires on INSERT). ./sb install leaves it as it was on a row that already exists.

@@ -1360,7 +1360,6 @@ erDiagram
 		release_status_type release_status
 		text summary
 		text changes
-		text release_url
 		boolean has_migrations
 		timestamp_with_time_zone discovered_at
 		timestamp_with_time_zone scheduled_at

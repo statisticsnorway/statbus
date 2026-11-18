@@ -38,7 +38,6 @@ function makeUpgrade(overrides: Partial<Upgrade>): Upgrade {
     state: "available",
     summary: "",
     changes: null,
-    release_url: null,
     has_migrations: false,
     from_commit_version: null,
     scheduled_at: null,
@@ -273,4 +272,44 @@ test("the running row is lifted out of History entirely", () => {
   expect(html).toContain(">Running<");
   expect(html).not.toContain(">History<");
   expect(html).not.toContain(">Completed<");
+});
+
+// hzyejk (STATBUS-607): a version's name links to its GitHub release, built
+// from the tag; nothing stores the address.
+test("a tagged upgrade row links its name to the release, release candidates included", () => {
+  const candidate = makeUpgrade({
+    id: 227600,
+    commit_sha: "a".repeat(40),
+    committed_at: "2026-10-08T09:00:00Z",
+    commit_tags: ["v2026.10.0-rc.21"],
+    release_status: "prerelease",
+    display_name: "v2026.10.0-rc.21",
+    state: "available",
+  });
+  const html = renderPage({
+    currentRows: [runningRow],
+    rows: [candidate, runningRow],
+  });
+  // The name itself is the link (the badge beside it links too).
+  expect(html).toMatch(
+    /href="https:\/\/github\.com\/statisticsnorway\/statbus\/releases\/tag\/v2026\.10\.0-rc\.21"[^>]*>v2026\.10\.0-rc\.21<\/a>/
+  );
+});
+
+test("a failed upgrade row offers Report Issue", () => {
+  const failed = makeUpgrade({
+    id: 227601,
+    commit_sha: "b".repeat(40),
+    committed_at: "2026-10-08T10:00:00Z",
+    commit_tags: ["v2026.10.0-rc.22"],
+    release_status: "prerelease",
+    display_name: "v2026.10.0-rc.22",
+    display_state: "Failed",
+    state: "failed",
+    started_at: "2026-10-08T10:05:00Z",
+    error: "migration 42 failed",
+  });
+  const html = renderPage({ currentRows: [runningRow], rows: [failed, runningRow] });
+  expect(html).toContain(">Failed<");
+  expect(html).toContain("Report Issue");
 });
