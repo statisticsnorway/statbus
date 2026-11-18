@@ -60,6 +60,7 @@ Check 1 precisely: each request reads range offset..offset+50 (51 rows: the 50 s
 2026-11-18 06:54 (Rabbit): v2026.11.5-rc.02 (691e26810) carries this; ladder rungs 1-8 green (orchestrator 44247167926). Test on Norway with rc.02.
 2026-11-18 13:26 (Rabbit): paused for 50bwaz (reset + factory defaults, owner's detour for the next rc); the owner's open question here comes right after it.
 2026-11-18 16:14 (Rabbit): shipped in stable v2026.11.5 (promoted from rc.02, 691e26810) and in v2026.11.6-rc.01. The owner's open check waits for his return this evening.
+2026-11-18 16:48 owner: (a) plain paging, as built and shipped (v2026.11.5, v2026.11.6-rc.01). Frame grouping only if people ask for it; no follow-up ticket now.
 ## History
 - 2026-11-18T04:41 todo -> doing/active (take)
 - 2026-11-18T04:55 doing/active -> doing/waiting (wait)
