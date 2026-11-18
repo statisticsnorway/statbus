@@ -37,6 +37,8 @@ public.reset(confirmed, scope reset_scope), scopes units|data|getting-started|al
 - [ ] After a reset the Getting started menu shows each step as the database holds it, without a page reload (headless: reset Units and Getting started, steps 1 to 6 show not done)
 - [ ] The custom activity codes upload, with no activity category standard set, says to complete step 2 first instead of the database error (test)
 - [ ] [Owner] Confirms on the North Cyprus installation after the release: reset Units and Getting started, then Getting started from step 1 through the custom activity code upload
+- [ ] A reset of the third scope restores every system default a user edited on /admin to its shipped value (name, enabled, priority and other columns), and removes custom rows; a test edits a default unit size, status, data source and statistical variable, resets, and asserts the shipped rows
+- [ ] A Getting started reset (and the third scope) restores the activity category standards as shipped, including code_pattern; a test changes NACE's code_pattern to digits, resets, and asserts dot_after_two_digits
 
 ## Notes
 
