@@ -2,7 +2,7 @@
 id: "g71vzm"
 title: A small edit refreshes only the facets it changed
 state: "doing"
-assignee: []
+assignee: ["g71vzm bench box"]
 updated_date: '2026-11-16T16:54:00Z'
 labels:
   - performance
@@ -16,6 +16,9 @@ aliases: ["STATBUS-626"]
 backlog_type: "enhancement"
 created: "2026-11-12T00:59:00Z"
 updated: "2026-11-16T16:54:00Z"
+model: "claude-opus-5-5"
+branch: "statbus-xz3jej-primary-est-activity"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
