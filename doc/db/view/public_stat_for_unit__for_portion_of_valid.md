@@ -40,6 +40,7 @@ View definition:
    FROM stat_for_unit;
 Triggers:
     for_portion_of_valid INSTEAD OF INSERT OR DELETE OR UPDATE ON stat_for_unit__for_portion_of_valid FOR EACH ROW EXECUTE FUNCTION sql_saga.for_portion_of_trigger('id')
+    for_portion_of_valid_apply AFTER UPDATE ON stat_for_unit__for_portion_of_valid FOR EACH STATEMENT EXECUTE FUNCTION sql_saga.for_portion_of_apply_trigger()
 Options: security_invoker=on
 
 ```

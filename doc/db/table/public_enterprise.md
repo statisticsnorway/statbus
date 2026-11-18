@@ -1,12 +1,12 @@
 ```sql
-                                                               Table "public.enterprise"
-     Column      |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+                                                                                                                                                                                                                            Table "public.enterprise"
+     Column      |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target |                                                                                                                                                              Description                                                                                                                                                              
+-----------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  id              | integer                  |           | not null | generated always as identity | plain    |             |              | 
  enabled         | boolean                  |           | not null | true                         | plain    |             |              | 
  short_name      | character varying(16)    |           |          |                              | extended |             |              | 
  edit_comment    | character varying(512)   |           |          |                              | extended |             |              | 
- edit_by_user_id | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
+ edit_by_user_id | integer                  |           | not null | auth.uid()                   | plain    |             |              | Who last wrote this row's values, shown as "Last edited by". Set by the edit forms and imports, or by DEFAULT auth.uid(). A record of the writer, not a permission: who may write is decided by role. On temporal tables sql_saga carries it as an ephemeral column, so a piece a partial edit leaves untouched keeps its own writer.
  edit_at         | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "enterprise_pkey" PRIMARY KEY, btree (id)
@@ -31,7 +31,7 @@ Policies:
     POLICY "enterprise_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK ((edit_by_user_id = auth.uid()))
+      WITH CHECK (true)
 Not-null constraints:
     "enterprise_id_not_null" NOT NULL "id"
     "enterprise_enabled_not_null" NOT NULL "enabled"

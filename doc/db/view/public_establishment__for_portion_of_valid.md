@@ -50,6 +50,7 @@ View definition:
    FROM establishment;
 Triggers:
     for_portion_of_valid INSTEAD OF INSERT OR DELETE OR UPDATE ON establishment__for_portion_of_valid FOR EACH ROW EXECUTE FUNCTION sql_saga.for_portion_of_trigger('id')
+    for_portion_of_valid_apply AFTER UPDATE ON establishment__for_portion_of_valid FOR EACH STATEMENT EXECUTE FUNCTION sql_saga.for_portion_of_apply_trigger()
 Options: security_invoker=on
 
 ```

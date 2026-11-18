@@ -449,7 +449,7 @@ Policies:
     POLICY "import_71_a1_lu_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK ((edit_by_user_id = auth.uid()))
+      WITH CHECK (true)
 Not-null constraints:
     "import_71_a1_lu_data_row_id_not_null" NOT NULL "row_id"
     "import_71_a1_lu_data_state_not_null" NOT NULL "state"

@@ -1,7 +1,7 @@
 ```sql
-                                                                                                 Table "public.power_group"
-          Column          |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target |                               Description                               
---------------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------------------------------------------------------------------
+                                                                                                                                                                                                                                Table "public.power_group"
+          Column          |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target |                                                                                                                                                              Description                                                                                                                                                              
+--------------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  id                       | integer                  |           | not null | generated always as identity | plain    |             |              | 
  ident                    | text                     |           | not null | generate_power_ident()       | extended |             |              | Stable identifier (e.g., PG0001) that persists across hierarchy changes
  short_name               | character varying(16)    |           |          |                              | extended |             |              | 
@@ -12,7 +12,7 @@
  data_source_id           | integer                  |           |          |                              | plain    |             |              | 
  foreign_participation_id | integer                  |           |          |                              | plain    |             |              | 
  edit_comment             | character varying(512)   |           |          |                              | extended |             |              | 
- edit_by_user_id          | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
+ edit_by_user_id          | integer                  |           | not null | auth.uid()                   | plain    |             |              | Who last wrote this row's values, shown as "Last edited by". Set by the edit forms and imports, or by DEFAULT auth.uid(). A record of the writer, not a permission: who may write is decided by role. On temporal tables sql_saga carries it as an ephemeral column, so a piece a partial edit leaves untouched keeps its own writer.
  edit_at                  | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "power_group_pkey" PRIMARY KEY, btree (id)
@@ -46,7 +46,7 @@ Policies:
     POLICY "power_group_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK ((edit_by_user_id = auth.uid()))
+      WITH CHECK (true)
 Not-null constraints:
     "power_group_id_not_null" NOT NULL "id"
     "power_group_ident_not_null" NOT NULL "ident"

@@ -312,7 +312,7 @@ Policies:
     POLICY "import_lu_2015_sht_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK ((edit_by_user_id = auth.uid()))
+      WITH CHECK (true)
 
 \echo 'Definition snapshot for import_lu_2015_sht:'
 Definition snapshot for import_lu_2015_sht:
@@ -2454,7 +2454,7 @@ Policies:
     POLICY "import_es_2015_sht_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK ((edit_by_user_id = auth.uid()))
+      WITH CHECK (true)
 
 \echo 'Definition snapshot for import_es_2015_sht:'
 Definition snapshot for import_es_2015_sht:

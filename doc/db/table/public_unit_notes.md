@@ -1,7 +1,7 @@
 ```sql
-                                                                Table "public.unit_notes"
-      Column      |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
-------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+                                                                                                                                                                                                                             Table "public.unit_notes"
+      Column      |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target |                                                                                                                                                              Description                                                                                                                                                              
+------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  id               | integer                  |           | not null | generated always as identity | plain    |             |              | 
  notes            | text                     |           | not null |                              | extended |             |              | 
  establishment_id | integer                  |           |          |                              | plain    |             |              | 
@@ -10,7 +10,7 @@
  power_group_id   | integer                  |           |          |                              | plain    |             |              | 
  created_at       | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
  edit_comment     | character varying(512)   |           |          |                              | extended |             |              | 
- edit_by_user_id  | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
+ edit_by_user_id  | integer                  |           | not null | auth.uid()                   | plain    |             |              | Who last wrote this row's values, shown as "Last edited by". Set by the edit forms and imports, or by DEFAULT auth.uid(). A record of the writer, not a permission: who may write is decided by role. On temporal tables sql_saga carries it as an ephemeral column, so a piece a partial edit leaves untouched keeps its own writer.
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "unit_notes_pkey" PRIMARY KEY, btree (id)
@@ -34,7 +34,7 @@ Policies:
     POLICY "unit_notes_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK ((edit_by_user_id = auth.uid()))
+      WITH CHECK (true)
 Not-null constraints:
     "unit_notes_id_not_null" NOT NULL "id"
     "unit_notes_notes_not_null" NOT NULL "notes"

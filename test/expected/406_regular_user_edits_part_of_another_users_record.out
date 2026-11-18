@@ -1,0 +1,130 @@
+-- febdra: a regular user changes or removes part of a period on records another
+-- user wrote. A partial edit through a for_portion_of view splits the row:
+-- sql_saga writes the changed period with the editor's values and keeps the
+-- rest as pieces carrying their original values and writer. Who may write is
+-- decided by role (regular_user may write unit data); edit_by_user_id records
+-- who last wrote a row's values, so the kept pieces still name the admin and
+-- the changed period names the regular user. Runs as a regular user under
+-- pg_safeupdate, as every production session does.
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+CALL test.set_user_from_email('test.admin@statbus.org');
+\o /dev/null
+\set ECHO none
+\echo "A legal unit from 2024 whose activity, statistic, contact and located address were written by the admin"
+"A legal unit from 2024 whose activity, statistic, contact and located address were written by the admin"
+SELECT id AS admin_id FROM auth.user WHERE email = 'test.admin@statbus.org' \gset
+SELECT id AS regular_id FROM auth.user WHERE email = 'test.regular@statbus.org' \gset
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at)
+VALUES ('ENT FEBDRA', :admin_id, now()) RETURNING id AS ent_id \gset
+INSERT INTO public.legal_unit (enterprise_id, name, status_id, primary_for_enterprise, edit_by_user_id, edit_at, valid_from)
+VALUES (:ent_id, 'PARTIAL EDIT AS', (SELECT id FROM public.status WHERE code = 'active'), true, :admin_id, now(), '2024-01-01')
+RETURNING id AS lu_id \gset
+SELECT id AS cat_a FROM public.activity_category WHERE enabled ORDER BY path LIMIT 1 \gset
+SELECT id AS cat_b FROM public.activity_category WHERE enabled ORDER BY path OFFSET 1 LIMIT 1 \gset
+SELECT id AS region_id FROM public.region ORDER BY path DESC LIMIT 1 \gset
+INSERT INTO public.activity (valid_from, valid_to, type, category_id, legal_unit_id, edit_by_user_id, edit_at)
+VALUES ('2024-01-01', 'infinity', 'primary', :cat_a, :lu_id, :admin_id, now())
+RETURNING id AS activity_id \gset
+INSERT INTO public.stat_for_unit (valid_from, valid_to, stat_definition_id, value_int, legal_unit_id, edit_by_user_id, edit_at)
+VALUES ('2024-01-01', 'infinity', (SELECT id FROM public.stat_definition WHERE code = 'employees'), 12, :lu_id, :admin_id, now())
+RETURNING id AS stat_id \gset
+INSERT INTO public.contact (valid_from, valid_to, phone_number, legal_unit_id, edit_by_user_id, edit_at)
+VALUES ('2024-01-01', 'infinity', '+47 100', :lu_id, :admin_id, now())
+RETURNING id AS contact_id \gset
+INSERT INTO public.location (valid_from, valid_to, type, address_part1, region_id, country_id, legal_unit_id, edit_by_user_id, edit_at)
+VALUES ('2024-01-01', 'infinity', 'physical', 'Storgata 1', :region_id, (SELECT id FROM public.country WHERE iso_2 = 'NO'), :lu_id, :admin_id, now())
+RETURNING id AS location_id \gset
+CREATE TEMP VIEW unit_records AS
+SELECT 'activity' AS record, valid_from, valid_until,
+       CASE category_id WHEN :cat_a THEN 'category A' WHEN :cat_b THEN 'category B' END AS value,
+       CASE edit_by_user_id WHEN :admin_id THEN 'admin' WHEN :regular_id THEN 'regular' END AS written_by
+  FROM public.activity WHERE legal_unit_id = :lu_id
+UNION ALL
+SELECT 'stat employees', valid_from, valid_until, value_int::text,
+       CASE edit_by_user_id WHEN :admin_id THEN 'admin' WHEN :regular_id THEN 'regular' END
+  FROM public.stat_for_unit WHERE legal_unit_id = :lu_id
+UNION ALL
+SELECT 'contact', valid_from, valid_until, phone_number,
+       CASE edit_by_user_id WHEN :admin_id THEN 'admin' WHEN :regular_id THEN 'regular' END
+  FROM public.contact WHERE legal_unit_id = :lu_id
+UNION ALL
+SELECT 'location physical', valid_from, valid_until,
+       address_part1 || CASE WHEN region_id IS NOT NULL THEN ' (in a region)' ELSE '' END,
+       CASE edit_by_user_id WHEN :admin_id THEN 'admin' WHEN :regular_id THEN 'regular' END
+  FROM public.location WHERE legal_unit_id = :lu_id
+ORDER BY record, valid_from;
+GRANT SELECT ON unit_records TO PUBLIC;
+SELECT * FROM unit_records;
+      record       | valid_from | valid_until |          value           | written_by 
+-------------------+------------+-------------+--------------------------+------------
+ activity          | 2024-01-01 | infinity    | category A               | admin
+ contact           | 2024-01-01 | infinity    | +47 100                  | admin
+ location physical | 2024-01-01 | infinity    | Storgata 1 (in a region) | admin
+ stat employees    | 2024-01-01 | infinity    | 12                       | admin
+(4 rows)
+
+CALL test.set_user_from_email('test.regular@statbus.org');
+SELECT current_user, current_setting('safeupdate.enabled') AS safeupdate_enabled;
+       current_user       | safeupdate_enabled 
+--------------------------+--------------------
+ test.regular@statbus.org | on
+(1 row)
+
+\echo "Change the activity's category in 2025 only, as the edit form does: 2024 and 2026- keep category A and the admin"
+"Change the activity's category in 2025 only, as the edit form does: 2024 and 2026- keep category A and the admin"
+UPDATE public.activity__for_portion_of_valid
+   SET category_id = :cat_b, edit_by_user_id = :regular_id, edit_at = now(),
+       valid_from = '2025-01-01', valid_until = '2026-01-01'
+ WHERE id = :activity_id;
+SELECT * FROM unit_records WHERE record = 'activity';
+  record  | valid_from | valid_until |   value    | written_by 
+----------+------------+-------------+------------+------------
+ activity | 2024-01-01 | 2025-01-01  | category A | admin
+ activity | 2025-01-01 | 2026-01-01  | category B | regular
+ activity | 2026-01-01 | infinity    | category A | admin
+(3 rows)
+
+\echo "Change the contact's phone from 2025 on: 2024 keeps the old number and the admin"
+"Change the contact's phone from 2025 on: 2024 keeps the old number and the admin"
+UPDATE public.contact__for_portion_of_valid
+   SET phone_number = '+47 200', edit_by_user_id = :regular_id, edit_at = now(),
+       valid_from = '2025-01-01', valid_until = 'infinity'
+ WHERE id = :contact_id;
+SELECT * FROM unit_records WHERE record = 'contact';
+ record  | valid_from | valid_until |  value  | written_by 
+---------+------------+-------------+---------+------------
+ contact | 2024-01-01 | 2025-01-01  | +47 100 | admin
+ contact | 2025-01-01 | infinity    | +47 200 | regular
+(2 rows)
+
+\echo "Remove the employees statistic in 2025 only: 2024 and 2026- stay, written by the admin"
+"Remove the employees statistic in 2025 only: 2024 and 2026- stay, written by the admin"
+UPDATE public.stat_for_unit__for_portion_of_valid
+   SET id = NULL, valid_from = '2025-01-01', valid_until = '2026-01-01'
+ WHERE id = :stat_id;
+SELECT * FROM unit_records WHERE record = 'stat employees';
+     record     | valid_from | valid_until | value | written_by 
+----------------+------------+-------------+-------+------------
+ stat employees | 2024-01-01 | 2025-01-01  | 12    | admin
+ stat employees | 2026-01-01 | infinity    | 12    | admin
+(2 rows)
+
+\echo "Remove the physical location (in a region) in 2025 only: 2024 and 2026- stay, written by the admin"
+"Remove the physical location (in a region) in 2025 only: 2024 and 2026- stay, written by the admin"
+UPDATE public.location__for_portion_of_valid
+   SET id = NULL, valid_from = '2025-01-01', valid_until = '2026-01-01'
+ WHERE id = :location_id;
+SELECT * FROM unit_records WHERE record = 'location physical';
+      record       | valid_from | valid_until |          value           | written_by 
+-------------------+------------+-------------+--------------------------+------------
+ location physical | 2024-01-01 | 2025-01-01  | Storgata 1 (in a region) | admin
+ location physical | 2026-01-01 | infinity    | Storgata 1 (in a region) | admin
+(2 rows)
+
+ROLLBACK;
