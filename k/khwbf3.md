@@ -52,6 +52,13 @@ Tools: the jcode browser bridge runs JavaScript in the owner's Firefox tab (page
 ## Notes
 
 
+2026-11-18 15:35 caught one (owner reload at 15:33:41.5 UTC, page hung, then appeared). Read from the stalled tab through the browser bridge right after, plus the owner's pasted console and the proxy log (tmp/stall/proxy-1533.log):
+- Browser timeline (ms after navigation): HTML 153, DOM ready 260, first paint (the spinner) 281, all 27 scripts loaded by 360, load event 372. First app request (auth_status) started at 7,829; the REST data at 7,961.
+- Proxy: no request from the browser between the scripts (15:33:43) and auth_status (15:33:50.92), apart from the dev server's HMR websocket and one /api/sse/worker_status that was aborted (incomplete response). Every request after that answered in 13-110 ms.
+- Event journal and console: the first app log of this load is at 15:33:50.899 (NavigationManager CONTEXT_UPDATED, then RELOAD); auth checking -> idle_authenticated.stable at .925; navigation machine already idle (stable) throughout; isSetupLoading false at 51.019. So once the app's code ran, every machine settled within about 120 ms: in this stall no machine was stuck waiting; the app's code did not start for about 8 s after its scripts had loaded.
+- Firefox does not report long tasks (longtask is not in PerformanceObserver.supportedEntryTypes), so the timeline cannot tell whether the main thread was busy or idle in those 8 s.
+- The owner's console also shows, before the app's logs: 'Content script for gopassbridge initialized', 'The execution of microtasks on this page was reordered to avoid unsafe execution.' (a Firefox message), '[HMR] connected'. Recorded as observations, not as a cause.
+Next observation that separates the possibilities: a Firefox Profiler recording across a reload that stalls (main thread activity in those 8 s), and console timestamps (Firefox console settings: Show Timestamps).
 ## History
 - 2026-11-18T16:33 todo -> doing/active (take)
 - 2026-11-18T16:33 doing/active -> doing/waiting (wait)
