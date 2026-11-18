@@ -9,10 +9,14 @@ labels: []
 created: 2026-11-18
 updated: 2026-11-18
 doing_since: "2026-11-18T00:59"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+waiting_asked_by: "hibiscus"
+waiting_for: "jhf"
+waiting_on: "the owner reviews the design and rule in Relevant details (check 1) in the morning"
+waiting_since: "2026-11-18T01:37"
 ---
 
 ## Goal
@@ -69,3 +73,4 @@ Build plan, after the owner approves the rule (check 1), each step its own commi
 2026-11-18 00:36 plan for the owner's morning review: design and build plan are under Relevant details. Waiting for the owner (check 1, the rule). Agreed with the owner: no comment on PR #328 yet; in the morning, after hug's new release, the improved design goes in this task and the PR gets a comment linking it; the PR is closed later. Two more tasks to create when the owner says: configurable reports, and a way for others to add their own reports. Erik's page server on :8328 stopped.
 ## History
 - 2026-11-18T00:59 todo -> doing/active (take)
+- 2026-11-18T01:37 doing/active -> doing/waiting (wait)
