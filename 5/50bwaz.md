@@ -1,7 +1,7 @@
 ---
 id: 50bwaz
 title: "Reset scopes follow the dialog and restore factory defaults; Getting started reflects the database"
-state: "doing"
+state: "done"
 type: bug
 priority: ""
 assignee: ["rabbit"]
@@ -10,14 +10,10 @@ group: ""
 rank: "zzx"
 created: 2026-11-18
 updated: 2026-11-18
-doing_since: "2026-11-18T12:33"
-stage: "waiting"
 model: "claude-opus-5-5"
 branch: "statbus-628-all-forms"
 worktree: "/Users/jhf/ssb/statbus_test"
-waiting_on: "Hedda: check 5 on dev or another instance of her choice (reset Units and Getting started, then Getting started through the custom code upload), after v2026.11.6-rc.01"
-waiting_since: "2026-11-18T17:11"
-waiting_asked_by: "rabbit"
+done_at: "2026-11-18T17:12"
 ---
 
 ## Goal
@@ -64,6 +60,8 @@ public.reset(confirmed, scope reset_scope), scopes units|data|getting-started|al
 2026-11-18 15:58 (Rabbit) landed fc8a1d77f on master (migration renumbered 20261118151709 after xz3jej's 20261118134950, whose reset change it keeps). CI green on fc8a1d77f: Fast Tests, Go Test, app build & lint, Images, Harness Selftest. Cut v2026.11.6-rc.01 at fc8a1d77f. Check evidence: 1 test 142 (three scopes keep/remove as stated, users kept: test_users 3 after every reset); 2 dialog names (headless tmp/50bwaz-reset-headless.json scopeOptions); 3 headless reset Units and Getting started: six steps not done without a reload; 4 jest requires-activity-standard.test.tsx RED/GREEN + headless upload page shows step 2 first; 6 test 142.8 restores unit size, data source, status, stat definition, external ident rows; 7 test 142.7/142.8 NACE code_pattern dot_after_two_digits and code 01.11; 8 test 142.2/142.3/142.8 priorities 10/20/30, person_ident disabled after reset; 9 test 142.4 enabled duplicates refused, disabled keeps its number; 10 migration moves only rows at the old shipped priority (dev/seed: 1/2/10 -> 10/20/30; custom rows untouched) and up/down/up identical. Check 5 is the owner's on North Cyprus after the release.
 2026-11-18 16:11 owner: the North Cyprus reset check (5) is Hedda's to do there; that installation is past the Getting started step now, so it waits for her next reset.
 2026-11-18 16:11 owner correction: check 5 is Hedda's on dev (or another instance she tries it on), not North Cyprus: that installation is past Getting started, the people installing it there have moved on. She resets Units and Getting started, then goes through Getting started to the custom activity code upload.
+Reflection (open, 2026-11-18, rabbit): One gap: chaining git commit with fetch+rebase let a lock failure turn into an autostash rebase onto another agent's migration; AGENTS.md says commit with explicit paths but not to confirm the commit landed before rebasing.
 ## History
 - 2026-11-18T12:33 todo -> doing/active (take)
 - 2026-11-18T16:58 doing/active -> doing/waiting (wait)
+- 2026-11-18T17:12 doing/waiting -> done (done); was doing_since: 2026-11-18T12:33; waiting_asked_by: rabbit; waiting_on: Hedda: check 5 on dev or another instance of her choice (reset Units and Getting started, then Getting started through the custom code upload), after v2026.11.6-rc.01; waiting_since: 2026-11-18T17:11
