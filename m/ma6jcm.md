@@ -31,9 +31,7 @@ The test checkout still held SERVER_REST_URL=http://proxy:80 and STATBUS_URL=htt
 In development the addresses are derived from SITE_DOMAIN and the slot, not remembered; a value that differs is an explicit operator override, never a leftover.
 
 ## Relevant details
-In development, sb config generate derives STATBUS_URL, BROWSER_REST_URL and SERVER_REST_URL from SITE_DOMAIN and the slot's ports, but writes them to .env.config once and then keeps whatever is there (gen() fills only missing keys).
-
-Design to decide: in development mode, sb config generate either derives these three from SITE_DOMAIN and the slot (unless the operator declares an override explicitly), or refuses with the expected value when a declared value names another slot's port or a docker-only host; pnpm run dev runs the same check before starting.
+In development, sb config generate derives STATBUS_URL, BROWSER_REST_URL and SERVER_REST_URL from SITE_DOMAIN, the slot's ports and DEV_HTTPS (declared in .env.config, default true; https://<domain>:<CADDY_HTTPS_PORT> or http://<domain>:<CADDY_HTTP_PORT>). They are written to .env only. ./dev.sh https on/off sets DEV_HTTPS and regenerates. On first run, config generate drops the three address lines from .env.config and sets DEV_HTTPS from the old BROWSER_REST_URL scheme. Cookie names stay fixed; each slot on a machine has its own SITE_DOMAIN, checked through the proxy container label org.statbus.site_domain in every mode by config generate and sb start.
 
 ## Acceptance
 - [ ] In development, after sb config generate, SERVER_REST_URL, STATBUS_URL and BROWSER_REST_URL in .env name this checkout's SITE_DOMAIN and slot ports (Go test with a .env.config holding http://proxy:80 and another slot's port)
