@@ -5,14 +5,13 @@ import { setPrimaryEstablishment } from "../update-establishment-server-actions"
 import { Button } from "@/components/ui/button";
 import { useParams } from "next/navigation";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
-import UnitNotFound from '@/components/statistical-unit-details/unit-not-found';
 import { usePermission } from "@/atoms/auth";
 import { describeError } from "@/lib/error-format";
 
 export default function PrimaryUnitInfo() {
   const params = useParams();
   const id = params.id as string;
-  const { hierarchy, isLoading, error } = useStatisticalUnitHierarchy(
+  const { hierarchy, error } = useStatisticalUnitHierarchy(
     id,
     "establishment"
   );
@@ -20,13 +19,9 @@ export default function PrimaryUnitInfo() {
   if (error) {
     throw new Error(describeError(error), { cause: error });
   }
-  if (error || (!isLoading && !hierarchy)) {
-    return (
-      <div className="p-2 mt-2">
-        <UnitNotFound />
-      </div>
-    );
-  }
+  // A unit absent in the page's time frame has no hierarchy; the page header
+  // and main panel already say so, and this column offers nothing then.
+  if (!hierarchy) return null;
 
   const legalUnit = hierarchy?.enterprise?.legal_unit?.find((lu) =>
     lu.establishment?.find((es) => es.id === parseInt(id))
