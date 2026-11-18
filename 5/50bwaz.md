@@ -11,10 +11,13 @@ rank: "zzx"
 created: 2026-11-18
 updated: 2026-11-18
 doing_since: "2026-11-18T12:33"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "statbus-628-all-forms"
 worktree: "/Users/jhf/ssb/statbus_test"
+waiting_on: "owner: check 5 on the North Cyprus installation after v2026.11.6-rc.01 (reset Units and Getting started, then Getting started through the custom code upload)"
+waiting_since: "2026-11-18T16:58"
+waiting_asked_by: "rabbit"
 ---
 
 ## Goal
@@ -61,3 +64,4 @@ public.reset(confirmed, scope reset_scope), scopes units|data|getting-started|al
 2026-11-18 15:58 (Rabbit) landed fc8a1d77f on master (migration renumbered 20261118151709 after xz3jej's 20261118134950, whose reset change it keeps). CI green on fc8a1d77f: Fast Tests, Go Test, app build & lint, Images, Harness Selftest. Cut v2026.11.6-rc.01 at fc8a1d77f. Check evidence: 1 test 142 (three scopes keep/remove as stated, users kept: test_users 3 after every reset); 2 dialog names (headless tmp/50bwaz-reset-headless.json scopeOptions); 3 headless reset Units and Getting started: six steps not done without a reload; 4 jest requires-activity-standard.test.tsx RED/GREEN + headless upload page shows step 2 first; 6 test 142.8 restores unit size, data source, status, stat definition, external ident rows; 7 test 142.7/142.8 NACE code_pattern dot_after_two_digits and code 01.11; 8 test 142.2/142.3/142.8 priorities 10/20/30, person_ident disabled after reset; 9 test 142.4 enabled duplicates refused, disabled keeps its number; 10 migration moves only rows at the old shipped priority (dev/seed: 1/2/10 -> 10/20/30; custom rows untouched) and up/down/up identical. Check 5 is the owner's on North Cyprus after the release.
 ## History
 - 2026-11-18T12:33 todo -> doing/active (take)
+- 2026-11-18T16:58 doing/active -> doing/waiting (wait)
