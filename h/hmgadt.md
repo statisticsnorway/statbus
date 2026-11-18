@@ -21,12 +21,10 @@ updated: "2026-11-13T12:12:00Z"
 model: "claude-opus-5-5"
 branch: "statbus-628-all-forms"
 worktree: "/Users/jhf/ssb/statbus_test"
-stage: "asked"
-asked_by: "rabbit"
-asked_check: "4"
-asked_for: "jorgen"
-asked_since: "2026-11-18T01:04"
-asked_what: "owner removes a test record on Norway after the release carrying this"
+stage: "waiting"
+waiting_on: "owner: check 4 on Norway rc.02 (remove a test record through the form)"
+waiting_since: "2026-11-18T12:28"
+waiting_asked_by: "rabbit"
 ---
 
 ## Goal
@@ -94,3 +92,4 @@ Owner 2026-11-10 21:30: other single-value fields already turn Save into a delet
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
 - 2026-11-18T11:39 doing/waiting -> doing/asked (hug upgrade, 41hhgn: a question to a person is its own stage)
+- 2026-11-18T12:28 doing/asked -> doing/waiting (wait); was asked_by: rabbit; asked_check: 4; asked_for: jorgen; asked_since: 2026-11-18T01:04; asked_what: owner removes a test record on Norway after the release carrying this
