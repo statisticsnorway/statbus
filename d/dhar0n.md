@@ -1,0 +1,80 @@
+---
+id: "dhar0n"
+title: >-
+  supersede-stale-available: retire ledger rows older than installed
+  (tier-independent) + reconcile prerelease labeling
+state: "done"
+assignee:
+  - architect
+updated_date: '2026-06-14 20:47'
+labels:
+  - upgrade
+  - ledger
+  - bug
+group: ""
+rank: "000000000094"
+dependencies: []
+references:
+  - tmp/architect-047B2-upgrade-offered.md
+priority: medium
+origin: "backlog:STATBUS-050"
+aliases: ["STATBUS-050"]
+type: "bug"
+created: "2026-06-14 07:19"
+updated: "2026-06-14 20:47"
+---
+
+## Goal
+
+DECISION (King, 2026-06-14): FIX NOW. From STATBUS-047 item B2. The SYMPTOM (UI offering an upgrade though at-latest) is a B1 leftover already handled by item A's decouple; THIS task is the latent data bug behind it.
+
+## Root cause (verified live + in code, 2026-06-14 — foreman re-verified)
+The ledger keeps phantom `available` rows older than the installed version. On rune (read-only): rows 133 (v2026.05.3-rc.01), 79 (v2026.05.2-rc.06), 74 (v2026.05.1-rc.01) are all `state='available'`, all `release_status='release'`, all OLDER than installed rc.02 (#196, 2026-06-12). They should be `superseded` and aren't. Two compounding causes:
+
+1. SUPERSEDE HIERARCHY GUARD. `public.upgrade_supersede_older` (live source confirmed) retires older rows with `WHERE state IN ('available','scheduled','failed','rolled_back') AND commit_sha != p_commit_sha AND release_status <= _status AND committed_at < _committed`. Installing rc.02 (a prerelease) gives `_status=prerelease`, so `release_status <= prerelease` EXCLUDES `release`-tier rows → the 3 stale rows (labeled release) are never retired. The guard is correct for PEER supersede (a commit must not hide a tagged release) but wrong vs the INSTALLED version (anything older than what you run isn't an upgrade, regardless of tier).
+
+2. PRERELEASE MISLABELING. The 3 rows are `-rc` tags but labeled `release`. Discovery (`service.go:2838`, `if !t.Prerelease`) trusts GitHub's release.Prerelease flag (false for these tags); the install path (`classifyReleaseStatus`, `cli/cmd/install.go:1813`) correctly parses `-rc.`→prerelease. The two paths DISAGREE. (NB the install path DOES call supersede — runInstallSupersede — so it's the guard blocking, not a missing call.)
+
+Hidden on the UI only by coincidence (older version ⇒ older committed_at; page.tsx:559/567 drops available rows with committed_at ≤ newest-completed). A `/rest` consumer reading `state='available'` sees the phantom older versions. Truthfulness issue, not user-facing or recovery.
+
+## Fix (architect's proposal, King-approved)
+PRIMARY (durable, self-healing): on every discover() check, supersede any `available`/`scheduled` row NOT newer than the installed version (`d.version`), TIER-INDEPENDENT — same `CompareVersions` "newer than installed" rule discover() already uses to skip old tags (service.go:2827) and item A's pre-download selector uses. Self-heals regardless of install path or label.
+SECONDARY (prevent recurrence): reconcile discovery's prerelease detection (service.go:2838 t.Prerelease) with classifyReleaseStatus so `-rc` tags are labeled `prerelease` in discovery too. NB OVERLAPS STATBUS-033 (prerelease-channel tag classification) — check whether to do together.
+OPTIONAL: align the UI filter (page.tsx) to version-compare instead of committed_at, so it is robust without the date coincidence.
+
+## Open question for execution (King cares — same lens as item A)
+Does the PRIMARY fix touch the stored procedure (a MIGRATION — a new "supersede vs installed version" proc/mode) or stay in discover() Go logic (NO migration)? Decide + state explicitly.
+
+## Verify
+- Unit-test the version-compare retire decision (mirror item A's selectNewestDownloadCandidate test: newer/older/equal/non-CalVer/tier-independent).
+- Confirm the 3 stale rune rows WOULD be retired by the new rule (read-only check vs rune data, or a fixture).
+- go -C cli vet/build/test green (the per-change go-test gate runs on push).
+- Report to foreman with the diff + the test for review + commit (do-not-self-commit).
+
+## Implementation Notes
+
+ARCHITECT IMPLEMENTATION (2026-06-14, Opus 4.8). Staged, NOT committed (foreman reviews+commits).
+
+PRIMARY — DONE. New tier-independent vs-installed retire in discover() Go logic. Files: cli/internal/upgrade/service.go (pure selectStaleBelowInstalled + selectNewestTag + staleCandidate type, mirrored on item A's selectNewestDownloadCandidate; method supersedeBelowInstalled; call wired into discover() after pruneDeletedTags, before the last-checked timestamp). Test: cli/internal/upgrade/supersede_below_installed_test.go (10 subtests, all pass). go -C cli vet/build/test green.
+
+MIGRATION QUESTION — SETTLED: NO migration. The retire DECISION needs CalVer comparison (CompareVersions), which lives only in Go; reimplementing it in plpgsql would duplicate version-ordering logic across two languages — the exact drift-bug class this fixes. The action is a plain UPDATE (no schema/proc change). upgrade_supersede_older is left UNTOUCHED — its peer hierarchy guard stays correct for peer supersede. Consistent with item A (pure Go, no migration).
+
+SECONDARY — REVERSED, NOT IMPLEMENTED (evidence-backed). The premise ('-rc tags mislabeled release in discovery') is WRONG against current code AND the live data. Current git-discovery (DiscoverTagsViaGit, github.go:443) sets Prerelease=strings.Contains(tagName,"-") → -rc labeled prerelease, AGREEING with classifyReleaseStatus. The rune rows are NOT mislabeled: each carries TWO tags on ONE commit — {v2026.05.1-rc.01, v2026.05.1}, {…-rc.06, v2026.05.2}, {…-rc.01, v2026.05.3}. All three clean release tags (v2026.05.1/2/3) exist in git. So release_status='release' is TRUTHFUL (the commit genuinely has a release tag); commit_version shows the rc only because it's commit_tags[1] (rc pushed first). Implementing the SECONDARY would corrupt correct data. The DRY idea (one shared classifier for discovery+install) retains independent merit for STATBUS-033 but is not a B2 fix and not needed for correctness here.
+
+ROOT CAUSE is therefore a SINGLE real defect: the proc's peer hierarchy guard (release_status <= installed_status) refuses to retire genuine older RELEASES (05.x) when installed is a PRERELEASE (06.0-rc.02), even though 05.x < 06.0 by version. The BEFORE trigger upgrade_block_obsolete_pending has the SAME tier blind spot (older.release_status >= NEW.release_status, + committed_at) — a third manifestation; left untouched, the Go fix covers it.
+
+The 3 rune rows WOULD be retired by the new rule: each row's newest tag (the clean release 05.1/2/3) < installed 06.0-rc.02 → superseded. UI 'OPTIONAL' (page.tsx committed_at→version) is now moot: the source self-heals, so there are no stale available rows for the filter to mishandle.
+
+## Final Summary
+
+SHIPPED — commit 03ee879be (master, pushed; per-change go-test gate runs on push).
+
+PROBLEM (STATBUS-047 B2): the Software Upgrades page listed "available" versions OLDER than the installed one. On rune (installed v2026.06.0-rc.02), rows 133/79/74 (v2026.05.3/.2/.1) sat state='available' though none is an upgrade.
+
+ROOT CAUSE — a SINGLE defect, not two: the SQL upgrade_supersede_older proc's peer hierarchy guard (release_status <= installed's) won't retire a genuine older RELEASE when the installed version is a PRERELEASE (release > prerelease in tier order), even though 05.x < 06.0 by version. Correct for PEER supersede, wrong vs the INSTALLED version. (upgrade_block_obsolete_pending BEFORE trigger shares the blind spot; the Go fix covers it.)
+
+SECONDARY ("prerelease mislabeling") REVERSED with evidence — NOT a bug: the 3 rune rows are genuine release-tagged commits (each carries BOTH its final rc tag AND its release tag on the SAME commit — foreman-verified via git rev-list: v2026.05.1 ≡ v2026.05.1-rc.01 @9d6d78c9, .2 @50fd4325, .3 @91f947ce), so release_status='release' is TRUTHFUL. Discovery already classifies by tag shape (github.go:443 dash-parse via DiscoverTagsViaGit), agreeing with the installer (classifyReleaseStatus, install.go:1813, -rc.); the original "two paths disagree / trusts GitHub's API flag" diagnosis was itself wrong (discovery sources tags via git at service.go:2813, never the API flag). Implementing the relabel would have CORRUPTED correct data. The DRY one-classifier idea + the over-permissive prerelease channel → STATBUS-033 (pulled forward as the next task).
+
+FIX (logic-only, NO migration): selectStaleBelowInstalled (pure, tier-independent, judges each row by its NEWEST tag so a {rc,release} double-tagged commit is compared on the release) + supersedeBelowInstalled (SQL eligibility → pure decision → one UPDATE to 'superseded'; drains rows before the UPDATE to avoid the single-*pgx.Conn busy trap; re-asserts source state in WHERE; 'superseded' not in (available,scheduled) so the BEFORE trigger no-ops) wired into discover() after pruneDeletedTags, before the last-checked timestamp (cheap pass — no B1 regression; heavy pre-download still runs last). upgrade_supersede_older left UNTOUCHED. No migration because CalVer ordering (CompareVersions) lives only in Go; duplicating it in plpgsql is the exact drift this fixes.
+
+VERIFY: foreman byte-level review; reversal keystone independently git-verified; go vet/build/test green; unit test supersede_below_installed_test.go 10 cases incl. the exact rune case. The 3 rune rows WOULD be retired by the new rule (newest tag 05.x < installed 06.0-rc.02). Self-heals on next discover() regardless of install path or label.

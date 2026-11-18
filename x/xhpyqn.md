@@ -1,0 +1,173 @@
+---
+id: "xhpyqn"
+title: >-
+  deploy-key-consumer-audit: a repo deploy key installed on every country box
+  may have no remaining consumer — enumerate what actually uses it, then rule
+state: "done"
+assignee: []
+updated_date: '2026-08-28 22:45'
+labels:
+  - ops
+  - security
+group: ""
+rank: "000000000299"
+dependencies: []
+priority: medium
+type: "feature"
+origin: "backlog:STATBUS-253"
+aliases: ["STATBUS-253"]
+backlog_type: "chore"
+created: "2026-08-19 10:27"
+updated: "2026-08-28 22:45"
+---
+
+## Goal
+
+The instance-creation script installs GitHub-sourced public keys into each country box's authorized_keys (GITHUB_DEPLOY_KEYS). The stated purpose — "gives the deploy-to-* workflow ssh ability" — is gone: under the approved topology a country slot has no deploy-to workflow, and the canary gate SSHes with the operator's own key, not a repo deploy key. If nothing else consumes it, this is a standing CI credential on live NSO production installations with nothing that uses it.
+
+FILED FROM the architect's 251 review (his own named miss): the design's orphan check asked whether the script creates GitHub-side objects and answered "checked, none" — the wrong question. The right question is whether the authorized_keys entry installed ON THE BOX still has a consumer.
+
+NOT ESTABLISHED: that the key is dead. There may be a consumer not yet found — which is why this is an enumeration-then-ruling, not a removal order. "An unnecessary standing credential on a production statistical office box" gets one deliberate answer, never inheritance by default.
+
+DISTINCT AND UNAFFECTED: runbook step 6's "Generate SSH deployment key for GitHub" — that is the box's own key for cloning the private repo, legitimate and out of scope.
+
+THE WORK: enumerate every consumer of the GITHUB_DEPLOY_KEYS-installed authorized_keys entries — CI workflows that ssh to slots, ops scripts, the upgrade service's own paths, anything in .github/ and ops/ that authenticates to a box. Deliverable: the enumeration pinned here with each consumer named (or "none found, searched X/Y/Z"), then the architect rules keep-or-remove. Any removal ships via the ruled mechanism, never a manual write.
+
+## Implementation Notes
+
+CLOSED BY THE KING'S RULING (2026-08-28 night, verbatim intent): the removal proposal was an over-eager cleanup — the artifact it proposed removing IS USED; leave it in place. The ticket's remaining steps are retracted rather than deferred: this is a deliberate leave-it-alone, recorded so nobody re-proposes the removal without new evidence that usage has actually ceased. (The fossil-deletion portion that WAS genuinely dead already landed separately during the 283 work.)
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: mechanic
+created: 2026-08-19 10:33
+---
+ENUMERATION part 1/2 (read-only; no box touched). DIRECT ANSWER: the repo's registered deploy key is NOT dead — it is actively consumed today by at least 8 workflows to reach niue country boxes AND the niue host-admin account, via the repo secret `secrets.SSH_KEY`. This is expected/correct for et/jo/ma/tcc/ug/dev (STATBUS-244a's own transitional note says their deploy-to-X.yaml files remain live until Wave D1); it is NOT expected for demo, whose deploy-to-demo.yaml is already deleted — see the orphan finding in part 2.
+
+IDENTITY EVIDENCE tying `secrets.SSH_KEY` to a SPECIFIC registered deploy key (I cannot read the secret's value directly — this is the strongest evidence obtainable from the repo side alone):
+- `gh repo deploy-key list` shows exactly ONE read-write key, titled `https://github.com/statisticsnorway/statbus`, fingerprint material `AAAAC3NzaC1lZDI1NTE5AAAAIAdpqAWRoDDKDa7neWpTLe+coEYYSkhzw2znSJ3E6XjD`. Every other registered deploy key is read-only and titled per-box (statbus_dev/ma/tcc/ug/et/jo/demo/norway/test@<host>) — those are boxes' OWN clone keys (runbook step 6, confirmed out of scope by this ticket's own text).
+- That exact same key material is hardcoded in `ops/create-new-statbus-installation.sh`'s `DEPLOY_KEY` variable.
+- `ops/create-new-statbus-installation.sh`'s `GITHUB_DEPLOY_KEYS` defaults to `statisticsnorway/statbus`, and `ops/setup-ubuntu-lts.sh` defaults identically (line 292/367) — both install it via `populate_authorized_keys`/`fetch_source()`, which fetches `https://github.com/<source>.keys` and installs EVERY returned key VERBATIM, unrestricted (no `command=` prefix — confirmed by reading the exact `printf '%s # %s\n'` write in both scripts).
+- `.github/workflows/master-to-dev.yaml:16` uses `secrets.SSH_KEY` as `actions/checkout@v3`'s `ssh-key:` input, then line 19 does `git push --force origin HEAD:ops/cloud/deploy/dev` — this REQUIRES write access to the repo itself. Only the one read-write deploy key found above could do this; a read-only key would fail this push outright.
+
+CONSUMER LIST (searched: `.github/workflows/*.yaml` for `ssh -i`, `ssh-key:`, `appleboy/ssh-action`, `webfactory/ssh-agent`, `scp `, every `secrets.*` name; `ops/*.sh` for `statbus_*@`/`niue.statbus.org`/`rune.statbus.org`):
+- `deploy-to-{dev,et,jo,ma,tcc,ug}.yaml` (each :56/65/103/116, dev's own at :73/82/124/137) — `secrets.SSH_KEY` → `statbus_<slot>@niue.statbus.org`, runs `cd ~/statbus && ./sb upgrade apply-latest`.
+- `notify-all-clouds.yaml:112/131` — `secrets.SSH_KEY` → matrix over `statbus_{dev,demo,tcc,ma,ug,et,jo}@niue.statbus.org` (line 102-108), runs `~/statbus/ops/ci-notify.sh`.
+- `docker-maintenance.yaml:30/35` and `seq-logserver.yaml:30/35` — `secrets.SSH_KEY` → `devops@niue.statbus.org`. The workflow's OWN comment (docker-maintenance.yaml:26-28) states plainly: "devops is a free admin shell (bare authorized_keys, not n-gated)" — i.e. NOT sshdo-restricted, by design. This is the most privileged live consumer.
+- `master-to-dev.yaml:16` — `secrets.SSH_KEY` → git push to the repo itself (not a box SSH at all, but the same credential).
+- `pg_regress.yaml:63/115/135` — `secrets.SSH_KEY` → `statbus_test@niue.statbus.org`.
+
+Continued in part 2/2 (sshdo cross-check, orphan finding, out-of-scope confirmations, one open question).
+---
+
+author: mechanic
+created: 2026-08-19 10:34
+---
+ENUMERATION part 2/2 (continued from part 1).
+
+SERVER-SIDE RESTRICTION, CROSS-CHECKED: `ops/niue/sshdoers` (checked into the repo) explicitly allowlists exactly two command shapes per statbus_{tcc,dev,demo,ma,ug,et,jo} user — `cd ~/statbus && ./sb upgrade apply-latest` and `~/statbus/ops/ci-notify.sh` — plus a third for statbus_test (pg_regress). `devops` has NO sshdoers entry (matches the workflow comment quoted in part 1 — confirmed by grep, zero hits for "devops" in the file).
+
+ORPHAN FOUND (in scope for this ticket, not a removal — flagging only): `ops/niue/sshdoers:16` (`statbus_demo: cd ~/statbus && ./sb upgrade apply-latest`) has NO calling workflow left — `deploy-to-demo.yaml` was deleted in STATBUS-244a. `ops/niue/sshdoers:32` (`statbus_demo: ~/statbus/ops/ci-notify.sh`) is STILL live — `notify-all-clouds.yaml`'s matrix still includes `statbus_demo`. So demo's apply-latest sshdo rule is dead; its notify rule is not.
+
+OUT OF SCOPE, CONFIRMED SEPARATE (searched and ruled out, not just skipped):
+- `secrets.STATBUS_CI_SSH_PRIVATE_KEY` (install-recovery-harness.yaml, upgrade-arc-harness.yaml, test-install.yaml, test-upgrade.yaml) — a DIFFERENT dedicated key for ephemeral Hetzner CI VMs (`HCLOUD_SSH_KEY: statbus-ci`), never touches niue/rune or GITHUB_DEPLOY_KEYS at all.
+- `secrets.RUNNER_HEALTH_SSH_KEY` (notify-all-clouds.yaml:62) — its own comment (line 33) states it is "a DEDICATED key (secret RUNNER_HEALTH_SSH_KEY, revocable server-side, no PAT" — explicitly NOT the deploy key.
+- `ops/inspect-cloud-installations.sh:21` — bare `ssh "$user@niue.statbus.org"` with no `-i`/no secret reference at all — relies on the OPERATOR's own personal key (GITHUB_USERS mechanism), not GITHUB_DEPLOY_KEYS.
+- Norway/rune-no: `ops/niue/sshdoers` is niue-specific; rune is a separate standalone host with no equivalent checked-in sshdoers file found (searched: `find . -iname sshdoers* -o -iname '*rune*sshdo*'`, no hits) — rune-no's own SSH consumer question is NOT answered by this enumeration and would need a separate pass if wanted.
+
+ONE OPEN QUESTION I CANNOT RESOLVE FROM THE REPO ALONE (flagging, not guessing): sshdo supports two deployment modes — a per-key `command="sshdo"` prefix in authorized_keys, OR a global `ForceCommand /usr/bin/sshdo` in `sshd_config`'s `Match User` block (ops/niue/sshdo:61-66, its own usage doc). Since the GITHUB_DEPLOY_KEYS-fetched copy of the repo deploy key is installed WITHOUT any `command=` prefix (confirmed in part 1), if niue uses the per-key mode rather than sshd_config ForceCommand, that unrestricted copy could bypass sshdo's allowlist entirely for statbus_et/jo/ma/tcc/ug/dev/demo/test — same key, same account, just a different matching authorized_keys line. I have no way to check sshd_config from the repo; this would need one read-only operator command (e.g. `ssh devops@niue 'sudo sshd -T | grep -i forcecommand'`) to settle, same evidentiary bar as STATBUS-251's own channel-read ask. Not established either way — flagging for the architect's ruling, not asserting a hole.
+---
+
+author: operator (pinned by foreman)
+created: 2026-08-19 10:40
+---
+DUPLICATE READ COMPLETE, ALL SEVEN BOXES — NO BYPASS. Identical result on et/jo/ma/tcc/ug/demo/dev: authorized_keys readable (wc first, per the instrument rule), the deploy key present EXACTLY ONCE (line 4 of 4), ALWAYS carrying command="/usr/local/bin/sshdo" plus no-agent-forwarding/no-port-forwarding/no-pty/no-X11-forwarding/no-user-rc; grep_exit=0 everywhere. The feared unrestricted second copy from the GITHUB_DEPLOY_KEYS fetch path DOES NOT EXIST on any box — the sshdoers-managed install is the only install, correctly restricted. SEVERITY QUESTION CLOSED: the access model works as designed on every slot. REMAINING IN THIS ENTRY: (a) the consumer/removal question for country slots — tied to Wave D (the key IS consumed today by the surviving deploy-to-X workflows; when those delete, the country slots' key entries lose their last consumer and should go in the same motion); (b) the creation-script fetch path that WOULD install an unrestricted copy on a future box — a script fix, no live box affected today; (c) the orphaned statbus_demo apply-latest sshdoers rule (half-dead since 244a). ForceCommand escalation: MOOT per the architect's sequencing — nothing unrestricted exists for a global gate to catch.
+---
+
+author: foreman
+created: 2026-08-19 11:42
+---
+KING RULED 2026-08-19: the cleanup is sensible ("we used to need that flow") and it must be COMPLETE — the key was generated on the server and then added to GitHub, so the correct removal takes it out of GITHUB TOO: the deploy-key registration AND the SSH_KEY secret in the repo's secret storage, not merely the authorized_keys entries on the boxes. SCOPE CONSEQUENCE, so the removal is planned honestly: secrets.SSH_KEY still has live non-deploy consumers (notify-all-clouds, docker-maintenance, seq-logserver, pg_regress, master-to-dev until 244b) — each needs its own dedicated key (the RUNNER_HEALTH_SSH_KEY pattern: per-purpose, revocable server-side) before SSH_KEY can be deleted from GitHub. Execution order: (1) now — remove the orphaned statbus_demo apply-latest sshdoers rule; (2) after this cut proves tag-to-dev — 244b retires master-to-dev's use; (3) Wave D deletes deploy-to-{et,jo,ma,tcc,ug}; (4) re-key the surviving maintenance/test consumers with dedicated keys; (5) remove the deploy-key registration + SSH_KEY secret from GitHub and the fetch-installed copies from the boxes, in one motion. The creation-script fetch path fix (which would install an unrestricted copy on a future box) rides with (5) or earlier.
+---
+
+author: foreman
+created: 2026-08-19 11:44
+---
+STEP 1 LANDED as 5824e3d44: the orphaned statbus_demo apply-latest rule removed from ops/niue/sshdoers, with a do-not-re-add-for-symmetry note at the section; demo's ci-notify entry untouched (still live via notify-all-clouds). CITATION CORRECTION (mechanic, against his own comment #2): the orphaned line was :18, not :16 — off-by-two in the citation only, the finding itself unchanged. DEPLOYMENT PATH ESTABLISHED (searched, not assumed): there is NO automated sync from the repo file to niue's live /etc/sshdoers — the file is hand-managed by design (doc-026: privileged artifacts are 'installed like sshdo/sshdoers, not pulled from a checkout'; only ci-notify.sh is pulled live). SO ONE MANUAL STEP REMAINS FOR THE KING at his convenience: remove the statbus_demo apply-latest line from niue's live /etc/sshdoers in a root session. Not urgent — the live rule is dead-but-harmless (no workflow calls it; sshdo only ALLOWS the command shape, nothing invokes it) — but the live file and the repo file should agree before anyone reads one and trusts the other.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-19 11:48
+---
+COLLISION CAUGHT BEFORE THE ROOT SESSION RAN (architect stop, time-critical): the statbus_demo apply-latest allowlist line must NOT be removed — STATBUS-248's approved demo auto-apply design (pinned within the same hour as this ticket's enumeration) depends on exactly that allowlisted command as its door. The 5824e3d44 repo removal is being REVERTED with the comment corrected to the true story. VERIFIED DEAD instead: demo's ci-deploy-status.sh line (:54 live) — its only demo consumer was deploy-to-demo.yaml, deleted in 244a; the surviving country deploy workflows each call it against their OWN slot only. Net for demo: keeps apply-latest (248's door) + ci-notify (live), loses ci-deploy-status (dead). THE PATTERN, recorded as such: a removal list assembled from current consumers goes stale the moment a design adds one — the enumeration was correct when written and stale within the hour. The removal session must re-verify each line against the BOARD (current designs), not against the list. The King's corrected root one-liner removes only the ci-deploy-status line.
+---
+
+author: foreman
+created: 2026-08-19 11:50
+---
+REVERT LANDED as e024135fc: demo's apply-latest line restored with the true-story comment (it is 248's trigger door, not button residue); ci-notify untouched. DIVERGENCE FINDING while landing: the REPO copy of sshdoers has NO ci-deploy-status lines AT ALL (grep exit 1) — but the LIVE /etc/sshdoers does (demo's at :54, and per the consumer enumeration the country slots' deploy-to-X workflows call ci-deploy-status against their own slots, so live presumably carries a whole section the repo copy lacks). The checked-in file is a drifted REFERENCE, not a mirror — doc-026's hand-managed model means divergence is expected, but anyone reasoning from the repo copy (as this ticket's enumeration partly did) sees an incomplete allowlist. The eventual step-5 removal session must work from the LIVE file, with the board as the liveness authority. The King's corrected root one-liner (remove only demo's live ci-deploy-status line) remains correct and pending at his convenience.
+---
+
+author: foreman
+created: 2026-08-19 11:55
+---
+LIVE FIX EXECUTED (King granted root for this, 2026-08-19; his own key reaches root@niue directly — verified with a read-only id first). Backup taken (/etc/sshdoers.bak-20260819), then ONLY the dead line removed: statbus_demo's ci-deploy-status.sh entry — which turned out to carry a trailing run of '#' characters (someone had visually marked it; the first end-anchored sed correctly refused to match, and the prefix-matched second pass removed exactly it). VERIFIED AFTER: exactly two statbus_demo lines remain — :18 apply-latest (248's trigger door, KEPT per the architect's stop) and :32 ci-notify (live consumer). The live box and the repo copy now agree on demo's allowlist. No other lines touched; backup retained on the box.
+---
+
+author: mechanic (pinned by foreman)
+created: 2026-08-27 19:48
+---
+AUDIT COMPLETE (2026-08-27, read-only): THREE distinct deploy-key mechanisms exist, not one — and only one is the removal candidate. (A) PER-SLOT GENERATED key, outbound box→GitHub (create-new-statbus-installation.sh ~:259-269): authenticates every slot's own git clone and git fetch --tags (incl. RunCheck's DiscoverTagsViaGit) — ALIVE, KEEP. (B) SHARED repo-registered key, inbound unrestricted (GITHUB_DEPLOY_KEYS=statisticsnorway/statbus, fetched from github.com/.../statbus.keys into authorized_keys, gated by sshdo): backs every CI SSH workflow via the SSH_KEY secret; confirmed present on statbus_dev — ALIVE, KEEP. (C) THE SAME key with a FORCED COMMAND (create-new-statbus-installation.sh:447-449, command=/usr/local/bin/deploy-statbus.sh) — ZERO CONSUMERS: the target script exists nowhere in the repo; on dev the forced-command line was never even installed (grep count 0); the hand-placed script file on the box (dated Jan 2025) references deleted manage-statbus.sh, deleted devops/dotenv, Crystal shards build, and devops/deploy-to-<slot> branches that no longer exist on origin (git ls-remote verified: zero) — the pre-STATBUS-244, pre-Go-CLI push-to-deploy fossil. No workflow, cron, or systemd unit references it. RECOMMENDATION: delete :447-449 from the creation script (the entry, not the key material — (B) already grants the same key) and remove the orphaned /usr/local/bin/deploy-statbus.sh from boxes at operator convenience (inert, not urgent). Evidence base: full repo greps + one representative box (dev); the script runs identically per slot. Awaiting architect ratification before the deletion lands (it can ride the 283 rework, as a separate preceding commit on the same file).
+---
+
+author: architect
+created: 2026-08-27 19:50
+---
+**RATIFIED: delete `create-new-statbus-installation.sh:447-449`.** Mechanism (C) only; (A) and (B) untouched. Own commit, preceding the 283 rework on the same file.
+
+I verified the repo half rather than taking the report: `deploy-statbus.sh` has **zero references anywhere in the tree** outside the line being deleted, and the key material appears only at `:447` and in this ticket. The audit's reasoning holds.
+
+## No seven-box spot-check needed — it was already done, on this ticket
+
+The foreman offered to spot-check all seven before landing. **Comment #3 (operator, 2026-08-19) already did exactly that read on et/jo/ma/tcc/ug/demo/dev** and found the deploy key present **exactly once** per box, **always** carrying `command="/usr/local/bin/sshdo"`. "Exactly once" is the direct answer: **no second copy bearing the `deploy-statbus.sh` forced command exists on any of the seven.** The mechanic's dev-only grep corroborates a result already in hand. Do not re-run it.
+
+## But the evidence window has a gap that opened THIS WEEK — Ukraine
+
+Comment #3 predates `ua`. **Ukraine was provisioned on 2026-08-27 with the current script, `:447-449` included** — so the fossil entry was very likely installed on a live NSO box today, hours before this ratification.
+
+Probably inert (the forced command targets a script a fresh box does not have, so the connection dies rather than doing anything). **But there is one shape that is not inert, and it is worth a single read-only check:** if `ua`'s authorized_keys now carries **two lines for the same key** — the sshdo-gated one and this fossil — then **sshd applies the options of the first matching line**. If the fossil sorts first, `ua`'s CI door is forced into a nonexistent script and **CI access to Ukraine is broken**, silently, until someone tries it.
+
+One read, no writes:
+
+```
+ssh statbus_ua@niue.statbus.org 'wc -l ~/.ssh/authorized_keys; grep -n "AAAAC3NzaC1lZDI1NTE5AAAAIAdpqAWRoDDKDa7neWpTLe" ~/.ssh/authorized_keys'
+```
+
+Two hits → read the order and act. One hit carrying `sshdo` → nothing to do. **This is a consequence of the fossil still being in the script today, which is precisely why the deletion should not wait.**
+
+`rune`/`no` remains outside every enumeration here (comment #2 flagged it); still unanswered, still not this ticket.
+
+## Sequencing against the King's ruling, stated so it is not mistaken for step 5
+
+Comment #4's numbered removal (1)–(5) is untouched by this. **This deletion is not an early step 5:** it removes a forced-command entry with no consumer, and touches neither the key material, nor mechanism (B), nor the GitHub deploy-key registration, nor `secrets.SSH_KEY`. It is additive to the King's order and blocks none of it.
+
+## I applied comment #6's own rule before ratifying
+
+That comment records, from my own stop on this ticket: *a removal list assembled from current consumers goes stale the moment a design adds one — re-verify against the BOARD, not the list.* Checked: `deploy-statbus.sh` is pre-244, pre-Go-CLI, and **no current or approved design routes through it** (248's door is `apply-latest` via sshdo; 258's is `./sb upgrade apply`). Nothing on the board wants it back.
+
+The orphaned `/usr/local/bin/deploy-statbus.sh` on boxes: inert, operator convenience, agreed — but fold it into the same fleet pass as the `ua` check rather than leaving it as a standing errand.
+---
+
+author: foreman
+created: 2026-08-27 19:52
+---
+UKRAINE CHECK RESULT (operator, 2026-08-27 ~19:52Z) — the architect's fear confirmed in its WORSE variant: ua's authorized_keys line 3 carries the fossil forced-command entry, and it is the ONLY copy of the CI key material on the box — there is no sshdo-gated sibling line at all (the Aug 19 seven-box read found command=sshdo copies because those boxes had been through the sshdoers hardening; ua, with its designed zero-inbound posture, never was). So any CI SSH to ua with the shared key would be forced into /usr/local/bin/deploy-statbus.sh, which does not exist on the box — silent failure. No LIVE breakage (ua is deliberately absent from every CI matrix and has zero sshdoers entries), but the door was mis-wired within hours of the box's birth — the freshest possible proof the script deletion should not wait. REMEDIATION dispatched, pre-declared: backup + grep -v removal of the fossil line, leaving exactly the two operator user keys — which IS ua's designed posture; nothing that ever had access loses it. The script-side deletion (:447-449) is with the mechanic as its own commit preceding the 283 rework.
+---
+
+author: operator (pinned by foreman)
+created: 2026-08-27 19:54
+---
+UKRAINE FOSSIL REMOVED (2026-08-27 ~19:53Z, pre-declared, backup retained at ~/.ssh/authorized_keys.bak-20260827): the forced-command line deleted; post-state verified verbatim — exactly 2 lines, the two operator personal keys (jhf, hhz), zero CI-key entries. That IS ua's designed zero-inbound posture (STATBUS-268's template rule); nothing that ever had working access lost it — the fossil pointed at a nonexistent script. Remaining in this ticket: the script-side deletion (:447-449, with the mechanic, preceding the 283 rework), the orphaned /usr/local/bin/deploy-statbus.sh box-file cleanup folded into a future fleet pass per the architect, and the King's numbered steps (2)-(5) on their own schedule.
+---
+<!-- COMMENTS:END -->

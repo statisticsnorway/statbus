@@ -1,0 +1,148 @@
+---
+id: "8jsfsk"
+title: Fast Tests hides regression diffs after the split result layout
+state: "done"
+assignee: []
+updated_date: '2026-11-08T17:58:00Z'
+labels:
+  - ci
+  - testing
+group: ""
+rank: ""
+dependencies: []
+references:
+  - STATBUS-452
+priority: high
+origin: "backlog:STATBUS-454"
+aliases: ["STATBUS-454"]
+type: "feature"
+created: "2026-10-06 15:03"
+updated: "2026-11-08T17:58:00Z"
+---
+
+## Acceptance
+- [x] #1 #1 Observe the old file-reading payload producing no diff from an offline fixture with failure inventory/result files. The Docker wrapper and live producer are not claimed reproduced.
+- [x] #2 #2 Corrected diagnostic invokes the actual unchanged helper and prints both representative failing test diffs. No database access or mutation in this fixture.
+- [x] #3 #3 Changed workflow passes actionlint; independent exact-source review and patch/source proof before integration.
+- [x] #4 #4 Next exact-source CI retains its true test conclusion. A future failing run's diff step is useful without making the test pass or replacing actual schema-contract repair. (Owner closed this on 2026-10-07 as decision A: green runs after integration retain the true conclusion, and the failure-path payload is established by the AC2 fixture plus the TTY-free host-file reading in the closing review. The first real red run will exercise it in CI; that specific hosted observation is not claimed.)
+- [x] #5 Follow-up: absent host summary still prints and retains exact container summary/diff, preserving optional host cumulative TAP and nonzero collection errors, with regression RED before and GREEN after.
+- [x] #6 Follow-up: failure-scoped artifact upload is scheduled even after collection failure and before cleanup; scoped shell checks and whole-workflow actionlint pass.
+- [x] #7 Follow-up: root reviews committed exact source before push, then records exact-SHA full Fast CI sequence and any genuine hosted failure-path evidence without changing SQL thresholds.
+- [x] #8 Recover an earlier shared SQL374 mismatch from retained container per-test results when final summary is passing-only, shared summary unavailable and regression.diffs missing; retain all result bytes and exact named diff under the uploaded artifact root.
+- [x] #9 Extract container results as current runner, classify diff exit1 as expected mismatch and exit greater than1 as unexpected failure, retain collection errors, and handle host summary unreadable or absent without preventing per-test recovery.
+- [x] #10 Actual PG18 boundary: when a later passing isolated invocation removes BOTH regression.out and regression.diffs, the collector still recovers and prints the exact original shared mismatch from per-test results and retains all result bytes under the always-upload artifact root.
+
+## Observed failure
+
+Exact 49bb Fast Tests run 37481764536 failed on 008 and 016, 100/102 tests passed. Its failure diagnostic step ran `cat /statbus/test/regression.diffs 2>/dev/null || true` and printed no diff. The existing helper uses test/regression.out and the expected/results files instead of that assumed diff path. There were no uploaded artifacts to recover. Root retained actual logs in tmp/452-fast-failure-49bb-20261006.log and tmp/452-fast-diffs-49bb-20261006.log. The shared/isolated runner source was inspected, but no live output aggregation producer was reproduced. This required isolated SQL reproduction to obtain the exact diffs.
+
+## Small fix
+
+Use the existing read-only `./dev.sh diff-fail-all pipe` helper in the failure step. It reads the actual combined regression inventory and compares the failed tests' committed expected/result files. Do not invent another result-layout adapter, suppress the original test failure or add a workflow architecture.
+
+## Safety
+
+Only fast-tests.yaml's failure diagnostic command and a small existing-pattern offline fixture check may change. No production, database, cloud, credentials, external callback or CI mutation. Separate isolated source worktree, no master/index writes or push. Use captured original failure as baseline evidence and report local fixture limits honestly.
+
+## Implementation checkpoint, 2026-10-06 15:09 UTC
+
+Otter froze one workflow-only commit 5b277d6d4c918e71913c3a3674590c62af091c7d from b8a9d0e33, +1/-2. It replaces the obsolete command with ./dev.sh diff-fail-all pipe and preserves if: failure(), with no new outer error suppression or continue-on-error. Root read the exact delta and own tmp/journal.md, 454-offline-check.sh and 454-prototype.log. Baseline cat payload prints zero bytes. The actual unchanged full dev.sh prints both named expected/changed diffs, exit 0. The fixture prepares an independent git repo, inert seed-cache placeholder and a startup-only sb double rejecting all non-drift invocations. No real DB, Docker, configuration, credentials or live CI result producer is exercised. Actual full actionlint, syntax and diff checks pass. Panda is authorized to independently review this exact pin before integration. Original hosted test conclusion remains failure, corrected hosted acceptance still pending.
+
+## Independent review, 2026-10-06 15:12 UTC
+
+Panda's MERGE at exact 5b277d6d4 was read in full, tmp/454-regression-diffs-review.md. Its own source archive matched every inspected blob and the complete one-file delta. It independently executed the actual unchanged full helper in a safe fixture, observed old payload exit 0/zero bytes and both real diff outputs, checked actual bootstrap trace and unchanged retained-input hashes. Actionlint, syntax, source-boundary checks all exit 0. The original strict migrate-and-test step, failure gating and always-cleanup are byte-identical. This is diagnostic fixture evidence, not live producer or SQL repair proof. At that checkpoint integration/source equality and next real CI remained pending.
+
+## Reviewed integration, 2026-10-06 15:22 UTC
+
+Integrated only 5b277d6d4c918e71913c3a3674590c62af091c7d as 23eaa9af880461696d2f6eae0f6cca3081653b00. Stable patch ID a3abc9c49cade7ca0ffb8b5af1c50c02f3c43f15 matches, the whole workflow equals the reviewed source, and unrelated product source is unchanged. Actual source proof is retained in tmp/452-contract-reviewed-integration-20261006-retry.log. AC #3 is now satisfied. AC #4 still needs the next hosted exact-source conclusion, not an artificial failure injection or a fixture treated as live acceptance.
+
+## Actual producer/step boundary exposed, 2026-10-06 15:48 UTC
+
+Exact488f Fast37487821209 passed SQL102 shared plus1 isolated and daemon-floor, then failed the Go livedb fixture guard. Global if:failure() consequently invokes the SQL diff helper, which fails on missing test/regression.out. The hosted test conclusion remains failure; AC4 is not met. Earlier offline fixture evidence did not reproduce the actual result producer and cannot establish that this global failure diagnostic is correct.
+
+Read-only delegated preparation now maps the actual shared/isolated dev.sh output producers and the workflow's SQL-versus-Go step boundary, with exact file/line evidence in tmp/452-ci-fixture-diagnostics-map.md. Select the smallest producer-grounded correction only after that map. No invented result adapter, masking of the original Go failure, helper rewrite, DB/test operation or implementation is authorized by this preparation. Preserve the current failure and prior reviewed fixture limits.
+
+## Actual producer correction authorized, 2026-10-06 16:22 UTC
+
+The coordinator read the full134-line source/log map and integrated the separately approved managed Go guard. Fresh Snake session_snake_1791303703065_327c830953d1452d, GPT6.1Sol low, now implements only tmp/454-actual-producer-authorization.md in an isolated worktree from72e9f4607fda2a14b1906c5e4716ce0c73f5244e. Allowed tracked paths:dev.sh, fast-tests.yaml, one small offline shell fixture if needed. Persist raw existing pg_regress stdout at both real producers into the existing regression.out, once-fresh parent summary plus child append/standalone reset, unchanged console output and strict command/capture status. Do not clear before test failed reads the prior inventory, erase earlier failures with a later passing child, or invent a TAP adapter.
+
+Restrict diagnostics to the actual SQL-step failure, not later Go/floor failure; say explicitly when pre-pg_regress failure has no readable summary. Repair only existing grep/head no-match handling to let the intended no-failures branch run, treating grep status1 as no match while preserving actual read errors. No continue-on-error or generic error suppression on test execution. Required proof uses actual checked-in command bodies or a prepared/refusing full-entrypoint fixture, not manually typed tee commands; disclose extracted boundaries. No real DB/Docker/network/config/credentials/CI/guest/install/callback or broad suite operations.
+
+Independent Sloth GPT6.1Sol xhigh prepares only scope now, then must receive the coordinator's exact immutable final pin and give full explicit MERGE/BLOCK before integration. Root reports tmp/454-actual-producer-implementation.md and tmp/454-actual-producer-review.md. Previous manual-inventory fixture proof and actual488f failures remain preserved; no hosted acceptance or AC4 credited yet. One reviewed combined push waits fresh ALL-CI idle.
+
+## Frozen actual producer source and review authorization, 2026-10-06 16:29 UTC
+
+Snake froze clean1db224caaf10a2f4bb6e8e946f2f56e258c566e1, exact parent72e9f4607fda2a14b1906c5e4716ce0c73f5244e. Exactly three approved paths:dev.sh+15/-7, fast-tests.yaml+7/-2, one151-line offline fixture, total+173/-9. Root read the complete93-line implementation report, source delta, actual frozen-validation.log and postcommit.log. Bash syntax, focused actual-source fixture, fixture/payload shellcheck, actionlint and diff checks exit0. Global dev.sh shellcheck remains1 due to existing broader warnings, not a global-clean claim; changed-line scope0 preserves intentional existing list expansion SC2086. Original extracted-payload shellcheck1 due to omitted shell specification is retained; corrected -s bash0 adds no product boilerplate.
+
+Observed extracted command boundaries preserve shared7, isolated9, passing child0 and byte-identical console output. Actual extracted parent loop uses its checked-in append assignment, fails9 while retaining failed and passing children. Fresh standalone inventory removes old output; both tee capture failures remain1. First/all no-match reader0, missing inventory1 with SQL guidance, injected grep read error2 remains2. The reader prints both expected/result diffs from the inventory produced by those commands. Baseline observation driver0 is not relabeled RED: it successfully observed missing summary and no-match reader1 before the prototype. Full dev.sh startup/selection/preconditions/flock/runtime Docker or PostgreSQL behavior was not executed or credited.
+
+At16:28:46 the coordinator authorized Sloth's own detached independent review only on exact1db. Explicit full MERGE/BLOCK remained pending at this checkpoint. SQL/floor/livedb execution steps and primary conclusions remain strict; literal workflow missing-summary payload0 is diagnostic-only and cannot convert a failed SQL step to success. Hosted exact-source acceptance and AC4 remained pending.
+
+## Final independent review and integration, 2026-10-06 16:35 UTC
+
+Read the full 101-line Sloth report tmp/454-actual-producer-review.md before integration. Verdict MERGE applies only to exact 1db224caaf10a2f4bb6e8e946f2f56e258c566e1, sole parent 72e9f4607fda2a14b1906c5e4716ce0c73f5244e. The reviewer independently reproduced the parent inverse, mixed and multiple failing producers followed by passing children, prior-failure selection before reset, both capture refusals, actual unreadable/missing input, lookup status 2, literal diagnostic payload and source-body equality. No concrete source blocker. Full parent/final dev.sh ShellCheck each remains 1 for retained existing diagnostics. This is bounded shell-source approval, not a hosted SQL, Go, guest or candidate result.
+
+Integrated only that patch as dc1a8de68d16477a5df3f6fee5477860e8e9f573. Both stable patch IDs are 419b7a42f78b3d206fcc7e9dcede7558758871fd. All three paths and the complete non-backlog source equal the independently reviewed commit. Unrelated source and the dirty STATBUS-448 notes were verified unchanged, the index is empty, and untracked .yarn was preserved. Evidence: tmp/454-reviewed-integration-20261006.log and tmp/454-reviewed-source-proof-20261006.log. No push yet at this checkpoint. Next is one combined reviewed push only after a fresh all-CI-idle check, then the normal exact-source lane. Original hosted failures and all acceptance limits remain retained, AC4 is still pending.
+
+## Closing review, 2026-10-07 10:25 UTC (owner decision A)
+
+Owner question on review: "this has always worked before, how can it now fail?" The
+retained run logs answer it: it never worked. Checked three failing runs — two from
+*before* this ticket existed:
+
+- `36887222017` 2026-10-01 15:49 failing
+- `36891859453` 2026-10-01 16:25 failing
+- `37481764536` 2026-10-06 14:46 failing (this ticket's baseline)
+
+In **all three**, the `Show regression diffs on failure` step log is the command echo
+followed immediately by `Cleanup` — zero diff bytes, and the step concluded **success**.
+It was a silent no-op.
+
+Root cause, visible in the old command itself:
+
+    docker compose exec --workdir /statbus db \
+      cat /statbus/test/regression.diffs 2>/dev/null || true
+
+`docker compose exec` without `-T` requires a TTY. CI has none, so docker errors
+("the input device is not a TTY"), `2>/dev/null` discards it, and `|| true` converts
+the failure into a green step with empty output. Every other non-interactive exec in
+`dev.sh` passes `-T` (830, 1046, 1226, 2088); only the two `cat regression.diffs`
+helpers (1305, 1309) omit it.
+
+The integration (`dc1a8de6`, pushed as `ff31419a`, both ancestors of `bce5bf39`)
+replaces it with `./dev.sh diff-fail-all pipe`, which reads HOST files
+(`test/regression.out`, `test/expected/*.out`, `test/results/*.out`) with plain `diff`
+— no container, no TTY dependency, and an explicit message when the summary is absent.
+The step is scoped `if: failure() && steps.sql_tests.outcome == 'failure'`, so a Go
+livedb-guard failure (the run 37487821209 defect) no longer invokes the SQL helper.
+
+AC4 scope, stated honestly: the "retains its true test conclusion" half is verified
+(Fast Tests green on `bce5bf39` runs 37575118574 and 37577158086, and the diagnostic no
+longer fires on non-SQL failures). The "a future failing run's diff step is useful" half
+rests on the fixture-level proof (AC2) plus the source argument above; it has not been
+exercised by a hosted red run since integration, and the suite is currently green.
+Owner chose to close on that basis rather than manufacture a red run (option B).
+
+## Hosted checkpoint, 2026-10-06 16:43 UTC
+
+Committed the evidence note as ff31419a87fdc46d1fc8efd555833f2af05ea56d and verified its complete non-backlog tree still matches reviewed 1db. After a fresh paginated all-active-CI query at 16:37:04, one ordinary push and full remote SHA verification succeeded. The initial computed-path safety refusal executed nothing; the justified retry was the sole actual push. Existing 448 changes and .yarn remain untouched.
+
+Observer 662097prn0 ended 1 on a real Harness Selftest failure, not a monitoring deadline. The failure is five log-registration reports in the 451 scenario, not the SQL producer/diagnostic. Complete job/step evidence is retained and a separate bounded 451 follow-up is delegated. At 16:42 the actual App, Go, Images and Notify workflows succeeded, while attributed Fast 37497710543 remains in progress. SQL, floor and managed livedb outcomes and real summary lifecycle are not yet credited. AC4 remains pending, and another source push must wait for every CI run to finish.
+
+## Implementation Notes
+
+2026-11-08 follow-up after owner released serial rc03 tracked freeze: hosted Fast run 42500931828 at e6eb065f5 failed SQL374 (298688 ms), then diagnostic falsely reported no readable host summary although pg_regress announced /statbus/test container paths. Reusing this existing ticket, not creating a duplicate. Prior closure explicitly did not claim a hosted red diagnostic result. Authorized scope is fast-tests.yaml, one shell regression and its registration; no SQL/product/performance changes. Prepared patch and RED/GREEN evidence: tmp/serial-rc/fast-ci-diagnostics/. Root requests commit after tests, hold push for review.
+
+2026-11-08 implementation committed as 63c13a523ca1648aa98dcd6e3043c05438fad9d2, parent e6eb065f5d95114b554d1261273d20bb26959c42. Exactly fast-tests.yaml and new test/fast-ci-regression-diagnostics-test.sh changed, including test registration in Fast CI. Prepared patch source equality verified. Original workflow exact-body regression RED returned 2 at positive retained-byte assertion; old body returned misleading 0. Integrated seven-case regression GREEN, existing test/454-regression-summary-offline.sh GREEN (shared7/isolated9/parent9 retained, capture failures1/read error2), Bash ShellCheck and whole-workflow actionlint GREEN. Focused go test ./cmd -run TestFastPublishedImages|TestWorkflowRunMarkerMatchesCheckoutRef_STATBUS285|TestFastTestsExcludesFixtureBranch_STATBUS433 passed. Logs and fixtures retained under tmp/serial-rc/fast-ci-diagnostics/{integrated*,existing-454*,red-final*,green-final*}. No push: root review and exact-SHA full CI remain pending under AC7. No actual GitHub artifact upload or live SQL result production is claimed by shell doubles. Later isolated pg_regress children may overwrite/remove prior container diagnostics, so SQL374-specific diff survival is not guaranteed. SQL performance remains root-owned, no thresholds changed. Concurrent doc/performance/2026-11-combined-import-review.md edits are unrelated and preserved.
+
+2026-11-08 17:30 UTC root review explicitly expands scoped follow-up to tar-stream /statbus/test/results from db and reconstruct per-test diffs against checkout expected files. Existing summary/diff collector does not recover earlier SQL374 after passing isolated children overwrite summaries. Host summary was unreadable or absent; mode600/root ownership plus unlink/recreate is suspected, not proven. No dev.sh lifecycle redesign, product changes or threshold changes. Hold push for root review of next commit.
+
+2026-11-08 17:34 UTC root real-producer observation: actual PG18 pg_regress in network-none published-image disposable probe executes a tiny intentional mismatch, followed by a passing child in the same output directory. The passing child removes regression.out AND regression.diffs completely while both uniquely named results/*.out survive byte-identical. This provides a concrete mechanism for the hosted missing host summary through its bind mount and a retained-result recovery basis. Result files are 0644 root-owned. Logs, original generated bytes and corrected wrapper are tmp/serial-rc/actual-producer/. Initial diagnostic wrapper expected a passing summary and failed its final cat, corrected to assert observed lifecycle. This is an actual producer boundary probe with synthetic SQL, not hosted artifact upload or SQL374 reproduction.
+
+2026-11-08 per-test recovery implemented in 22715e09033506caede6eb140eff51f717922a8c (two owned code paths only). Workflow streams db tar -cf - -C /statbus/test results into retained results.tar, extracts with --no-same-owner as runner, compares every top-level results/*.out to checkout test/expected with named stable-label unified diffs. diff1 is expected mismatch; diff>1 remains unexpected failure. Missing raw summaries retain errors but do not block tar/diff recovery. No dev.sh lifecycle or thresholds changed. Host-summary wording is unreadable or absent, not definite wrong path or missing file. Root actual published PG18 probe independently showed passing child REMOVES BOTH summary files while earlier_shared.out and later_isolated.out survive byte-identical (root actual results mode644). This supersedes earlier summary-replacement-only assumptions. Original e6 host accessibility was not independently observed; ownership/inode explanation is not asserted as original-run proof.
+
+Verification: new exact-body regression RED against prior collector (exit2 at missing recovered-results assertion); tmp-only prototype GREEN before tracked implementation. Final 14-case integrated regression GREEN on Bash3 and Bash5, including both-summaries-gone/shared374 retained, final passing-only summary variant, root-owned mode600 archive extracted readable and runner-owned, byte-identical archive/results including nested binary bytes, exact named printed/retained shared diff, matched isolated empty diff, unreadable host summary, missing files, unavailable db42, partial-stream43, archive44/45, corrupt archive, empty result set, unexpected diff2 and sink74. Existing 454 producer/reader regression, ShellCheck, Actionlint, focused Go workflow tests and diff checks PASS. Root retained REAL PG18 outputs were also passed through exact workflow body via a narrow LOCAL cat/tar transport adapter with no Docker/SQL/network execution: recovered exact earlier_shared.out 41-to-42 mismatch, matched later_isolated empty diff, byte-identical result tree, retained read failures and collector1. Evidence tmp/serial-rc/fast-ci-results/{red-final.log,integrated.log,integrated-bash5.log,actual-boundary.log,actual-boundary.TS0Q4F,existing-454.log,shellcheck.log,actionlint.log,go-workflow.log}. Initial prototype found Bash3 empty-array nounset failure; fixed with direct nullglob iteration, both shell versions now preserve expected error statuses. No push: root review plus full exact-SHA CI remain AC7, actual GitHub artifact upload not claimed.
+
+2026-11-08 17:37 UTC root reviewed complete committed workflow and regression at cbd98d6e1, including per-test tar stream, runner-owned extraction, exact diff status classification and always-upload before cleanup. Independently passed new actual-body regression, actual PG18 retained-result boundary replay, existing454 extracted actual-source regression, ShellCheck, Actionlint and focused actual Go workflow contracts. Logs tmp/serial-rc/root-diagnostic-{review,source-review,go-review}.log and root-diagnostic-existing454-pass.log. Two initial existing454 invocations omitted required arguments and correctly refused before testing, preserved separately. No source blocker. One ordinary master push follows, exact-SHA hosted sequence pending; actual artifact upload remains unobserved until a genuine SQL failure.
+
+2026-11-08 17:58 UTC actual hosted acceptance: reviewed/pushed745c1428202166f16995b39e4bd68a5e45d6abce. All six non-Fast workflows completed/success. Full Fast42506168812 completed/failure on genuine SQL374 first-pass timing, preserving primary failure. Diagnostic selftest passed; both actual container summary files were absent after passing isolated children. The collector recovered and printed the exact374 expected/actual diff, all6000correct roots but under10=false, then always-upload successfully published409files in artifact13628031707. Downloaded archive SHA256 d9756fed08734907b3617be393410b4ef1650b5c53a1d8f02d65ce6006c134e1 matches API/upload log. Extracted results.tar matches every downloaded result byte; the sole nonempty per-test diff is374. Raw result count136 includes133SQLoutputs and3generated artifacts. This is actual hosted failure-path/artifact acceptance, not fixture inference. Floor/LiveDB skipped due original SQL failure. Performance cause is separate STATBUS596 InProgress; no thresholds changed or overall-green claim. Exact source is already on master, ticket closure accompanies next focused investigation push.

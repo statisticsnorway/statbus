@@ -1,0 +1,68 @@
+---
+id: "qsdxja"
+title: >-
+  Stable preflight reports pending work plainly and shows how to inspect
+  relevant changes
+state: "done"
+assignee: []
+updated_date: '2026-10-27T19:05:00Z'
+labels:
+  - release
+  - ux
+  - cli
+group: ""
+rank: "000000000515"
+dependencies: []
+priority: high
+type: "feature"
+origin: "backlog:STATBUS-532"
+aliases: ["STATBUS-532"]
+backlog_type: "enhancement"
+created: "2026-10-27T18:12:00Z"
+updated: "2026-10-27T19:05:00Z"
+---
+
+## Goal
+
+### North Star
+Stable preflight tells the operator what is actually happening: what passed, what is running, what has not started, and what genuinely failed. Pending work is not presented as failure, and the next action is the one the release chain actually needs.
+
+### Zoom out
+The 2026-10-26 stable preflight mixed every state into a wall of red. It repeated the arc list and changed-file counts, offered manual triggers while the orchestrator already owned the next step, called a two-minute dev wait a fault, and used abstract wording such as "refuses", "coverage" and "candidate evidence". The gate's decisions should not change here: only the operator-facing states, explanations and inspection commands.
+
+### Zoom in
+- Reference output: `./dev.sh build-sb; ./sb release stable`, saved in `tmp/release-stable.log` (2026-10-26).
+- Use `⏳` for pending and `✗` only for an observed failure. Keep `✓` for green. Say "running", "not started", "passed" and "failed" in plain words, including "0/33 scenarios have passed" rather than "coverage".
+- Remove repeated arc-name and changed-file-count output. Offer `git log --oneline`, `git diff` and optionally `git log -p` with the SAME hard-coded pathspec the scenario's coverage check already uses. Do not discover or invent new paths for display.
+- Canaries: dev is a fault only after a reasonable automatic-deploy window, not immediately. Norway waits for its next 6h release check before it is a fault. Say "Canary Norway", and remove the duplicated `(Upgrader|Upgrader)` text.
+- Explain the orchestrator's actual blocked step and why later steps are skipped. Offer a manual trigger only when the orchestrator has finished without scheduling that work. Do not tell the operator to register/schedule dev by hand as the default action.
+- End with "stable promotion is waiting for the checks above to complete" when only pending work remains, not an alarm that reads like a product failure.
+- Go tests assert the output for each state and next action. They must fail on the old alarmist/misleading output and pass after the change.
+
+### Closing review
+- **Memory:** the owner's concrete wording rules are in this ticket and the output tests.
+- **Documentation:** the preflight output itself is the guide; no separate long document.
+- **Cleanup:** no duplicate path list maintained only for display.
+
+## Acceptance
+- [x] #1 Pending states use an hourglass and observed failures use the error icon; Go tests distinguish running, not-started, passed and failed, and do not mark pending scenarios as failures
+- [x] #2 Arc names and changed-file counts are not repeated. A Go test proves the output collapses repeated noise instead of printing every scenario and every count
+- [x] #3 The output offers git log and git diff with the same hard-coded paths used by the scenario's coverage check, and tests prove the commands contain those exact paths
+- [x] #4 Dev's message becomes a fault only after the automatic-deploy window, Norway's message waits for the next 6h check, and the output says Canary Norway with no duplicated upgrader wording; tests cover short and long waits
+- [x] #5 The output names the orchestrator's blocked step and why later steps are skipped, offers manual triggers only when the orchestrator has finished without scheduling, and ends with a concrete waiting-for-checks message when only pending work remains
+
+## Implementation Notes
+
+Implemented in 869f5db1c (release: stable preflight reports pending work plainly), pushed to origin/master.
+
+RED evidence: new output tests written against the pre-change code failed 9 of 10 cases (tmp/test-532-red.log in the 532 scratch checkout): pending test-hardening printed '✗ ... is still pending', blocked arcs printed per-scenario ✗ names + repeated '(N changed files ...)' pointers, a 2-minute dev wait printed 'THIS IS A FAULT ON THIS SLOT', Norway's not-offered text carried '(Upgrader|Upgrader)', and lxd-fleet offered a manual trigger with the orchestrator unexamined.
+
+GREEN evidence: tmp/test-532-green.log — all 13 STATBUS-532 tests plus 4 DisplayPathspec tests pass; full `go test ./cmd/... ./internal/...` exit 0; golangci-lint 0 issues; gofmt clean; ./dev.sh build-sb OK.
+
+What changed (output and next-action guidance only; gate decisions and evidence requirements unchanged):
+- Gates return gateVerdict (passed/pending/failed). Pending wears the hourglass and plain words (running / has not run / no result yet); only concluded failures, probe failures and evaluation errors wear ✗. Pending-only runs print 'Stable promotion is waiting for the checks above to complete.' (non-zero exit preserved) instead of 'Error: pre-flight checks failed'.
+- Blocked scenarios collapse to 'N/M scenarios have passed' + why the anchor's results cannot be reused + inline names when few; per-scenario ✗ spam and repeated changed-file counts removed. git log --oneline / git diff / git log -p offered per anchor with release.DisplayPathspec — computed from ops/release/upgrade-sensitive-paths.txt plus the home's hard-coded scenarioSensitivityRules, arcs collapsed to test/install-recovery/arcs, prefix rules as git wildcards. Tests assert the exact pathspec string and that the pathspec covers every path the real matcher calls sensitive.
+- Canary: 'Canary Norway' display name (bypass label stays 'no'); dev's unclaimed offer is a fault only after a 15-minute automatic-deploy window (short and long waits tested); Norway not-offered says waiting for its next 6h check is expected; grep hint fixed to '(Upgrader|upgrade service) started'; dev's next move is inspecting the Release Fleet Orchestrator, with register/schedule demoted to a conditional by-hand line.
+- Orchestrator: new WorkflowFleetOrchestrator constant; missing lxd-fleet/arc/smoke runs consult the orchestrator's run at the RC commit — while it is pending, the blocked step (dev-canary / smoke) is named and no manual trigger is offered; once it has finished (or is absent/failed) the trigger is offered.
+
+CI green at 869f5db1ce81cfaf37d5a4dfeb1472be6482fa2d (master): Fast Tests, Go Test, Images, app build & lint, Harness Selftest, CodeQL, Notify cloud services all success. ACs verified by the STATBUS-532 tests in cli/cmd/release/release_preflight_output_test.go and cli/internal/release/sensitivity_pathspec_test.go: AC1 icons/verdicts per state; AC2 collapse (no per-scenario ✗ spam, no repeated counts); AC3 exact pathspec in the printed git commands; AC4 dev short/long waits, Canary Norway, fixed grep; AC5 orchestrator blocked step named, trigger only after the orchestrator finished, waiting-for-checks ending.
