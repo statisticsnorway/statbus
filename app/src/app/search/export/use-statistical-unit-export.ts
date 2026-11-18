@@ -110,7 +110,7 @@ export function formatExportProgress(progress: SearchExportProgress): string {
       : "";
   switch (progress.phase) {
     case "waiting":
-      return `Preparing export… (${elapsed})`;
+      return `Preparing download… (${elapsed})`;
     case "downloading":
       return `Downloading… ${formatCount(progress.rowsReceived)}${ofTotal} rows, ${formatMegabytes(progress.bytesReceived)} (${elapsed})`;
     case "saving":
@@ -118,7 +118,7 @@ export function formatExportProgress(progress: SearchExportProgress): string {
     case "complete":
       return `Downloaded ${formatCount(progress.rowsReceived)} rows in ${elapsed}`;
     case "error":
-      return progress.error || "Export failed";
+      return progress.error || "Download failed";
     default:
       return "";
   }

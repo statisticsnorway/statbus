@@ -53,7 +53,7 @@ export function UnitHistoryExportButton({
         <button
           onClick={cancelExport}
           className="text-gray-400 hover:text-gray-600"
-          title="Cancel export"
+          title="Cancel download"
         >
           <X className="h-3 w-3" />
         </button>
@@ -82,7 +82,7 @@ export function UnitHistoryExportButton({
         )}
       >
         <Download size={17} />
-        <span>Export unit history</span>
+        <span>Download unit history</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => begin("csv")}>

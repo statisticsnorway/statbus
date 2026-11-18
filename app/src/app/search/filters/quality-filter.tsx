@@ -10,8 +10,8 @@ import {
 import { SearchFilterOption } from "../search.d";
 
 // Quality (xz3jej): narrows the list to the units one quality check lists (quality=<check>), and
-// lets the user switch check or clear it. It appears only while a check is chosen: the dashboard's
-// Data quality cards are where a check is opened from.
+// lets the user choose a check, switch it or clear it. Always shown, like Unit Type: a quality
+// check is not a column, so the column settings do not hide it.
 export default function QualityFilter() {
   const { filters, updateFilters } = useSearchFilters();
   const filterValue = filters[QUALITY];
@@ -44,8 +44,6 @@ export default function QualityFilter() {
   const reset = useCallback(() => {
     updateFilters({ ...filters, [QUALITY]: [] });
   }, [filters, updateFilters]);
-
-  if (selected.length === 0) return null;
 
   return (
     <OptionsFilter

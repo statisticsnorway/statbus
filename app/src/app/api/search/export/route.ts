@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
       `Search export could not start: ${message}`
     );
     return NextResponse.json(
-      { message: `Export failed: ${message}` },
+      { message: `Download failed: ${message}` },
       { status: 500 }
     );
   }

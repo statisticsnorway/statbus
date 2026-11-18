@@ -91,7 +91,7 @@ export function ExportCSVLink() {
         <button
           onClick={cancelExport}
           className="text-gray-400 hover:text-gray-600"
-          title="Cancel export"
+          title="Cancel download"
         >
           <X className="h-3 w-3" />
         </button>
@@ -132,7 +132,7 @@ export function ExportCSVLink() {
           )}
         >
           <Download size={17} />
-          <span>Export</span>
+          <span>Download</span>
           {progress.phase === "complete" && (
             <span className="text-xs text-green-600 ml-1">
               {formatExportProgress(progress)}
