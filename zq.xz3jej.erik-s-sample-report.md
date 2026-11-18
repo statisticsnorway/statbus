@@ -51,7 +51,7 @@ Build plan, on branch statbus-xz3jej-primary-est-activity, each step its own com
 
 ## Acceptance
 - [x] [Owner] Approves the rule: compare a legal unit's primary activity with its primary establishment's (primary_for_legal_unit), every legal unit with one, narrowing by URL filter; the answer is recorded in the notes
-- [ ] A SQL test asserts, on the demo data in 306, which legal units the report table lists after derive, and that the search's embed counts the same units
+- [x] A SQL test asserts, on the demo data in 306, which legal units the report table lists after derive, and that the search's embed counts the same units
 - [ ] The Data quality section shows the card with the count for the selected time frame, and its link opens a search listing exactly those legal units (checked against the SQL on the local Norway data)
 - [ ] PR #328 is closed on GitHub with a comment that thanks Erik, says why (integrated in the app instead), and links this task
 
