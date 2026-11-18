@@ -86,6 +86,7 @@ Owner 2026-11-11 11:51: AC#7 decided as 'only the UI asks'; no 'allow changes to
 2026-11-12 02:03 UTC (Rabbit): rc.02 (v2026.11.4-rc.02, 49376c40a) release run GREEN: orchestrator https://github.com/statisticsnorway/statbus/actions/runs/43131208686 (smoke, dev canary, LXD fault fleet, arc harness, verdict). Awaiting owner: ./sb release stable.
 
 
+2026-11-18 15:55 owner: closes on the earlier approval; Norway has no data in past frames yet, so the editing check there is not possible now, and he tested time frames before (2026-11-10/11 review, approved; 11-18 he switched Live frame (2026) and Previous frame (2025) on no.statbus.org: the unit page shows 'Unit not found' for a frame where the unit does not exist). Shipped in v2026.11.4 (ad2214d83 and the 606 branch): test 355_statbus_606_time_frames (the frames, kinds and equals) in the fast suite, green on every CI since; rg -i 'time_context|relative_period|timecontext' over app/src cli test/sql samples finds nothing; frame menu, edit form Frame view, import pages and the ask-before-past-frames confirmation reviewed by the owner and running on v2026.11.4 and v2026.11.5.
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
 - 2026-11-18T11:39 doing/waiting -> doing/asked (hug upgrade, 41hhgn: a question to a person is its own stage)
