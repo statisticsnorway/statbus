@@ -65,7 +65,19 @@ export interface ExportSql {
 }
 
 /** Params that shape pagination or response format and never filter rows. */
-const IGNORED_PARAMS = new Set(["limit", "offset", "select", "format"]);
+const IGNORED_PARAMS = new Set(["limit", "offset", "format"]);
+
+/**
+ * The search page's `select` values and the row filter each one means. The search sends no
+ * select (PostgREST's `*`) unless a data-quality filter adds an inner embed, which keeps only
+ * the statistical_unit rows its report table lists; the export keeps the same rows with the
+ * same join. Any other select is refused, so an export never ignores a filter the list used.
+ */
+const SELECT_FILTERS: Record<string, string | null> = {
+  "*": null,
+  "*,primary_establishment_activity_differs!inner()": `EXISTS (SELECT 1 FROM public.primary_establishment_activity_differs AS r
+    WHERE r.unit_type = su.unit_type AND r.unit_id = su.unit_id AND r.valid_range = su.valid_range)`,
+};
 
 /**
  * statistical_unit columns usable in filters and ordering, by kind. The kind
@@ -422,6 +434,14 @@ export function whereConditions(params: URLSearchParams): string[] {
   const conditions: string[] = [];
   for (const [key, value] of params.entries()) {
     if (key === "order" || IGNORED_PARAMS.has(key)) continue;
+    if (key === "select") {
+      if (!(value in SELECT_FILTERS)) {
+        throw new ExportQueryError(`Unsupported export select: ${value}`);
+      }
+      const condition = SELECT_FILTERS[value];
+      if (condition) conditions.push(condition);
+      continue;
+    }
     conditions.push(filterCondition(key, value));
   }
   return conditions;

@@ -6,6 +6,7 @@ import {
   orderByClause,
   quoteLiteral,
   splitListValues,
+  whereConditions,
 } from "./export-sql";
 import { setExistenceSearchParams } from "@/lib/unit-existence";
 
@@ -208,13 +209,12 @@ describe("composeExportSql", () => {
       order: "name.asc,unit_type.asc,unit_id.asc",
       limit: "10",
       offset: "20",
-      select: "ignored",
     }),
     config
   );
 
-  it("never pages: limit/offset/select do not reach the SQL", () => {
-    expect(sql.selectSql).not.toMatch(/LIMIT|OFFSET|ignored/);
+  it("never pages: limit/offset do not reach the SQL", () => {
+    expect(sql.selectSql).not.toMatch(/LIMIT|OFFSET/);
   });
 
   it("joins the computed names laterally, so rows without them survive", () => {
@@ -240,5 +240,28 @@ describe("composeExportSql", () => {
     const { countSql } = composeExportSql(params, config);
     expect(countSql).toContain(">= '100'::jsonb");
     expect(countSql).toContain("< '150'::jsonb");
+  });
+
+  it("keeps the rows the search's data-quality select keeps (xz3jej)", () => {
+    const params = new URLSearchParams({
+      select: "*,primary_establishment_activity_differs!inner()",
+      unit_type: "in.(legal_unit)",
+    });
+    const { selectSql, countSql } = composeExportSql(params, config);
+    const condition = `EXISTS (SELECT 1 FROM public.primary_establishment_activity_differs AS r
+    WHERE r.unit_type = su.unit_type AND r.unit_id = su.unit_id AND r.valid_range = su.valid_range)`;
+    expect(whereConditions(params)).toEqual([
+      condition,
+      `su."unit_type" = ANY('{"legal_unit"}')`,
+    ]);
+    expect(selectSql).toContain(condition);
+    expect(countSql).toContain(condition);
+  });
+
+  it("reads select=* as every row and refuses any other select", () => {
+    expect(whereConditions(new URLSearchParams({ select: "*" }))).toEqual([]);
+    expect(() =>
+      whereConditions(new URLSearchParams({ select: "name" }))
+    ).toThrow(ExportQueryError);
   });
 });

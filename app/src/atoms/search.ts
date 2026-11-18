@@ -33,6 +33,7 @@ import {
   lastEditByUserDeriveStateUpdateFromValues,
   unitSizeDeriveStateUpdateFromValues,
   dataSourceDeriveStateUpdateFromValues,
+  primaryEstablishmentActivityDiffersDeriveStateUpdateFromValues,
   externalIdentDeriveStateUpdateFromValues,
   statisticalVariableDeriveStateUpdateFromValue,
   statisticalVariableParse,
@@ -48,6 +49,7 @@ import {
   DATA_SOURCE,
   DOMESTIC,
   PHYSICAL_LOCATION,
+  PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS,
 } from "../app/search/filters/url-search-params";
 
 import { selectedTimeFrameAtom, searchStateInitializedAtom } from './app'
@@ -964,6 +966,16 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
           unitTypeDeriveStateUpdateFromValues(unitTypeValues);
         if (unitTypeAction.type === "set_query")
           actionPayloadPart = unitTypeAction.payload;
+        break;
+      case PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS:
+        const differsValue =
+          Array.isArray(appParamValue) && appParamValue.length > 0
+            ? (appParamValue[0] as string | null)
+            : null;
+        const differsAction =
+          primaryEstablishmentActivityDiffersDeriveStateUpdateFromValues(differsValue);
+        if (differsAction.type === "set_query")
+          actionPayloadPart = differsAction.payload;
         break;
       case DOMESTIC:
        const domesticValue =

@@ -16,6 +16,7 @@ import StatusFilter from "../filters/status/status-filter";
 import UnitSizeFilter from "../filters/unit-size/unit-size-filter";
 import LastEditByUserFilter from "../filters/last-edit-by-user/last-edit-by-user-filter";
 import DomesticFilter from "../filters/domestic-filter";
+import PrimaryEstablishmentActivityDiffersFilter from "../filters/primary-establishment-activity-differs-filter";
 
 export default function TableToolbar() {
   return (
@@ -25,6 +26,7 @@ export default function TableToolbar() {
         <ExternalIdentFilter />
       </FilterWrapper>
       <UnitTypeFilter />
+      <PrimaryEstablishmentActivityDiffersFilter />
       <FilterWrapper columnCode="activity">
         <ActivityCategoryFilter />
       </FilterWrapper>

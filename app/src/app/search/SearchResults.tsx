@@ -21,6 +21,7 @@ import {
   domesticDeriveStateUpdateFromSearchParams,
   physicalLocationDeriveStateUpdateFromSearchParams,
   lastEditByUserDeriveStateUpdateFromSearchParams,
+  primaryEstablishmentActivityDiffersDeriveStateUpdateFromSearchParams,
   statisticalVariablesDeriveStateUpdateFromSearchParams,
   unitSizeDeriveStateUpdateFromSearchParams,
   unitTypeDeriveStateUpdateFromSearchParams,
@@ -65,6 +66,8 @@ const deriveStateFromUrl = (
     unitSizeDeriveStateUpdateFromSearchParams(urlSearchParams);
   const dataSourceAction =
     dataSourceDeriveStateUpdateFromSearchParams(urlSearchParams);
+  const primaryEstablishmentActivityDiffersAction =
+    primaryEstablishmentActivityDiffersDeriveStateUpdateFromSearchParams(urlSearchParams);
   const externalIdentActions = externalIdentTypes.map((extType) =>
     externalIdentDeriveStateUpdateFromSearchParams(extType, urlSearchParams)
   );
@@ -86,6 +89,7 @@ const deriveStateFromUrl = (
     lastEditByUserAction,
     unitSizeAction,
     dataSourceAction,
+    primaryEstablishmentActivityDiffersAction,
     ...externalIdentActions,
     ...statVarActions,
   ].filter(Boolean) as SearchAction[];

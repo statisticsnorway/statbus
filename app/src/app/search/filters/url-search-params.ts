@@ -293,6 +293,37 @@ export function lastEditByUserDeriveStateUpdateFromValues(
   return result;
 }                               
 
+// Data quality (xz3jej): legal units whose primary establishment has another primary activity.
+// The app parameter primary_establishment_activity_differs=true becomes an inner embed of the
+// report table public.primary_establishment_activity_differs, which keeps only the
+// statistical_unit rows it lists. The table is joined one-to-one by its NOT ENFORCED foreign key
+// (see the table's COMMENT), so the embed adds no field to a row and stays a plain join.
+export const PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS = "primary_establishment_activity_differs";
+export const PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS_SELECT =
+  "*,primary_establishment_activity_differs!inner()";
+
+export function primaryEstablishmentActivityDiffersDeriveStateUpdateFromSearchParams(
+  urlSearchParams: URLSearchParams
+): SearchAction {
+  return primaryEstablishmentActivityDiffersDeriveStateUpdateFromValues(
+    urlSearchParams.get(PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS)
+  );
+}
+
+export function primaryEstablishmentActivityDiffersDeriveStateUpdateFromValues(
+  value: string | null
+): SearchAction {
+  return {
+    type: "set_query",
+    payload: {
+      app_param_name: PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS,
+      api_param_name: "select",
+      api_param_value: value === "true" ? PRIMARY_ESTABLISHMENT_ACTIVITY_DIFFERS_SELECT : null,
+      app_param_values: value === "true" ? [value] : [],
+    },
+  } as SearchAction;
+}
+
 export const DATA_SOURCE = "data_source";
 
 export function dataSourceDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {
