@@ -43,5 +43,6 @@ Boxes: app/src/app/legal-units/[id]/@primaryUnitInfo/default.tsx and app/src/app
 
 
 landed 839f84c on master 2026-11-18: app: editing a primary unit says, beside Save, that the change also changes the…
+2026-11-18 02:32 (Rabbit): pushed to master as 82c2da035; CI green on that SHA: Fast Tests 44222154288, Go Test, app build & lint, Images, Harness Selftest. Local fast suite 145/145 (tmp/rc-fast2.log).
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
