@@ -11,8 +11,9 @@ services:
     # The slot's SITE_DOMAIN, read by config generate and sb start to find
     # another running slot on the same domain (config.RefuseSharedSiteDomain,
     # an early message only; see its comment for what guarantees the rule).
+    # Optional on purpose: an advisory label never stops a compose render.
     labels:
-      org.statbus.site_domain: ${SITE_DOMAIN:?SITE_DOMAIN must be set in the generated .env}
+      org.statbus.site_domain: ${SITE_DOMAIN:-}
     ports:
       - "${CADDY_HTTP_BIND_ADDRESS:?CADDY_HTTP_BIND_ADDRESS must be set in the generated .env}:80/tcp"
       - "${CADDY_HTTPS_BIND_ADDRESS:?CADDY_HTTPS_BIND_ADDRESS must be set in the generated .env}:443/tcp"
