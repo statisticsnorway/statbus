@@ -1,6 +1,6 @@
 ---
 id: 50bwaz
-title: "Reset by Getting started steps; Getting started shows what is really set"
+title: "Reset scopes follow the dialog and restore factory defaults; Getting started reflects the database"
 state: "doing"
 type: bug
 priority: ""
