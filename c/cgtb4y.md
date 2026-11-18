@@ -1,7 +1,7 @@
 ---
 id: "cgtb4y"
 title: A unit's history page shows its newest changes a page at a time
-state: "doing"
+state: "done"
 assignee: ["rabbit"]
 updated_date: '2026-11-16T13:40:00Z'
 labels:
@@ -19,11 +19,7 @@ updated: "2026-11-16T13:40:00Z"
 model: "claude-opus-5-5"
 branch: "statbus-632-history-paging"
 worktree: "/Users/jhf/ssb/statbus_test"
-doing_since: "2026-11-18T04:41"
-stage: "waiting"
-waiting_asked_by: "rabbit"
-waiting_on: "owner: check 6 (plain paging, frame-grouped, or both)"
-waiting_since: "2026-11-18T06:17"
+done_at: "2026-11-18T17:48"
 ---
 
 ## Goal
@@ -61,6 +57,8 @@ Check 1 precisely: each request reads range offset..offset+50 (51 rows: the 50 s
 2026-11-18 13:26 (Rabbit): paused for 50bwaz (reset + factory defaults, owner's detour for the next rc); the owner's open question here comes right after it.
 2026-11-18 16:14 (Rabbit): shipped in stable v2026.11.5 (promoted from rc.02, 691e26810) and in v2026.11.6-rc.01. The owner's open check waits for his return this evening.
 2026-11-18 16:48 owner: (a) plain paging, as built and shipped (v2026.11.5, v2026.11.6-rc.01). Frame grouping only if people ask for it; no follow-up ticket now.
+Reflection (open, 2026-11-18, rabbit): One gap: the Implementation Notes left an owner choice open that I did not ask before building; the task had no [Owner] check for it until review added one. A choice recorded as open should be an [Owner] check from the start.
 ## History
 - 2026-11-18T04:41 todo -> doing/active (take)
 - 2026-11-18T04:55 doing/active -> doing/waiting (wait)
+- 2026-11-18T17:48 doing/waiting -> done (done); was doing_since: 2026-11-18T04:41; waiting_asked_by: rabbit; waiting_on: owner: check 6 (plain paging, frame-grouped, or both); waiting_since: 2026-11-18T06:17
