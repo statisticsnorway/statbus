@@ -32,7 +32,7 @@ Reproduction (tmp/611-rls-probe4..6.sql, logs; clone of statbus_test_template; j
 ## Acceptance
 - [x] A pg_regress test, RED before the fix: as a regular user, change and remove 2025 of an activity, a statistic, a contact and a location (with a region) that the admin wrote from 2024; each succeeds, the changed or removed period is as asked, and the kept pieces still name the admin
 - [x] [Owner] Chooses between restoring WITH CHECK (true) for regular users now and waiting for sql_saga to stamp the writer, recorded in this task's notes (2026-11-18 00:04: restore now; sql_saga stamping researched separately)
-- [ ] The edit form, as a regular user, saves a 2025-only change on a record another user wrote (headless, database restored after)
+- [x] The edit form, as a regular user, saves a 2025-only change on a record another user wrote (headless, database restored after)
 
 ## Notes
 
