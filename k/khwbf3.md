@@ -1,15 +1,20 @@
 ---
 id: khwbf3
 title: "The app sometimes stays on Loading application… after a reload"
-state: todo
+state: "doing"
 type: bug
 priority: "high"
-assignee: []
+assignee: ["hibiscus"]
 labels: []
 group: ""
 rank: "zzzq"
 created: 2026-11-18
 updated: 2026-11-18
+doing_since: "2026-11-18T16:33"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -42,3 +47,7 @@ Tools: the jcode browser bridge runs JavaScript in the owner's Firefox tab (page
 - [ ] The fix is in the state machines or derived state (no new rescue), the test passes, and the owner sees no stall over a working day; the owner's reload rescue is then removed
 
 ## Notes
+
+
+## History
+- 2026-11-18T16:33 todo -> doing/active (take)
