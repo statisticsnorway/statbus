@@ -41,5 +41,6 @@ public.reset(confirmed, scope reset_scope), scopes units|data|getting-started|al
 ## Notes
 
 
+2026-11-18 11:48-12:02 owner decisions: (1) three scopes, the database values match the dialog: 'units' deletes the units and the import jobs that made them (a finished job cannot be re-run, so keeping jobs leaves a screen that disagrees with the data); 'getting-started' adds the six Getting started steps (Activity Category Settings counts as step 2); 'customisation' adds the /admin Customisation section and never touches users. The old values data, getting-started, all and units are replaced; test 305 follows. Re-running finished import jobs for testing would be its own ticket. (2) Owner addenda: a full reset restores the system defaults a user edited on /admin (e.g. a renamed unit size, a disabled status), not only deletes custom rows; and a reset restores the activity category standards as shipped, including code_pattern (e.g. NACE back to dot_after_two_digits). Finding: the defaults are seeded by migrations from dbseed/*.csv (unit_size, data_source via \copy) and literal INSERTs (status, standards), which reset cannot read at runtime, so the shipped defaults need one stored copy in the database that both the seed and reset use.
 ## History
 - 2026-11-18T12:33 todo -> doing/active (take)
