@@ -35,13 +35,14 @@ Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see
 
 ## Acceptance
 - [ ] [Owner] Decides whether to run hug upgrade --apply; the answer is recorded in the notes. Yes: run it, which moves the waits of yq5tr6, ezp3h0, mtw92d and hmgadt to asked and changes the memory hooks in the other projects' .jcode/config.toml, then re-lint. No: fix yq5tr6's old-layout field by hand and leave Rabbit's tasks to him.
-- [ ] With a hug release later than v0.7.50 installed, hug task lint reports no findings on done or dropped tasks
+- [ ] With hug v0.7.53 or later installed, hug task lint reports no findings on done or dropped tasks
 - [ ] hug task lint reports no findings on any open task, except tasks another agent has taken, which are named in the notes
 
 ## Notes
 
 
 2026-11-18 02:55 hug v0.7.53 is installed now. hug task lint: g71vzm, q8604t, 89f3jm, ma6jcm, sdxbdr, xz3jej have no findings; yq5tr6 and ezp3h0 report old-layout waiting_for (ezp3h0 also branch-gone, it is Rabbit's). hug upgrade (preview) would move 4 waits to asked (yq5tr6, ezp3h0, mtw92d, hmgadt) and drop j2g6wd's own waiting_for, and would also change the memory hooks in other projects' .jcode/config.toml (GenderedGames, Brovs, seid, truth_tribe_and_treasure, ssb). Not applied overnight because it rewrites Rabbit's tasks and other repos' config; the owner decides whether to run hug upgrade --apply.
+2026-11-18 02:56 tasks another agent has taken, left to them: Rabbit's 00rnq5, nst6hb, hmgadt, senzch, ezp3h0, 89f3jm (hmgadt and ezp3h0 are in hug upgrade's list). The tap name veridit/tap/hug is right (brew info: stable 0.7.54, newer than the 0.7.53 installed).
 ## History
 - 2026-11-18T00:40 todo -> doing/active (take)
 - 2026-11-18T00:40 doing/active -> doing/waiting (wait)
