@@ -112,6 +112,7 @@ landed 069803f on master 2026-11-18: app: Data quality card and search filter fo
 landed 9d9d41e on master 2026-11-18: quality: name the area Quality and run its checks as a reports-phase step…
 landed 8aaf026 on master 2026-11-18: app: the Quality filter is always in the search toolbar; the search and unit…
 2026-11-18 14:54 owner approved in Firefox (cards, filter, download), merged to master as 8aaf0262b (fast-forward of 852c625f2, 069803f7e, 9d9d41e23, 8aaf0262b). PR #328 closed with a reply that thanks Erik, explains the two steps (picking the primary is the workflow 2gpcs7 within xhxnsy; comparing activities is this quality check) and links all three tasks: https://github.com/statisticsnorway/statbus/pull/328#issuecomment-6982162968. Owner: ship it in the next release candidate so the others test it too; this task stays open until they have.
+2026-11-18 15:10 CI on master 8aaf0262b all completed/success: Fast Tests 44330051433 (pg_regress fast suite, exercised-sha 8aaf0262b), Images, Go Test, app build & lint, Harness Selftest, Push on master, Notify cloud services.
 ## History
 - 2026-11-18T00:59 todo -> doing/active (take)
 - 2026-11-18T01:37 doing/active -> doing/waiting (wait)
