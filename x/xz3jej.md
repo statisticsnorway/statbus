@@ -43,7 +43,7 @@ Design (owner 2026-11-18 01:47, replacing the computed field of 00:54; named Qua
 - App: app/src/app/dashboard/quality-establishment-activity-differs-card.tsx (title 'Establishment Activity Differs', the full rule on hover) in page.tsx's Data quality section; the search's Quality filter (app/src/app/search/filters/quality-filter.tsx) lists the checks of QUALITY_CHECKS in url-search-params.ts, and the export keeps the same rows.
 - Not here: configurable reports (217dx5), user-made reports (rws25b), fixing what the check finds (xhxnsy).
 
-Build plan, on branch statbus-xz3jej-primary-est-activity, each step its own commit with the Model: trailer; master after the owner's review:
+Build plan (done; landed on master 2026-11-18 as 852c625f2, 069803f7e, 9d9d41e23, 8aaf0262b after the owner's review):
 1. Prototype on Norway: rebuild cost of the MERGE, a changed row dropping out and coming back, regular_user access and the app's real search request with the embed.
 2. SQL test in test/sql/306_load_demo_data.sql after block 1: the report rows on the demo data and the embed's count. RED before the migration.
 3. Migration with up and down: table, foreign key, view, check function, RLS and grants, the worker.derive_quality step registered in the reports phase. GREEN; fast suite; ./dev.sh generate-doc-db; ./sb types generate.
