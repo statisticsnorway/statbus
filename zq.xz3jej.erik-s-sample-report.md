@@ -22,7 +22,7 @@ Erik's sample report from PR #328 is reviewed and lands in a form the owner appr
 A worked example of reading StatBus through its REST API for a real analysis question, which countries can copy (PR https://github.com/statisticsnorway/statbus/pull/328, rsbssbno, 2026-11-15).
 
 ## Principle
-Erik's work is the starting point; the owner decides what lands. A sample stays outside the product: no app or schema change. Credentials stay out of git (config.js is ignored, config.example.js is the template).
+Erik's work is the starting point; the owner decides what lands. A sample stays outside the product: no app or schema change. Credentials stay out of git: the API key lives in a local config.js that git ignores, and config.example.js is the template.
 
 ## Relevant details
 PR #328: doc/integration/javascript/legal_units.html (+~300 lines) and doc/integration/javascript/config.example.js; CI all green on 2026-11-15. Its own test plan: copy config.example.js to config.js with API URL and key, open the page, check loading, sorting, search and expand.
@@ -30,7 +30,8 @@ PR #328: doc/integration/javascript/legal_units.html (+~300 lines) and doc/integ
 ## Depends on
 
 ## Acceptance
-- [ ] The page loads data from the local slot with an API key and shows legal units whose top establishment's activity differs, checked against a SQL query on the same database
+- [x] The page loads data from the local slot with an API key and shows legal units whose top establishment's activity differs, matching a SQL query over the same legal units on the same database, apart from ties on employees
+- [ ] doc/integration/javascript/config.js is ignored by git, so following the instructions cannot commit an API key
 - [ ] [Owner] Reviews the page and the code and decides: merge as is, merge with changes (made and shown again), or close; the answer is recorded in the notes
 - [ ] The PR is merged or closed on GitHub as decided, with a comment that links this task
 
