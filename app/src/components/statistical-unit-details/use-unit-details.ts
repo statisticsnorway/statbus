@@ -38,7 +38,9 @@ export function useStatisticalUnitDetails(id: string, unitType: UnitType) {
   return {
     data,
     isLoading: isLoading || !validOn,
-    revalidate: () => mutate(),
+    // SWR's mutate keeps its identity across renders; save effects list
+    // revalidate as a dependency, so a fresh function would loop them.
+    revalidate: mutate,
     error,
   };
 }
@@ -74,7 +76,9 @@ export function useStatisticalUnitStats(id: string, unitType: UnitType) {
   return {
     data: unitStats,
     isLoading: isLoading || !validOn,
-    revalidate: () => mutate(),
+    // SWR's mutate keeps its identity across renders; save effects list
+    // revalidate as a dependency, so a fresh function would loop them.
+    revalidate: mutate,
     error,
   };
 }
@@ -141,7 +145,9 @@ export function useStatisticalUnitHierarchy(id: string, unitType: UnitType) {
   return {
     hierarchy: data,
     isLoading: isLoading || !validOn,
-    revalidate: () => mutate(),
+    // SWR's mutate keeps its identity across renders; save effects list
+    // revalidate as a dependency, so a fresh function would loop them.
+    revalidate: mutate,
     error,
   };
 }
