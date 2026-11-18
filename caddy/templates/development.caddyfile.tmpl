@@ -194,6 +194,14 @@ http://127.0.0.1:19999 {
         }
     }
 
+    # Next.js live reload (the dev server's /_next/hmr WebSocket) exists only on the host dev
+    # server, so it goes there alone and answers at once: 101 when the dev server runs, 502 when it
+    # does not. The app container is a production build with no such endpoint and never answers an
+    # upgrade there, so each attempt routed to it would hang and hold a browser connection (khwbf3).
+    handle /_next/hmr* {
+        reverse_proxy host.docker.internal:{{.AppDevPort}}
+    }
+
     # All other requests to Next.js: this checkout's host dev server (`cd app && pnpm run dev`,
     # APP_DEV_PORT, slot offset+7) when it runs, so local edits show on this site at once;
     # otherwise the app container.
