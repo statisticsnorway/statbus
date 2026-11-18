@@ -43,6 +43,7 @@ Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see
 
 2026-11-18 02:55 hug v0.7.53 is installed now. hug task lint: g71vzm, q8604t, 89f3jm, ma6jcm, sdxbdr, xz3jej have no findings; yq5tr6 and ezp3h0 report old-layout waiting_for (ezp3h0 also branch-gone, it is Rabbit's). hug upgrade (preview) would move 4 waits to asked (yq5tr6, ezp3h0, mtw92d, hmgadt) and drop j2g6wd's own waiting_for, and would also change the memory hooks in other projects' .jcode/config.toml (GenderedGames, Brovs, seid, truth_tribe_and_treasure, ssb). Not applied overnight because it rewrites Rabbit's tasks and other repos' config; the owner decides whether to run hug upgrade --apply.
 2026-11-18 02:56 tasks another agent has taken, left to them: Rabbit's 00rnq5, nst6hb, hmgadt, senzch, ezp3h0, 89f3jm (hmgadt and ezp3h0 are in hug upgrade's list). The tap name veridit/tap/hug is right (brew info: stable 0.7.54, newer than the 0.7.53 installed).
+2026-11-18 02:57 check 2 observed with hug v0.7.53: hug task lint reports 143 findings on 50 tasks, every one of them open (64 tasks are todo or doing); none of the done or dropped tasks is among them (tmp/hug/linted-ids.txt compared with every file whose state is done or dropped). The board-wide findings to work through: 8 missing-goal, 5 old-layout, 3 branch-gone, 94 missing-section, 31 long-title, 2 no-acceptance.
 ## History
 - 2026-11-18T00:40 todo -> doing/active (take)
 - 2026-11-18T00:40 doing/active -> doing/waiting (wait)
