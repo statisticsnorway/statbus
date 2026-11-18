@@ -15,8 +15,8 @@ stage: "waiting"
 model: "claude-opus-5-5"
 branch: "statbus-628-all-forms"
 worktree: "/Users/jhf/ssb/statbus_test"
-waiting_on: "owner: check 5 on the North Cyprus installation after v2026.11.6-rc.01 (reset Units and Getting started, then Getting started through the custom code upload)"
-waiting_since: "2026-11-18T16:58"
+waiting_on: "Hedda: check 5 on the North Cyprus installation at her next reset (Units and Getting started, then Getting started through the custom code upload); that installation is past the step now"
+waiting_since: "2026-11-18T17:11"
 waiting_asked_by: "rabbit"
 ---
 
