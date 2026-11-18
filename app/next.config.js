@@ -59,16 +59,6 @@ const nextConfig = {
   // Set it conditionally to avoid potential interference with dev server features like proxying.
   ...(isDevelopment && {
     allowedDevOrigins: [devSiteDomain],
-    experimental: {
-      // The first render needs only the page itself, so a page shows as soon as it loads.
-      // Next 16.4 turns the React debug channel on in development, and then hydration waits for
-      // debug data sent over the HMR WebSocket. Firefox lets one WebSocket per IP address be
-      // connecting at a time (RFC 6455 4.1); every local slot is 127.0.0.1, so a socket stuck in
-      // another tab (another slot or dev server) held this page on "Loading application…" for
-      // 8 s to over 40 s (task khwbf3). WebSockets over HTTP/2 do not avoid that queue (tested
-      // with Caddy offering extended CONNECT). Hot reload still connects when the socket opens.
-      reactDebugChannel: false,
-    },
   }),
 };
 
