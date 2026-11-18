@@ -48,7 +48,11 @@ Epics: hug task set ID --parent EPIC; hug task promote ID N turns item N into
 its own task. hug task ls --epic EPIC shows an epic and its children.
 MCP tools (hug mcp): task_list, task_show, task_new, task_next, task_take (model
 and cwd required: your working folder, its branch is recorded; agent optional),
-task_done, task_update (actions set, check, promote, note, move, dep, drop).
+task_done, task_update (actions set, check, promote, note, move, dep, drop,
+request, resolve), task_requests.
+Requests: a person's request on a task (hug task requests) comes first in hug
+task next. Turn it into changes to the ticket, then hug task resolve ID N
+"what changed"; if it is unclear, hug task ask instead.
 Old backlog ids (TASK-123) work as aliases.
 Never edit .hug/tasks/ files by hand while another agent may be writing; use the commands.
 ## Commands and configuration
