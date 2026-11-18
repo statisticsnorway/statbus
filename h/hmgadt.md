@@ -89,6 +89,7 @@ Owner 2026-11-10 21:30: other single-value fields already turn Save into a delet
 2026-11-18 05:52 (Rabbit): the North Star's 'the removal is recorded like any other edit' predates check 5 (owner 2026-11-17 19:09: a removal records no who/when; change tracking is k5q120). What holds: the removed period stays visible in the unit's history. Goal/Purpose/Principle filled from the task's own text. 'hug upgrade --apply' (old waiting_for layout) left to Hibiscus, since it rewrites the whole shared board.
 2026-11-18 06:54 (Rabbit): v2026.11.5-rc.02 (691e26810) carries this; ladder rungs 1-8 green (orchestrator 44247167926). Test on Norway with rc.02.
 2026-11-18 11:27 (Rabbit): owner reports Norway (rune) upgraded to v2026.11.5-rc.02. The owner check on Norway is now possible.
+2026-11-18 15:54 owner on Norway (no.statbus.org, v2026.11.5), establishment 479720 0404 GRUE TRAVKLUBB: physical location 'Neither here nor there' (2026-11-07 – Present, added for the purpose, mtw92d #3). Edit → Remove in the Time frame panel: the piece shown struck through in red, 'Remove physical location entirely' in Save's place beside the primary-unit notice; the dialog listed '2026-11-07 – Present: Neither here nor there, Norway'; Remove → Removing… → the field's timeline says 'No values recorded' and the fields are empty. Check 4: yes.
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
 - 2026-11-18T11:39 doing/waiting -> doing/asked (hug upgrade, 41hhgn: a question to a person is its own stage)
