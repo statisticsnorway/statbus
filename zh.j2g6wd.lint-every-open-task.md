@@ -40,6 +40,7 @@ Installed now: hug v0.7.50 (brew veridit/tap/hug). Open tasks with findings on 2
 ## Notes
 
 
+2026-11-18 02:55 hug v0.7.53 is installed now. hug task lint: g71vzm, q8604t, 89f3jm, ma6jcm, sdxbdr, xz3jej have no findings; yq5tr6 and ezp3h0 report old-layout waiting_for (ezp3h0 also branch-gone, it is Rabbit's). hug upgrade (preview) would move 4 waits to asked (yq5tr6, ezp3h0, mtw92d, hmgadt) and drop j2g6wd's own waiting_for, and would also change the memory hooks in other projects' .jcode/config.toml (GenderedGames, Brovs, seid, truth_tribe_and_treasure, ssb). Not applied overnight because it rewrites Rabbit's tasks and other repos' config; the owner decides whether to run hug upgrade --apply.
 ## History
 - 2026-11-18T00:40 todo -> doing/active (take)
 - 2026-11-18T00:40 doing/active -> doing/waiting (wait)
