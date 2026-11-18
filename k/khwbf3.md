@@ -44,7 +44,7 @@ Tools: the jcode browser bridge runs JavaScript in the owner's Firefox tab (page
 ## Acceptance
 - [x] A stalled load is caught with its own evidence: the browser timeline (navigation and resource timing, long tasks) read from the stalled tab, the Debug Inspector state and event journal, and the proxy log of the same minute; recorded in the notes
 - [x] The cause is named from that evidence and fixed at that cause (no new rescue); a driven-Firefox test shows the stall with the cause present before the fix, and the page hydrating within 2 s after it
-- [ ] [Owner] works a full day on the local slot in Firefox and says in this task's notes whether a load stalled; a stall is captured with a profile as new evidence and reopens the cause, a clean day lets the reload rescue in JotaiAppProvider.tsx be removed
+- [ ] [Owner] decides how a recurrence is handled: the existing reload paths stay (the error page's Refresh Page button and the navigation machine's hard navigation after a 3 s router.push timeout; neither fires on a normal load), and a new stall opens a new task that references khwbf3, with a profile and an about:logging capture
 
 ## Notes
 - Earlier attempts (2026-11-18 morning), kept for the record: one slow load at 15:28:51 after the inspector's Clear Caches (proxy log tmp/stall/proxy-1529.log: 5 s with no request after the scripts). Not reproduced in 30 fresh tabs and 30 reloads in Playwright Firefox, 20 in Chromium (0.5-3 s each), or by the owner's reloads and token expiry tests. Machine load 60-190 then, not the cause. Mount journal during fast loads: 2 per effect (Strict Mode), 14 for EstimatedCount: no loop. Fast-load baseline in the owner's Firefox: first auth_status at 746 ms.
