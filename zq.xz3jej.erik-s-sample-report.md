@@ -46,7 +46,7 @@ Build plan, after the owner approves (check 1), each step its own commit with th
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] Approves the rule: compare a legal unit's primary activity with its primary establishment's (primary_for_legal_unit), every legal unit with one, narrowing by URL filter; the answer is recorded in the notes
+- [x] [Owner] Approves the rule: compare a legal unit's primary activity with its primary establishment's (primary_for_legal_unit), every legal unit with one, narrowing by URL filter; the answer is recorded in the notes
 - [ ] A SQL test asserts, for a fixed set of units, which legal units the rule lists, including one without a primary establishment and a primary establishment of another period
 - [ ] The Data quality section shows the card with the count for the selected time frame, and its link opens a search listing exactly those legal units (checked against the SQL on the local Norway data)
 - [ ] PR #328 is closed on GitHub with a comment that thanks Erik, says why (integrated in the app instead), and links this task
