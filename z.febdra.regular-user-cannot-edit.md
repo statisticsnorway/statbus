@@ -1,21 +1,17 @@
 ---
 id: febdra
 title: "A regular user cannot edit part of a period on a row another user wrote"
-state: "doing"
+state: "done"
 type: bug
 priority: ""
 assignee: ["rabbit"]
 labels: ["db", "edit", "security"]
 created: 2026-11-17
 updated: 2026-11-17
-doing_since: "2026-11-18T01:04"
-stage: "waiting"
 model: "claude-opus-5-5"
 branch: "statbus-628-all-forms"
 worktree: "/Users/jhf/ssb/statbus_test"
-waiting_on: "branch statbus-628-all-forms pushed to master and CI green, then done"
-waiting_since: "2026-11-18T01:22"
-waiting_asked_by: "rabbit"
+done_at: "2026-11-18T03:31"
 ---
 
 ## Goal
@@ -52,3 +48,4 @@ landed 6244337 on master 2026-11-18: db: regular users write unit data by role; 
 ## History
 - 2026-11-18T01:04 todo -> doing/active (take)
 - 2026-11-18T01:22 doing/active -> doing/waiting (wait)
+- 2026-11-18T03:31 doing/waiting -> done (done); was doing_since: 2026-11-18T01:04; waiting_asked_by: rabbit; waiting_on: branch statbus-628-all-forms pushed to master and CI green, then done; waiting_since: 2026-11-18T01:22
