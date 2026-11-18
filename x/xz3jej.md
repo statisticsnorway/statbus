@@ -11,11 +11,14 @@ rank: "zq"
 created: 2026-11-18
 updated: 2026-11-18
 doing_since: "2026-11-18T00:59"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
 aliases: ["erik-s-sample-report"]
+waiting_since: "2026-11-18T16:33"
+waiting_asked_by: "hibiscus"
+waiting_on: "the next release candidate on Norway, where Erik and Hedda try the card, search and download (check 5)"
 ---
 
 ## Goal
@@ -118,3 +121,4 @@ landed 8aaf026 on master 2026-11-18: app: the Quality filter is always in the se
 - 2026-11-18T01:37 doing/active -> doing/waiting (wait)
 - 2026-11-18T01:54 answered waiting: "the owner reviews the design and rule in Relevant details (check 1) in the morning" -> "I approve this design. Hibiscus, can you get it done by morning.", by jhf, for hibiscus (doing/waiting -> doing/active)
 - 2026-11-18T01:54 hibiscus read the answer
+- 2026-11-18T16:33 doing/active -> doing/waiting (wait)
