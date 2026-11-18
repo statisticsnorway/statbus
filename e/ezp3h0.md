@@ -58,7 +58,7 @@ Decided by the owner 2026-11-10 (details in the notes):
 - [x] The frame menu lists Live frame, Previous frame and the fixed frames that do not equal a relative frame, in that order; an import page lists all three groups; a test of the app's frame list asserts both
 - [x] The edit form opens on a Frame dropdown with the selected frame; the edit icon shows Data Source, Valid From and Valid To and returns to the frame; a test saves an edit in the live frame and one in a fixed frame and asserts the stored rows
 - [x] The three import pages show Frame with the selected frame as default and the edit icon reveals the other options including Source dates; an import job created from each page carries the chosen frame ident
-- [ ] An edit or import in the UI that reaches into a relative or fixed frame asks first, naming the frames it touches; cancelling stores nothing; confirming stores the change. Only the UI asks: API, CLI and scheduled jobs run unattended (owner 2026-11-11)
+- [x] An edit or import in the UI that reaches into a relative or fixed frame asks first, naming the frames it touches; cancelling stores nothing; confirming stores the change. Only the UI asks: API, CLI and scheduled jobs run unattended (owner 2026-11-11)
 
 ## Notes
 Owner 2026-11-10 17:02: the confirmation is UI only. The aim is a simpler UI: fewer things to show and think about, and the defaults just work. Later, at the end of this ticket or in its own: when an edit is likely to need thought (found by heuristics), show the field's timeline in the edit, so the user sees when the value changed and how long the change lasts. Designed together with the owner as UX/interaction work, not specified up front.
