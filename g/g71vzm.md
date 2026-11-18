@@ -22,7 +22,7 @@ updated: "2026-11-16T16:54:00Z"
 A small edit costs in proportion to the units it changed, not to the size of the register: a three-unit edit is not held up by a whole-register facet merge.
 
 ## Purpose
-After every recalculation the facet reduce rebuilt the whole facet table, whatever changed. Bench box night 2026-11-11 (rune dump): a 3-unit edit took 18-24 s, of which the facet reduce alone was 11-16 s.
+After every recalculation the facet reduce rebuilt the whole facet table, whatever changed, so a hand edit of a few units waited on work proportional to the whole register (numbers in the notes).
 
 ## Principle
 A reduce that touches only what changed must still keep the facet table equal to its definition after any sequence of edits, deletes, moves and failed steps.
@@ -37,7 +37,9 @@ A reduce that touches only what changed must still keep the facet table equal to
 
 ## Acceptance
 - [x] After any sequence of edits, deletes and moves, statistical_unit_facet equals a full statistical_unit_facet_derive('-infinity','infinity'), shown by a test that includes the partial-contributor delete that broke the old scoped path
-- [ ] After the next release candidate is installed on rune (Norway), a 3-unit edit's statistical_unit_facet_reduce time and a 50 % change's are measured there against the previous release, written in the release notes, and recorded here
+- [x] On rune (Norway, production) after v2026.11.5-rc.02, a small hand edit's statistical_unit_facet_reduce is timed from worker.tasks against the previous release, read only (no test changes there), and recorded here
+- [ ] On the bench box (ops/bench-box.sh series v2026.11.4 v2026.11.5-rc.02 "n3 n3 n3 50" on a Norway dump from rune:statbus/dbdumps), the facet reduce and the whole recalculation of a 3-unit edit and of a 50 % change are measured for both releases, with identical tables in every round, and recorded here
+- [ ] The release notes of the release carrying this state the measured 3-unit-edit and 50 % numbers
 
 ## Notes
 Decomposition (laptop copy of the full register, proportions only): the reduce takes 14.9 s; 9.7 s of it is re-aggregating all 3,051,376 staging rows (GROUP BY of every facet key), the MERGE itself is the smaller part. A 3-slot edit touches 591 staging rows = 564 facet keys. Design sketch for review: the dirty key set is the keys of the dirty slots before the partition rewrite UNION after it (April's scoped version used only the before-snapshot, which is why stale rows survived); reduce re-aggregates only staging rows whose key is in that set (needs an index on the facet key without hash_slot) and deletes target rows of those keys with no staging support. Not started; needs owner review of the design.
@@ -75,3 +77,5 @@ CI on b97d0035d (contains 75f9601cd), all completed/success: Fast Tests 43732527
 - Previous release on rune, small edits (1-5 legal units, 2026-11-13 to 11-15): 23.3-26.3 s per facet reduce (10 runs).
 - The rest of the second edit: derive 2.61 s, flush 1.44 s, derive_used_tables 1.80 s, history reduce 1.68 s; collect_changes 9.83 s end to end.
 Still open for check 2: the 50 % change was not measured on rune (a production install), and the release notes are not yet written.
+
+2026-11-18 14:31 owner: the 50 % change is not run on rune (production); it runs on the bench box, delegated to another agent so this session keeps to xz3jej. Check 2 split: rune small edit (done, note 14:28: 0.04 s vs 23-26 s), bench box series v2026.11.4 vs v2026.11.5-rc.02, release notes. Bench numbers from Purpose moved here: bench box night 2026-11-11 (rune dump), a 3-unit edit took 18-24 s, of which the facet reduce was 11-16 s.
