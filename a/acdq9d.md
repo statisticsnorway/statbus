@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "statbus-628-all-forms"
 worktree: "/Users/jhf/ssb/statbus_test"
 done_at: "2026-11-18T03:31"
+done_release: "v2026.11.5"
 ---
 
 ## Goal
@@ -43,6 +44,7 @@ Boxes: app/src/app/legal-units/[id]/@primaryUnitInfo/default.tsx and app/src/app
 
 landed 839f84c on master 2026-11-18: app: editing a primary unit says, beside Save, that the change also changes the…
 2026-11-18 02:32 (Rabbit): pushed to master as 82c2da035; CI green on that SHA: Fast Tests 44222154288, Go Test, app build & lint, Images, Harness Selftest. Local fast suite 145/145 (tmp/rc-fast2.log).
+shipped in v2026.11.5 (839f84c)
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
 - 2026-11-18T03:31 doing/waiting -> done (done); was waiting_asked_by: rabbit; waiting_on: branch statbus-628-all-forms pushed to master and CI green, then done; waiting_since: 2026-11-18T01:04
