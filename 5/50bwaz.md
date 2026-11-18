@@ -33,7 +33,7 @@ public.reset(confirmed, scope reset_scope), scopes units|data|getting-started|al
 
 ## Acceptance
 - [x] A pg_regress test runs each scope on a seeded database and asserts what remains: Units leaves Getting started and /admin data; Units and Getting started empties settings, custom activity codes, regions, custom sectors and custom legal forms and leaves every /admin customisation (unit sizes, data sources, statuses, statistical variables, external identifiers, tags); the third scope also resets the customisations, users kept
-- [ ] The reset dialog names the scopes Units; Units and Getting started; Units, Getting started and Customisation
+- [x] The reset dialog names the scopes Units; Units and Getting started; Units, Getting started and Customisation
 - [ ] After a reset the Getting started menu shows each step as the database holds it, without a page reload (headless: reset Units and Getting started, steps 1 to 6 show not done)
 - [ ] The custom activity codes upload, with no activity category standard set, says to complete step 2 first instead of the database error (test)
 - [ ] [Owner] Confirms on the North Cyprus installation after the release: reset Units and Getting started, then Getting started from step 1 through the custom activity code upload
