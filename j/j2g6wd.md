@@ -35,7 +35,7 @@ Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] Decides whether to run hug upgrade --apply; the answer is recorded in the notes. Yes: run it, which moves the waits of yq5tr6, ezp3h0, mtw92d and hmgadt to asked and changes the memory hooks in the other projects' .jcode/config.toml, then re-lint. No: fix yq5tr6's old-layout field by hand and leave Rabbit's tasks to him.
+- [x] [Owner] Decides whether to run hug upgrade --apply; the answer is recorded in the notes. Yes: run it, which moves the waits of yq5tr6, ezp3h0, mtw92d and hmgadt to asked and changes the memory hooks in the other projects' .jcode/config.toml, then re-lint. No: fix yq5tr6's old-layout field by hand and leave Rabbit's tasks to him.
 - [x] With hug v0.7.53 or later installed, hug task lint reports no findings on done or dropped tasks
 - [ ] hug task lint reports no findings on any open task, except tasks another agent has taken, which are named in the notes
 
