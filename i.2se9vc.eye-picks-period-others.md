@@ -29,8 +29,6 @@ Physical locality: the eye that chooses the reference sits on each period's own 
 ## Relevant details
 Popover: field-timeline-view.tsx (read-only, no onToggle). Edit: the anchor's eye (a02bbb9aa) is today a marker, not a control. Differences are per column (address parts, region, country) and the data source.
 
-## Depends on
-
 ## Acceptance
 - [x] Opening a field's timeline shows a black eye on the period of the page's time frame and grey eyes on the others
 - [x] Every other period marks the columns and the data source that differ from the reference, and shows nothing extra where they agree
