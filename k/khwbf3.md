@@ -1,6 +1,6 @@
 ---
 id: khwbf3
-title: "The app sometimes stays on Loading application… after a reload"
+title: "The app sometimes stays on Loading application… and only a reload clears it"
 state: "doing"
 type: bug
 priority: "high"
@@ -27,29 +27,29 @@ Every load of the app shows the page as soon as its data is ready; it never stay
 For about a month the owner has met loads that hang on 'Loading application…' and get out only by reloading, and he keeps a rescue that reloads when nothing happens. It is a daily annoyance and hides real failures. Many diagnostics were built (Debug Inspector journals, client and server logging) without catching the cause.
 
 ## Principle
-Observe before explaining: no fix from a hunch. The cause is caught in a stalled load's own evidence (browser timeline, state, journal, server log), reproduced in a test, then fixed declaratively in the state machines, not by another rescue. Owner's theory (2026-11-18): a timing race that the XState machinery does not capture.
+Observe before explaining: no fix from a hunch. The cause is caught in a stalled load's own evidence (browser timeline, profile, state, journal, server log), reproduced in a test, then fixed where the evidence puts it, not by another rescue. Owner's theory (2026-11-18): a timing race that the XState machinery does not capture.
 
 ## Relevant details
-Investigation 2026-11-18 (hibiscus with the owner, local slot https://local.statbus.org:3011, dev server :3017, Norway data).
+What gates the page (app/src/atoms/JotaiAppProvider.tsx, PageContentGuardInner): it shows the fallback until the client has mounted, while the navigation machine (app/src/atoms/navigation-machine.ts) is not in a state tagged 'stable', or while isLoadingAuth (!initialAuthCheckCompletedAtom, app/src/atoms/app-derived.ts). The Debug Inspector is rendered outside the guard (app/src/app/layout.tsx), so it works during a stall.
 
-What gates the page (app/src/atoms/JotaiAppProvider.tsx, PageContentGuardInner): it shows the fallback while the navigation machine (app/src/atoms/navigation-machine.ts) is not in a state tagged 'stable' (idle is) or while isLoadingAuth, which is !initialAuthCheckCompletedAtom (app/src/atoms/app-derived.ts appReadyAtom), set by the effect AppInitializer:setInitialAuthCheckCompleted. PageContentGuard also shows it until the client has mounted. The Debug Inspector is rendered outside the guard (app/src/app/layout.tsx), so it works during a stall.
+Stall evidence (2026-11-18, local slot https://local.statbus.org:3011, dev server :3017, Next 16.4.5 with Turbopack, owner's Firefox 160 on macOS):
+- 15:33:41 reload, 8 s, and 15:38:02 reload, 24 s (Firefox Profiler recording, tmp/stall/profile-1538.json.gz). Both times the HTML and every script arrived within 0.4 s and the spinner was painted, and then the page's main thread sat idle (no JS, no long task) until its dev live-reload WebSocket (/_next/hmr) opened; React hydrated about 70 ms after that and every machine settled within about 120 ms.
+- Firefox created that WebSocket at once (15:38:03.29) but started connecting it only at 15:38:26.29. Meanwhile another tab's WebSocket to https://test.statbus.org:3031/_next/hmr was pending without a response (15:37:35.98-15:38:06.29). Both host names resolve to 127.0.0.1.
+- Next 16.4.5 enables experimental.reactDebugChannel by default in development (node_modules/next/dist/server/config-shared.js); app-index.js passes that channel to the decode of the initial page payload, and its data comes over the HMR WebSocket.
 
-Observed: one slow load at 15:28:51 (after the inspector's Clear Caches, which clears localStorage hasStatisticalUnits and the exact-count cache). Proxy log (tmp/stall/proxy-1529.log): GET / 112 ms and all script chunks 304 in 15-35 ms at 15:28:51, then no request at all for 5 s, then at 15:28:56 the app starts (auth_status first) and every request answers in 3-30 ms. So the time went inside the browser, before the app's first request, not to the server or network. A second Clear Caches reload was fast; the stall did not come back while watched.
-
-Fast-load baseline in the owner's Firefox (15:29:27, read through the browser bridge): HTML 450 ms, DOM ready 564, last script 698, load event 707, first app request (auth_status) 746 ms.
-
-Not reproduced: 30 fresh tabs and 30 reloads of one tab in a Playwright-driven Firefox, and 20 in Chromium, all 0.5-3 s (one connection refused is a different failure); the owner's own reloads and token expiry/refresh through the Debug Inspector, all fast. Machine load 60-190 at the time: not the cause (the owner: everything else loads normally). Mount journal during fast loads: 2 per effect (React Strict Mode), 14 for EstimatedCount (7 dashboard cards): no loop.
-
-Tools: the jcode browser bridge runs JavaScript in the owner's Firefox tab (page world: window.__STATBUS_CONFIG__, performance entries) but does not capture console or network; a driven Firefox or Chromium (Playwright, scripts tmp/hug/stall-loop*.mjs, stall-reload.mjs) captures console, every request and pending ones. Proxy log: docker compose logs --no-log-prefix proxy, decoded with jq (tmp/stall/).
+Tools: the jcode browser bridge runs JavaScript in the owner's Firefox tab (page world, performance entries, sessionStorage eventJournal); the Firefox Profiler (Ctrl+Shift+1) records a reload, saved via Save and analysed with tmp/stall/profile_window.py and profile_markers.py; Playwright Firefox/Chromium (tmp/hug/stall-loop*.mjs, stall-reload.mjs) captures console and requests; the proxy log comes from docker compose logs --no-log-prefix proxy with jq (tmp/stall/).
 
 ## Depends on
 
 ## Acceptance
 - [ ] A stalled load is caught with its own evidence: the browser timeline (navigation and resource timing, long tasks) read from the stalled tab, the Debug Inspector state and event journal, and the proxy log of the same minute; recorded in the notes
-- [ ] The cause is named from that evidence and reproduced by a test that fails with it
-- [ ] The fix is in the state machines or derived state (no new rescue), the test passes, and the owner sees no stall over a working day; the owner's reload rescue is then removed
+- [ ] The cause is named from that evidence and reproduced: a test (driven Firefox) shows the stall with the cause present, and after the fix the same test shows the page hydrating within 2 s
+- [ ] The fix addresses the named cause (no new rescue) and the reproduction test passes with it
+- [ ] [Owner] works a full day on the local slot in Firefox without a stalled load and says so in this task's notes; the reload rescue in JotaiAppProvider.tsx is then removed
 
 ## Notes
+- Earlier attempts (2026-11-18 morning), kept for the record: one slow load at 15:28:51 after the inspector's Clear Caches (proxy log tmp/stall/proxy-1529.log: 5 s with no request after the scripts). Not reproduced in 30 fresh tabs and 30 reloads in Playwright Firefox, 20 in Chromium (0.5-3 s each), or by the owner's reloads and token expiry tests. Machine load 60-190 then, not the cause. Mount journal during fast loads: 2 per effect (Strict Mode), 14 for EstimatedCount: no loop. Fast-load baseline in the owner's Firefox: first auth_status at 746 ms.
+
 
 
 2026-11-18 15:35 caught one (owner reload at 15:33:41.5 UTC, page hung, then appeared). Read from the stalled tab through the browser bridge right after, plus the owner's pasted console and the proxy log (tmp/stall/proxy-1533.log):
