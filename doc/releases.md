@@ -30,6 +30,22 @@ git push origin v2026.03.0
 
 After publishing a stable, capture its generated config fixture with `cli/internal/config/testdata/legacy-config/capture.sh <tag>` and commit the result.
 
+### Release notes
+
+Every stable release carries hand-written notes in plain language (owner
+decision 2026-11-18, STATBUS-607): what users will notice first, measured
+speed figures where there are any, then what operators need to know. The
+agent drafts them from the tickets and commits since the previous stable into
+`tmp/release-notes-<tag>.md`, the owner approves, and they replace GitHub's
+generated notes:
+
+```bash
+gh release edit v2026.11.5 --notes-file tmp/release-notes-v2026.11.5.md
+```
+
+Release candidates keep GitHub's generated notes. When testers should check
+something, the next stable's draft says so in a short "Please try" line.
+
 ### Pre-release
 
 ```bash
