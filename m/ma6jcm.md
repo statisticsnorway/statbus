@@ -1,7 +1,7 @@
 ---
 id: "ma6jcm"
 title: A dev checkout's generated addresses follow its slot
-state: "todo"
+state: "doing"
 assignee: ["rabbit"]
 updated_date: '2026-11-16T13:53:00Z'
 labels:
@@ -17,8 +17,10 @@ backlog_type: "bug"
 created: "2026-11-16T13:10:00Z"
 updated: "2026-11-16T13:53:00Z"
 model: "claude-opus-5-5"
-branch: "statbus-628-all-forms"
+branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+doing_since: "2026-11-18T21:47"
+stage: "active"
 ---
 
 ## Goal
@@ -57,3 +59,7 @@ Owner 2026-11-16 13:45, the second half of this ticket: since both checkouts use
 2026-11-18 20:44 owner decisions (question 2): cookie names stay fixed ('statbus', 'statbus-refresh'), as the owner chose on 2025-04-10 in 4b4dc87f9 ('Each installation is on it's own domain'). The rule is one SITE_DOMAIN per slot on a machine. Detection: docker-compose.yml labels the proxy service org.statbus.site_domain=${SITE_DOMAIN}; sb config generate and sb start stop with a clear message when a running container from another compose project carries the same domain label. This applies in every deployment mode (harmless in standalone, catches double routing on a cloud host). Only running slots are seen, which is the case where sign-ins collide.
 
 2026-11-18 20:47 owner chose (a): the duplicate-domain label check runs in every mode, no development special case. On a cloud host the real guard is the host Caddy: two imported public.caddyfile with the same site fail 'caddy validate' with 'ambiguous site definition' (tmp/631-dup/validate.log, proxy image). The label check sees only running containers, so its definition must carry a comment saying it is an early, friendly message, not the guarantee, and production/cloud must not rely on it.
+
+
+## History
+- 2026-11-18T21:47 todo -> doing/active (take)
