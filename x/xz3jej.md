@@ -1,6 +1,6 @@
 ---
 id: xz3jej
-title: "Data quality: legal units whose primary establishment has another activity"
+title: "Quality: legal units whose primary establishment has another activity"
 state: "doing"
 type: feature
 priority: ""
@@ -32,21 +32,21 @@ Existing pattern: app/src/app/dashboard/page.tsx, section 'Data quality', with M
 
 What the run of PR #328 showed on the Norway restore (local, 2026-11-18): 10,129 legal units have more than one establishment; 1,826 of them have a largest establishment with another activity (ties broken by lowest unit id). The rule for ties matters: 1,911 legal units have two or more establishments tied for the most employees, and 1,749 have a largest establishment with 0 employees. The page also fetched only 5,000 legal units and compared activities by name.
 
-Design (owner 2026-11-18 01:47, replacing the computed field of 00:54): a separate, hard-coded report table, derived after statistical_unit, linked to it by a NOT ENFORCED temporal foreign key so PostgREST embeds it as an ordinary relationship. No general report system before three instances.
+Design (owner 2026-11-18 01:47, replacing the computed field of 00:54; named Quality by the owner 13:46-13:48): Quality is the area of checks that list units to look at, as reports count them. This is the first quality check: a separate, hard-coded table, derived after statistical_unit, linked to it by a NOT ENFORCED temporal foreign key so PostgREST embeds it as an ordinary relationship. No general system before three instances. Code and URLs say quality; the dashboard section keeps its human name Data quality, as Data metrics above it.
 - Rule (approved, check 1): a legal unit's primary activity category differs from that of its primary establishment (timeline_establishment.primary_for_legal_unit) valid at the statistical_unit row's valid_from; compared by id, a missing activity on one side counting as a difference. Uses the primary as recorded and never picks one (choosing the primary is 2gpcs7). Covers every legal unit with a primary establishment; narrowing is a URL filter on existing columns, e.g. &included_establishment_count=gt.1 for Erik's variant.
-- Table public.primary_establishment_activity_differs (name to confirm), one row per flagged statistical_unit row: unit_type, unit_id, valid_from, valid_until, valid_range (as statistical_unit has it), legal_unit_activity_category_id, primary_establishment_id, primary_establishment_activity_category_id. Primary key (unit_type, unit_id, valid_range), the foreign-key columns: PostgREST then treats the link as one-to-one and embeds it as a plain join; with any other key it builds a JSON array per row and a far page or a sort by employees takes 3-5 s on Norway (prototype 01:56). COMMENT ON the table states the rule.
+- Table public.quality_establishment_activity_differs, one row per flagged statistical_unit row: unit_type, unit_id, valid_from, valid_until, valid_range (as statistical_unit has it), legal_unit_activity_category_id, primary_establishment_id, primary_establishment_activity_category_id. Primary key (unit_type, unit_id, valid_range), the foreign-key columns: PostgREST then treats the link as one-to-one and embeds it as a plain join; with any other key it builds a JSON array per row and a far page or a sort by employees takes 3-5 s on Norway (prototype 01:56). COMMENT ON the table states the rule.
 - Link: FOREIGN KEY (unit_type, unit_id, PERIOD valid_range) REFERENCES statistical_unit (unit_type, unit_id, PERIOD valid_range) NOT ENFORCED (PostgreSQL 18). Metadata only: no triggers or checks, so derive rewrites statistical_unit as before; PostgREST reads it as a relationship. Without it PostgREST needs a computed relationship, which it counts with EXISTS per statistical_unit row (4.4 s on Norway); with it the count is a join from the report rows (111 ms).
-- Derived: a _def view holds the rule; public.primary_establishment_activity_differs_derive() MERGEs it into the table; worker.derive_used_tables calls it after statistical_unit_flush_staging, beside the *_used tables. Between a flush and that step a changed row drops out of the inner join instead of showing wrong data.
+- Derived: a _def view holds the rule; public.quality_establishment_activity_differs_derive() MERGEs it into the table; worker.derive_quality, its own step in the reports phase (after the facet reduce, before the history reduce that ends the phase), runs every quality check. Between a flush and that step a changed row drops out of the inner join instead of showing wrong data.
 - Read access like activity_category_used: RLS, regular_user and authenticated read, admin_user manage.
-- Use: /rest/statistical_unit?select=name,...,primary_establishment_activity_differs!inner(primary_establishment_id)&unit_type=eq.legal_unit&existence_from=lte.<d>&existence_until=gt.<d>; the card counts the same with limit=0 and Prefer: count=estimated.
+- Use: /rest/statistical_unit?select=*,quality_establishment_activity_differs!inner()&unit_type=eq.legal_unit&existence_from=lte.<d>&existence_until=gt.<d>; the card counts the same with limit=0 and Prefer: count=estimated. The search's URL is /search?quality=establishment_activity_differs: one parameter for the area, the value names the check.
 - On the Norway restore: 753,145 legal units have a primary establishment; 11,010 of them differ (tmp/hug/xz3jej-primary.sql). Full rebuild by one join 6.0 s; derive_used_tables averages 3.4 s today, derive_statistical_unit 219 s.
-- App: app/src/app/dashboard/primary-establishment-activity-card.tsx, a copy of missing-activity-category-card.tsx, in page.tsx's Data quality section, linking to the search with a URL filter that adds the inner embed. The search learns that one filter the way Rabbit's unmerged STATBUS-625 card does for physical_location (statbus_test 09c52b2a1); whichever lands second follows the first.
+- App: app/src/app/dashboard/quality-establishment-activity-differs-card.tsx (title 'Establishment Activity Differs', the full rule on hover) in page.tsx's Data quality section; the search's Quality filter (app/src/app/search/filters/quality-filter.tsx) lists the checks of QUALITY_CHECKS in url-search-params.ts, and the export keeps the same rows.
 - Not here: configurable reports (217dx5), user-made reports (rws25b), fixing what the check finds (xhxnsy).
 
 Build plan, on branch statbus-xz3jej-primary-est-activity, each step its own commit with the Model: trailer; master after the owner's review:
 1. Prototype on Norway: rebuild cost of the MERGE, a changed row dropping out and coming back, regular_user access and the app's real search request with the embed.
 2. SQL test in test/sql/306_load_demo_data.sql after block 1: the report rows on the demo data and the embed's count. RED before the migration.
-3. Migration with up and down: table, foreign key, view, derive function, RLS and grants, derive_used_tables calling it. GREEN; fast suite; ./dev.sh generate-doc-db; ./sb types generate.
+3. Migration with up and down: table, foreign key, view, check function, RLS and grants, the worker.derive_quality step registered in the reports phase. GREEN; fast suite; ./dev.sh generate-doc-db; ./sb types generate.
 4. Card and search filter, with a jest test that the URL filter reaches the query; lint, format, tsc, jest, build.
 5. Check on the local Norway data: the card's count equals the SQL count for the Live frame; the link lists the same legal units.
 
@@ -54,7 +54,7 @@ Build plan, on branch statbus-xz3jej-primary-est-activity, each step its own com
 
 ## Acceptance
 - [x] [Owner] Approves the rule: compare a legal unit's primary activity with its primary establishment's (primary_for_legal_unit), every legal unit with one, narrowing by URL filter; the answer is recorded in the notes
-- [x] A SQL test asserts, on the demo data in 306, which legal units the report table lists after derive, and that the search's embed counts the same units
+- [x] A SQL test asserts, on the demo data in 306, which legal units the quality check lists after a recalculation, and that the search's embed counts the same units
 - [x] The Data quality section shows the card with the count for the selected time frame, and its link opens a search listing exactly those legal units (checked against the SQL on the local Norway data)
 - [ ] PR #328 is closed on GitHub with a comment that thanks Erik, says why (integrated in the app instead), and links this task
 
