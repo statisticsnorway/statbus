@@ -76,7 +76,10 @@ BEGIN
             EXECUTE format('INSERT INTO statistical_unit_new (%s) SELECT %s FROM public.statistical_unit_def WHERE unit_type = %L AND unit_id BETWEEN %s AND %s', v_col_list, v_col_list, 'power_group', v_start_id, v_end_id);
         END LOOP; END IF;
 
-        TRUNCATE public.statistical_unit;
+        -- primary_establishment_activity_differs points at the rows replaced here and is refilled by
+        -- the next derive_used_tables. It references statistical_unit by a NOT ENFORCED foreign key,
+        -- which TRUNCATE refuses without CASCADE even with both tables listed.
+        TRUNCATE public.statistical_unit, public.primary_establishment_activity_differs CASCADE;
         EXECUTE format('INSERT INTO public.statistical_unit (%s) SELECT %s FROM statistical_unit_new', v_col_list, v_col_list);
         ANALYZE public.statistical_unit;
     ELSE

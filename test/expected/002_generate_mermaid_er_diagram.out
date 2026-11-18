@@ -557,6 +557,16 @@ erDiagram
 		integer edit_by_user_id
 		timestamp_with_time_zone edit_at
 	}
+	primary_establishment_activity_differs["primary_establishment_activity_differs"] {
+		statistical_unit_type unit_type
+		integer unit_id
+		date valid_from
+		date valid_until
+		daterange valid_range
+		integer legal_unit_activity_category_id
+		integer primary_establishment_id
+		integer primary_establishment_activity_category_id
+	}
 	region["region"] {
 		integer id
 		ltree path
@@ -1713,6 +1723,9 @@ erDiagram
 	power_root }o--|| legal_unit : power_root_derived_root_legal_unit_id_valid
 	power_root }o--o| legal_unit : power_root_custom_root_legal_unit_id_valid
 	power_root }|--|| power_group : power_root_power_group_id_fkey
+	primary_establishment_activity_differs }o--|| statistical_unit : primary_establishment_activity_differs_statistical_unit_fkey
+	primary_establishment_activity_differs }o--|| statistical_unit : primary_establishment_activity_differs_statistical_unit_fkey
+	primary_establishment_activity_differs }o--|| statistical_unit : primary_establishment_activity_differs_statistical_unit_fkey
 	region }o--o| region : region_parent_id_fkey
 	region }o--|| region_version : region_version_id_fkey
 	region_access }|--|| auth_user : region_access_user_id_fkey

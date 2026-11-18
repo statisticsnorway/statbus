@@ -11,10 +11,13 @@ BEGIN
     PERFORM public.data_source_used_derive();
     PERFORM public.legal_form_used_derive();
     PERFORM public.country_used_derive();
+    -- Data quality report (xz3jej): reads statistical_unit as published by the flush before this step.
+    PERFORM public.primary_establishment_activity_differs_derive();
 
     p_info := jsonb_build_object('refreshed', jsonb_build_array(
         'activity_category_used', 'region_used', 'sector_used',
-        'data_source_used', 'legal_form_used', 'country_used'
+        'data_source_used', 'legal_form_used', 'country_used',
+        'primary_establishment_activity_differs'
     ));
 END;
 $procedure$

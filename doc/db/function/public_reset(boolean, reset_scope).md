@@ -49,6 +49,12 @@ BEGIN
         SELECT COUNT(*) FROM public.image INTO _image_count;
         SELECT COUNT(*) FROM public.unit_notes INTO _unit_notes_count;
 
+        -- statistical_unit is emptied together with primary_establishment_activity_differs, which
+        -- references it by a NOT ENFORCED foreign key: TRUNCATE refuses such a key without CASCADE,
+        -- even with both tables listed. CASCADE is kept to this statement so that a new enforced
+        -- key to any table in the list below still stops reset instead of emptying its table.
+        TRUNCATE public.statistical_unit, public.primary_establishment_activity_differs CASCADE;
+
         TRUNCATE
             public.activity,
             public.location,
@@ -73,7 +79,6 @@ BEGIN
             public.timepoints,
             public.timesegments,
             public.timesegments_years,
-            public.statistical_unit,
             public.statistical_unit_facet,
             public.statistical_unit_facet_staging,
             public.statistical_unit_facet_dirty_hash_slots,

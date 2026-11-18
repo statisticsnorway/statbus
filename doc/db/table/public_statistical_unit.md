@@ -134,6 +134,8 @@ Indexes:
     "su_ss_employees_sum_desc_idx" btree (((stats_summary -> 'employees'::text) -> 'sum'::text) DESC NULLS LAST, unit_type, unit_id)
     "su_ss_turnover_sum_asc_idx" btree (((stats_summary -> 'turnover'::text) -> 'sum'::text), unit_type, unit_id)
     "su_ss_turnover_sum_desc_idx" btree (((stats_summary -> 'turnover'::text) -> 'sum'::text) DESC NULLS LAST, unit_type, unit_id)
+Referenced by:
+    TABLE "primary_establishment_activity_differs" CONSTRAINT "primary_establishment_activity_differs_statistical_unit_fkey" FOREIGN KEY (unit_type, unit_id, PERIOD valid_range) REFERENCES statistical_unit(unit_type, unit_id, PERIOD valid_range) NOT ENFORCED
 Policies:
     POLICY "statistical_unit_admin_user_manage"
       TO admin_user

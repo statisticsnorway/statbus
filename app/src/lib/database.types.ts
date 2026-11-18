@@ -2916,6 +2916,89 @@ export type Database = {
           }
         ]
       },
+      primary_establishment_activity_differs: {
+        Row: {
+          legal_unit_activity_category_id: number | null
+          primary_establishment_activity_category_id: number | null
+          primary_establishment_id: number
+          unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_from: string
+          valid_range: string
+          valid_until: string
+        },
+        Insert: {
+          legal_unit_activity_category_id?: number | null
+          primary_establishment_activity_category_id?: number | null
+          primary_establishment_id: number
+          unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_from: string
+          valid_range: string
+          valid_until: string
+        },
+        Update: {
+          legal_unit_activity_category_id?: number | null
+          primary_establishment_activity_category_id?: number | null
+          primary_establishment_id?: number
+          unit_id?: number
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_from?: string
+          valid_range?: string
+          valid_until?: string
+        },
+        Relationships: [
+          {
+            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "statistical_unit"
+            referencedColumns: ["unit_id", "unit_type", "valid_range"]
+          },
+          {
+            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "activity_category_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "country_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "data_source_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "legal_form_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "region_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primary_establishment_activity_differs_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "sector_used_def"
+            referencedColumns: ["id"]
+          }
+        ]
+      },
       region: {
         Row: {
           center_altitude: number | null
@@ -8868,6 +8951,36 @@ export type Database = {
           }
         ]
       },
+      primary_establishment_activity_differs_def: {
+        Row: {
+          legal_unit_activity_category_id: number | null
+          primary_establishment_activity_category_id: number | null
+          primary_establishment_id: number | null
+          unit_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from: string | null
+          valid_until: string | null
+        },
+        Insert: {
+          legal_unit_activity_category_id?: number | null
+          primary_establishment_activity_category_id?: number | null
+          primary_establishment_id?: number | null
+          unit_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_until?: string | null
+        },
+        Update: {
+          legal_unit_activity_category_id?: number | null
+          primary_establishment_activity_category_id?: number | null
+          primary_establishment_id?: number | null
+          unit_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_until?: string | null
+        },
+        Relationships: []
+      },
       region_upload: {
         Row: {
           center_altitude: string | null
@@ -14771,6 +14884,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: true
         }
+      },
+      primary_establishment_activity_differs_derive: {
+        Args: Record<string, never>
+        Returns: unknown
       },
       range: {
         Args: Record<string, never>
