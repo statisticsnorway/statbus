@@ -66,3 +66,4 @@ rc.04 failed its gate (STATBUS-382, unrelated). 14ecf9e42 is in v2026.10.6-rc.05
 - 2026-11-18T17:51 answered asked, by jhf, for hibiscus (doing/asked -> doing/active):
   > Albania's StatBus version: the owner asks them (again 2026-11-18); v2026.11.0 or later lets check 3 be ticked and the branch go
   Albania has not upgraded yet. I've asked via my boss Erik If they can do it, and I'm waiting for that, maybe during the next days
+- 2026-11-18T17:51 answer 1 not delivered: no coordinator set (hug task coordinator NAME)
