@@ -57,7 +57,7 @@ Decided by the owner 2026-11-10 (details in the notes):
 - [x] One migration renames time_context to time_frame everywhere and drops relative_period, relative_period_with_time, the scope and second name and tag frames; after it, rg -i 'time_context|relative_period|timecontext' over app/src, cli, test/sql, samples, doc (outside doc/db history) and the live schema finds nothing; existing jobs on r_year_curr and r_year_prev carry live and prev with their stored dates unchanged; the fast suite passes and doc/db and types are regenerated
 - [x] The frame menu lists Live frame, Previous frame and the fixed frames that do not equal a relative frame, in that order; an import page lists all three groups; a test of the app's frame list asserts both
 - [x] The edit form opens on a Frame dropdown with the selected frame; the edit icon shows Data Source, Valid From and Valid To and returns to the frame; a test saves an edit in the live frame and one in a fixed frame and asserts the stored rows
-- [ ] The three import pages show Frame with the selected frame as default and the edit icon reveals the other options including Source dates; an import job created from each page carries the chosen frame ident
+- [x] The three import pages show Frame with the selected frame as default and the edit icon reveals the other options including Source dates; an import job created from each page carries the chosen frame ident
 - [ ] An edit or import in the UI that reaches into a relative or fixed frame asks first, naming the frames it touches; cancelling stores nothing; confirming stores the change. Only the UI asks: API, CLI and scheduled jobs run unattended (owner 2026-11-11)
 
 ## Notes
