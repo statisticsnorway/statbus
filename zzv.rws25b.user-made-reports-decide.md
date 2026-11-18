@@ -26,6 +26,6 @@ Building blocks today: PostgREST filters and computed fields on statistical_unit
 
 ## Acceptance
 - [ ] A note in this task lists what a user can already express as a URL on /rest/statistical_unit and the search page, with one worked example per kind (filter, computed field, count)
-- [ ] A recommendation to the owner: saved queries, built-in checks only, or something else, with what each needs; the owner's decision is recorded in the notes
+- [ ] [Owner] Decides from the recommendation: saved queries, built-in checks only, or something else; the answer is recorded in the notes and, if it is to be built, becomes its own task
 
 ## Notes
