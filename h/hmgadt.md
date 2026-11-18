@@ -40,7 +40,7 @@ A removal is an edit like any other: it goes through the for_portion_of view, ca
 - [x] #1 [Owner] Decides how removal works in the UI (remove for a period versus entirely, where the action sits, what history shows) after a walk-through. The answer is recorded in this ticket's notes and becomes the build plan.
 - [x] #2 A location, contact, activity and statistic can each be removed for a chosen period through the API; a test removes a middle portion and asserts the split rows and that other units are unchanged
 - [x] #3 The edit form offers the agreed remove action for each kind of record it can add; a headless test removes a location, a contact, an activity and a statistic through the form and asserts each one's stored rows (the period gone, the rest kept, other units unchanged) and that the removal carries no comment or other values
-- [ ] #4 [Owner] On Norway, after the release carrying this, removes a test record he adds for the purpose (e.g. a physical location on 0404 GRUE TRAVKLUBB, 933130436) through the form; the earlier test location 2312602 was deleted by hand on 2026-11-10. The answer is recorded in this ticket's notes: yes closes the ticket; no gives the error to investigate.
+- [x] #4 [Owner] On Norway, after the release carrying this, removes a test record he adds for the purpose (e.g. a physical location on 0404 GRUE TRAVKLUBB, 933130436) through the form; the earlier test location 2312602 was deleted by hand on 2026-11-10. The answer is recorded in this ticket's notes: yes closes the ticket; no gives the error to investigate.
 - [x] #5 [Owner] Decides whether a removal records who and when; answer recorded in this ticket's notes (2026-11-17 19:09: no, tracking changes is its own task k5q120; Zoom in and #3 amended)
 
 ## North Star
