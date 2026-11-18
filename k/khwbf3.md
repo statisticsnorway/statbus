@@ -11,10 +11,13 @@ rank: "zzzq"
 created: 2026-11-18
 updated: 2026-11-18
 doing_since: "2026-11-18T16:33"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+waiting_on: "the next stalled load: the owner says 'slow' while still on the page, and hibiscus reads its timeline and state through the browser bridge"
+waiting_since: "2026-11-18T16:33"
+waiting_asked_by: "hibiscus"
 ---
 
 ## Goal
@@ -51,3 +54,4 @@ Tools: the jcode browser bridge runs JavaScript in the owner's Firefox tab (page
 
 ## History
 - 2026-11-18T16:33 todo -> doing/active (take)
+- 2026-11-18T16:33 doing/active -> doing/waiting (wait)
