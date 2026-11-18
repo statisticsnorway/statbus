@@ -63,6 +63,7 @@ First task after STATBUS-606 (owner, 2026-11-10).
 2026-11-18 05:16 (Rabbit): Go Test was red on 7002c3a48 (run 44237849660, TestDaemonSchemaFloorBumpGuard: the migration touches public.upgrade without raising DaemonSchemaFloor; my miss, I had not run go test). Fixed 904ad132a: floor 20261118041918 with the re-decision paragraph. CI green on 904ad132a: Fast Tests, Go Test, app build & lint, Images, Harness Selftest. Only check 4 (owner) remains.
 2026-11-18 06:54 (Rabbit): v2026.11.5-rc.02 (691e26810) carries this; ladder rungs 1-8 green (orchestrator 44247167926). Test on Norway with rc.02.
 2026-11-18 13:26 (Rabbit): paused for 50bwaz (reset + factory defaults, owner's detour for the next rc); the owner's open question here comes right after it.
+2026-11-18 16:14 (Rabbit): shipped in stable v2026.11.5 (promoted from rc.02, 691e26810) and in v2026.11.6-rc.01. The owner's open check waits for his return this evening.
 ## History
 - 2026-11-18T05:16 todo -> doing/active (take)
 - 2026-11-18T05:31 doing/active -> doing/waiting (wait)
