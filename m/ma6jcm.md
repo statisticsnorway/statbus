@@ -1,7 +1,7 @@
 ---
 id: "ma6jcm"
 title: A dev checkout's generated addresses follow its slot
-state: "doing"
+state: "done"
 assignee: ["rabbit"]
 updated_date: '2026-11-16T13:53:00Z'
 labels:
@@ -19,8 +19,7 @@ updated: "2026-11-16T13:53:00Z"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
-doing_since: "2026-11-18T21:47"
-stage: "active"
+done_at: "2026-11-18T23:27"
 ---
 
 ## Goal
@@ -63,5 +62,7 @@ Owner 2026-11-16 13:45, the second half of this ticket: since both checkouts use
 
 2026-11-18 21:28 (Rabbit) landed 212188f56 on master. RED tmp/631-go-red.log (4 new tests fail before), GREEN go test ./internal/config/ and full cli suite. Observed on real checkouts (tmp/631/): statbus_test generate removed the 3 stored lines and wrote DEV_HTTPS=true (generate-test.log); ./dev.sh https off/on flipped DEV_HTTPS and .env addresses (https-off.log, https-on.log); headless sign-in at https://test.statbus.org:3031 lists units with no errors, dev server proxies /rest to https 3031 (signin-3031.log); copy of the main checkout's .env.config loses STATBUS_URL :3000 and keeps https (main-copy-generate.log). Duplicate domain: a scratch checkout on test.statbus.org gets exit 78 from config generate naming statbus-test and its folder, and sb start refuses the same; on dup.statbus.org it proceeds (dup-*.log). Side finding, not this ticket: a production build left in app/.next made /login reload ~20/s (Turbopack HMR hash mismatch); moved aside to tmp/631/next-aside-2026-11-18.
 2026-11-18 22:27 (Rabbit) CI on 212188f56 found a real defect of mine: the required ${SITE_DOMAIN:?} proxy label failed the upgrader's source compose render (TestSourceServingExpectedImageReferencesRendersActualRepoComposeModel). Fixed in ecd2e796b with an optional label; RED/GREEN tmp/631/render-label.log. On ecd2e796b, Fast Tests attempt 1 failed in TestTypedComposeAuthorityGate (x/sys/unix type-check, file untouched since 2026-11-03), attempt 2 green; filed as 3k0ne3. All workflows green on ecd2e796b: Go Test, app build & lint, Harness Selftest, Images, Push on master, Fast Tests (attempt 2).
+Reflection (open, 2026-11-18, rabbit): Decisions with the owner first (DEV_HTTPS default true, fixed cookie names, one domain per slot, check in every mode but commented as advisory). The first push had a real bug the local suite could not see: a required compose variable broke a render that runs without .env. Lesson: an advisory label must never be a required interpolation; run the livedb compose-render test when touching compose files.
 ## History
 - 2026-11-18T21:47 todo -> doing/active (take)
+- 2026-11-18T23:27 doing/active -> done (done); was doing_since: 2026-11-18T21:47
