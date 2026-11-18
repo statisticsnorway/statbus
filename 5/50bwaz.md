@@ -39,6 +39,9 @@ public.reset(confirmed, scope reset_scope), scopes units|data|getting-started|al
 - [ ] [Owner] Confirms on the North Cyprus installation after the release: reset Units and Getting started, then Getting started from step 1 through the custom activity code upload
 - [ ] A reset of the third scope restores every system default a user edited on /admin to its shipped value (name, enabled, priority and other columns), and removes custom rows; a test edits a default unit size, status, data source and statistical variable, resets, and asserts the shipped rows
 - [ ] A Getting started reset (and the third scope) restores the activity category standards as shipped, including code_pattern; a test changes NACE's code_pattern to digits, resets, and asserts dot_after_two_digits
+- [ ] System default priorities on /admin (external identifiers, statistical variables, statuses) start at 10 in steps of 10, so 1-9 are free for users; person_ident is disabled by default, also after a reset; a test asserts the shipped rows on a fresh database and after the third-scope reset
+- [ ] Priority is unique only among enabled rows in each /admin table with a priority (external_ident_type, stat_definition, status); a test enables two rows with the same priority and gets a clear error, and keeps a disabled row's priority without conflict
+- [ ] A forward migration moves an existing installation's system rows to the new priorities and person_ident's default, leaving rows a user created or re-prioritised as they are; tested on rows written before the migration
 
 ## Notes
 
