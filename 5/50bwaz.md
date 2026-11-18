@@ -41,7 +41,7 @@ public.reset(confirmed, scope reset_scope), scopes units|data|getting-started|al
 - [x] A Getting started reset (and the third scope) restores the activity category standards as shipped, including code_pattern; a test changes NACE's code_pattern to digits, resets, and asserts dot_after_two_digits
 - [x] System default priorities on /admin (external identifiers, statistical variables, statuses) start at 10 in steps of 10, so 1-9 are free for users; person_ident is disabled by default, also after a reset; a test asserts the shipped rows on a fresh database and after the third-scope reset
 - [x] Priority is unique only among enabled rows in each /admin table with a priority (external_ident_type, stat_definition, status); a test enables two rows with the same priority and gets a clear error, and keeps a disabled row's priority without conflict
-- [ ] A forward migration moves an existing installation's system rows to the new priorities and person_ident's default, leaving rows a user created or re-prioritised as they are; tested on rows written before the migration
+- [x] A forward migration moves an existing installation's system rows to the new priorities and person_ident's default, leaving rows a user created or re-prioritised as they are; tested on rows written before the migration
 
 ## Notes
 
