@@ -1,7 +1,7 @@
 ---
 id: "ezp3h0"
 title: 'Time frames: one live frame, frozen frames, and the name frame everywhere'
-state: "doing"
+state: "done"
 assignee: ["rabbit"]
 updated_date: '2026-11-12T02:04:00Z'
 labels:
@@ -21,11 +21,7 @@ updated: "2026-11-12T02:04:00Z"
 model: "claude-opus-5-5"
 branch: "statbus-628-all-forms"
 worktree: "/Users/jhf/ssb/statbus_test"
-stage: "asked"
-asked_by: "rabbit"
-asked_for: "jorgen"
-asked_since: "2026-11-18T01:04"
-asked_what: "owner confirms time frames on Norway after the release (rc.02 shipped)"
+done_at: "2026-11-18T16:55"
 ---
 
 ## Goal
@@ -90,3 +86,4 @@ Owner 2026-11-11 11:51: AC#7 decided as 'only the UI asks'; no 'allow changes to
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
 - 2026-11-18T11:39 doing/waiting -> doing/asked (hug upgrade, 41hhgn: a question to a person is its own stage)
+- 2026-11-18T16:55 doing/asked -> done (done); was asked_by: rabbit; asked_for: jorgen; asked_since: 2026-11-18T01:04; asked_what: owner confirms time frames on Norway after the release (rc.02 shipped)
