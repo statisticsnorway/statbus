@@ -9,14 +9,10 @@ labels: []
 created: 2026-11-18
 updated: 2026-11-18
 doing_since: "2026-11-18T00:59"
-stage: "waiting"
+stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
-waiting_asked_by: "hibiscus"
-waiting_for: "jhf"
-waiting_on: "the owner reviews the design and rule in Relevant details (check 1) in the morning"
-waiting_since: "2026-11-18T01:37"
 ---
 
 ## Goal
@@ -76,3 +72,4 @@ Build plan, after the owner approves (check 1), each step its own commit with th
 ## History
 - 2026-11-18T00:59 todo -> doing/active (take)
 - 2026-11-18T01:37 doing/active -> doing/waiting (wait)
+- 2026-11-18T01:54 answered waiting: "the owner reviews the design and rule in Relevant details (check 1) in the morning" -> "I approve this design. Hibiscus, can you get it done by morning.", by jhf, for hibiscus (doing/waiting -> doing/active)
