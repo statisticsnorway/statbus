@@ -42,5 +42,6 @@ Boxes: app/src/app/legal-units/[id]/@primaryUnitInfo/default.tsx and app/src/app
 2026-11-17 19:12 owner chose the notice (19:09). Check #4: tmp/acdq9d-check.mjs now also reads Save's state; tmp/acdq9d-check-save.log: LU 29 Name and Sector and EST 51 Name show the notice with Save enabled; EST 17 (not primary) shows none, Save enabled. Branch 617f1f125 (commit 1db6cf947). Done after push and CI.
 
 
+landed 839f84c on master 2026-11-18: app: editing a primary unit says, beside Save, that the change also changes the…
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)

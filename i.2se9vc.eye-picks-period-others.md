@@ -41,5 +41,6 @@ Popover: field-timeline-view.tsx (read-only, no onToggle). Edit: the anchor's ey
 
 
 2026-11-18 00:57 owner approved in Firefox (Rabbit recording): LU 29 statistical variables, Employees timeline with the eye marking what differs and Live-only ticking. He needs no toggle to show the timeline without the difference highlights.
+landed 97569a1 on master 2026-11-18: app: a field's timeline marks what differs from one reference period: a black…
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
