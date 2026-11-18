@@ -57,6 +57,7 @@ Owner 2026-11-12 20:21 (reviewing /legal-units/28/contact, a unit with no contac
 2026-11-18 06:54 (Rabbit): v2026.11.5-rc.02 (691e26810) carries this; ladder rungs 1-8 green (orchestrator 44247167926). Test on Norway with rc.02.
 2026-11-18 11:27 (Rabbit): owner reports Norway (rune) upgraded to v2026.11.5-rc.02. The owner check on Norway is now possible.
 Checks 1 and 2: evidence 8c0fbe00c (new record stored where the unit exists, test) and readEditRange first-day opening (STATBUS-609 commits 1e518fc5c, 1e85408f5, faa77142b), owner-approved 2026-11-18 00:50; on master since 82c2da035, CI green.
+2026-11-18 15:54 owner on Norway (no.statbus.org, v2026.11.5), establishment 479720 0404 GRUE TRAVKLUBB (933130436), Live frame (2026): added a physical location 'Neither here nor there', country Norway, without changing Valid From. It saved; the field's timeline shows it from 2026-11-07 (the unit's first day; the Previous frame shows Unit not found, the unit starts 2026-11-07) to Present. Check 3: yes.
 ## History
 - 2026-11-18T01:04 doing -> doing/waiting (wait)
 - 2026-11-18T11:39 doing/waiting -> doing/asked (hug upgrade, 41hhgn: a question to a person is its own stage)
