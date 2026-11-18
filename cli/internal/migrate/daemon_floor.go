@@ -118,7 +118,14 @@ package migrate
 // the on-disk files, so a box that boots a new binary WITHOUT this migration
 // would read its own ledger as ahead-of-disk. Booting to this floor first
 // keeps the daemon's comparison coherent during the transition.
-const DaemonSchemaFloor int64 = 20261027221500
+//
+// 20261118041918 (hzyejk, STATBUS-607): DROP COLUMN public.upgrade.release_url.
+// No daemon query reads or writes the column (no released sb since a594a1745,
+// 2026-03-27, mentions it; every row had it NULL), and the daemon's
+// RETURNING to_jsonb(upgrade.*) decodes into structs without that key, so the
+// daemon operates identically on either side of the drop. The floor moves so
+// the guard stops flagging this migration; the re-decision is this paragraph.
+const DaemonSchemaFloor int64 = 20261118041918
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration
