@@ -1,13 +1,18 @@
 ---
 id: febdra
 title: "A regular user cannot edit part of a period on a row another user wrote"
-state: todo
+state: "doing"
 type: bug
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: ["db", "edit", "security"]
 created: 2026-11-17
 updated: 2026-11-17
+doing_since: "2026-11-18T01:04"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "statbus-628-all-forms"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -36,3 +41,7 @@ Reproduction (tmp/611-rls-probe4..6.sql, logs; clone of statbus_test_template; j
 2026-11-18 00:00 owner discussion (Rabbit). Origin: migration 20260312114525_edit_by_user_id_default_and_rls (2026-03-12/13, 'Migration F') changed every regular_user_manage policy from WITH CHECK (true) to WITH CHECK (edit_by_user_id = auth.uid()) on the 15 editable tables; the owner now thinks that migration may have been an overreach. Released since March; this branch only made partial-period writes common (Live-only edits, Remove), so regular users now meet it on ordinary edits. Semantics agreed in talk: edit_by_user_id/edit_at/edit_comment are last-writer provenance of a row's values, not locking; all 9 temporal eras already list them as sql_saga ephemeral columns (excluded from change comparison, still written). Design idea, owner's words: sql_saga is told a column's purpose (this column is the writer, this one the time) and the function that fills it (e.g. auth.uid(), statement_timestamp()), then stamps rows whose data changed and leaves trimmed pieces as they were. Not decided: (1) forward migration restoring WITH CHECK (true) for regular_user on those tables now; (2) the sql_saga stamping feature later.
 
 2026-11-18 00:04 owner decision (Rabbit): the simple fix. A forward migration puts the regular_user_manage policies back to WITH CHECK (true) on the tables Migration F (20260312114525) changed, and admin.add_rls_regular_user_can_edit creates them that way for new tables. Access stays decided by login and role/grants; edit_by_user_id is last-writer provenance set by the app, imports and DEFAULT auth.uid(). Anti-forgery is only 'cannot sign as another user'; making it forgery-proof needs sql_saga to stamp writer/time itself (owner asks the sql_saga agent to research, e.g. writes under a definer role the stamping trigger recognises).
+
+
+## History
+- 2026-11-18T01:04 todo -> doing/active (take)
