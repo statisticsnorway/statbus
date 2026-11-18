@@ -16,7 +16,6 @@ worktree: "/Users/jhf/ssb/statbus"
 waiting_on: "the owner's decision on hug upgrade --apply (hug v0.7.53 is installed)"
 waiting_since: "2026-11-18T00:40"
 waiting_asked_by: "hibiscus"
-waiting_for: "jhf"
 ---
 
 ## Goal
@@ -47,3 +46,4 @@ Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see
 ## History
 - 2026-11-18T00:40 todo -> doing/active (take)
 - 2026-11-18T00:40 doing/active -> doing/waiting (wait)
+- 2026-11-18T11:39 waiting_for jhf removed by hug upgrade (it asks nothing: no '?', no check named, no request such as approve; the wait stays, 41hhgn)
