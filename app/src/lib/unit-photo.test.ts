@@ -1,19 +1,32 @@
-import { centreSquareCrop, UNIT_PHOTO_PIXELS } from "./unit-photo";
+import {
+  fitWithin,
+  UNIT_PHOTO_MAX_BYTES,
+  UNIT_PHOTO_MAX_SIDE,
+} from "./unit-photo";
 
-describe("centreSquareCrop", () => {
-  it("takes the middle of a landscape phone photo", () => {
-    expect(centreSquareCrop(4032, 3024)).toEqual({ sx: 504, sy: 0, side: 3024 });
+describe("fitWithin", () => {
+  it("scales a landscape phone photo to 800 px wide, keeping all of it", () => {
+    expect(fitWithin(4032, 3024, UNIT_PHOTO_MAX_SIDE)).toEqual({
+      width: 800,
+      height: 600,
+    });
   });
 
-  it("takes the middle of a portrait photo", () => {
-    expect(centreSquareCrop(3024, 4032)).toEqual({ sx: 0, sy: 504, side: 3024 });
+  it("scales a portrait photo to 800 px high", () => {
+    expect(fitWithin(3024, 4032, UNIT_PHOTO_MAX_SIDE)).toEqual({
+      width: 600,
+      height: 800,
+    });
   });
 
-  it("keeps a square photo whole", () => {
-    expect(centreSquareCrop(800, 800)).toEqual({ sx: 0, sy: 0, side: 800 });
+  it("leaves a photo that already fits at its own size", () => {
+    expect(fitWithin(640, 480, UNIT_PHOTO_MAX_SIDE)).toEqual({
+      width: 640,
+      height: 480,
+    });
   });
 
-  it("stores photos at 512 pixels a side", () => {
-    expect(UNIT_PHOTO_PIXELS).toBe(512);
+  it("keeps photos under the database limit of 256 KB", () => {
+    expect(UNIT_PHOTO_MAX_BYTES).toBe(262144);
   });
 });

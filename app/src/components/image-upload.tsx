@@ -3,7 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { toUnitPhoto, UNIT_PHOTO_PIXELS } from "@/lib/unit-photo";
+import { toUnitPhoto } from "@/lib/unit-photo";
 
 // Validate file MIME type before creating blob URL for preview
 // Defense-in-depth: server also validates magic bytes, but this prevents
@@ -24,32 +24,45 @@ interface ImageUploadProps {
 }
 
 /**
- * Picks a photo and turns it into a unit photo: the centred square, scaled to
- * UNIT_PHOTO_PIXELS, as JPEG (see @/lib/unit-photo). The field around it shows
+ * Picks a photo and turns it into a unit photo: the whole picture, scaled so its
+ * longest side fits (see @/lib/unit-photo), as JPEG. The field around it shows
  * the photo; this states its stored size.
  */
 export function ImageUpload({ onFileSelect, className }: ImageUploadProps) {
-  const [preview, setPreview] = React.useState<{ kb: number } | null>(null);
+  const [preview, setPreview] = React.useState<{
+    width: number;
+    height: number;
+    kb: number;
+  } | null>(null);
   const [problem, setProblem] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setProblem(null);
 
     if (!isValidImageFile(file)) {
-      setProblem("Choose a PNG, JPEG, GIF or WebP photo. SVG files are not supported.");
+      setProblem(
+        "Choose a PNG, JPEG, GIF or WebP photo. SVG files are not supported."
+      );
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     try {
       const photo = await toUnitPhoto(file);
-      setPreview({ kb: Math.ceil(photo.size / 1024) });
+      const { width, height } = await createImageBitmap(photo);
+      setPreview({ width, height, kb: Math.ceil(photo.size / 1024) });
       onFileSelect(photo);
     } catch (error) {
-      setProblem(error instanceof Error ? error.message : "The photo could not be read. Try another file.");
+      setProblem(
+        error instanceof Error
+          ? error.message
+          : "The photo could not be read. Try another file."
+      );
     }
   };
 
@@ -63,7 +76,7 @@ export function ImageUpload({ onFileSelect, className }: ImageUploadProps) {
       />
       {preview && (
         <p className="text-sm text-zinc-600">
-          Square, {UNIT_PHOTO_PIXELS} × {UNIT_PHOTO_PIXELS}, {preview.kb} KB
+          {preview.width} × {preview.height}, {preview.kb} KB
         </p>
       )}
       {problem && <p className="text-sm text-red-600">{problem}</p>}

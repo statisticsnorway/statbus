@@ -40,21 +40,29 @@ export function UnitImage({
           <div className="h-4 w-4 animate-pulse rounded-full bg-gray-300" />
         </div>
       )}
-      <Image
-        src={`/rest/rpc/image_data?id=${imageId}`}
-        alt={`${unitType} image`}
-        fill
-        unoptimized
-        className={cn(
-          "h-full w-full object-cover rounded-lg transition-opacity",
-          imageLoading ? "opacity-0" : "opacity-100"
-        )}
-        onLoad={() => setImageLoading(false)}
-        onError={() => {
-          setImageError(true);
-          setImageLoading(false);
-        }}
-      />
+      {/* The thumbnail shows the middle of the photo; clicking it opens the whole photo. */}
+      <a
+        href={`/rest/rpc/image_data?id=${imageId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Open the whole photo"
+      >
+        <Image
+          src={`/rest/rpc/image_data?id=${imageId}`}
+          alt={`${unitType} image`}
+          fill
+          unoptimized
+          className={cn(
+            "h-full w-full object-cover rounded-lg transition-opacity",
+            imageLoading ? "opacity-0" : "opacity-100"
+          )}
+          onLoad={() => setImageLoading(false)}
+          onError={() => {
+            setImageError(true);
+            setImageLoading(false);
+          }}
+        />
+      </a>
       {isEditing && onDelete && !imageLoading && (
         <Button
           type="button"
