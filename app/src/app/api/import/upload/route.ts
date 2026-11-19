@@ -8,6 +8,7 @@ import { statfs } from 'node:fs/promises';
 import Papa from 'papaparse';
 import { createServerLogger } from "@/lib/server-logger";
 import { describeError } from "@/lib/error-format";
+import { UploadEncodingCheck, UploadEncodingError } from "@/lib/upload-encoding";
 
 import { getDbHostPort } from "@/lib/db-listener";
 
@@ -382,6 +383,14 @@ export async function POST(request: NextRequest) {
       logger.info({ jobId: job.id, jobSlug: job.slug, command: copyCommand }, `Executing COPY command`);
 
       // --- Data Streaming ---
+      // Every byte passes the encoding check on its way to COPY (e1z8va): a
+      // refusal rolls the transaction back, so nothing is staged and the job
+      // never reaches the import step.
+      const encodingCheck = new UploadEncodingCheck();
+      if (csvBuffer) {
+        encodingCheck.push(csvBuffer);
+        encodingCheck.end();
+      }
       const copyStream = pgClient.query(copyFrom(copyCommand));
 
       if (csvBuffer) {
@@ -403,6 +412,7 @@ export async function POST(request: NextRequest) {
         await new Promise<void>((resolve, reject) => {
           fileStream.pipeTo(new WritableStream({
             write(chunk) {
+              encodingCheck.push(chunk);
               return new Promise((resolveWrite, rejectWrite) => {
                 if (!copyStream.write(chunk)) {
                   copyStream.once('drain', resolveWrite);
@@ -412,6 +422,7 @@ export async function POST(request: NextRequest) {
               });
             },
             close() {
+              encodingCheck.end();
               copyStream.end();
             },
             abort(err) {
@@ -463,6 +474,9 @@ export async function POST(request: NextRequest) {
       await pool.end();
     }
   } catch (error) {
+    if (error instanceof UploadEncodingError) {
+      return NextResponse.json({ message: error.message }, { status: 400 });
+    }
     console.error("Error in upload handler:", error);
     return NextResponse.json(
       { message: `Server error: ${describeError(error)}` },
