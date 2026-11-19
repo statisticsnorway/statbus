@@ -54,3 +54,4 @@ Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see
 - 2026-11-18T00:40 doing/active -> doing/waiting (wait)
 - 2026-11-18T11:39 waiting_for jhf removed by hug upgrade (it asks nothing: no '?', no check named, no request such as approve; the wait stays, 41hhgn)
 - 2026-11-19T16:28 request 1 by jhf
+- 2026-11-19T16:28 request 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
