@@ -1,7 +1,7 @@
 ---
 id: "g71vzm"
 title: A small edit refreshes only the facets it changed
-state: "doing"
+state: "done"
 assignee: ["hibiscus"]
 updated_date: '2026-11-16T16:54:00Z'
 labels:
@@ -19,6 +19,7 @@ updated: "2026-11-16T16:54:00Z"
 model: "claude-opus-5-5"
 branch: "statbus-xz3jej-primary-est-activity"
 worktree: "/Users/jhf/ssb/statbus"
+done_at: "2026-11-19T15:06"
 ---
 
 ## Goal
@@ -107,3 +108,8 @@ The 50 % runs were on a shared host (load 8-62), so their wall times are indicat
 check 3: Collected into one table (note 2026-11-19), every number from a kept log: 3-unit edit facet 15.7-18.7 s -> 0.06 s, whole 29-42 s -> 11-14 s; 50 % facet 21.3 -> 19.7 s, whole 1,650 -> 1,298 s; rune small edit 23-26 s -> 0.04 s.
 
 2026-11-19 14:06 (Rabbit) check 4: the published notes of v2026.11.6 (https://github.com/statisticsnorway/statbus/releases/tag/v2026.11.6, section 'Measured on Norway') state the rune small-edit figure (23-26 s to 0.04 s, first edit after upgrade 33 s once) and the half-register figure on the full-register copy (1,650 s to 1,298 s, reduce 20 s as before). The 3-unit-edit figures (16-19 s to 0.06 s, whole 29-42 s to 11-14 s) are in v2026.11.5's notes, the release that carried the code.
+
+
+Reflection (open, 2026-11-19, hibiscus): Check 3 named a bench-box series that the owner later judged unnecessary: the before/after numbers had already been measured locally and on rune, and the bench box was blocked by a newer sql_saga catalog in rune's dumps. Two worker attempts went into a measurement that only needed collecting. Lesson: before delegating a measurement, list what is already measured and ask whether it answers the question.
+## History
+- 2026-11-19T15:06 doing -> done (done)
