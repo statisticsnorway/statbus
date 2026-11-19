@@ -8,6 +8,9 @@ SELECT '########################################';
 ########################################
 erDiagram
 	%% Entities (derived from tables)
+	admin_image_released["admin.image_released"] {
+		integer image_id
+	}
 	auth_api_key["auth.api_key"] {
 		integer id
 		uuid jti

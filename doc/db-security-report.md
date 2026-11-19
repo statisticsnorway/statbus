@@ -391,6 +391,8 @@ Trigger calling DDL procedures.
 
 - `lifecycle_callbacks.cleanup_and_generate`
 - `public.generate_power_ident`
+- `public.image_drop_released`
+- `public.image_note_released`
 
 ### sql_saga
 

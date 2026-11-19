@@ -148,7 +148,12 @@ DECLARE
     -- Lifecycle Callbacks: Trigger functions calling DDL procedures or enqueuing worker tasks
     v_lifecycle_funcs TEXT[] := ARRAY[
         'lifecycle_callbacks.cleanup_and_generate',
-        'public.generate_power_ident'
+        'public.generate_power_ident',
+        -- w79490: unit photo cleanup. Trigger functions that note a photo a unit row
+        -- stopped referring to in admin.image_released (no grants) and delete it at
+        -- commit when no unit refers to it; they only ever delete an unreferenced photo.
+        'public.image_drop_released',
+        'public.image_note_released'
     ];
 
     -- Upgrade: Trigger functions and RPC for upgrade service notifications

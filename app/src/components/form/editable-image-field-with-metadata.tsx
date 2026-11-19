@@ -178,7 +178,7 @@ export const EditableImageFieldWithMetadata = ({
 
               {/* File upload */}
               {!deleteImage && (
-                <ImageUpload onFileSelect={handleFileSelect} maxSizeMB={4} />
+                <ImageUpload onFileSelect={handleFileSelect} />
               )}
             </div>
           )}

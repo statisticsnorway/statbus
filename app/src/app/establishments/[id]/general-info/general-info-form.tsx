@@ -11,8 +11,6 @@ import Loading from "@/components/statistical-unit-details/loading";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import {
   updateEstablishment,
-  updateEstablishmentImage,
-  deleteEstablishmentImage,
 } from "../update-establishment-server-actions";
 import { updateLocation } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { useDetailsPageData } from "@/atoms/edits";

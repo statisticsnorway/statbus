@@ -14348,6 +14348,14 @@ export type Database = {
         }
         Returns: unknown
       },
+      image_drop_released: {
+        Args: Record<string, never>
+        Returns: unknown
+      },
+      image_note_released: {
+        Args: Record<string, never>
+        Returns: unknown
+      },
       import_job_accept_upload_columns: {
         Args: {
           p_job_id?: number

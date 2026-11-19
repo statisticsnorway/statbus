@@ -1,0 +1,165 @@
+-- w79490: a unit's photo is small and is removed when nothing shows it.
+-- A photo belongs to a period of a unit like any other field. The database deletes a
+-- photo at commit once no period of any legal unit or establishment refers to it, and
+-- refuses a photo over 256 KB. Runs as a regular user through the for_portion_of views,
+-- as the edit forms do. The cleanup is deferred to commit; SET CONSTRAINTS ALL IMMEDIATE
+-- stands in for the commit point here.
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+CALL test.set_user_from_email('test.admin@statbus.org');
+\o /dev/null
+\set ECHO none
+\echo "A legal unit from 2024 with an establishment, both live today"
+"A legal unit from 2024 with an establishment, both live today"
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at)
+VALUES ('ENT PHOTO', (SELECT id FROM auth.user WHERE email = 'test.admin@statbus.org'), now()) RETURNING id AS ent_id \gset
+INSERT INTO public.legal_unit (enterprise_id, name, status_id, primary_for_enterprise, edit_by_user_id, edit_at, valid_from)
+VALUES (:ent_id, 'PHOTO AS', (SELECT id FROM public.status WHERE code = 'active'), true,
+        (SELECT id FROM auth.user WHERE email = 'test.admin@statbus.org'), now(), '2024-01-01')
+RETURNING id AS lu_id \gset
+INSERT INTO public.establishment (legal_unit_id, name, status_id, primary_for_legal_unit, edit_by_user_id, edit_at, valid_from)
+VALUES (:lu_id, 'PHOTO SHOP', (SELECT id FROM public.status WHERE code = 'active'), true,
+        (SELECT id FROM auth.user WHERE email = 'test.admin@statbus.org'), now(), '2024-01-01')
+RETURNING id AS es_id \gset
+CALL test.set_user_from_email('test.regular@statbus.org');
+CREATE TEMP TABLE photo_name (image_id integer PRIMARY KEY, name text);
+CREATE TEMP VIEW photo_state AS
+SELECT 'legal_unit' AS unit, lu.valid_from, lu.valid_until, COALESCE(pn.name, '-') AS photo
+  FROM public.legal_unit AS lu LEFT JOIN photo_name AS pn ON pn.image_id = lu.image_id
+ WHERE lu.id = :lu_id
+UNION ALL
+SELECT 'establishment', es.valid_from, es.valid_until, COALESCE(pn.name, '-')
+  FROM public.establishment AS es LEFT JOIN photo_name AS pn ON pn.image_id = es.image_id
+ WHERE es.id = :es_id
+ORDER BY unit DESC, valid_from;
+-- A tiny valid PNG (signature + IHDR start); the magic-byte check accepts it.
+\set png '''\\x89504e470d0a1a0a0000000d49484452'''
+\echo "A photo taken for 2025 onwards: the 2024 period keeps no photo"
+"A photo taken for 2025 onwards: the 2024 period keeps no photo"
+INSERT INTO public.image (data, type) VALUES (:png, 'image/png') RETURNING id AS first_photo \gset
+INSERT INTO photo_name VALUES (:first_photo, 'first photo');
+UPDATE public.legal_unit__for_portion_of_valid
+   SET image_id = :first_photo, valid_from = '2025-01-01', valid_until = 'infinity'
+ WHERE id = :lu_id;
+SET CONSTRAINTS ALL IMMEDIATE; SET CONSTRAINTS ALL DEFERRED;
+SELECT * FROM photo_state;
+     unit      | valid_from | valid_until |    photo    
+---------------+------------+-------------+-------------
+ legal_unit    | 2024-01-01 | 2025-01-01  | -
+ legal_unit    | 2025-01-01 | infinity    | first photo
+ establishment | 2024-01-01 | infinity    | -
+(3 rows)
+
+SELECT count(*) AS photos_stored FROM public.image WHERE id = :first_photo;
+ photos_stored 
+---------------
+             1
+(1 row)
+
+\echo "A new photo for 2026 onwards: 2025 still shows the first photo, so both are kept"
+"A new photo for 2026 onwards: 2025 still shows the first photo, so both are kept"
+INSERT INTO public.image (data, type) VALUES (:png, 'image/png') RETURNING id AS second_photo \gset
+INSERT INTO photo_name VALUES (:second_photo, 'second photo');
+UPDATE public.legal_unit__for_portion_of_valid
+   SET image_id = :second_photo, valid_from = '2026-01-01', valid_until = 'infinity'
+ WHERE id = :lu_id;
+SET CONSTRAINTS ALL IMMEDIATE; SET CONSTRAINTS ALL DEFERRED;
+SELECT * FROM photo_state;
+     unit      | valid_from | valid_until |    photo     
+---------------+------------+-------------+--------------
+ legal_unit    | 2024-01-01 | 2025-01-01  | -
+ legal_unit    | 2025-01-01 | 2026-01-01  | first photo
+ legal_unit    | 2026-01-01 | infinity    | second photo
+ establishment | 2024-01-01 | infinity    | -
+(4 rows)
+
+SELECT pn.name AS photo_stored FROM public.image AS i JOIN photo_name AS pn ON pn.image_id = i.id ORDER BY pn.name;
+ photo_stored 
+--------------
+ first photo
+ second photo
+(2 rows)
+
+\echo "The 2025 photo is replaced too: nothing shows the first photo any more, so it is deleted at commit"
+"The 2025 photo is replaced too: nothing shows the first photo any more, so it is deleted at commit"
+UPDATE public.legal_unit__for_portion_of_valid
+   SET image_id = :second_photo, valid_from = '2025-01-01', valid_until = '2026-01-01'
+ WHERE id = :lu_id;
+SELECT count(*) AS first_photo_before_commit FROM public.image WHERE id = :first_photo;
+ first_photo_before_commit 
+---------------------------
+                         1
+(1 row)
+
+SET CONSTRAINTS ALL IMMEDIATE; SET CONSTRAINTS ALL DEFERRED;
+SELECT * FROM photo_state;
+     unit      | valid_from | valid_until |    photo     
+---------------+------------+-------------+--------------
+ legal_unit    | 2024-01-01 | 2025-01-01  | -
+ legal_unit    | 2025-01-01 | infinity    | second photo
+ establishment | 2024-01-01 | infinity    | -
+(3 rows)
+
+SELECT count(*) AS first_photo_after_commit FROM public.image WHERE id = :first_photo;
+ first_photo_after_commit 
+--------------------------
+                        0
+(1 row)
+
+\echo "The establishment shows the same photo: removing it from the legal unit keeps it"
+"The establishment shows the same photo: removing it from the legal unit keeps it"
+UPDATE public.establishment__for_portion_of_valid
+   SET image_id = :second_photo, valid_from = '2024-01-01', valid_until = 'infinity'
+ WHERE id = :es_id;
+UPDATE public.legal_unit__for_portion_of_valid
+   SET image_id = NULL, valid_from = '2025-01-01', valid_until = 'infinity'
+ WHERE id = :lu_id;
+SET CONSTRAINTS ALL IMMEDIATE; SET CONSTRAINTS ALL DEFERRED;
+SELECT * FROM photo_state;
+     unit      | valid_from | valid_until |    photo     
+---------------+------------+-------------+--------------
+ legal_unit    | 2024-01-01 | infinity    | -
+ establishment | 2024-01-01 | infinity    | second photo
+(2 rows)
+
+SELECT count(*) AS second_photo_kept FROM public.image WHERE id = :second_photo;
+ second_photo_kept 
+-------------------
+                 1
+(1 row)
+
+\echo "Deleting the establishment's rows removes the last reference: the photo is deleted"
+"Deleting the establishment's rows removes the last reference: the photo is deleted"
+DELETE FROM public.establishment WHERE id = :es_id;
+SET CONSTRAINTS ALL IMMEDIATE; SET CONSTRAINTS ALL DEFERRED;
+SELECT count(*) AS second_photo_after_unit_deleted FROM public.image WHERE id = :second_photo;
+ second_photo_after_unit_deleted 
+---------------------------------
+                               0
+(1 row)
+
+\echo "A photo over 256 KB is refused by the database"
+"A photo over 256 KB is refused by the database"
+SAVEPOINT before_large_photo;
+\set ON_ERROR_STOP off
+INSERT INTO public.image (data, type)
+VALUES (decode('89504e470d0a1a0a', 'hex') || decode(repeat('00', 262144 - 7), 'hex'), 'image/png');
+ERROR:  new row for relation "image" violates check constraint "image_size_limit"
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_large_photo;
+\echo "A photo of exactly 256 KB is accepted"
+"A photo of exactly 256 KB is accepted"
+INSERT INTO public.image (data, type)
+VALUES (decode('89504e470d0a1a0a', 'hex') || decode(repeat('00', 262144 - 8), 'hex'), 'image/png')
+RETURNING octet_length(data) AS stored_bytes;
+ stored_bytes 
+--------------
+       262144
+(1 row)
+
+ROLLBACK;

@@ -1,9 +1,9 @@
 ```sql
-                                                                                                                            Table "public.image"
-       Column        |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target |                                                         Description                                                          
----------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+------------------------------------------------------------------------------------------------------------------------------
+                                                                                                                                                                           Table "public.image"
+       Column        |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target |                                                                                                        Description                                                                                                        
+---------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  id                  | integer                  |           | not null | generated always as identity | plain    |             |              | 
- data                | bytea                    |           | not null |                              | external |             |              | Binary image data with EXTERNAL storage (no compression). Max 4MB. Validated on insert: only PNG, JPEG, GIF, WebP allowed.
+ data                | bytea                    |           | not null |                              | external |             |              | Binary image data with EXTERNAL storage (no compression). At most 256 KB (image_size_limit): photos are few and small, cropped to a square and scaled by the app. Validated on insert: only PNG, JPEG, GIF, WebP allowed.
  type                | text                     |           | not null | 'image/png'::text            | extended |             |              | MIME type for proper Content-Type header. Auto-detected from magic bytes on insert to prevent Content-Type spoofing attacks.
  uploaded_at         | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
  uploaded_by_user_id | integer                  |           |          |                              | plain    |             |              | User who uploaded the image
@@ -12,7 +12,7 @@ Indexes:
     "image_id_idx" btree (id)
     "ix_image_uploaded_by_user_id" btree (uploaded_by_user_id)
 Check constraints:
-    "image_size_limit" CHECK (length(data) <= 4194304)
+    "image_size_limit" CHECK (length(data) <= 262144)
 Foreign-key constraints:
     "image_uploaded_by_user_id_fkey" FOREIGN KEY (uploaded_by_user_id) REFERENCES auth."user"(id)
 Referenced by:
@@ -42,4 +42,4 @@ Access method: heap
 
 ```
 
-**Comment:** Non-temporal storage for unit images (logos, photos). Referenced by legal_unit and establishment. Validates magic bytes on insert to prevent XSS attacks via malicious file uploads.
+**Comment:** A unit's photo (legal_unit.image_id, establishment.image_id), for example a shop front a field worker took to recognise the unit on the next visit. Each period of a unit may refer to a photo. A photo that no row of either table refers to any more is deleted at commit (admin.image_released). Validates magic bytes on insert to prevent XSS attacks via malicious file uploads.
