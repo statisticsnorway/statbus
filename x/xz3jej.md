@@ -130,3 +130,4 @@ shipped in v2026.11.6 (852c625)
 - 2026-11-18T01:54 hibiscus read the answer
 - 2026-11-18T16:33 doing/active -> doing/waiting (wait)
 - 2026-11-19T16:20 request 1 by jhf
+- 2026-11-19T16:20 request 1 not delivered: no coordinator set (hug task coordinator NAME)
