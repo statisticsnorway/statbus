@@ -1,15 +1,20 @@
 ---
 id: m6mnnw
 title: "A unit edit form shows Saving… while its save runs"
-state: todo
+state: "doing"
 type: feature
 priority: "high"
-assignee: []
+assignee: ["hibiscus"]
 labels: []
 group: ""
 rank: "zzy"
 created: 2026-11-18
 updated: 2026-11-18
+doing_since: "2026-11-19T16:26"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -31,3 +36,7 @@ Save buttons of the unit edit forms, none of which tracks a pending state today:
 - [ ] On the local Norway data in Firefox, a save on a legal unit shows Saving… until the page shows the saved value; the owner sees it
 
 ## Notes
+
+
+## History
+- 2026-11-19T16:26 todo -> doing/active (take)
