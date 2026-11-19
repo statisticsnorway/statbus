@@ -60,7 +60,7 @@ Build plan (done; landed on master 2026-11-18 as 852c625f2, 069803f7e, 9d9d41e23
 - [x] A SQL test asserts, on the demo data in 306, which legal units the quality check lists after a recalculation, and that the search's embed counts the same units
 - [x] The Data quality section shows the card with the count for the selected time frame, and its link opens a search listing exactly those legal units (checked against the SQL on the local Norway data)
 - [x] PR #328 is closed on GitHub with a comment that thanks Erik, says why (integrated in the app instead), and links this task
-- [ ] On Norway (no.statbus.org) running v2026.11.6, Erik and Hedda open the Data quality card Establishment Activity Differs, its search and its download, and their findings are recorded in the notes
+- [x] On Norway (no.statbus.org) running v2026.11.6, Erik and Hedda open the Data quality card Establishment Activity Differs, its search and its download, and their findings are recorded in the notes
 
 
 ## Requests
@@ -123,6 +123,7 @@ landed 8aaf026 on master 2026-11-18: app: the Quality filter is always in the se
 2026-11-18 16:15 (Rabbit, release bookkeeping): the release candidate it waits for is cut: v2026.11.6-rc.01 at fc8a1d77f (contains 852c625f2, 069803f7e, 9d9d41e23, 8aaf0262b); ladder running. Norway takes it when the owner installs rc.01 there. Mentioned in the draft notes tmp/release-notes-v2026.11.6.md (Quality section).
 shipped in v2026.11.6 (852c625)
 2026-11-19 check 5: the quality check shipped in stable v2026.11.6 (notes: https://github.com/statisticsnorway/statbus/releases/tag/v2026.11.6), on Norway since v2026.11.6-rc.01. The owner asked Hedda on Slack himself; no second request is sent. Erik is contacted only after asking the owner. Release notes carry no requests to people (131f17e64).
+check 5: Owner 2026-11-19 16:20 (request 1): not waiting for the others; he has demonstrated the card, search and download himself on Norway (v2026.11.6), and Erik and Hedda will use it as it ships. No findings to wait for.
 ## History
 - 2026-11-18T00:59 todo -> doing/active (take)
 - 2026-11-18T01:37 doing/active -> doing/waiting (wait)
