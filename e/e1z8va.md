@@ -1,7 +1,7 @@
 ---
 id: e1z8va
 title: "An import upload refuses a file that is not UTF-8"
-state: "doing"
+state: "done"
 type: bug
 priority: "medium"
 assignee: ["hibiscus"]
@@ -10,11 +10,10 @@ group: ""
 rank: "zzzh"
 created: 2026-11-18
 updated: 2026-11-18
-doing_since: "2026-11-19T16:39"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+done_at: "2026-11-19T21:57"
 ---
 
 ## Goal
@@ -50,5 +49,7 @@ check 3: dcbad72ed: a UTF-8 file with RØRSERVICE, BLÅBÆR ÆRØ and SÃO PAULO
 2026-11-19 timing: the check alone takes 0.12 s on a 58 MB file of 1,048,574 rows (Erik's file size), in 64 KB chunks (tmp/hug/e1z8va-timing.log). Full jest 488/488. The nine test jobs on the local Norway copy (import_job_14 to _22) were deleted after the test; none produced units.
 landed dcbad72 on master 2026-11-19: import: an upload refuses a file that is not UTF-8 or holds garbled text…
 2026-11-19 CI for dcbad72ed all green: Fast Tests, Go Test, app build & lint, Images, Harness Selftest.
+Reflection (open, 2026-11-19, hibiscus): nothing misled me on the build. One gap was mine: I started writing code before the owner had settled the design (refuse or warn, where to check), and he had to stop me; the task named the checks but not those choices. Asking the design questions first, as AGENTS.md's 'play back the owner's ideas and discuss before doing many things' says, would have saved a round.
 ## History
 - 2026-11-19T16:39 todo -> doing/active (take)
+- 2026-11-19T21:57 doing/active -> done (done); was doing_since: 2026-11-19T16:39
