@@ -2,7 +2,7 @@
 id: "g71vzm"
 title: A small edit refreshes only the facets it changed
 state: "doing"
-assignee: ["shrimp"]
+assignee: ["hibiscus"]
 updated_date: '2026-11-16T16:54:00Z'
 labels:
   - performance
