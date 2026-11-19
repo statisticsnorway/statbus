@@ -1,7 +1,7 @@
 ---
 id: svx99s
 title: "A unit's photo keeps the whole picture, scaled to at most 800 px"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["rabbit"]
@@ -10,11 +10,10 @@ group: ""
 rank: "zzzy"
 created: 2026-11-19
 updated: 2026-11-19
-doing_since: "2026-11-19T19:06"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+done_at: "2026-11-19T19:29"
 ---
 
 ## Goal
@@ -41,5 +40,7 @@ app/src/lib/unit-photo.ts: fitWithin(width,height,800) replaces centreSquareCrop
 2026-11-19 18:10 (Rabbit) 98dc51f6c on master. Unit test RED tmp/svx99s-red.log (fitWithin missing) -> GREEN tmp/svx99s-green.log (4032x3024->800x600, 3024x4032->600x800, 640x480 kept). Real app on test.statbus.org:3031 (tmp/svx99s-photo-walk.log): a 10.6 MB 4032x3024 JPEG of random noise (worst case for JPEG) stored as 800x600 JPEG, 252,721 bytes, under the 256 KB limit through the quality step-down; served back as 800x600; thumbnail links to /rest/rpc/image_data?id=17; replace leaves 1 photo, remove leaves 0; no page errors. LU 29 restored to no photo. Tests 114 and 407 pass.
 landed 98dc51f on master 2026-11-19: photos: a unit's photo keeps the whole picture, scaled to at most 800 px…
 2026-11-19 18:29 (Rabbit) CI all green on 98dc51f6c: Fast Tests, Go Test, app build & lint, Harness Selftest, Images, Push on master.
+Reflection (open, 2026-11-19, rabbit): Owner noticed the square crop could lose part of the picture; agreed on no cropper, whole photo scaled to 800 px. Testing with random noise (JPEG's worst case) showed the quality step-down is needed: it landed at 247 KB, just under the limit.
 ## History
 - 2026-11-19T19:06 todo -> doing/active (take)
+- 2026-11-19T19:29 doing/active -> done (done); was doing_since: 2026-11-19T19:06
