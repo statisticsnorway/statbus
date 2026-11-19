@@ -47,5 +47,6 @@ Upload route: app/src/app/api/import/upload/route.ts (COPY into the job's _uploa
 check 1: dcbad72ed: a Windows-1252 file uploaded through /api/import/upload on the local slot is refused with 400 'The file is not UTF-8: line 3 has bytes that are not valid UTF-8 (D8 52 53) in "RØ". Save the file as UTF-8...'; its upload table has 0 rows and the job stays waiting_for_upload (master: 500 'invalid byte sequence'). Unit tests upload-encoding.test.ts cover it in 1, 5 and 1000-byte chunks.
 check 2: dcbad72ed: a UTF-8 file with '24T RÃ˜RSERVICE AS KONKURSBO' on line 3 is refused with 400 naming line 3, the value and what it was ('24T RØRSERVICE AS KONKURSBO'); 0 rows staged (master: 200 and the garbled row staged in import_job_19_upload). Unit tests cover Ø, Å, Æ, ø, å, ��, é garbled.
 check 3: dcbad72ed: a UTF-8 file with RØRSERVICE, BLÅBÆR ÆRØ and SÃO PAULO uploads with 200 and its 3 rows are staged with the names unchanged (tmp/hug/e1z8va-e2e-db.out); unit tests pass it in chunks of 1 byte to whole file, with BOM and CRLF.
+2026-11-19 timing: the check alone takes 0.12 s on a 58 MB file of 1,048,574 rows (Erik's file size), in 64 KB chunks (tmp/hug/e1z8va-timing.log). Full jest 488/488. The nine test jobs on the local Norway copy (import_job_14 to _22) were deleted after the test; none produced units.
 ## History
 - 2026-11-19T16:39 todo -> doing/active (take)
