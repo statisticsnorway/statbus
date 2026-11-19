@@ -105,3 +105,5 @@ Check 4 status: the v2026.11.5 notes carry the 3-unit-edit numbers (local Norway
 The 50 % runs were on a shared host (load 8-62), so their wall times are indicative; the claim they support is 'a large change is not slower'. v2026.11.5's notes already carry the 3-unit-edit and change-set numbers; the 50 % line and the rune numbers go into the next stable release's notes (check 4).
 
 check 3: Collected into one table (note 2026-11-19), every number from a kept log: 3-unit edit facet 15.7-18.7 s -> 0.06 s, whole 29-42 s -> 11-14 s; 50 % facet 21.3 -> 19.7 s, whole 1,650 -> 1,298 s; rune small edit 23-26 s -> 0.04 s.
+
+2026-11-19 14:06 (Rabbit) check 4: the published notes of v2026.11.6 (https://github.com/statisticsnorway/statbus/releases/tag/v2026.11.6, section 'Measured on Norway') state the rune small-edit figure (23-26 s to 0.04 s, first edit after upgrade 33 s once) and the half-register figure on the full-register copy (1,650 s to 1,298 s, reduce 20 s as before). The 3-unit-edit figures (16-19 s to 0.06 s, whole 29-42 s to 11-14 s) are in v2026.11.5's notes, the release that carried the code.
