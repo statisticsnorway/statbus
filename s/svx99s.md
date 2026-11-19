@@ -32,7 +32,7 @@ app/src/lib/unit-photo.ts: fitWithin(width,height,800) replaces centreSquareCrop
 ## Depends on
 
 ## Acceptance
-- [ ] Unit test: a 4032x3024 photo is scaled to 800x600, a 3024x4032 to 600x800, a 640x480 stays 640x480
+- [x] Unit test: a 4032x3024 photo is scaled to 800x600, a 3024x4032 to 600x800, a 640x480 stays 640x480
 - [ ] In the app on the test slot, a 10 MB 4032x3024 phone photo is stored as an 800x600 JPEG under 256 KB, and the unit page's thumbnail opens the whole photo
 
 ## Notes
