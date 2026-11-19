@@ -40,5 +40,9 @@ Upload route: app/src/app/api/import/upload/route.ts (COPY into the job's _uploa
 ## Notes
 
 
+2026-11-19 owner decisions (design discussion):
+- Refuse, during the upload: a file with invalid UTF-8 bytes or with the read-as-Windows-1252 pattern never reaches the import step; the upload's transaction rolls back, nothing is staged, the job stays waiting for a file.
+- Where: on the server, in the upload route, on every byte as it streams to COPY (covers CSV and Excel, which the browser converts to CSV). A browser-side check at the preview adds nothing worth its cost today: the upload is fast, and the server check is the one that decides. Revisit only if a client-side upload with progress is built.
+- Check 4: the 454,278 garbled rows on Norway are repaired by the repopulation of the instance in rabbit's task senzch (note added there), not here.
 ## History
 - 2026-11-19T16:39 todo -> doing/active (take)
