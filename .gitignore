@@ -36,6 +36,7 @@ app/.vscode/*
 **/.DS_Store
 
 ### Secrets and local config ###
+/map/config.js
 *.tmp
 .env-dev.statbus.org.sh
 .env
