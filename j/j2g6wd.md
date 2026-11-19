@@ -39,6 +39,10 @@ Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see
 - [x] With hug v0.7.53 or later installed, hug task lint reports no findings on done or dropped tasks
 - [ ] hug task lint reports no findings on any open task, except tasks another agent has taken, which are named in the notes
 
+## Requests
+- 2026-11-19T16:28 request 1 by jhf:
+  Please, we upgrade continuously. Run the upgrade for the love of all that is good, right?
+
 ## Notes
 
 
@@ -49,3 +53,4 @@ Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see
 - 2026-11-18T00:40 todo -> doing/active (take)
 - 2026-11-18T00:40 doing/active -> doing/waiting (wait)
 - 2026-11-18T11:39 waiting_for jhf removed by hug upgrade (it asks nothing: no '?', no check named, no request such as approve; the wait stays, 41hhgn)
+- 2026-11-19T16:28 request 1 by jhf
