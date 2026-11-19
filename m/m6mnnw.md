@@ -11,10 +11,14 @@ rank: "zzy"
 created: 2026-11-18
 updated: 2026-11-18
 doing_since: "2026-11-19T16:26"
-stage: "active"
+stage: "asked"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+asked_what: "Check 2: on https://local.statbus.org:3011/legal-units/1030202/contact (VERIDIT AS), edit a contact field and press Save. Does Save read Saving… with Save and Cancel disabled until the saved value shows? Tick check 2 if yes."
+asked_for: "jhf"
+asked_since: "2026-11-19T16:38"
+asked_by: "hibiscus"
 ---
 
 ## Goal
@@ -35,6 +39,10 @@ Save buttons of the unit edit forms, none of which tracks a pending state today:
 - [x] Every unit edit form's Save shows a spinner and 'Saving…' with Save and Cancel disabled while the save runs; a jest test asserts the pending state for the field group and the single field
 - [ ] On the local Norway data in Firefox, a save on a legal unit shows Saving… until the page shows the saved value; the owner sees it
 
+## Questions
+- 2026-11-19T16:38 question 1 by hibiscus to jhf:
+  Check 2: on https://local.statbus.org:3011/legal-units/1030202/contact (VERIDIT AS), edit a contact field and press Save. Does Save read Saving… with Save and Cancel disabled until the saved value shows? Tick check 2 if yes.
+
 ## Notes
 
 
@@ -42,3 +50,4 @@ check 1: 203628fe0: FormSaveButton/FormCancelButton (app/src/components/form/for
 2026-11-19 Firefox 155 (driven) on the local Norway copy, VERIDIT AS (1030202) contact group, web address: Saving… with Save and Cancel disabled from 0.46 s, edit closed at 1.11 s, the page showed the saved value at 1.18 s (tmp/hug/m6mnnw-firefox.log, screenshot tmp/hug/m6mnnw-saving.png). The test save created a contact row; the script's restore did not complete, so I deleted that one row (id 174634, the unit had none before). Check 2 waits for the owner to see it in his Firefox.
 ## History
 - 2026-11-19T16:26 todo -> doing/active (take)
+- 2026-11-19T16:38 doing/active -> doing/asked (ask)
