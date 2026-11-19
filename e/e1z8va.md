@@ -48,5 +48,6 @@ check 1: dcbad72ed: a Windows-1252 file uploaded through /api/import/upload on t
 check 2: dcbad72ed: a UTF-8 file with '24T RÃ˜RSERVICE AS KONKURSBO' on line 3 is refused with 400 naming line 3, the value and what it was ('24T RØRSERVICE AS KONKURSBO'); 0 rows staged (master: 200 and the garbled row staged in import_job_19_upload). Unit tests cover Ø, Å, Æ, ø, å, ��, é garbled.
 check 3: dcbad72ed: a UTF-8 file with RØRSERVICE, BLÅBÆR ÆRØ and SÃO PAULO uploads with 200 and its 3 rows are staged with the names unchanged (tmp/hug/e1z8va-e2e-db.out); unit tests pass it in chunks of 1 byte to whole file, with BOM and CRLF.
 2026-11-19 timing: the check alone takes 0.12 s on a 58 MB file of 1,048,574 rows (Erik's file size), in 64 KB chunks (tmp/hug/e1z8va-timing.log). Full jest 488/488. The nine test jobs on the local Norway copy (import_job_14 to _22) were deleted after the test; none produced units.
+landed dcbad72 on master 2026-11-19: import: an upload refuses a file that is not UTF-8 or holds garbled text…
 ## History
 - 2026-11-19T16:39 todo -> doing/active (take)
