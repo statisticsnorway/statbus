@@ -1,15 +1,20 @@
 ---
 id: svx99s
 title: "A unit's photo keeps the whole picture, scaled to at most 800 px"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzy"
 created: 2026-11-19
 updated: 2026-11-19
+doing_since: "2026-11-19T19:06"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -31,3 +36,7 @@ app/src/lib/unit-photo.ts: fitWithin(width,height,800) replaces centreSquareCrop
 - [ ] In the app on the test slot, a 10 MB 4032x3024 phone photo is stored as an 800x600 JPEG under 256 KB, and the unit page's thumbnail opens the whole photo
 
 ## Notes
+
+
+## History
+- 2026-11-19T19:06 todo -> doing/active (take)
