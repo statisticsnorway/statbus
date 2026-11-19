@@ -43,8 +43,9 @@ generated notes:
 gh release edit v2026.11.5 --notes-file tmp/release-notes-v2026.11.5.md
 ```
 
-Release candidates keep GitHub's generated notes. When testers should check
-something, the next stable's draft says so in a short "Please try" line.
+Release candidates keep GitHub's generated notes. Release notes describe what
+changed; they carry no requests or messages to particular people. When testers
+should check something, ask them directly.
 
 ### Pre-release
 
