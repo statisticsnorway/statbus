@@ -1,7 +1,7 @@
 ---
 id: xz3jej
 title: "Quality: legal units whose primary establishment has another activity"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["hibiscus"]
@@ -10,15 +10,11 @@ group: ""
 rank: "zq"
 created: 2026-11-18
 updated: 2026-11-18
-doing_since: "2026-11-18T00:59"
-stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
 aliases: ["erik-s-sample-report"]
-waiting_since: "2026-11-18T16:33"
-waiting_asked_by: "hibiscus"
-waiting_on: "the next release candidate on Norway, where Erik and Hedda try the card, search and download (check 5)"
+done_at: "2026-11-19T16:22"
 ---
 
 ## Goal
@@ -124,6 +120,7 @@ landed 8aaf026 on master 2026-11-18: app: the Quality filter is always in the se
 shipped in v2026.11.6 (852c625)
 2026-11-19 check 5: the quality check shipped in stable v2026.11.6 (notes: https://github.com/statisticsnorway/statbus/releases/tag/v2026.11.6), on Norway since v2026.11.6-rc.01. The owner asked Hedda on Slack himself; no second request is sent. Erik is contacted only after asking the owner. Release notes carry no requests to people (131f17e64).
 check 5: Owner 2026-11-19 16:20 (request 1): not waiting for the others; he has demonstrated the card, search and download himself on Norway (v2026.11.6), and Erik and Hedda will use it as it ships. No findings to wait for.
+Reflection (open, 2026-11-19, hibiscus): Check 5 made the task wait on two named testers after the owner had already shown the feature to them; the owner closed it himself. A check that depends on other people's time belongs to the owner's own judgement ('[Owner] decides it is ready'), not to a named tester's report. Also: the requests feature did not reach me until a coordinator was set; hug setup listed that step as open since 18 Nov and I left it.
 ## History
 - 2026-11-18T00:59 todo -> doing/active (take)
 - 2026-11-18T01:37 doing/active -> doing/waiting (wait)
@@ -132,3 +129,4 @@ check 5: Owner 2026-11-19 16:20 (request 1): not waiting for the others; he has 
 - 2026-11-18T16:33 doing/active -> doing/waiting (wait)
 - 2026-11-19T16:20 request 1 by jhf
 - 2026-11-19T16:20 request 1 not delivered: no coordinator set (hug task coordinator NAME)
+- 2026-11-19T16:22 doing/waiting -> done (done); was doing_since: 2026-11-18T00:59; waiting_asked_by: hibiscus; waiting_on: the next release candidate on Norway, where Erik and Hedda try the card, search and download (check 5); waiting_since: 2026-11-18T16:33
