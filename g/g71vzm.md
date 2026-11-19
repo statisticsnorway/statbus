@@ -41,7 +41,7 @@ A reduce that touches only what changed must still keep the facet table equal to
 ## Acceptance
 - [x] After any sequence of edits, deletes and moves, statistical_unit_facet equals a full statistical_unit_facet_derive('-infinity','infinity'), shown by a test that includes the partial-contributor delete that broke the old scoped path
 - [x] On rune (Norway, production) after v2026.11.5-rc.02, a small hand edit's statistical_unit_facet_reduce is timed from worker.tasks against the previous release, read only (no test changes there), and recorded here
-- [ ] The 3-unit edit and the 50 % change are measured on Norway's full register for the release before this work and with it, from logs kept in tmp/, and summarised in one table here (owner 2026-11-19: collect what was measured instead of a new bench-box series)
+- [x] The 3-unit edit and the 50 % change are measured on Norway's full register for the release before this work and with it, from logs kept in tmp/, and summarised in one table here (owner 2026-11-19: collect what was measured instead of a new bench-box series)
 - [ ] The release notes of the release carrying this state the measured 3-unit-edit and 50 % numbers
 
 ## Notes
@@ -103,3 +103,5 @@ Check 4 status: the v2026.11.5 notes carry the 3-unit-edit numbers (local Norway
 | full recalculation | change sets | 16.9-17.2 s | 8.6-9.3 s | journal 2026-11-15 |
 
 The 50 % runs were on a shared host (load 8-62), so their wall times are indicative; the claim they support is 'a large change is not slower'. v2026.11.5's notes already carry the 3-unit-edit and change-set numbers; the 50 % line and the rune numbers go into the next stable release's notes (check 4).
+
+check 3: Collected into one table (note 2026-11-19), every number from a kept log: 3-unit edit facet 15.7-18.7 s -> 0.06 s, whole 29-42 s -> 11-14 s; 50 % facet 21.3 -> 19.7 s, whole 1,650 -> 1,298 s; rune small edit 23-26 s -> 0.04 s.
