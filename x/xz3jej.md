@@ -117,6 +117,7 @@ landed 8aaf026 on master 2026-11-18: app: the Quality filter is always in the se
 2026-11-18 14:54 owner approved in Firefox (cards, filter, download), merged to master as 8aaf0262b (fast-forward of 852c625f2, 069803f7e, 9d9d41e23, 8aaf0262b). PR #328 closed with a reply that thanks Erik, explains the two steps (picking the primary is the workflow 2gpcs7 within xhxnsy; comparing activities is this quality check) and links all three tasks: https://github.com/statisticsnorway/statbus/pull/328#issuecomment-6982162968. Owner: ship it in the next release candidate so the others test it too; this task stays open until they have.
 2026-11-18 15:10 CI on master 8aaf0262b all completed/success: Fast Tests 44330051433 (pg_regress fast suite, exercised-sha 8aaf0262b), Images, Go Test, app build & lint, Harness Selftest, Push on master, Notify cloud services.
 2026-11-18 16:15 (Rabbit, release bookkeeping): the release candidate it waits for is cut: v2026.11.6-rc.01 at fc8a1d77f (contains 852c625f2, 069803f7e, 9d9d41e23, 8aaf0262b); ladder running. Norway takes it when the owner installs rc.01 there. Mentioned in the draft notes tmp/release-notes-v2026.11.6.md (Quality section).
+shipped in v2026.11.6 (852c625)
 ## History
 - 2026-11-18T00:59 todo -> doing/active (take)
 - 2026-11-18T01:37 doing/active -> doing/waiting (wait)
