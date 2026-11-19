@@ -42,6 +42,8 @@ Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see
 ## Requests
 - 2026-11-19T16:28 request 1 by jhf:
   Please, we upgrade continuously. Run the upgrade for the love of all that is good, right?
+  resolved 2026-11-19T16:30 by hibiscus:
+    Ran it: hug upgrade --apply (v0.7.84; hooks and MCP entries everywhere now run hug, nothing left pending), and AGENTS.md/CLAUDE.md took this hug's Tasks section (68973051e), so hug setup is all green. From now on I apply hug upgrades as they come, without asking. Check 3 (lint every open task: 43 tasks with findings) is still open and queued after the feature tickets.
 
 ## Notes
 
@@ -58,3 +60,4 @@ Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see
 - 2026-11-19T16:28 request 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
 - 2026-11-19T16:28 request 1 acknowledged by hibiscus
 - 2026-11-19T16:30 request 1 in progress by hibiscus: hug task note j2g6wd "2026-11-19 16:29 owner (request 1): upgrade continuously, without asking. Done: hug upgrade --apply --machine (hug v0.7…"
+- 2026-11-19T16:30 resolved request 1 by hibiscus
