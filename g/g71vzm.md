@@ -90,3 +90,16 @@ Still open for check 2: the 50 % change was not measured on rune (a production i
 2026-11-18 16:15 (Rabbit, release bookkeeping): the landed work (bcada9ec8, aad458f1e, 75f9601cd, b97d0035d) shipped in stable v2026.11.5; its measured numbers (3-unit edit facet step 15.7-18.7 s -> 0.06 s, whole edit 29-42 s -> 11-14 s, change sets 17 s -> 9 s) are in the v2026.11.5 release notes. Remaining checks are for the owner/rune measurement.
 
 Check 4 status: the v2026.11.5 notes carry the 3-unit-edit numbers (local Norway copy); the 50 % number and the bench-box series (check 3) are not measured yet, so check 4 stays open for the release that carries them.
+
+2026-11-19 measurements collected (owner: organise what was already measured; no new bench-box series). Norway's full register, local copy import_benchmark_64469 (2,190,793 legal units), shared host; previous release (master before this work) against this work, same data, facets equal the definition in every round:
+
+| Case | Step | Before | After | Log |
+|---|---|---|---|---|
+| Rune, small hand edit (production) | facet reduce | 23.3-26.3 s (10 edits, previous release) | 0.04 s (once 33 s: first edit after the upgrade, global fallback) | tmp/hug/g71vzm-rune-timing.out, g71vzm-rune-first.out |
+| 3-unit edit | facet reduce | 15.7-18.7 s | 0.06 s | tmp/626/bench/base-n3-*.log, tmp/626/delta/bench/diff-n3-*.log |
+| 3-unit edit | whole recalculation | 29-42 s | 11-14 s | same |
+| 50 % change (567,249 rows) | facet reduce | 21.3 s | 19.7 s (global, by design above 1/16 of the slots) | tmp/626/bench/base-50.log, tmp/626/delta/bench/diff-50.log |
+| 50 % change | whole recalculation | 1,650 s | 1,298 s | same |
+| full recalculation | change sets | 16.9-17.2 s | 8.6-9.3 s | journal 2026-11-15 |
+
+The 50 % runs were on a shared host (load 8-62), so their wall times are indicative; the claim they support is 'a large change is not slower'. v2026.11.5's notes already carry the 3-unit-edit and change-set numbers; the 50 % line and the rune numbers go into the next stable release's notes (check 4).
