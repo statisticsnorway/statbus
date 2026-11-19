@@ -37,7 +37,7 @@ Save buttons of the unit edit forms, none of which tracked a pending state: app/
 
 ## Acceptance
 - [x] Every unit edit form's Save shows a spinner and 'Saving…' with Save and Cancel disabled while the save runs; a jest test asserts the pending state for the field group and the single field
-- [ ] [Owner] In Firefox on https://local.statbus.org:3011/legal-units/1030202/contact (VERIDIT AS), a contact save shows Saving… with Save and Cancel disabled until the saved value appears; tick if yes, else note what he saw
+- [ ] [Owner] In Firefox on https://local.statbus.org:3011/legal-units/1030202/contact (VERIDIT AS), a contact save shows Saving… with Save and Cancel disabled until the saved value appears. Yes: he ticks this check. No: he notes on this task what he saw, and hibiscus reproduces it and fixes the form before the task closes
 
 ## Questions
 - 2026-11-19T16:38 question 1 by hibiscus to jhf:
