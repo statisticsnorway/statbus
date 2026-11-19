@@ -32,11 +32,12 @@ Save buttons of the unit edit forms, none of which tracks a pending state today:
 ## Depends on
 
 ## Acceptance
-- [ ] Every unit edit form's Save shows a spinner and 'Saving…' with Save and Cancel disabled while the save runs; a jest test asserts the pending state for the field group and the single field
+- [x] Every unit edit form's Save shows a spinner and 'Saving…' with Save and Cancel disabled while the save runs; a jest test asserts the pending state for the field group and the single field
 - [ ] On the local Norway data in Firefox, a save on a legal unit shows Saving… until the page shows the saved value; the owner sees it
 
 ## Notes
 
 
+check 1: 203628fe0: FormSaveButton/FormCancelButton (app/src/components/form/form-save-buttons.tsx) follow the form's useFormStatus, used by every unit edit form (field group, single, hierarchical, metadata, select, image). Jest form-save-buttons.test.tsx asserts the field group and the single field: idle Save enabled; pending Saving… with Save and Cancel disabled. RED before (tmp/hug/m6mnnw-jest-red.log: 2 pending cases fail), GREEN after (m6mnnw-jest-green.log); full jest 465/465.
 ## History
 - 2026-11-19T16:26 todo -> doing/active (take)
