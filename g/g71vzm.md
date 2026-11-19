@@ -41,7 +41,7 @@ A reduce that touches only what changed must still keep the facet table equal to
 ## Acceptance
 - [x] After any sequence of edits, deletes and moves, statistical_unit_facet equals a full statistical_unit_facet_derive('-infinity','infinity'), shown by a test that includes the partial-contributor delete that broke the old scoped path
 - [x] On rune (Norway, production) after v2026.11.5-rc.02, a small hand edit's statistical_unit_facet_reduce is timed from worker.tasks against the previous release, read only (no test changes there), and recorded here
-- [ ] On the bench box (ops/bench-box.sh series v2026.11.4 v2026.11.5-rc.02 "n3 n3 n3 50" on a Norway dump from rune:statbus/dbdumps), the facet reduce and the whole recalculation of a 3-unit edit and of a 50 % change are measured for both releases, with identical tables in every round, and recorded here
+- [ ] The 3-unit edit and the 50 % change are measured on Norway's full register for the release before this work and with it, from logs kept in tmp/, and summarised in one table here (owner 2026-11-19: collect what was measured instead of a new bench-box series)
 - [ ] The release notes of the release carrying this state the measured 3-unit-edit and 50 % numbers
 
 ## Notes
