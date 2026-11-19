@@ -1,36 +1,32 @@
 ---
 id: j2g6wd
 title: "Lint every open task once hug stops linting done tasks"
-state: "doing"
+state: "todo"
 type: chore
 priority: ""
-assignee: ["hibiscus"]
+assignee: []
 labels: []
 group: ""
 rank: "zh"
 created: 2026-11-18
 updated: 2026-11-18
-doing_since: "2026-11-18T00:40"
-stage: "waiting"
+stage: "ready"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
-waiting_on: "the owner's decision on hug upgrade --apply (hug v0.7.53 is installed)"
-waiting_since: "2026-11-18T00:40"
-waiting_asked_by: "hibiscus"
 ---
 
 ## Goal
 Every open task (todo or doing) on the StatBus board passes hug task lint, so the board's findings are all actionable.
 
 ## Purpose
-Today hug lints done and dropped tasks too, and the old imported board makes hundreds of findings that hide the ones that matter (owner 2026-11-17 23:39). The owner is having hug changed so done tasks are not linted.
+Lint findings on open tasks hide the ones that matter: a task missing its goal or acceptance cannot be worked or checked. The owner upgrades hug continuously (2026-11-19), so each release's lint rules apply to the open board.
 
 ## Principle
-Wait for the hug release that skips done tasks, then fix the open tasks one by one with the owner. Tasks another agent has taken are theirs to fix. Done tasks are left as they are.
+Fix the open tasks one by one, with the owner where a task needs his design. Tasks another agent has taken are theirs to fix. Done tasks are left as they are.
 
 ## Relevant details
-Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see the notes of 2026-11-18 02:55. Check with: hug task lint <id> per task, and hug upgrade for the pending mechanical changes.
+Installed: hug v0.7.84; hug upgrade reports nothing pending (applied 2026-11-19) and hug setup is all green. Since v0.7.53 hug lints open tasks only. Open tasks with findings 2026-11-19: 43 (82 missing-section, 30 long-title, 4 missing-goal, 2 no-acceptance, 1 wait-on-person, 1 doing-idle). Check with: hug task lint, hug task lint <id>, hug task lint --code CODE. Queued after the feature tickets (m6mnnw, e1z8va, ...).
 
 ## Depends on
 
@@ -61,3 +57,4 @@ Installed now: hug v0.7.53 (brew veridit/tap/hug). Open tasks with findings: see
 - 2026-11-19T16:28 request 1 acknowledged by hibiscus
 - 2026-11-19T16:30 request 1 in progress by hibiscus: hug task note j2g6wd "2026-11-19 16:29 owner (request 1): upgrade continuously, without asking. Done: hug upgrade --apply --machine (hug v0.7…"
 - 2026-11-19T16:30 resolved request 1 by hibiscus
+- 2026-11-19T16:30 doing/waiting -> todo/ready (give back; was assignee: hibiscus); was doing_since: 2026-11-18T00:40; waiting_asked_by: hibiscus; waiting_on: the owner's decision on hug upgrade --apply (hug v0.7.53 is installed); waiting_since: 2026-11-18T00:40
