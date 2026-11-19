@@ -35,7 +35,7 @@ Upload route: app/src/app/api/import/upload/route.ts (COPY into the job's _uploa
 - [ ] A file with invalid UTF-8 bytes is refused at upload with a message naming the encoding problem; no row is staged; a test uploads such a file
 - [ ] A UTF-8 file whose text shows the read-as-Windows-1252 pattern (Ã followed by ˜, …, † and the like) is refused the same way, with the first offending line and value in the message; a test covers it
 - [ ] A correct UTF-8 file with Ø, Å and Æ imports unchanged; a test covers it
-- [ ] [Owner] Decides whether the 454,278 garbled rows on Norway are repaired (and how) or re-imported; the answer is recorded in the notes
+- [x] [Owner] Decides whether the 454,278 garbled rows on Norway are repaired (and how) or re-imported; the answer is recorded in the notes
 
 ## Notes
 
