@@ -31,13 +31,13 @@ On Norway a save can take seconds while the recalculation runs; with no sign tha
 The same pending footer the admin dialogs already have (q8604t, app/src/app/admin/admin-dialog-footer.tsx): one shared way to show a running save, not a spinner per field. The save itself is not made faster here.
 
 ## Relevant details
-Save buttons of the unit edit forms, none of which tracks a pending state today: app/src/components/form/editable-field-group.tsx (line ~167, disabled only by useSaveApproval's blocked), editable-field.tsx, editable-hierarchical-field.tsx, editable-image-field-with-metadata.tsx. Used by the legal unit, establishment and enterprise pages (general-info, contact, demographic forms). Whoever finishes their current task first takes this (owner 2026-11-18): hibiscus or Rabbit.
+Save buttons of the unit edit forms, none of which tracked a pending state: app/src/components/form/editable-field-group.tsx (line ~167, disabled only by useSaveApproval's blocked), editable-field.tsx, editable-hierarchical-field.tsx, editable-image-field-with-metadata.tsx. Used by the legal unit, establishment and enterprise pages (general-info, contact, demographic forms).
 
 ## Depends on
 
 ## Acceptance
 - [x] Every unit edit form's Save shows a spinner and 'Saving…' with Save and Cancel disabled while the save runs; a jest test asserts the pending state for the field group and the single field
-- [ ] On the local Norway data in Firefox, a save on a legal unit shows Saving… until the page shows the saved value; the owner sees it
+- [ ] [Owner] In Firefox on https://local.statbus.org:3011/legal-units/1030202/contact (VERIDIT AS), a contact save shows Saving… with Save and Cancel disabled until the saved value appears; tick if yes, else note what he saw
 
 ## Questions
 - 2026-11-19T16:38 question 1 by hibiscus to jhf:
