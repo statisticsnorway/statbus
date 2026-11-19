@@ -63,6 +63,10 @@ Build plan (done; landed on master 2026-11-18 as 852c625f2, 069803f7e, 9d9d41e23
 - [ ] On Norway (no.statbus.org) running v2026.11.6, Erik and Hedda open the Data quality card Establishment Activity Differs, its search and its download, and their findings are recorded in the notes
 
 
+## Requests
+- 2026-11-19T16:20 request 1 by jhf:
+  We're not waiting for the other people. I have already demonstrated this. They will use it and they're waiting for new code to come out. This ticket is done.
+
 ## Notes
 
 
@@ -125,3 +129,4 @@ shipped in v2026.11.6 (852c625)
 - 2026-11-18T01:54 answered waiting: "the owner reviews the design and rule in Relevant details (check 1) in the morning" -> "I approve this design. Hibiscus, can you get it done by morning.", by jhf, for hibiscus (doing/waiting -> doing/active)
 - 2026-11-18T01:54 hibiscus read the answer
 - 2026-11-18T16:33 doing/active -> doing/waiting (wait)
+- 2026-11-19T16:20 request 1 by jhf
