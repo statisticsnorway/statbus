@@ -41,6 +41,7 @@ export interface UnitHistory extends Tables<"statistical_unit"> {
 type Column = {
   header: string;
   cellClassName?: string;
+  pinned?: boolean;
   render: (unit: UnitHistory) => React.ReactNode;
   /**
    * The value a cell is compared on with the row above (see changedCells).
@@ -96,7 +97,7 @@ export default function UnitHistoryTable({
 
   const columns = useMemo<Column[]>(
     () => [
-      { header: "Valid from", render: (u) => u.valid_from },
+      { header: "Valid from", pinned: true, render: (u) => u.valid_from },
       { header: "Name", render: (u) => u.name, compare: (u) => u.name },
       {
         header: "Primary Activity",
@@ -292,7 +293,13 @@ export default function UnitHistoryTable({
         <TableHeader className="bg-gray-50 border-t">
           <TableRow>
             {columns.map((col, i) => (
-              <TableHead key={`${col.header}-${i}`}>{col.header}</TableHead>
+              <TableHead
+                key={`${col.header}-${i}`}
+                className={cn(col.pinned && "sticky left-0 z-[2] bg-gray-50")}
+                data-pinned-edge={col.pinned ? "left" : undefined}
+              >
+                {col.header}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
@@ -307,8 +314,10 @@ export default function UnitHistoryTable({
                   key={`${col.header}-${i}`}
                   className={cn(
                     col.cellClassName,
+                    col.pinned && "sticky left-0 z-[1] bg-white",
                     !changed[row][i] && "opacity-35"
                   )}
+                  data-pinned-edge={col.pinned ? "left" : undefined}
                   data-changed={changed[row][i] ? "" : undefined}
                 >
                   {col.render(unit)}
