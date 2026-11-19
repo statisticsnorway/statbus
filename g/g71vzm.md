@@ -42,7 +42,7 @@ A reduce that touches only what changed must still keep the facet table equal to
 - [x] After any sequence of edits, deletes and moves, statistical_unit_facet equals a full statistical_unit_facet_derive('-infinity','infinity'), shown by a test that includes the partial-contributor delete that broke the old scoped path
 - [x] On rune (Norway, production) after v2026.11.5-rc.02, a small hand edit's statistical_unit_facet_reduce is timed from worker.tasks against the previous release, read only (no test changes there), and recorded here
 - [x] The 3-unit edit and the 50 % change are measured on Norway's full register for the release before this work and with it, from logs kept in tmp/, and summarised in one table here, the table in the note of 2026-11-19
-- [ ] The release notes of the release carrying this state the measured 3-unit-edit and 50 % numbers
+- [x] The release notes of the release carrying this state the measured 3-unit-edit and 50 % numbers
 
 ## Notes
 Decomposition (laptop copy of the full register, proportions only): the reduce takes 14.9 s; 9.7 s of it is re-aggregating all 3,051,376 staging rows (GROUP BY of every facet key), the MERGE itself is the smaller part. A 3-slot edit touches 591 staging rows = 564 facet keys. Design sketch for review: the dirty key set is the keys of the dirty slots before the partition rewrite UNION after it (April's scoped version used only the before-snapshot, which is why stale rows survived); reduce re-aggregates only staging rows whose key is in that set (needs an index on the facet key without hash_slot) and deletes target rows of those keys with no staging support. Not started; needs owner review of the design.
