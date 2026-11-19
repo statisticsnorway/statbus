@@ -155,11 +155,25 @@ export const StatisticalUnitTableRow = ({
                 data-pinned-edge="left"
               >
                 <div className="flex items-center space-x-3 leading-tight">
-                  <StatisticalUnitIcon
-                    type={unit.unit_type}
-                    className="w-5"
-                    hasLegalUnit={unit.has_legal_unit !== false}
-                  />
+                  {unit.unit_type && unit.unit_id ? (
+                    <StatisticalUnitDetailsLink
+                      className="shrink-0"
+                      id={unit.unit_id}
+                      type={unit.unit_type}
+                    >
+                      <StatisticalUnitIcon
+                        type={unit.unit_type}
+                        className="w-5"
+                        hasLegalUnit={unit.has_legal_unit !== false}
+                      />
+                    </StatisticalUnitDetailsLink>
+                  ) : (
+                    <StatisticalUnitIcon
+                      type={unit.unit_type}
+                      className="w-5"
+                      hasLegalUnit={unit.has_legal_unit !== false}
+                    />
+                  )}
 
                   <div className="flex flex-1 flex-col space-y-0.5 max-w-56">
                     {unit.unit_type && unit.unit_id && unit.name ? (
