@@ -20,13 +20,13 @@ worktree: "/Users/jhf/ssb/statbus"
 hug task lint reports no findings on any open task, except tasks another agent has taken, which are named in the notes.
 
 ## Purpose
-Lint findings on open tasks hide the ones that matter: a task missing its goal or acceptance cannot be worked or checked. The owner upgrades hug continuously (2026-11-19), so each release's lint rules apply to the open board.
+Lint findings on open tasks hide the ones that matter: a task missing its goal or acceptance cannot be worked or checked.
 
 ## Principle
 Fix the open tasks one by one, with the owner where a task needs his design. Tasks another agent has taken are theirs to fix. Done tasks are left as they are.
 
 ## Relevant details
-Installed: hug v0.7.84; hug upgrade reports nothing pending (applied 2026-11-19) and hug setup is all green. Since v0.7.53 hug lints open tasks only. Open tasks with findings 2026-11-19: 43 (82 missing-section, 30 long-title, 4 missing-goal, 2 no-acceptance, 1 wait-on-person, 1 doing-idle). Check with: hug task lint, hug task lint <id>, hug task lint --code CODE. Order (owner 2026-11-19): after the feature tickets m6mnnw, e1z8va, 64ae2w, z2qt08, 2gpcs7 and xhxnsy.
+Installed: hug v0.7.84; hug upgrade reports nothing pending (applied 2026-11-19), hug setup is all green, and the owner upgrades hug continuously, so each release's lint rules apply to the open board. Since v0.7.53 hug lints open tasks only. Open tasks with findings 2026-11-19: 43 (82 missing-section, 30 long-title, 4 missing-goal, 2 no-acceptance, 1 wait-on-person, 1 doing-idle). Check with: hug task lint, hug task lint <id>, hug task lint --code CODE. Order (owner 2026-11-19): after the feature tickets m6mnnw, e1z8va, 64ae2w, z2qt08, 2gpcs7 and xhxnsy.
 
 ## Depends on
 
