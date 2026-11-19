@@ -32,7 +32,7 @@ Upload route: app/src/app/api/import/upload/route.ts (COPY into the job's _uploa
 ## Depends on
 
 ## Acceptance
-- [ ] A file with invalid UTF-8 bytes is refused at upload with a message naming the encoding problem; no row is staged; a test uploads such a file
+- [x] A file with invalid UTF-8 bytes is refused at upload with a message naming the encoding problem; no row is staged; a test uploads such a file
 - [ ] A UTF-8 file whose text shows the read-as-Windows-1252 pattern (Ã followed by ˜, …, † and the like) is refused the same way, with the first offending line and value in the message; a test covers it
 - [ ] A correct UTF-8 file with Ø, Å and Æ imports unchanged; a test covers it
 - [x] [Owner] Decides whether the 454,278 garbled rows on Norway are repaired (and how) or re-imported; the answer is recorded in the notes
@@ -44,5 +44,6 @@ Upload route: app/src/app/api/import/upload/route.ts (COPY into the job's _uploa
 - Refuse, during the upload: a file with invalid UTF-8 bytes or with the read-as-Windows-1252 pattern never reaches the import step; the upload's transaction rolls back, nothing is staged, the job stays waiting for a file.
 - Where: on the server, in the upload route, on every byte as it streams to COPY (covers CSV and Excel, which the browser converts to CSV). A browser-side check at the preview adds nothing worth its cost today: the upload is fast, and the server check is the one that decides. Revisit only if a client-side upload with progress is built.
 - Check 4: the 454,278 garbled rows on Norway are repaired by the repopulation of the instance in rabbit's task senzch (note added there), not here.
+check 1: dcbad72ed: a Windows-1252 file uploaded through /api/import/upload on the local slot is refused with 400 'The file is not UTF-8: line 3 has bytes that are not valid UTF-8 (D8 52 53) in "RØ". Save the file as UTF-8...'; its upload table has 0 rows and the job stays waiting_for_upload (master: 500 'invalid byte sequence'). Unit tests upload-encoding.test.ts cover it in 1, 5 and 1000-byte chunks.
 ## History
 - 2026-11-19T16:39 todo -> doing/active (take)
