@@ -34,7 +34,7 @@ Upload route: app/src/app/api/import/upload/route.ts (COPY into the job's _uploa
 ## Acceptance
 - [x] A file with invalid UTF-8 bytes is refused at upload with a message naming the encoding problem; no row is staged; a test uploads such a file
 - [x] A UTF-8 file whose text shows the read-as-Windows-1252 pattern (Ã followed by ˜, …, † and the like) is refused the same way, with the first offending line and value in the message; a test covers it
-- [ ] A correct UTF-8 file with Ø, Å and Æ imports unchanged; a test covers it
+- [x] A correct UTF-8 file with Ø, Å and Æ imports unchanged; a test covers it
 - [x] [Owner] Decides whether the 454,278 garbled rows on Norway are repaired (and how) or re-imported; the answer is recorded in the notes
 
 ## Notes
@@ -46,5 +46,6 @@ Upload route: app/src/app/api/import/upload/route.ts (COPY into the job's _uploa
 - Check 4: the 454,278 garbled rows on Norway are repaired by the repopulation of the instance in rabbit's task senzch (note added there), not here.
 check 1: dcbad72ed: a Windows-1252 file uploaded through /api/import/upload on the local slot is refused with 400 'The file is not UTF-8: line 3 has bytes that are not valid UTF-8 (D8 52 53) in "RØ". Save the file as UTF-8...'; its upload table has 0 rows and the job stays waiting_for_upload (master: 500 'invalid byte sequence'). Unit tests upload-encoding.test.ts cover it in 1, 5 and 1000-byte chunks.
 check 2: dcbad72ed: a UTF-8 file with '24T RÃ˜RSERVICE AS KONKURSBO' on line 3 is refused with 400 naming line 3, the value and what it was ('24T RØRSERVICE AS KONKURSBO'); 0 rows staged (master: 200 and the garbled row staged in import_job_19_upload). Unit tests cover Ø, Å, Æ, ø, å, ��, é garbled.
+check 3: dcbad72ed: a UTF-8 file with RØRSERVICE, BLÅBÆR ÆRØ and SÃO PAULO uploads with 200 and its 3 rows are staged with the names unchanged (tmp/hug/e1z8va-e2e-db.out); unit tests pass it in chunks of 1 byte to whole file, with BOM and CRLF.
 ## History
 - 2026-11-19T16:39 todo -> doing/active (take)
