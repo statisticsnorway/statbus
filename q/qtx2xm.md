@@ -58,3 +58,5 @@ Rows that break the import's rule (region with a non-domestic country), checked 
 
 ## Notes
 2026-11-18 13:26 (Rabbit): paused for 50bwaz (reset + factory defaults, owner's detour for the next rc); the owner's open question here comes right after it.
+
+2026-11-19 15:26 owner: paused, waiting for the owner's design review. Owner's open questions: (1) function vs view. (2) Could the existing sql_saga for-portion-of views (which already support update and delete on a timeline) apply the validation relevant to their own table, instead of routing edits through the import system? (3) If a function: one row at a time? Would it need its own little language for insert, update and delete? Prototype and findings: tmp/ibe/README.md. Not to be resumed until the owner returns with a direction.
