@@ -131,7 +131,7 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
         {({ isEditing, valueOf }) => (
           <>
             <div className="flex flex-col gap-4">
-              <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
+              <div className="grid lg:grid-cols-3 gap-4">
                 <FormField
                   readonly={!isEditing}
                   label="Address part1"
