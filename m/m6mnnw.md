@@ -49,6 +49,7 @@ Save buttons of the unit edit forms, none of which tracked a pending state: app/
 check 1: 203628fe0: FormSaveButton/FormCancelButton (app/src/components/form/form-save-buttons.tsx) follow the form's useFormStatus, used by every unit edit form (field group, single, hierarchical, metadata, select, image). Jest form-save-buttons.test.tsx asserts the field group and the single field: idle Save enabled; pending Saving… with Save and Cancel disabled. RED before (tmp/hug/m6mnnw-jest-red.log: 2 pending cases fail), GREEN after (m6mnnw-jest-green.log); full jest 465/465.
 2026-11-19 Firefox 155 (driven) on the local Norway copy, VERIDIT AS (1030202) contact group, web address: Saving… with Save and Cancel disabled from 0.46 s, edit closed at 1.11 s, the page showed the saved value at 1.18 s (tmp/hug/m6mnnw-firefox.log, screenshot tmp/hug/m6mnnw-saving.png). The test save created a contact row; the script's restore did not complete, so I deleted that one row (id 174634, the unit had none before). Check 2 waits for the owner to see it in his Firefox.
 landed 203628f on master 2026-11-19: app: a unit edit form shows Saving… while its save runs (m6mnnw)
+2026-11-19 CI for 203628fe0 all green: Fast Tests, Go Test, app build & lint, Images, Harness Selftest.
 ## History
 - 2026-11-19T16:26 todo -> doing/active (take)
 - 2026-11-19T16:38 doing/active -> doing/asked (ask)
