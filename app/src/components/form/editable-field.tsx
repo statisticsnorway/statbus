@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { Input } from "../ui/input";
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
@@ -11,6 +10,7 @@ import { useEditManager } from "@/atoms/edits";
 import { cn } from "@/lib/utils";
 import { useEditableFieldState } from "./use-editable-field-state";
 import { EditButton } from "./edit-button";
+import { FormCancelButton, FormSaveButton } from "./form-save-buttons";
 
 interface EditableFieldProps {
   fieldId: string;
@@ -92,15 +92,8 @@ export const EditableField = ({
             </EditButton>
           ) : (
             <>
-              <Button
-                className="h-8"
-                variant="outline"
-                type="button"
-                onClick={handleCancel}
-              >
-                Cancel
-              </Button>
-              <Button
+              <FormCancelButton className="h-8" onClick={handleCancel} />
+              <FormSaveButton
                 className="h-8"
                 disabled={!hasUnsavedChanges}
                 type="button"
@@ -108,7 +101,7 @@ export const EditableField = ({
                 variant={!currentValue && hasUnsavedChanges ? "destructive" : "default"}
               >
                 {!currentValue && hasUnsavedChanges ? "Delete" : "Save"}
-              </Button>
+              </FormSaveButton>
             </>
           )}
         </div>

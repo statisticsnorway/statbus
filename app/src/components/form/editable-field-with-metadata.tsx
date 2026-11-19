@@ -1,6 +1,5 @@
 "use client";
 import { useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -17,6 +16,7 @@ import { FieldTimelineButton } from "./field-timeline-view";
 import { RemoveRecordAction } from "./remove-record-button";
 import { SaveApproval, useSaveApproval } from "./edit-metadata-controls";
 import { PrimaryUnitNotice } from "./primary-unit-notice";
+import { FormCancelButton, FormSaveButton } from "./form-save-buttons";
 import { useEditAnchor } from "./use-edit-anchor";
 
 interface EditableFieldWithMetadataProps {
@@ -141,25 +141,18 @@ export const EditableFieldWithMetadata = ({
           <div className="flex items-center justify-end space-x-2">
             <PrimaryUnitNotice />
             {!removing && <SaveApproval />}
-            <Button
-              className="h-8"
-              variant="outline"
-              type="button"
-              onClick={handleCancel}
-            >
-              Cancel
-            </Button>
+            <FormCancelButton className="h-8" onClick={handleCancel} />
             {removing ? (
               <RemoveRecordAction label={label} />
             ) : (
-              <Button
+              <FormSaveButton
                 className="h-8"
                 disabled={blocked}
                 type="button"
                 onClick={triggerFormSubmit}
               >
                 Save
-              </Button>
+              </FormSaveButton>
             )}
           </div>
         </div>

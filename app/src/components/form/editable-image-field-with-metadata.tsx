@@ -12,6 +12,7 @@ import { EditMetadataControls } from "./edit-metadata-controls";
 import { useEditableFieldState } from "./use-editable-field-state";
 import { EditButton } from "./edit-button";
 import { MetadataTooltip } from "./metadata-tooltip";
+import { FormCancelButton, FormSaveButton } from "./form-save-buttons";
 import { UnitImage } from "@/components/unit-image";
 import { ImageUpload } from "@/components/image-upload";
 import { Pencil } from "lucide-react";
@@ -203,16 +204,14 @@ export const EditableImageFieldWithMetadata = ({
               <SubmissionFeedbackDebugInfo state={response} />
             )}
             <div className="flex gap-2 mt-2">
-              <Button type="button" onClick={handleCancel} variant="outline">
-                Cancel
-              </Button>
-              <Button
+              <FormCancelButton onClick={handleCancel} />
+              <FormSaveButton
                 type="button"
                 onClick={triggerFormSubmit}
                 disabled={!hasImageChanges}
               >
                 {deleteImage ? "Delete" : selectedFile ? "Upload" : "Save"}
-              </Button>
+              </FormSaveButton>
             </div>
           </>
         )}

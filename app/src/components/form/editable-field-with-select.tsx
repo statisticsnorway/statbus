@@ -26,6 +26,7 @@ import { MetadataTooltip } from "./metadata-tooltip";
 import { FieldTimelineButton } from "./field-timeline-view";
 import { SaveApproval, useSaveApproval } from "./edit-metadata-controls";
 import { PrimaryUnitNotice } from "./primary-unit-notice";
+import { FormCancelButton, FormSaveButton } from "./form-save-buttons";
 import { useEditAnchor } from "./use-edit-anchor";
 import { RemoveRecordAction } from "./remove-record-button";
 import { groupRuns } from "./code-list-options";
@@ -200,24 +201,17 @@ export const EditableSelectWithMetadata = ({
           <div className="flex items-center justify-end space-x-2">
             <PrimaryUnitNotice />
             {!removing && <SaveApproval />}
-            <Button
-              className="h-8"
-              variant="outline"
-              type="button"
-              onClick={handleCancel}
-            >
-              Cancel
-            </Button>
+            <FormCancelButton className="h-8" onClick={handleCancel} />
             {removing ? (
               <RemoveRecordAction label={label} />
             ) : (
-              <Button
+              <FormSaveButton
                 className="h-8"
                 disabled={blocked}
                 type="submit"
               >
                 Save
-              </Button>
+              </FormSaveButton>
             )}
           </div>
         </div>

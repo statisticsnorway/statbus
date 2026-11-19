@@ -1,7 +1,6 @@
 "use client";
 
 import { useEditManager } from "@/atoms/edits";
-import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { useRef, useState } from "react";
 import { SubmissionFeedbackDebugInfo } from "./submission-feedback-debug-info";
@@ -16,6 +15,7 @@ import { RemoveRecordAction } from "./remove-record-button";
 import { SaveApproval, useSaveApproval } from "./edit-metadata-controls";
 import { PrimaryUnitNotice } from "./primary-unit-notice";
 import { useEditAnchor } from "./use-edit-anchor";
+import { FormCancelButton, FormSaveButton } from "./form-save-buttons";
 
 /**
  * A field's value in the form: while editing, the anchor's value for the
@@ -158,13 +158,11 @@ export function EditableFieldGroup({
           <div className="flex items-center justify-end space-x-2">
             <PrimaryUnitNotice />
             {!removing && <SaveApproval />}
-            <Button variant="outline" type="button" onClick={handleCancel}>
-              Cancel
-            </Button>
+            <FormCancelButton onClick={handleCancel} />
             {removing ? (
               <RemoveRecordAction label={title} />
             ) : (
-              <Button type="submit" disabled={blocked}>Save</Button>
+              <FormSaveButton type="submit" disabled={blocked}>Save</FormSaveButton>
             )}
           </div>
         </div>

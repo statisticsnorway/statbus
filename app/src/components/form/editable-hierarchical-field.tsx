@@ -2,7 +2,6 @@
 
 import { useRef, useState, useMemo } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { Input } from "../ui/input";
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
@@ -10,6 +9,7 @@ import { Label } from "../ui/label";
 import { useEditManager } from "@/atoms/edits";
 import { cn } from "@/lib/utils";
 import { EditButton } from "./edit-button";
+import { FormCancelButton, FormSaveButton } from "./form-save-buttons";
 import { Tables } from "@/lib/database.types";
 
 /**
@@ -197,15 +197,8 @@ export const EditableHierarchicalField = ({
             </EditButton>
           ) : (
             <>
-              <Button
-                className="h-8"
-                variant="outline"
-                type="button"
-                onClick={handleCancel}
-              >
-                Cancel
-              </Button>
-              <Button
+              <FormCancelButton className="h-8" onClick={handleCancel} />
+              <FormSaveButton
                 className="h-8"
                 disabled={!hasUnsavedChanges}
                 type="button"
@@ -213,7 +206,7 @@ export const EditableHierarchicalField = ({
                 variant={isDeleting ? "destructive" : "default"}
               >
                 {isDeleting ? "Delete" : "Save"}
-              </Button>
+              </FormSaveButton>
             </>
           )}
         </div>
