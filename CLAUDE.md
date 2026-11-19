@@ -137,7 +137,10 @@ Track all work with hug tasks (on the git branch "hug/tasks", at .hug/tasks/).
 Start: hug task next, then hug task take ID --model MODEL (the model you are, e.g.
 claude-opus-5-5 or gpt-6.1-sol; a person: --model human; --as NAME adds your agent
 or session name, optional), then hug task show ID.
-While working: hug task check ID N with evidence, hug task note ID "evidence".
+While working: hug task check ID N "evidence" ticks check N and notes what shows it
+holds; hug task note ID "text" for anything else.
+Two tasks that ship together (one change or release): take the second with the
+first, hug task take B --with A --model MODEL; both are doing.
 Finish: hug task done ID when every acceptance check is ticked. Done asks whether
 the instructions guided you well; answer honestly with --reflect "...": quote the
 instruction that misled you or left a gap and say what happened, or "nothing".
@@ -159,5 +162,10 @@ request, resolve), task_requests.
 Requests: a person's request on a task (hug task requests) comes first in hug
 task next. Turn it into changes to the ticket, then hug task resolve ID N
 "what changed"; if it is unclear, hug task ask instead.
+Questions: one question per ask (hug task ask ID --to NAME "..."), never a
+numbered list in one; each is numbered on the task and the person answers each
+on its own (hug task answer ID N "..."). A todo task is asked without taking it.
+Requests and answers reach the board coordinator (hug task coordinator NAME) by hug itself: when a person writes hug task request or hug task answer (or r and a in hug tui), or ticks the check a question to them is about (that tick is their answer), hug hands it at once to the coordinator's live session (an idle session starts a turn, a busy one gets it at its next step) and History says delivered or not delivered with the reason. The coordinator's session acknowledges it on receipt (hug's hook), its first write on the task marks it in progress, and hug task resolve ID N answers a request (an answer: the asker's next write, its outcome, which hug hands to the coordinator the same way in one line: "NAME acted on PERSON's answer on ID: WRITE"). hug task requests shows each state: pending, acknowledged, in progress, answered. Not delivered (no coordinator set, no live session, a harness hug cannot reach yet such as Claude Code or Codex) stays "pending, not delivered: REASON" and the request still comes first in hug task next. What no live session could take goes to the coordinator's next session when it starts, once (hug's hook); a coordinator renamed before then gets it under the old name. No agent polls.
 Old backlog ids (TASK-123) work as aliases.
 Never edit .hug/tasks/ files by hand while another agent may be writing; use the commands.
+
