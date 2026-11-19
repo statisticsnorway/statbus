@@ -62,6 +62,8 @@ Build plan (done; landed on master 2026-11-18 as 852c625f2, 069803f7e, 9d9d41e23
 ## Requests
 - 2026-11-19T16:20 request 1 by jhf:
   We're not waiting for the other people. I have already demonstrated this. They will use it and they're waiting for new code to come out. This ticket is done.
+  resolved 2026-11-19T16:22 by hibiscus:
+    Done: check 5 ticked with your decision (you demonstrated it; Erik and Hedda use it as it ships in v2026.11.6), and xz3jej is closed.
 
 ## Notes
 
@@ -130,3 +132,4 @@ Reflection (open, 2026-11-19, hibiscus): Check 5 made the task wait on two named
 - 2026-11-19T16:20 request 1 by jhf
 - 2026-11-19T16:20 request 1 not delivered: no coordinator set (hug task coordinator NAME)
 - 2026-11-19T16:22 doing/waiting -> done (done); was doing_since: 2026-11-18T00:59; waiting_asked_by: hibiscus; waiting_on: the next release candidate on Norway, where Erik and Hedda try the card, search and download (check 5); waiting_since: 2026-11-18T16:33
+- 2026-11-19T16:22 resolved request 1 by hibiscus
