@@ -1,15 +1,20 @@
 ---
 id: e1z8va
 title: "An import upload refuses a file that is not UTF-8"
-state: todo
+state: "doing"
 type: bug
 priority: "medium"
-assignee: []
+assignee: ["hibiscus"]
 labels: []
 group: ""
 rank: "zzzh"
 created: 2026-11-18
 updated: 2026-11-18
+doing_since: "2026-11-19T16:39"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -33,3 +38,7 @@ Upload route: app/src/app/api/import/upload/route.ts (COPY into the job's _uploa
 - [ ] [Owner] Decides whether the 454,278 garbled rows on Norway are repaired (and how) or re-imported; the answer is recorded in the notes
 
 ## Notes
+
+
+## History
+- 2026-11-19T16:39 todo -> doing/active (take)
