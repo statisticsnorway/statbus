@@ -1,5 +1,6 @@
 "use client";
 import { useActionState } from "react";
+import Link from "next/link";
 import { useSWRConfig } from "swr";
 import { useBaseData } from "@/atoms/base-data";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
@@ -56,15 +57,31 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-8">
-        <DisplayFormField
-          label="Name"
-          name="name"
-          value={
-            hierarchy?.enterprise
-              ? enterpriseName(hierarchy.enterprise)
-              : unit?.name
-          }
-        />
+        <div className="flex flex-col gap-1">
+          <DisplayFormField
+            label="Name"
+            name="name"
+            value={
+              hierarchy?.enterprise
+                ? enterpriseName(hierarchy.enterprise)
+                : unit?.name
+            }
+          />
+          {/* With a short name set, the Name above differs from the primary unit's; name it for reference. */}
+          {hierarchy?.enterprise?.short_name?.trim() && unit && (
+            <p className="text-xs text-gray-500">
+              The primary {primaryLegalUnit ? "legal unit" : "establishment"} is
+              called{" "}
+              <Link
+                className="underline"
+                href={`/${primaryLegalUnit ? "legal-units" : "establishments"}/${unit.id}`}
+              >
+                {unit.name}
+              </Link>
+              .
+            </p>
+          )}
+        </div>
         <div className="flex flex-col gap-1">
           <EditableField
             fieldId="short_name"
