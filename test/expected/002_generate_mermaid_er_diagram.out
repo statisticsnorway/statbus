@@ -211,7 +211,6 @@ erDiagram
 		date valid_from
 		date valid_to
 		date valid_until
-		character_varying(16) short_name
 		character_varying(256) name
 		date birth_date
 		date death_date
@@ -474,7 +473,6 @@ erDiagram
 		date valid_from
 		date valid_to
 		date valid_until
-		character_varying(16) short_name
 		character_varying(256) name
 		date birth_date
 		date death_date

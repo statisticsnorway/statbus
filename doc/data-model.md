@@ -26,9 +26,9 @@ Views have no class (they follow their underlying table).
 ## Core Statistical Units (Hierarchy)
 The system revolves around four main statistical units, often with temporal validity (`valid_from`, `valid_after`, `valid_to`):
 
-- `establishment(id, short_name, name, sector_id, status_id, edit_by_user_id, unit_size_id, data_source_id, enterprise_id, legal_unit_id, image_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_legal_unit, primary_for_enterprise)` (EST) (temporal) — **base data**
+- `establishment(id, name, sector_id, status_id, edit_by_user_id, unit_size_id, data_source_id, enterprise_id, legal_unit_id, image_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_legal_unit, primary_for_enterprise)` (EST) (temporal) — **base data**
   - Key FKs: data_source_id, edit_by_user_id, enterprise_id, image_id, legal_unit_id, sector_id, status_id, unit_size_id, valid_range.
-- `legal_unit(id, short_name, name, sector_id, status_id, legal_form_id, edit_by_user_id, unit_size_id, foreign_participation_id, data_source_id, enterprise_id, image_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_enterprise)` (LU) (temporal) — **base data**
+- `legal_unit(id, name, sector_id, status_id, legal_form_id, edit_by_user_id, unit_size_id, foreign_participation_id, data_source_id, enterprise_id, image_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_enterprise)` (LU) (temporal) — **base data**
   - Key FKs: data_source_id, edit_by_user_id, enterprise_id, foreign_participation_id, image_id, legal_form_id, sector_id, status_id, unit_size_id.
 - `enterprise(id, short_name, edit_by_user_id, edit_at, enabled, edit_comment)` (EN) — **base data**
   - Key FKs: edit_by_user_id.

@@ -14283,7 +14283,6 @@ statistical_unit_hierarchy
                     "custom": true,
                     "enabled": true
                 },
-                "short_name": null,
                 "valid_from": "2010-01-01",
                 "data_source": {
                     "code": "skatt",
@@ -14391,7 +14390,6 @@ statistical_unit_hierarchy
                         },
                         "birth_date": "2010-01-01",
                         "death_date": null,
-                        "short_name": null,
                         "valid_from": "2010-01-01",
                         "data_source": {
                             "code": "brreg",
@@ -14605,7 +14603,6 @@ statistical_unit_hierarchy
                     "custom": true,
                     "enabled": true
                 },
-                "short_name": null,
                 "valid_from": "2013-01-01",
                 "data_source": {
                     "code": "skatt",
@@ -14713,7 +14710,6 @@ statistical_unit_hierarchy
                         },
                         "birth_date": "2010-01-01",
                         "death_date": null,
-                        "short_name": null,
                         "valid_from": "2020-01-01",
                         "data_source": {
                             "code": "brreg",
@@ -14926,7 +14922,6 @@ statistical_unit_hierarchy
                     "custom": true,
                     "enabled": true
                 },
-                "short_name": null,
                 "valid_from": "2013-01-01",
                 "data_source": {
                     "code": "skatt",
@@ -15034,7 +15029,6 @@ statistical_unit_hierarchy
                         },
                         "birth_date": "2010-01-01",
                         "death_date": null,
-                        "short_name": null,
                         "valid_from": "2020-01-01",
                         "data_source": {
                             "code": "brreg",

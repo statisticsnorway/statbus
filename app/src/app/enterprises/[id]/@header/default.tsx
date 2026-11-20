@@ -2,6 +2,7 @@
 import HeaderSlot from "@/components/statistical-unit-details/header-slot";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
 import { useParams } from "next/navigation";
+import { enterpriseName } from "@/lib/enterprise-name";
 
 export default function Slot() {
   const params = useParams();
@@ -24,7 +25,11 @@ export default function Slot() {
   return (
     <HeaderSlot
       id={id}
-      unit={primaryLegalUnit || primaryEstablishment}
+      unit={
+        hierarchy?.enterprise && (primaryLegalUnit || primaryEstablishment)
+          ? { name: enterpriseName(hierarchy.enterprise) }
+          : undefined
+      }
       error={error}
       loading={isLoading}
       className={

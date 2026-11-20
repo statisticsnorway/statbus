@@ -105,7 +105,6 @@ AS $function$
                     lu_1.valid_from,
                     lu_1.valid_to,
                     lu_1.valid_until,
-                    lu_1.short_name,
                     lu_1.name,
                     lu_1.birth_date,
                     lu_1.death_date,

@@ -62,7 +62,7 @@ BEGIN
         WITH new_enterprises AS (
             INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at, edit_comment)
             SELECT
-                NULL, -- short_name is set to NULL, will be derived by trigger later
+                NULL, -- short_name: the enterprise is named after its primary unit until someone gives it one (enterprise General info page)
                 t.edit_by_user_id,
                 t.edit_at,
                 t.edit_comment

@@ -283,7 +283,6 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "enabled": true                                                                                              +
                  },                                                                                                               +
-                 "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
@@ -385,7 +384,6 @@ SELECT jsonb_pretty(
                          "valid_to": "infinity",                                                                                  +
                          "birth_date": null,                                                                                      +
                          "death_date": null,                                                                                      +
-                         "short_name": null,                                                                                      +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
@@ -659,7 +657,6 @@ SELECT jsonb_pretty(
                  "valid_to": "infinity",                                                                                  +
                  "birth_date": null,                                                                                      +
                  "death_date": null,                                                                                      +
-                 "short_name": null,                                                                                      +
                  "valid_from": "2024-01-01",                                                                              +
                  "data_source": {                                                                                         +
                      "code": "nlr",                                                                                       +
@@ -964,7 +961,6 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "enabled": true                                                                                              +
                  },                                                                                                               +
-                 "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
@@ -1066,7 +1062,6 @@ SELECT jsonb_pretty(
                          "valid_to": "infinity",                                                                                  +
                          "birth_date": null,                                                                                      +
                          "death_date": null,                                                                                      +
-                         "short_name": null,                                                                                      +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
@@ -1311,7 +1306,6 @@ SELECT jsonb_pretty(
                  "valid_to": "infinity",                                                                                          +
                  "birth_date": null,                                                                                              +
                  "death_date": null,                                                                                              +
-                 "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
@@ -1526,7 +1520,6 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "enabled": true                                                                                              +
                  },                                                                                                               +
-                 "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
@@ -1628,7 +1621,6 @@ SELECT jsonb_pretty(
                          "valid_to": "infinity",                                                                                  +
                          "birth_date": null,                                                                                      +
                          "death_date": null,                                                                                      +
-                         "short_name": null,                                                                                      +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
@@ -1873,7 +1865,6 @@ SELECT jsonb_pretty(
                  "valid_to": "infinity",                                                                                          +
                  "birth_date": null,                                                                                              +
                  "death_date": null,                                                                                              +
-                 "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
@@ -2088,7 +2079,6 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "enabled": true                                                                                              +
                  },                                                                                                               +
-                 "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
@@ -2190,7 +2180,6 @@ SELECT jsonb_pretty(
                          "valid_to": "infinity",                                                                                  +
                          "birth_date": null,                                                                                      +
                          "death_date": null,                                                                                      +
-                         "short_name": null,                                                                                      +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
@@ -2435,7 +2424,6 @@ SELECT jsonb_pretty(
                  "valid_to": "infinity",                                                                                          +
                  "birth_date": null,                                                                                              +
                  "death_date": null,                                                                                              +
-                 "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +

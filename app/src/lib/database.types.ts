@@ -677,7 +677,6 @@ export type Database = {
           primary_for_enterprise: boolean | null
           primary_for_legal_unit: boolean | null
           sector_id: number | null
-          short_name: string | null
           status_id: number
           unit_size_id: number | null
           valid_from: string
@@ -701,7 +700,6 @@ export type Database = {
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           sector_id?: number | null
-          short_name?: string | null
           status_id: number
           unit_size_id?: number | null
           valid_from: string
@@ -725,7 +723,6 @@ export type Database = {
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           sector_id?: number | null
-          short_name?: string | null
           status_id?: number
           unit_size_id?: number | null
           valid_from?: string
@@ -2025,7 +2022,6 @@ export type Database = {
           name: string
           primary_for_enterprise: boolean
           sector_id: number | null
-          short_name: string | null
           status_id: number
           unit_size_id: number | null
           valid_from: string
@@ -2049,7 +2045,6 @@ export type Database = {
           name: string
           primary_for_enterprise: boolean
           sector_id?: number | null
-          short_name?: string | null
           status_id: number
           unit_size_id?: number | null
           valid_from: string
@@ -2073,7 +2068,6 @@ export type Database = {
           name?: string
           primary_for_enterprise?: boolean
           sector_id?: number | null
-          short_name?: string | null
           status_id?: number
           unit_size_id?: number | null
           valid_from?: string
@@ -7155,7 +7149,6 @@ export type Database = {
           primary_for_enterprise: boolean | null
           primary_for_legal_unit: boolean | null
           sector_id: number | null
-          short_name: string | null
           status_id: number | null
           unit_size_id: number | null
           valid_from: string | null
@@ -7179,7 +7172,6 @@ export type Database = {
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           sector_id?: number | null
-          short_name?: string | null
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null
@@ -7203,7 +7195,6 @@ export type Database = {
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           sector_id?: number | null
-          short_name?: string | null
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null
@@ -8153,7 +8144,6 @@ export type Database = {
           name: string | null
           primary_for_enterprise: boolean | null
           sector_id: number | null
-          short_name: string | null
           status_id: number | null
           unit_size_id: number | null
           valid_from: string | null
@@ -8177,7 +8167,6 @@ export type Database = {
           name?: string | null
           primary_for_enterprise?: boolean | null
           sector_id?: number | null
-          short_name?: string | null
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null
@@ -8201,7 +8190,6 @@ export type Database = {
           name?: string | null
           primary_for_enterprise?: boolean | null
           sector_id?: number | null
-          short_name?: string | null
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null

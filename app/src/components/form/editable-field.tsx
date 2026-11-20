@@ -18,6 +18,9 @@ interface EditableFieldProps {
   value: string | null;
   formAction: (formData: FormData) => void;
   response: UpdateResponse;
+  /** Shown in the empty field, e.g. the value used while this one is empty. */
+  placeholder?: string;
+  maxLength?: number;
 }
 
 export const EditableField = ({
@@ -26,6 +29,8 @@ export const EditableField = ({
   value,
   formAction,
   response,
+  placeholder,
+  maxLength,
 }: EditableFieldProps) => {
   const { currentEdit, setEditTarget, exitEditMode } = useEditManager();
 
@@ -123,6 +128,8 @@ export const EditableField = ({
         value={currentValue}
         onChange={(e) => setCurrentValue(e.target.value)}
         name={fieldId}
+        placeholder={placeholder}
+        maxLength={maxLength}
         autoComplete="off"
       />
     </form>

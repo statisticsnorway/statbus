@@ -186,7 +186,6 @@ declare interface StatisticalUnit {
   birth_date: string;
   death_date: string | null;
   reorg_date: string | null;
-  short_name: string | null;
   stat_ident: string | null;
   valid_from: string;
   data_source: string | null;
@@ -212,6 +211,8 @@ declare interface StatisticalUnit {
 }
 
 declare interface Enterprise extends StatisticalUnit {
+  /** The enterprise's chosen name (public.enterprise.short_name); its displayed name when set, else the primary unit's name. */
+  short_name: string | null;
   legal_unit: LegalUnit[];
   establishment: Establishment[];
   // Shape B (STATBUS-125): present when the enterprise's primary legal unit

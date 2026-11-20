@@ -177,9 +177,9 @@ SELECT name FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit
  Statistics Norway
 (1 row)
 
-\echo "Action: Updating legal_unit short_name"
-"Action: Updating legal_unit short_name"
-UPDATE public.legal_unit SET short_name = 'GIL' WHERE name = 'Statistics Norway';
+\echo "Action: Updating the primary legal_unit's name, which the enterprise's name derives from"
+"Action: Updating the primary legal_unit's name, which the enterprise's name derives from"
+UPDATE public.legal_unit SET name = 'Statistics Norway Group' WHERE name = 'Statistics Norway';
 \echo "Check: Expect one 'collect_changes' task."
 "Check: Expect one 'collect_changes' task."
 SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
@@ -191,14 +191,18 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
-\echo "After: Checking name of enterprise for legal_unit 'Statistics Norway'. Expect 'GIL'."
-"After: Checking name of enterprise for legal_unit 'Statistics Norway'. Expect 'GIL'."
-SELECT name FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
-       name        
--------------------
- Statistics Norway
+\echo "After: Checking name of enterprise for the legal_unit. Expect 'Statistics Norway Group'."
+"After: Checking name of enterprise for the legal_unit. Expect 'Statistics Norway Group'."
+SELECT name FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway Group');
+          name           
+-------------------------
+ Statistics Norway Group
 (1 row)
 
+\echo "Action: Restoring the legal_unit's name for the tests below"
+"Action: Restoring the legal_unit's name for the tests below"
+UPDATE public.legal_unit SET name = 'Statistics Norway' WHERE name = 'Statistics Norway Group';
+CALL worker.process_tasks(p_queue => 'analytics');
 --------------------------------------------------------------------------------
 \echo "--- TEST 4: UPDATE on location ---"
 "--- TEST 4: UPDATE on location ---"
@@ -356,6 +360,28 @@ WHERE name = 'SSB' AND unit_type = 'enterprise'
  SSB
 (1 row)
 
+\echo "Action: Clearing the enterprise's short name (88w7cm)"
+"Action: Clearing the enterprise's short name (88w7cm)"
+UPDATE public.enterprise
+SET short_name = NULL
+WHERE id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo "After: the enterprise is named after its primary legal unit again. Expect 'Statistics Norway'."
+"After: the enterprise is named after its primary legal unit again. Expect 'Statistics Norway'."
+SELECT name FROM public.statistical_unit
+WHERE unit_type = 'enterprise'
+  AND unit_id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
+       name        
+-------------------
+ Statistics Norway
+(1 row)
+
+\echo "Action: Setting the short name back for the tests below"
+"Action: Setting the short name back for the tests below"
+UPDATE public.enterprise
+SET short_name = 'SSB'
+WHERE id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
+CALL worker.process_tasks(p_queue => 'analytics');
 --------------------------------------------------------------------------------
 \echo "--- TEST 8: UPDATE on external_ident ---"
 "--- TEST 8: UPDATE on external_ident ---"

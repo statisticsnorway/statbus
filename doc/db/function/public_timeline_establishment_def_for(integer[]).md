@@ -112,7 +112,6 @@ AS $function$
             es_1.valid_from,
             es_1.valid_to,
             es_1.valid_until,
-            es_1.short_name,
             es_1.name,
             es_1.birth_date,
             es_1.death_date,

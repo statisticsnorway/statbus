@@ -48,7 +48,8 @@ export default function PrimaryUnitInfo() {
         </p>
         <p>
           If you need to update this information, update the primary
-          {primaryLegalUnit ? " legal unit" : " establishment"}.
+          {primaryLegalUnit ? " legal unit" : " establishment"}. The enterprise&apos;s
+          own short name is set on its Identification page.
         </p>
       </InfoBox>
     </div>

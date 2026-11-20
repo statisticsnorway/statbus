@@ -7,7 +7,6 @@
  valid_from             | date                     |           |          |         | plain    | 
  valid_to               | date                     |           |          |         | plain    | 
  valid_until            | date                     |           |          |         | plain    | 
- short_name             | character varying(16)    |           |          |         | extended | 
  name                   | character varying(256)   |           |          |         | extended | 
  birth_date             | date                     |           |          |         | plain    | 
  death_date             | date                     |           |          |         | plain    | 
@@ -30,7 +29,6 @@ View definition:
     valid_from,
     valid_to,
     valid_until,
-    short_name,
     name,
     birth_date,
     death_date,

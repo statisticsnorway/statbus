@@ -1,16 +1,37 @@
 "use client";
+import { useActionState } from "react";
+import { useSWRConfig } from "swr";
 import { useBaseData } from "@/atoms/base-data";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
 import Loading from "@/components/statistical-unit-details/loading";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { DisplayFormField } from "@/components/form/display-field";
+import { EditableField } from "@/components/form/editable-field";
 import { useClientReady } from "@/hooks/use-client-ready";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { derivedEnterpriseName, enterpriseName } from "@/lib/enterprise-name";
+import { updateEnterpriseShortName } from "../update-enterprise-server-actions";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const { externalIdentTypes } = useBaseData();
   const { hierarchy, isLoading, error } = useStatisticalUnitHierarchy(
     id,
     "enterprise"
+  );
+  const [shortNameState, shortNameAction] = useActionState(
+    updateEnterpriseShortName.bind(null, id),
+    null
+  );
+  const { mutate } = useSWRConfig();
+  // The header, this page and search read the enterprise's name; refetch them all.
+  useGuardedEffect(
+    () => {
+      if (shortNameState?.status === "success") {
+        mutate((key) => Array.isArray(key) && key.includes(id));
+      }
+    },
+    [shortNameState, mutate, id],
+    "EnterpriseGeneralInfoForm:revalidateAfterShortName"
   );
   const isClient = useClientReady();
 
@@ -35,7 +56,35 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-8">
-        <DisplayFormField label="Name" name="name" value={unit?.name} />
+        <DisplayFormField
+          label="Name"
+          name="name"
+          value={
+            hierarchy?.enterprise
+              ? enterpriseName(hierarchy.enterprise)
+              : unit?.name
+          }
+        />
+        <div className="flex flex-col gap-1">
+          <EditableField
+            fieldId="short_name"
+            label="Short name"
+            value={hierarchy?.enterprise?.short_name ?? null}
+            placeholder={
+              hierarchy?.enterprise
+                ? (derivedEnterpriseName(hierarchy.enterprise) ?? undefined)
+                : undefined
+            }
+            maxLength={16}
+            formAction={shortNameAction}
+            response={shortNameState}
+          />
+          <p className="text-xs text-gray-500">
+            The name this enterprise goes by everywhere, up to 16 characters.
+            Empty: it is named after its primary{" "}
+            {primaryLegalUnit ? "legal unit" : "establishment"}.
+          </p>
+        </div>
         <div className={"grid gap-4 grid-cols-2"}>
           {externalIdentTypes.map((type) => {
             const value = unit?.external_idents[type.code];
