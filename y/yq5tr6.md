@@ -29,7 +29,7 @@ waiting_until: "2026-11-27"
 Nothing points at the retired db-seed branch, so the statbus-seed image is the seed's only delivery path.
 
 ## Purpose
-doc/DEVELOPMENT.md:347: the seed ships as ghcr.io/.../statbus-seed:<commit>, which replaced the db-seed branch. origin/db-seed was last updated 2026-05-26.
+A retired branch still named in a box's fetch configuration breaks that box's upgrade check once the branch is deleted, so every reference goes before the branch does.
 
 ## Principle
 Drop the reference first, release it so every box normalizes, and only then delete the branch: a box still carrying the db-seed line would stop discovering upgrades if the branch went first.
