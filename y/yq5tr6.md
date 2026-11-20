@@ -19,7 +19,7 @@ doing_since: "2026-11-18T00:28"
 ---
 
 ## Goal
-Each delivery path for the seed exists once. The statbus-seed image is that path, so nothing still points at the old db-seed branch.
+Nothing points at the retired db-seed branch, so the statbus-seed image is the seed's only delivery path.
 
 ## Purpose
 doc/DEVELOPMENT.md:347: the seed ships as ghcr.io/.../statbus-seed:<commit>, which replaced the db-seed branch. origin/db-seed was last updated 2026-05-26.
@@ -28,7 +28,7 @@ doc/DEVELOPMENT.md:347: the seed ships as ghcr.io/.../statbus-seed:<commit>, whi
 Drop the reference first, release it so every box normalizes, and only then delete the branch: a box still carrying the db-seed line would stop discovering upgrades if the branch went first.
 
 ## Relevant details
-Still left over: the refspec entry +refs/heads/db-seed in cli/internal/upgrade/refspec.go CanonicalRefspecs (redundant under refs/heads/*); the branch itself, local and on origin; and the worktree /Users/jhf/ssb/statbus-db-seed. Installed boxes carry the line in remote.origin.fetch, and NormalizeRefspecs rewrites it on install/upgrade.
+The seed ships as ghcr.io/.../statbus-seed:<commit> (doc/DEVELOPMENT.md:347), which replaced the db-seed branch; origin/db-seed was last updated 2026-05-26. Still left over: the refspec entry +refs/heads/db-seed in cli/internal/upgrade/refspec.go CanonicalRefspecs (redundant under refs/heads/*); the branch itself, local and on origin; and the worktree /Users/jhf/ssb/statbus-db-seed. Installed boxes carry the line in remote.origin.fetch, and NormalizeRefspecs rewrites it on install/upgrade. Every box SSB can reach runs a release containing 14ecf9e42 (./cloud.sh status 2026-11-17); Albania runs a private installation SSB cannot reach, so its version comes from the owner (asked via Erik 2026-11-19).
 
 Closing review: confirm with rg that nothing reads the branch, that refspec_test covers a box with old db-seed lines, and the owner's decision on deleting the branch.
 
@@ -74,3 +74,5 @@ rc.04 failed its gate (STATBUS-382, unrelated). 14ecf9e42 is in v2026.10.6-rc.05
 - 2026-11-20T13:21 request 1 by jhf
 - 2026-11-20T13:21 request 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
 - 2026-11-20T13:21 request 1 acknowledged by hibiscus
+- 2026-11-20T13:22 hibiscus read the answer: hug task set yq5tr6
+- 2026-11-20T13:22 request 1 in progress by hibiscus: hug task set yq5tr6
