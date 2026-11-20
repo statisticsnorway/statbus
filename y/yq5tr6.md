@@ -48,6 +48,8 @@ Closing review: confirm with rg that nothing reads the branch, that refspec_test
 ## Requests
 - 2026-11-20T13:21 request 1 by jhf:
   I think this task is actually waiting for a condition and it should maybe be an ask me and I think there's support for saying wait until a date and then ask me in HugNow so that would be the way to set it and also fix the linting on this task.
+  resolved 2026-11-20T13:22 by hibiscus:
+    Done: the task now asks you on 2026-11-27 (hug task ask --after) whether Albania runs v2026.11.0 or later (check 3, now an [Owner] check); until then it waits on that date and is out of everyone's lists. Lint fixed (goal is one sentence; details and purpose tidied); hug task lint yq5tr6 reports no findings.
 
 ## Notes
 Grounding 2026-10-31: the branch has been retired since 9ee422652 (2026-06-02, 'the image is the sole seed source'). It was still named in CanonicalRefspecs, which every install and upgrade writes to remote.origin.fetch; the upgrade check runs git fetch with that config. Reproduced in a scratch repo: with the line present and the branch absent, fetch fails with 'couldn't find remote ref refs/heads/db-seed' (exit 128); with the wildcard only, fetch succeeds. So the order is fixed, the same as STATBUS-248: (1) drop the line (done), (2) release it so boxes normalize, (3) only then delete the branch. Done in 14ecf9e42: red tmp/553-red.log (the new test fails on the old list), green tmp/553-green.log (go test ./internal/upgrade ok, go test ./cmd refspec ok, go build ok). Stale comments corrected in .gitignore, install.sh, cli/cmd/seed.go and install-recovery scenario 5; rg check in tmp/553-rg.log. REMAINING, after release: once the stable release that includes 14ecf9e42 is installed on every box, delete the branch and the worktree (AC #3, #4). Do not delete earlier, because boxes still carrying the line would stop discovering upgrades.
@@ -84,3 +86,4 @@ rc.04 failed its gate (STATBUS-382, unrelated). 14ecf9e42 is in v2026.10.6-rc.05
 - 2026-11-20T13:22 hibiscus read the answer: hug task set yq5tr6
 - 2026-11-20T13:22 request 1 in progress by hibiscus: hug task set yq5tr6
 - 2026-11-20T13:22 doing/active -> doing/waiting (ask jhf after 2026-11-27)
+- 2026-11-20T13:22 resolved request 1 by hibiscus
