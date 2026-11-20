@@ -54,3 +54,4 @@ landed 203628f on master 2026-11-19: app: a unit edit form shows Saving… while
 - 2026-11-20T09:12 answered asked, by jhf, for hibiscus (doing/asked -> doing/active):
   > Check 2: on https://local.statbus.org:3011/legal-units/1030202/contact (VERIDIT AS), edit a contact field and press Save. Does Save read Saving… with Save and Cancel disabled until the saved value shows? Tick check 2 if yes.
   Yes, and I ticked the box, but the answer didn't go away. Did you pick it up
+- 2026-11-20T09:13 answer 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
