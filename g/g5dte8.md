@@ -159,3 +159,7 @@ Representable ONLY as ordinary `legal_unit` rows (both `legal_relationship` endp
 
 ## BFS singular-level proof (pg-engineer / decision #3)
 `import.process_power_group_link` BFS has a visited-guard ⇒ each unit recorded once at MIN depth; every incoming edge is then stamped with that one level ⇒ `power_level` is canonical-single per (group, LU) ⇒ SINGULAR `power_group_membership` is safe; diamonds live in the `influencers`/`influencees` edge arrays.
+
+
+## Notes
+2026-11-20 08:14 (Rabbit, owner request): when power groups get their pages, the group's displayed name follows the same rule as enterprises: power_group.short_name (16 chars, undated) when set, else the name of the legal unit at power_level 0 (timeline_power_group_def already does COALESCE(NULLIF(short_name,''), root LU name)). Make short_name editable on the group's general page, with the derived name as the empty field's hint. Enterprise side: 88w7cm. Note: power_group also has an unused name varchar(256).
