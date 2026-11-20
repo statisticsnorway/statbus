@@ -1,7 +1,7 @@
 ---
 id: m6mnnw
 title: "A unit edit form shows Saving… while its save runs"
-state: "doing"
+state: "done"
 type: feature
 priority: "high"
 assignee: ["hibiscus"]
@@ -10,11 +10,10 @@ group: ""
 rank: "zzy"
 created: 2026-11-18
 updated: 2026-11-18
-doing_since: "2026-11-19T16:26"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+done_at: "2026-11-20T09:13"
 ---
 
 ## Goal
@@ -48,6 +47,7 @@ check 1: 203628fe0: FormSaveButton/FormCancelButton (app/src/components/form/for
 2026-11-19 Firefox 155 (driven) on the local Norway copy, VERIDIT AS (1030202) contact group, web address: Saving… with Save and Cancel disabled from 0.46 s, edit closed at 1.11 s, the page showed the saved value at 1.18 s (tmp/hug/m6mnnw-firefox.log, screenshot tmp/hug/m6mnnw-saving.png). The test save created a contact row; the script's restore did not complete, so I deleted that one row (id 174634, the unit had none before). Check 2 waits for the owner to see it in his Firefox.
 landed 203628f on master 2026-11-19: app: a unit edit form shows Saving… while its save runs (m6mnnw)
 2026-11-19 CI for 203628fe0 all green: Fast Tests, Go Test, app build & lint, Images, Harness Selftest.
+Reflection (open, 2026-11-20, hibiscus): The owner's yes reached me through hug's answer hand-off, but it looked unhandled to him: an answer stays shown to the asker until the asker next writes on the task, and he could not tell whether I had picked it up. Writing on the task (or closing it) as soon as an answer arrives is what tells the person it was received.
 ## History
 - 2026-11-19T16:26 todo -> doing/active (take)
 - 2026-11-19T16:38 doing/active -> doing/asked (ask)
@@ -56,3 +56,5 @@ landed 203628f on master 2026-11-19: app: a unit edit form shows Saving… while
   Yes, and I ticked the box, but the answer didn't go away. Did you pick it up
 - 2026-11-20T09:13 answer 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
 - 2026-11-20T09:13 answer 1 acknowledged by hibiscus
+- 2026-11-20T09:13 doing/active -> done (done); was doing_since: 2026-11-19T16:26
+- 2026-11-20T09:13 hibiscus read the answer: hug task done m6mnnw
