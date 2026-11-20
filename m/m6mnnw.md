@@ -11,14 +11,10 @@ rank: "zzy"
 created: 2026-11-18
 updated: 2026-11-18
 doing_since: "2026-11-19T16:26"
-stage: "asked"
+stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
-asked_what: "Check 2: on https://local.statbus.org:3011/legal-units/1030202/contact (VERIDIT AS), edit a contact field and press Save. Does Save read Saving… with Save and Cancel disabled until the saved value shows? Tick check 2 if yes."
-asked_for: "jhf"
-asked_since: "2026-11-19T16:38"
-asked_by: "hibiscus"
 ---
 
 ## Goal
@@ -42,6 +38,8 @@ Save buttons of the unit edit forms, none of which tracked a pending state: app/
 ## Questions
 - 2026-11-19T16:38 question 1 by hibiscus to jhf:
   Check 2: on https://local.statbus.org:3011/legal-units/1030202/contact (VERIDIT AS), edit a contact field and press Save. Does Save read Saving… with Save and Cancel disabled until the saved value shows? Tick check 2 if yes.
+  answered 2026-11-20T09:12 by jhf:
+    Yes, and I ticked the box, but the answer didn't go away. Did you pick it up
 
 ## Notes
 
@@ -53,3 +51,6 @@ landed 203628f on master 2026-11-19: app: a unit edit form shows Saving… while
 ## History
 - 2026-11-19T16:26 todo -> doing/active (take)
 - 2026-11-19T16:38 doing/active -> doing/asked (ask)
+- 2026-11-20T09:12 answered asked, by jhf, for hibiscus (doing/asked -> doing/active):
+  > Check 2: on https://local.statbus.org:3011/legal-units/1030202/contact (VERIDIT AS), edit a contact field and press Save. Does Save read Saving… with Save and Cancel disabled until the saved value shows? Tick check 2 if yes.
+  Yes, and I ticked the box, but the answer didn't go away. Did you pick it up
