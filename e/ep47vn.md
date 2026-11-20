@@ -10,6 +10,11 @@ group: ""
 rank: "zzzzh"
 created: 2026-11-20
 updated: 2026-11-20
+design_question: "Which fields of a primary legal unit flow to its enterprise (name unless the enterprise has a short name; activities, locations, contact, sector, legal form, status, figures?), and which of a primary establishment flow to its legal unit? The notice beside Save will name the other unit only on those fields."
+design_for: "jhf"
+design_since: "2026-11-20T17:15"
+design_asked_by: "hibiscus"
+stage: "design"
 ---
 
 ## Goal
@@ -31,4 +36,12 @@ PrimaryUnitNotice (app/src/components/form/primary-unit-notice.tsx, 839f84c98) s
 - [ ] The notice beside Save appears only on fields that flow to the other unit, and names that unit; a jest test covers a flowing and a non-flowing field
 - [ ] Editing an enterprise's short name, and a non-primary legal unit's name, shows no such notice; checked in Firefox on the local Norway data
 
+## Questions
+- 2026-11-20T17:15 question 1 by hibiscus to jhf:
+  Which fields of a primary legal unit flow to its enterprise (name unless the enterprise has a short name; activities, locations, contact, sector, legal form, status, figures?), and which of a primary establishment flow to its legal unit? The notice beside Save will name the other unit only on those fields.
+
 ## Notes
+
+
+## History
+- 2026-11-20T17:15 todo -> todo/design (ask)
