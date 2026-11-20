@@ -42,7 +42,7 @@ Closing review: confirm with rg that nothing reads the branch, that refspec_test
 ## Acceptance
 - [x] CanonicalRefspecs is the branch wildcard only, and NormalizeRefspecs rewrites a box carrying the old db-seed line to that wildcard (TestNormalizeRemovesRetiredSeedBranchRefspec)
 - [x] No code, CI or doc reads the db-seed branch; only tests name it, as old state to remove
-- [ ] A stable release containing 14ecf9e42 (v2026.11.0 or later) is installed on every box: SSB's cloud and standalone boxes report it in ./cloud.sh status, and each known private installation (Albania) confirms its version to the owner
+- [ ] [Owner] Confirms in the notes that every box runs a stable release containing 14ecf9e42 (v2026.11.0 or later): SSB's boxes as ./cloud.sh status reports them, and Albania's private installation by its own answer. v2026.11.0 or later lets check 4 go ahead; an older version keeps the branch until it upgrades
 - [ ] Then origin/db-seed, the local db-seed branch and the /Users/jhf/ssb/statbus-db-seed worktree are deleted, and a fetch on a box afterwards succeeds
 
 ## Requests
