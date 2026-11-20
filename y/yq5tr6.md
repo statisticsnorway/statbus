@@ -35,9 +35,7 @@ A retired branch still named in a box's fetch configuration breaks that box's up
 Drop the reference first, release it so every box normalizes, and only then delete the branch: a box still carrying the db-seed line would stop discovering upgrades if the branch went first.
 
 ## Relevant details
-The seed ships as ghcr.io/.../statbus-seed:<commit> (doc/DEVELOPMENT.md:347), which replaced the db-seed branch; origin/db-seed was last updated 2026-05-26. Still left over: the refspec entry +refs/heads/db-seed in cli/internal/upgrade/refspec.go CanonicalRefspecs (redundant under refs/heads/*); the branch itself, local and on origin; and the worktree /Users/jhf/ssb/statbus-db-seed. Installed boxes carry the line in remote.origin.fetch, and NormalizeRefspecs rewrites it on install/upgrade. Every box SSB can reach runs a release containing 14ecf9e42 (./cloud.sh status 2026-11-17); Albania runs a private installation SSB cannot reach, so its version comes from the owner (asked via Erik 2026-11-19).
-
-Closing review: confirm with rg that nothing reads the branch, that refspec_test covers a box with old db-seed lines, and the owner's decision on deleting the branch.
+The seed ships as ghcr.io/.../statbus-seed:<commit> (doc/DEVELOPMENT.md:347), which replaced the db-seed branch; origin/db-seed was last updated 2026-05-26. 14ecf9e42 removed the branch from CanonicalRefspecs (check 1). Still left over: the branch itself, local and on origin, and the worktree /Users/jhf/ssb/statbus-db-seed. Installed boxes carry the old line in remote.origin.fetch until NormalizeRefspecs rewrites it on install or upgrade. Every box SSB can reach runs a release containing 14ecf9e42 (./cloud.sh status 2026-11-17); Albania runs a private installation SSB cannot reach, so its version comes from the owner (asked via Erik 2026-11-19).
 
 ## Acceptance
 - [x] CanonicalRefspecs is the branch wildcard only, and NormalizeRefspecs rewrites a box carrying the old db-seed line to that wildcard (TestNormalizeRemovesRetiredSeedBranchRefspec)
