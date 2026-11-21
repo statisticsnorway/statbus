@@ -33,7 +33,7 @@ Plan: (1) Branch prototype/import-as-user-role. (2) In the worker's import task,
 
 ## Acceptance
 - [x] A psql script on the branch shows SET LOCAL ROLE and RESET ROLE inside one transaction: rows written under the role carry the job user, statements after RESET ROLE run as postgres, and COMMIT keeps both
-- [ ] A full Norway sample import runs as rabbit-review@statbus.org with every written unit row stamped with that user, or the task lists each step that is refused and why
+- [x] A full Norway sample import runs as rabbit-review@statbus.org with every written unit row stamped with that user, or the task lists each step that is refused and why
 - [ ] Import time on the branch compared with master on the same sample, recorded here
 - [ ] [Owner] Reads the result (works, works with listed definer steps, or does not work) and decides whether to build it; the decision is recorded in this task's notes
 
@@ -42,5 +42,6 @@ Plan: (1) Branch prototype/import-as-user-role. (2) In the worker's import task,
 
 RESULT 2026-11-21 (buffalo): WORKS, 0 definer steps. Branch prototype/import-as-user-role (f4aedb8cf), artifacts prototype/5vxfjm/. Patch: admin.import_job_process wraps import_job_analysis_phase and import_job_processing_phase in set_config('role', <job user email>, true) ... RESET ROLE; set_import_job_user_context call removed; analyse_edit_info stamps auth.uid() instead of job.user_id. Bookkeeping (import_job state, data-table DDL in prepare, ANALYZE, batch_seq, worker.tasks, base_change_log via process_tasks) stays as postgres. Full BRREG selection (4924 LU + 24027 ES, after getting-started) as rabbit-review@statbus.org (regular_user): no refusals; every row in enterprise/legal_unit/establishment/external_ident/location/activity/contact/stat_for_unit stamped rabbit-review; a statement trigger confirmed current_user=rabbit-review and auth.uid()=its id during writes. Why no refusals: regular_user already has DML on unit tables and the job data table; derivation runs in separate worker tasks as postgres. Timing (same sample, fresh DBs from statbus_test_template): branch 81.4s/72.9s, master 72.4s/74.2s, no measurable difference. CAVEAT: SET LOCAL ROLE is not a security boundary here: session_user is postgres, so code under the role can RESET ROLE / SET ROLE postgres / SET SESSION AUTHORIZATION (step1.log). It gives correct stamping and RLS, not containment of import procedures. Admin-user comparison run not done (master run used the same regular user).
 check 1: prototype/5vxfjm/step1.log: stamped rabbit-review under role, postgres after RESET ROLE, both rows after COMMIT
+check 2: BRREG selection import as rabbit-review, 0 refusals, all unit rows stamped rabbit-review (branch-stamps.log)
 ## History
 - 2026-11-21T09:49 todo -> doing/active (take)
