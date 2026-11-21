@@ -98,3 +98,7 @@ Owner review 2026-11-10 16:41 in Firefox (https://local.statbus.org:3007, branch
 AC4: fc47499fc reads empty optional location numbers as null and refuses an empty Country ('Select a country'); the 409 cause (empty Country coerced to 0, location_country_id_fkey) is named in the description. In v2026.11.4-rc.01. Remaining: AC5, the owner's check on Norway after rc.01 reaches it.
 
 Owner 2026-11-10 21:18 on Norway (v2026.11.4-rc.01): editing works. Tested with the period from the start of the year and with the suggested start; the suggested start is where the entry begins (the unit's first valid_from). AC5 confirmed: yes closes the ticket.
+
+
+## Notes
+2026-11-21 19:21 (Rabbit) owner approved; deleted the review leftovers: databases statbus_604_upgrade, statbus_livedb_26927, statbus_livedb_16881 (27-28 MB each, no connections) and tmp/venv-pglast (24 MB).
