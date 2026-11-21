@@ -118,26 +118,33 @@ derive pipeline; it is **not** proposed for the first build (question 4).
 
 | Phase | Work | Needs |
 |---|---|---|
-| 0 | Coordinates for Norway: kvbebr (naming), r39dqb (load, after a fresh export) | owner's decisions on those tasks |
+| 0 | Coordinates for Norway: kvbebr (naming), dbmsxy (an import that updates only lat/lon on existing units; today a coordinates-only file fails), r39dqb (load, after a fresh export), 4pj9bz (2026 regions, the list Erik's region centres follow) | owner's decisions on those tasks |
 | 1 | Map component + **D Regions** (works today from region centres) | questions 1, 2 |
-| 2 | **B Search map** with the count/points/regions switch | phase 1, question 3; useful once phase 0 data is in |
+| 2 | **B Search map** with the count/points/regions switch; this is 5nq78t (Erik's step 1, Map beside Export), done as z2qt08's first unit map | phase 1, question 3; useful once phase 0 data is in |
 | 3 | **A Links map**, **C Reports map** | phase 2 |
 | 4 | **E Location picker** with geocoding | question 5 |
 
 Each phase is its own STOP for the owner to see it before it is committed, as
-for every feature.
+for every feature. Browser checks are driven Firefox runs with screenshots in
+`tmp/hug/`; the app has no Playwright suite (5nq78t's check 2 asks for one), so
+adding one is its own decision.
 
 ## 7. Questions for the owner (each is a separate ask on z2qt08)
 
 1. **First place**: start with Regions (works today without unit coordinates)
-   and Search, as proposed, or another order?
+   and Search, as proposed, or another order? 5nq78t (Erik's Map button)
+   becomes the Search phase of this task rather than its own build.
 2. **Base map tiles**: (a) OpenFreeMap public tiles (no key, free, no SLA, the
    browser calls tiles.openfreemap.org; Erik's choice); (b) a self-hosted
    country extract as one PMTiles file served by our own Caddy (no third
    party at run time, works offline in a closed network, one file per country
    to keep current); (c) configurable per installation, defaulting to (a).
 3. **Points threshold**: show points up to 5,000 matches and region counts
-   above, or another number?
+   above, or another number? Erik (5nq78t) proposes disabling the button
+   above about 100,000 units with coordinates; MapLibre clusters 100,000
+   points in the browser, but fetching them is about 20 times the 5,000-row
+   fetch (0.22 s measured for 5,000 in one county), and region counts above
+   the threshold keep the button useful for any selection.
 4. **Finer than regions**: is drill-down by region enough for now, or do you
    want a precomputed grid (a cell column maintained by the derive pipeline)
    in the first build?
