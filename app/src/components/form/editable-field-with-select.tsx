@@ -199,7 +199,7 @@ export const EditableSelectWithMetadata = ({
         <div className="space-y-2">
           <EditMetadataControls fieldId={fieldId} />
           <div className="flex items-center justify-end space-x-2">
-            <PrimaryUnitNotice />
+            <PrimaryUnitNotice fieldId={fieldId} />
             {!removing && <SaveApproval />}
             <FormCancelButton className="h-8" onClick={handleCancel} />
             {removing ? (

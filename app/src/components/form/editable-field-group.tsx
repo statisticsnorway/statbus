@@ -156,7 +156,7 @@ export function EditableFieldGroup({
         <div className="space-y-2">
           <EditMetadataControls fieldId={fieldGroupId} />
           <div className="flex items-center justify-end space-x-2">
-            <PrimaryUnitNotice />
+            <PrimaryUnitNotice fieldId={fieldGroupId} />
             {!removing && <SaveApproval />}
             <FormCancelButton onClick={handleCancel} />
             {removing ? (
