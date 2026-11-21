@@ -26,6 +26,7 @@ Today the upload route (app/src/app/api/import/upload/route.ts) streams the file
 
 ## Depends on
 
+- dbmsxy
 ## Acceptance
 - [ ] An upload whose notes column has an unterminated quote is refused in the browser before upload, naming the line where the open quote starts; nothing is sent
 - [ ] An import with a notes column stores each row's note; a test file with doubled quotes, commas and line breaks inside quoted notes stores them exactly
