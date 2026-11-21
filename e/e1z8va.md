@@ -50,6 +50,7 @@ check 3: dcbad72ed: a UTF-8 file with RØRSERVICE, BLÅBÆR ÆRØ and SÃO PAULO
 landed dcbad72 on master 2026-11-19: import: an upload refuses a file that is not UTF-8 or holds garbled text…
 2026-11-19 CI for dcbad72ed all green: Fast Tests, Go Test, app build & lint, Images, Harness Selftest.
 Reflection (open, 2026-11-19, hibiscus): nothing misled me on the build. One gap was mine: I started writing code before the owner had settled the design (refuse or warn, where to check), and he had to stop me; the task named the checks but not those choices. Asking the design questions first, as AGENTS.md's 'play back the owner's ideas and discuss before doing many things' says, would have saved a round.
+2026-11-21 (Rabbit) Slack 2026-11-16/18: Erik's Norway names showed ELKJÃ˜P / RÃ˜R (UTF-8 read as Latin-1); he fixed it by saving with a UTF-8 BOM. This task's check, in v2026.11.7 once released, refuses such a file at upload.
 ## History
 - 2026-11-19T16:39 todo -> doing/active (take)
 - 2026-11-19T21:57 doing/active -> done (done); was doing_since: 2026-11-19T16:39
