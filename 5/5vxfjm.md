@@ -4,7 +4,7 @@ title: "Prototype: an import job writes as its user's role"
 state: "doing"
 type: spike
 priority: ""
-assignee: ["buffalo"]
+assignee: ["hibiscus"]
 labels: []
 group: ""
 rank: "zzzzq"
@@ -46,3 +46,4 @@ check 2: BRREG selection import as rabbit-review, 0 refusals, all unit rows stam
 check 3: branch 81.4s/72.9s vs master 72.4s/74.2s
 ## History
 - 2026-11-21T09:49 todo -> doing/active (take)
+- 2026-11-21T20:10 handed to hibiscus: buffalo's session ended (closed 2026-11-21 10:29)
