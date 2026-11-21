@@ -1,15 +1,20 @@
 ---
 id: 5vxfjm
 title: "Prototype: an import job writes as its user's role"
-state: todo
+state: "doing"
 type: spike
 priority: ""
-assignee: []
+assignee: ["buffalo"]
 labels: []
 group: ""
 rank: "zzzzq"
 created: 2026-11-21
 updated: 2026-11-21
+doing_since: "2026-11-21T09:49"
+stage: "active"
+model: "claude-opus-4"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -33,3 +38,7 @@ Plan: (1) Branch prototype/import-as-user-role. (2) In the worker's import task,
 - [ ] [Owner] Reads the result (works, works with listed definer steps, or does not work) and decides whether to build it; the decision is recorded in this task's notes
 
 ## Notes
+
+
+## History
+- 2026-11-21T09:49 todo -> doing/active (take)
