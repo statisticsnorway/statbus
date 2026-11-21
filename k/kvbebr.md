@@ -33,3 +33,5 @@ PR #327: migration 20261114090337_rename_location_latitude_longitude (up/down) a
 - [ ] PR #327 is merged or closed on GitHub as decided, with a comment that links this task
 
 ## Notes
+
+2026-11-21: the map plan (z2qt08, doc/design/units-on-map.md on feat/units-on-map) reads statistical_unit.physical_latitude/longitude, which exist today; the map does not wait for this rename, only the Norway coordinate load (r39dqb) does.
