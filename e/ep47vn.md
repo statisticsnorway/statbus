@@ -46,3 +46,4 @@ PrimaryUnitNotice (app/src/components/form/primary-unit-notice.tsx, 839f84c98) s
 - 2026-11-21T09:31 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
   > Which fields of a primary legal unit flow to its enterprise (name unless the enterprise has a short name; activities, locations, contact, sector, legal form, status, figures?), and which of a primary establishment flow to its legal unit? The notice beside Save will name the other unit only on those fields.
   This is something that you delegate to junior to figure out and then to document in our documentation how these things flow or to find where it is already documented. This is not something that you ask of me. That is sloppy on your part. It is in our source code and we shall know our source code
+- 2026-11-21T09:31 answer 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
