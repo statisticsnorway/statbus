@@ -37,3 +37,5 @@ Today the upload route (app/src/app/api/import/upload/route.ts) streams the file
 2026-11-17 23:33 (Rabbit) moved from n9nyvd: tmp/n9nyvd-unterminated-copy.log shows the upload's COPY (FORMAT csv) rejects the whole file on an unterminated quote ('unterminated CSV quoted field', line 5): the open quote swallows every following line, so no row-level isolation is possible after it. Owner 19:09: address it with Papa Parse in the browser, naming the line where the open quote starts (check #1).
 
 2026-11-21 19:49 (Rabbit) Parked by the owner. A unit's note has no periods, so an import file that carries several rows (periods) for one unit must have one note win. Either the analyse phase merges them into one note or it refuses the file. My question about what an empty cell does under each strategy came from not knowing how the import engine handles cells yet. This waits for the owner's tasks that improve the import jobs; take it up again after those.
+
+2026-11-21 (Rabbit) The strategy questions for notes are part of dbmsxy (which merge mode each strategy uses, and that a column the file does not carry is never written).
