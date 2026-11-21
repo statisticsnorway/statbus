@@ -3,7 +3,7 @@ id: j2g6wd
 title: "Lint every open task once hug stops linting done tasks"
 state: "todo"
 type: chore
-priority: "high"
+priority: "low"
 assignee: ["hibiscus"]
 labels: []
 group: ""
