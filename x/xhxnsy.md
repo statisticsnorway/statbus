@@ -3,8 +3,8 @@ id: xhxnsy
 title: "Workflows: an analysis produces an import job to review and apply"
 state: todo
 type: feature
-priority: ""
-assignee: []
+priority: "high"
+assignee: ["hibiscus"]
 labels: []
 group: ""
 rank: "000000000003"
