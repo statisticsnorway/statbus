@@ -19,7 +19,7 @@ worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
-Editing a unit says it changes another unit only for fields that really flow there, as does the enterprise's derived-from line.
+Editing a unit shows the notice beside Save that it changes the enterprise only for fields that really flow there.
 
 ## Purpose
 A notice that overstates what a change touches teaches users to ignore it. The owner (2026-11-20): the name of a non-primary legal unit does not change the enterprise's name, and an enterprise's name, primary or not, does not change the legal unit's name.
