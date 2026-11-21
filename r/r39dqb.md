@@ -33,3 +33,5 @@ Files: samples/norway/legal_unit/statistical_units_legal_coords.csv and samples/
 - [ ] PR #326 is closed on GitHub with a comment that links this task and says where the data went
 
 ## Notes
+
+2026-11-21 (Rabbit) Slack context: Erik could not load his coordinate files on no.statbus (2026-11-11 to 18). Cause and the fix direction are in dbmsxy (update only given columns: PATCH_FOR_PORTION_OF) and 2tsdqp (analysis must refuse rows processing would fail). Loading the coordinates waits on dbmsxy.
