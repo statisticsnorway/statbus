@@ -36,3 +36,5 @@ Files: samples/norway/legal_unit/statistical_units_legal_coords.csv and samples/
 ## Notes
 
 2026-11-21 (Rabbit) Slack context: Erik could not load his coordinate files on no.statbus (2026-11-11 to 18). Cause and the fix direction are in dbmsxy (update only given columns: PATCH_FOR_PORTION_OF) and 2tsdqp (analysis must refuse rows processing would fail). Loading the coordinates waits on dbmsxy.
+
+2026-11-21 21:45 hibiscus checked PR #326's files (copies in tmp/hug/z2qt08-data/pr326/): (1) legal_unit/statistical_units_legal_coords.csv has exactly 1,048,575 data rows, Excel's sheet limit, and stops at 'WORKS ON MY MACHINE AS'; Norway has 1,134,475 current legal units, 8,612 sorting after that name (W-Z, Æ, Ø, Å) are missing: the file was cut by Excel. (2) establishment/statistical_units_estab_coords.csv: 770,040 rows, 4,711 without a longitude (409 rows of 2 fields, 4,302 of 3: a name with a comma or line break broke the CSV quoting), 10 outside Norway's box (lat 57-81, lon -10-35). No duplicate tax_ident in either. A fresh export from Erik's source (not through Excel) fixes both.
