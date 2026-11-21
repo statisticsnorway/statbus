@@ -1,7 +1,7 @@
 ---
 id: ep47vn
 title: "The primary notice names only what flows to the other unit"
-state: "doing"
+state: "done"
 type: bug
 priority: ""
 assignee: ["hibiscus"]
@@ -10,12 +10,10 @@ group: ""
 rank: "zzzzh"
 created: 2026-11-20
 updated: 2026-11-20
-stage: "active"
-doing_since: "2026-11-21T09:33"
-doing_with: "64ae2w"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+done_at: "2026-11-21T21:13"
 ---
 
 ## Goal
@@ -53,6 +51,7 @@ check 1: doc/primary-units.md (b7cd2f31e, worker blowfish): every enterprise fie
 2026-11-21 19:50 approved together with 64ae2w. Committed 2866d0b55, pushed to master; CI pending.
 landed 2866d0b on master 2026-11-21: app: the primary-unit notice names the enterprise only where the field flows…
 2026-11-21 20:13 CI green on 2866d0b55 (Fast Tests, app build & lint, Go Test, Images, Harness Selftest, Push on master, Notify: all success). Check 2: primary-unit-flow.test.ts (flowing Name/location/contact, non-flowing tax identifier) and Firefox on VERIDIT AS. Check 3: Firefox with the enterprise's short name 'Veridit' set, Name showed no notice (tmp/hug/ep47vn-firefox.log). Check 4: primary-unit-flow.test.ts non-primary legal unit case (no such unit in the Norway copy). Landed in 2866d0b55.
+Reflection (unanswered, 2026-11-21, hibiscus)
 ## History
 - 2026-11-20T17:15 todo -> todo/design (ask)
 - 2026-11-21T09:31 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
@@ -62,3 +61,4 @@ landed 2866d0b on master 2026-11-21: app: the primary-unit notice names the ente
 - 2026-11-21T09:31 answer 1 acknowledged by hibiscus
 - 2026-11-21T09:32 hibiscus read the answer: hug task note ep47vn "2026-11-21 owner (answer 1): which fields flow is in the source code; find it or document it, do not ask him. Check 1 r…"
 - 2026-11-21T09:33 todo/ready -> doing/active (take with 64ae2w)
+- 2026-11-21T21:13 doing/active -> done (done); was doing_since: 2026-11-21T09:33; doing_with: 64ae2w
