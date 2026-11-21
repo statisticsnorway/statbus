@@ -41,6 +41,7 @@ PrimaryUnitNotice (app/src/components/form/primary-unit-notice.tsx, 839f84c98) s
 ## Notes
 
 
+2026-11-21 owner (answer 1): which fields flow is in the source code; find it or document it, do not ask him. Check 1 reworded accordingly. Delegated to worker blowfish (session_blowfish_1795249933735_59720b2a8edc52f4): read timeline_enterprise_def / timeline_legal_unit_def, document field by field in doc/, report back; hibiscus builds the notice from that.
 ## History
 - 2026-11-20T17:15 todo -> todo/design (ask)
 - 2026-11-21T09:31 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
@@ -48,3 +49,4 @@ PrimaryUnitNotice (app/src/components/form/primary-unit-notice.tsx, 839f84c98) s
   This is something that you delegate to junior to figure out and then to document in our documentation how these things flow or to find where it is already documented. This is not something that you ask of me. That is sloppy on your part. It is in our source code and we shall know our source code
 - 2026-11-21T09:31 answer 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
 - 2026-11-21T09:31 answer 1 acknowledged by hibiscus
+- 2026-11-21T09:32 hibiscus read the answer: hug task note ep47vn "2026-11-21 owner (answer 1): which fields flow is in the source code; find it or document it, do not ask him. Check 1 r…"
