@@ -157,6 +157,9 @@ func Setup(packageName string) (cleanup func(), err error) {
 	if err := os.Setenv(pinnedSBEnv, pinnedSB); err != nil {
 		return fail("set pinned sb env: %v", err)
 	}
+	if err := pinGoCaches(); err != nil {
+		return fail("pin Go caches before moving HOME: %v", err)
+	}
 	if err := os.Setenv("HOME", privateHome); err != nil {
 		return fail("set live-database fixture home: %v", err)
 	}
@@ -215,4 +218,27 @@ func copyFile(src, dst string, mode os.FileMode) error {
 		return err
 	}
 	return out.Close()
+}
+
+// pinGoCaches fixes Go's module cache, build cache and GOPATH to the directories the
+// package started with, before Setup moves HOME to a private directory. Go derives
+// these from HOME when unset, so without this every `go` command the package runs
+// afterwards (go/packages in TestTypedComposeAuthorityGate) starts from an empty cache
+// and downloads every module again, and a network hiccup fails it (3k0ne3).
+func pinGoCaches() error {
+	names := []string{"GOMODCACHE", "GOCACHE", "GOPATH"}
+	out, err := run(".", "go", append([]string{"env"}, names...)...)
+	if err != nil {
+		return fmt.Errorf("go env: %w: %s", err, out)
+	}
+	values := strings.Split(out, "\n")
+	if len(values) != len(names) {
+		return fmt.Errorf("go env returned %d values for %d names", len(values), len(names))
+	}
+	for i, name := range names {
+		if err := os.Setenv(name, values[i]); err != nil {
+			return fmt.Errorf("set %s: %w", name, err)
+		}
+	}
+	return nil
 }
