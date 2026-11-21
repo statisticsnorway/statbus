@@ -34,7 +34,7 @@ PrimaryUnitNotice (app/src/components/form/primary-unit-notice.tsx, 839f84c98) s
 
 ## Acceptance
 - [x] Which fields flow from a primary legal unit to its enterprise, and from a primary establishment to its legal unit or enterprise, is read from the source (timeline_*_def) and documented in doc/, each field with where its value comes from
-- [ ] The notice beside Save appears only on fields that flow to the other unit, and names that unit; a jest test covers a flowing and a non-flowing field
+- [x] The notice beside Save appears only on fields that flow to the other unit, and names that unit; a jest test covers a flowing and a non-flowing field
 - [ ] With the enterprise's short name set, editing its primary legal unit's name shows no notice; checked in Firefox on the local Norway data
 - [ ] A non-primary legal unit shows no notice on any field; a jest test covers it
 
