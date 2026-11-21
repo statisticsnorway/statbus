@@ -51,7 +51,6 @@ check 1: doc/primary-units.md (b7cd2f31e, worker blowfish): every enterprise fie
 2026-11-21 19:50 approved together with 64ae2w. Committed 2866d0b55, pushed to master; CI pending.
 landed 2866d0b on master 2026-11-21: app: the primary-unit notice names the enterprise only where the field flows…
 2026-11-21 20:13 CI green on 2866d0b55 (Fast Tests, app build & lint, Go Test, Images, Harness Selftest, Push on master, Notify: all success). Check 2: primary-unit-flow.test.ts (flowing Name/location/contact, non-flowing tax identifier) and Firefox on VERIDIT AS. Check 3: Firefox with the enterprise's short name 'Veridit' set, Name showed no notice (tmp/hug/ep47vn-firefox.log). Check 4: primary-unit-flow.test.ts non-primary legal unit case (no such unit in the Norway copy). Landed in 2866d0b55.
-Reflection (unanswered, 2026-11-21, hibiscus)
 ## History
 - 2026-11-20T17:15 todo -> todo/design (ask)
 - 2026-11-21T09:31 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
