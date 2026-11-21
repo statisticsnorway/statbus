@@ -114,7 +114,7 @@ Before touching these paths, read [install/upgrade testing](doc/install-upgrade-
 | SQL conventions and examples | [SQL rules](.claude/rules/sql.md) |
 | Frontend conventions and examples | [Frontend rules](.claude/rules/frontend.md) |
 | Complex multi-agent coordination | [Agentic methodology](doc/agentic-methodology.md) |
-| Data model or authentication | [Data model](doc/data-model.md), [authentication](doc/auth-design.md) |
+| Data model or authentication | [Data model](doc/data-model.md), [primary units](doc/primary-units.md), [authentication](doc/auth-design.md) |
 | Release gates and recovery tests | [Release ladder](doc/release-ladder.md), [recovery runner](test/install-recovery/README.md) |
 | Cloud or standalone deployment | [Cloud](doc/CLOUD.md), [deployment](doc/DEPLOYMENT.md) |
 | Imports or external integrations | [Import system](doc/import-system.md), [integration](doc/INTEGRATE.md) |
