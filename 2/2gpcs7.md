@@ -3,8 +3,8 @@ id: 2gpcs7
 title: "Workflow: pick the primary unit by a chosen variable"
 state: todo
 type: feature
-priority: ""
-assignee: []
+priority: "high"
+assignee: ["hibiscus"]
 labels: []
 group: ""
 rank: "000000000002"
