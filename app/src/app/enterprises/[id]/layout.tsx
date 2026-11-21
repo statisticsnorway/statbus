@@ -15,10 +15,17 @@ export default function SettingsLayout({
   primaryUnitInfo,
 }: DetailsPageLayoutProps) {
   return (
+    // The enterprise's primaryUnitInfo is its "Derived from" line, read
+    // before the menu (64ae2w, owner 2026-11-21).
     <DetailsPageLayout
       header={header}
-      nav={nav}
-      primaryUnitInfo={primaryUnitInfo}
+      nav={
+        <>
+          {primaryUnitInfo}
+          {nav}
+        </>
+      }
+      primaryUnitInfo={null}
     >
       {children}
     </DetailsPageLayout>
