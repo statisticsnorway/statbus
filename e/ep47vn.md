@@ -1,16 +1,21 @@
 ---
 id: ep47vn
 title: "The primary notice names only what flows to the other unit"
-state: todo
+state: "doing"
 type: bug
 priority: ""
-assignee: []
+assignee: ["hibiscus"]
 labels: []
 group: ""
 rank: "zzzzh"
 created: 2026-11-20
 updated: 2026-11-20
-stage: "ready"
+stage: "active"
+doing_since: "2026-11-21T09:33"
+doing_with: "64ae2w"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -50,3 +55,4 @@ PrimaryUnitNotice (app/src/components/form/primary-unit-notice.tsx, 839f84c98) s
 - 2026-11-21T09:31 answer 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
 - 2026-11-21T09:31 answer 1 acknowledged by hibiscus
 - 2026-11-21T09:32 hibiscus read the answer: hug task note ep47vn "2026-11-21 owner (answer 1): which fields flow is in the source code; find it or document it, do not ask him. Check 1 r…"
+- 2026-11-21T09:33 todo/ready -> doing/active (take with 64ae2w)
