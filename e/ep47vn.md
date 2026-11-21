@@ -33,7 +33,7 @@ PrimaryUnitNotice (app/src/components/form/primary-unit-notice.tsx, 839f84c98) s
 ## Depends on
 
 ## Acceptance
-- [ ] Which fields flow from a primary legal unit to its enterprise, and from a primary establishment to its legal unit or enterprise, is read from the source (timeline_*_def) and documented in doc/, each field with where its value comes from
+- [x] Which fields flow from a primary legal unit to its enterprise, and from a primary establishment to its legal unit or enterprise, is read from the source (timeline_*_def) and documented in doc/, each field with where its value comes from
 - [ ] The notice beside Save appears only on fields that flow to the other unit, and names that unit; a jest test covers a flowing and a non-flowing field
 - [ ] Editing an enterprise's short name, and a non-primary legal unit's name, shows no such notice; checked in Firefox on the local Norway data
 
@@ -49,6 +49,7 @@ PrimaryUnitNotice (app/src/components/form/primary-unit-notice.tsx, 839f84c98) s
 2026-11-21 owner (answer 1): which fields flow is in the source code; find it or document it, do not ask him. Check 1 reworded accordingly. Delegated to worker blowfish (session_blowfish_1795249933735_59720b2a8edc52f4): read timeline_enterprise_def / timeline_legal_unit_def, document field by field in doc/, report back; hibiscus builds the notice from that.
 Check 1: doc/primary-units.md (dcbad72ed). Enterprise from primary LU, else primary EST (COALESCE per column): name (after short_name), birth/death, primary+secondary activity, sector, physical+postal location, domestic, contact, unit size, status, used_for_counting. Legal form: primary LU only. External idents: enterprise own, else primary EST, else primary LU (whole set). Tags: enterprise own only. Stats_summary + data sources: all LUs/ESTs. LU takes nothing from its primary establishment except aggregate stats_summary/data sources over all its ESTs. Nothing flows downward.
 Correction: the doc commit is b7cd2f31e (the earlier note's sha was the previous HEAD).
+check 1: doc/primary-units.md (b7cd2f31e, worker blowfish): every enterprise field with where its value comes from (primary legal unit, else primary establishment, COALESCE per column; legal form from the legal unit only; name after short_name; identifiers the enterprise's own first; statistics and data sources over all units), legal unit fields (own rows; only statistics and data sources aggregate its establishments), and the precise sources in timeline_enterprise_def / timeline_legal_unit_def_for. Spot-checked against the live view: COALESCE(enplu.birth_date, enpes.birth_date), sector, status, unit size; enplu.legal_form_id alone.
 ## History
 - 2026-11-20T17:15 todo -> todo/design (ask)
 - 2026-11-21T09:31 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
