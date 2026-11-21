@@ -8,7 +8,7 @@ labels:
   - release-bug
   - install
 group: ""
-rank: "000000000009"
+rank: "00000000000v"
 dependencies:
   - STATBUS-408
   - STATBUS-411
