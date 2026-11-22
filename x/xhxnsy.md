@@ -35,3 +35,5 @@ Flow from the owner, 2026-11-18: Workflows page lists the workflows and which ar
 ## Notes
 
 2026-11-18 14:54 the first workflow to build is 2gpcs7 (pick the primary unit by a variable); its result feeds the quality check xz3jej (on master 8aaf0262b, in the next release candidate). PR #328 closed with this explanation: https://github.com/statisticsnorway/statbus/pull/328
+
+2026-11-22 20:42 owner (on z2qt08, answer 5): geocoding is a workflow here: one using Kartverket's address API for Norway, one using OpenStreetMap possibly with an API key the office enters, configured as used (not at installation). A run produces an import job of proposed coordinates for units, and one for region centres, reviewed and applied like any import. Built step by step, after the Workflows design. Plan: doc/design/units-on-map.md on feat/units-on-map.
