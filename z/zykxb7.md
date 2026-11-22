@@ -24,8 +24,16 @@ updated: "2026-10-20 20:45"
 ---
 
 ## Goal
+A standalone host serves its own pgAdmin at /pgadmin for operator database inspection, within the existing auth model.
 
-> NORTH STAR: a standalone host (e.g. no.statbus.org) serves its own local pgAdmin at a path (no.statbus.org/pgadmin) for operator DB inspection, WITHOUT weakening the auth model — pgAdmin does not run as superadmin and does not hold its own separate credentials.
+## Purpose
+Operators need to inspect a box's database, and the pgAdmin prototype branch should be retired into a ticket.
+
+## Principle
+pgAdmin never runs as superadmin and holds no separate credentials of its own.
+
+## Details
+Former goal (kept verbatim): > NORTH STAR: a standalone host (e.g. no.statbus.org) serves its own local pgAdmin at a path (no.statbus.org/pgadmin) for operator DB inspection, WITHOUT weakening the auth model — pgAdmin does not run as superadmin and does not hold its own separate credentials.
 > ORIGIN: captured from the feature/pgadmin branch (King, 2026-07-13, during the STATBUS-035 branch walk) so the branch's intent lives in a ticket and the branch can be retired. The branch has a working-ish prototype (multi-tenant pgAdmin compose + custom image with an SSLSNI patch + a command-palette link + forward_auth handling); it is a starting reference, not the design.
 > STAGE: standalone / ops tooling — post the current release train.
 > COMPLEXITY: engineer-substantial — the hard part is NOT deploying pgAdmin, it is the auth model.
