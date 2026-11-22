@@ -1,9 +1,6 @@
 ---
 id: "9vpx9v"
-title: >-
-  config-apply-gap: every .env.config edit leaves file and behaviour disagreeing
-  until someone regenerates and restarts — ./sb install should apply config
-  changes
+title: "./sb install applies .env.config changes, so file and behaviour agree"
 state: "todo"
 assignee: []
 labels:
