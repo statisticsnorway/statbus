@@ -20,6 +20,13 @@ created: "2026-11-11T12:51:00Z"
 ---
 
 ## Goal
+An administrator's change to a statistical variable or identifier type is stored at once; its regeneration runs in the worker.
+
+## Purpose
+On Norway each such save took 8.6 to 13.3 s, because the regeneration ran inline in a statement trigger (STATBUS-619).
+
+## Principle
+The trigger enqueues one deduplicated worker task instead of regenerating inline; progress shows like other worker work.
 
 ## Acceptance
 - [ ] #1 [Owner] Agrees the design (worker task, what is visible meanwhile) after a walk-through. The answer is recorded in this ticket's notes and becomes the build plan.
