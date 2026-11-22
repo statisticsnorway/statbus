@@ -1,9 +1,6 @@
 ---
 id: "yrwba5"
-title: >-
-  Import definitions derive a target value from source columns with an
-  expression, so an office can map a register's flags to StatBus codes without a
-  custom loader
+title: "Import definitions derive a value from source columns with an expression"
 state: "todo"
 assignee: []
 labels:
