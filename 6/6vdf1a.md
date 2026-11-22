@@ -1,6 +1,6 @@
 ---
 id: "6vdf1a"
-title: A third-party operator installs a ready StatBus site on Ubuntu 26.04 from the published instructions
+title: "A third-party operator installs StatBus on Ubuntu 26.04 from published steps"
 state: "todo"
 assignee: []
 updated_date: '2026-09-24 18:47'
