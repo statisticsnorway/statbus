@@ -21,8 +21,16 @@ created: "2026-11-09T21:24:00Z"
 ---
 
 ## Goal
+An office maps a register file to StatBus in the import definition alone, including values the file expresses differently.
 
-### North Star
+## Purpose
+A register that encodes status as several flags needs code outside StatBus today (Norway's STATBUS-600 loader bridge).
+
+## Principle
+A mapping may derive a value from source columns with an expression; the loader bridge is removed once it works.
+
+## Details
+Former goal (kept verbatim): ### North Star
 
 An office maps a register file to StatBus in the import definition alone, including values the file expresses differently, such as yes/no flags that together mean a status.
 
