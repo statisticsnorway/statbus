@@ -11,19 +11,25 @@ export function UnitTypeLegend({
   selected,
   onChange,
   totals,
+  unitTypes = MAP_UNIT_TYPES,
+  mixedSwatch = true,
 }: {
   selected: readonly MapUnitType[];
   onChange: (next: MapUnitType[]) => void;
   totals: Record<MapUnitType, number>;
+  /** The types this map can show; the Links map draws no enterprises (they have no place of their own). */
+  unitTypes?: readonly MapUnitType[];
+  /** Whether the map paints grey where types are counted together (the Regions map), so the legend explains grey. */
+  mixedSwatch?: boolean;
 }) {
   const toggle = (unitType: MapUnitType) => {
     const next = selected.includes(unitType) ? selected.filter((t) => t !== unitType) : [...selected, unitType];
-    if (next.length > 0) onChange(MAP_UNIT_TYPES.filter((t) => next.includes(t)));
+    if (next.length > 0) onChange(unitTypes.filter((t) => next.includes(t)));
   };
   return (
     <fieldset className="space-y-1.5 text-sm" data-unit-type-legend="">
       <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">Units</legend>
-      {MAP_UNIT_TYPES.map((unitType) => (
+      {unitTypes.map((unitType) => (
         <label key={unitType} className="flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"
@@ -39,7 +45,7 @@ export function UnitTypeLegend({
           <span className="tabular-nums text-gray-600">{totals[unitType].toLocaleString()}</span>
         </label>
       ))}
-      {selected.length > 1 && (
+      {mixedSwatch && selected.length > 1 && (
         <p className="flex items-center gap-2 pt-1 text-xs text-gray-600">
           <span className={`inline-block h-3 w-3 rounded-full border border-black/20 ${UNIT_TYPE_SWATCH.mixed}`} aria-hidden />
           Several types together

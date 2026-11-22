@@ -193,3 +193,66 @@ export function framingFeatures<P extends { total: number }>(
 export function maxTotal(features: GeoJSON.Feature<GeoJSON.Point, { total: number }>[]): number {
   return features.reduce((m, f) => Math.max(m, f.properties.total), 0);
 }
+
+/** A unit of the hierarchy as the Links map needs it: its kind, name, link and physical locations. */
+type HierarchyLocation = { type: string; latitude: number | null; longitude: number | null };
+type HierarchyUnit = { id: number; name: string; location?: HierarchyLocation[] };
+export interface LinksHierarchy {
+  enterprise: {
+    id: number;
+    short_name?: string | null;
+    legal_unit?: (HierarchyUnit & { establishment?: HierarchyUnit[] })[];
+    establishment?: HierarchyUnit[];
+  };
+}
+
+export interface UnitPointProperties {
+  unit_type: MapUnitType;
+  id: number;
+  name: string;
+  href: string;
+  /** The unit whose Links page this is. */
+  current: boolean;
+}
+
+const UNIT_PATH: Record<MapUnitType, string> = {
+  enterprise: "enterprises",
+  legal_unit: "legal-units",
+  establishment: "establishments",
+};
+
+/**
+ * The legal units and establishments of the enterprise a Links page shows, at their physical
+ * location, and the ones without coordinates counted for the "N of M" line (z2qt08). The
+ * enterprise has no location of its own: it is where its primary unit is, so it is not drawn
+ * as a point of its own.
+ */
+export function linksUnitPoints(
+  hierarchy: LinksHierarchy,
+  current: { unitType: MapUnitType; id: number }
+): { features: GeoJSON.FeatureCollection<GeoJSON.Point, UnitPointProperties>; total: number } {
+  const units: { unit_type: MapUnitType; unit: HierarchyUnit }[] = [];
+  for (const lu of hierarchy.enterprise.legal_unit ?? []) {
+    units.push({ unit_type: "legal_unit", unit: lu });
+    for (const es of lu.establishment ?? []) units.push({ unit_type: "establishment", unit: es });
+  }
+  for (const es of hierarchy.enterprise.establishment ?? []) units.push({ unit_type: "establishment", unit: es });
+
+  const features: GeoJSON.Feature<GeoJSON.Point, UnitPointProperties>[] = [];
+  for (const { unit_type, unit } of units) {
+    const physical = (unit.location ?? []).find((l) => l.type === "physical" && l.latitude != null && l.longitude != null);
+    if (!physical) continue;
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [Number(physical.longitude), Number(physical.latitude)] },
+      properties: {
+        unit_type,
+        id: unit.id,
+        name: unit.name,
+        href: `/${UNIT_PATH[unit_type]}/${unit.id}`,
+        current: unit_type === current.unitType && unit.id === current.id,
+      },
+    });
+  }
+  return { features: { type: "FeatureCollection", features }, total: units.length };
+}

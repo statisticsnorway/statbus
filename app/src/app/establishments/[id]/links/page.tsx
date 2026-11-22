@@ -1,5 +1,6 @@
 import { DetailsPage } from "@/components/statistical-unit-details/details-page";
 import TopologySlot from "@/components/statistical-unit-details/topology-slot";
+import { LinksMap } from "@/components/map/links-map";
 
 export default async function EstablishmentLinksPage(
   props: {
@@ -17,6 +18,7 @@ export default async function EstablishmentLinksPage(
       title="Links and external references"
       subtitle="Relationships (links) between units of different types within the SBR"
     >
+      <LinksMap unitId={id} unitType="establishment" />
       <TopologySlot unitId={id} unitType="establishment" />
     </DetailsPage>
   );

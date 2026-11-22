@@ -1,4 +1,4 @@
-import { countsByRegion, depthForZoom, featureBounds, framingFeatures, maxRegionDepth, maxTotal, pathPrefix, regionFeatures, unitTypeColourVariable, unplacedCount, type RegionCountRow } from "./map-data";
+import { countsByRegion, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, regionFeatures, unitTypeColourVariable, unplacedCount, type RegionCountRow } from "./map-data";
 
 // z2qt08: the Regions map counts units per region path prefix from statistical_unit_facet and
 // draws each region with a centre; regions without one are listed beside the map.
@@ -94,6 +94,39 @@ describe("framingFeatures and maxTotal", () => {
   it("frames the regions with at least 1% of the largest one, leaving out far-off small ones", () => {
     const features = [point(188463, 10.7), point(15070, 25), point(643, 16)];
     expect([framingFeatures(features).map((f) => f.properties.total), maxTotal(features), maxTotal([])]).toEqual([[188463, 15070], 188463, 0]);
+  });
+});
+
+describe("linksUnitPoints", () => {
+  const at = (lat: number | null, lon: number | null, type = "physical") => [{ type, latitude: lat, longitude: lon }];
+  const hierarchy = {
+    enterprise: {
+      id: 10,
+      legal_unit: [
+        {
+          id: 20,
+          name: "VERIDIT AS",
+          location: at(59.91, 10.75),
+          establishment: [
+            { id: 30, name: "Oslo office", location: at(59.92, 10.76) },
+            { id: 31, name: "Bergen office", location: at(null, null) },
+          ],
+        },
+        { id: 21, name: "Postal only AS", location: at(60.1, 10.2, "postal") },
+      ],
+      establishment: [{ id: 40, name: "Kiosk", location: at(60.39, 5.32) }],
+    },
+  };
+
+  it("places the legal units and establishments at their physical location, marks the page's unit, and counts all", () => {
+    const { features, total } = linksUnitPoints(hierarchy, { unitType: "establishment", id: 30 });
+    expect(features.features.map((f) => [f.properties.unit_type, f.properties.name, f.properties.href, f.properties.current, f.geometry.coordinates])).toEqual([
+      ["legal_unit", "VERIDIT AS", "/legal-units/20", false, [10.75, 59.91]],
+      ["establishment", "Oslo office", "/establishments/30", true, [10.76, 59.92]],
+      ["establishment", "Kiosk", "/establishments/40", false, [5.32, 60.39]],
+    ]);
+    // Five units: the Bergen office has no coordinates, Postal only AS only a postal location.
+    expect(total).toBe(5);
   });
 });
 
