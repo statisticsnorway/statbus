@@ -17,8 +17,16 @@ updated: "2026-11-02T21:45:00Z"
 ---
 
 ## Goal
+A unit's status, and so whether it is counted, follows from expiring evidence of economic activity, not only from typing it in.
 
-North Star: a unit's status, and with it whether it is counted, follows from evidence that it is economically active (a VAT return, a payroll, reported turnover), each piece valid for a set time, instead of only being typed in.
+## Purpose
+Status decides used_for_counting, so it feeds every report, yet nothing derives it today: it is set by import or edit.
+
+## Principle
+Each piece of evidence (VAT return, payroll, turnover) is valid for a set time; the owner and countries decide the evidence and how entered status combines.
+
+## Details
+Former goal (kept verbatim): North Star: a unit's status, and with it whether it is counted, follows from evidence that it is economically active (a VAT return, a payroll, reported turnover), each piece valid for a set time, instead of only being typed in.
 
 Today public.status is a plain reference list (code, name, assigned_by_default, used_for_counting, priority, enabled). A unit's status_id is set by import or edit and nothing derives it. Status decides used_for_counting, so this feeds directly into who is counted in every report.
 
