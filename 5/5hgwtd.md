@@ -1,8 +1,6 @@
 ---
 id: "5hgwtd"
-title: >-
-  sb config prune reports and removes settings this version no longer reads,
-  only on demand
+title: "sb config prune lists and, on demand, removes settings no longer read"
 state: "todo"
 assignee: []
 updated_date: '2026-10-26 15:10'
