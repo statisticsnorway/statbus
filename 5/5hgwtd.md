@@ -23,8 +23,16 @@ updated: "2026-10-26 15:10"
 ---
 
 ## Goal
+An operator can list and, when asked, remove the .env.config and .env.credentials entries this version no longer reads.
 
-### North Star
+## Purpose
+Long-lived installations collect settings from older versions, which hides what the box actually uses.
+
+## Principle
+Only on demand: install and config generation never remove settings; a report names a credential key, never its value.
+
+## Details
+Former goal (kept verbatim): ### North Star
 An operator can ask `sb` which entries in `.env.config` and `.env.credentials` this version no longer reads, and can remove them deliberately. Install and config generation never remove them automatically.
 
 ### Zoom out
