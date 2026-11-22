@@ -18,8 +18,16 @@ created: "2026-10-01 13:20"
 ---
 
 ## Goal
+A standalone box without certificates can run plain HTTP as an explicit interim until its certificates are installed.
 
-Raised by the owner during the STATBUS-429 judgment (2026-10-01 13:17 UTC): if you have no certificates you should be able to get going without HTTPS, plain HTTP until you can install the certificates.
+## Purpose
+A standalone box on an internal network without ACME reachability or custom certificates has no supported state today.
+
+## Principle
+Plain HTTP only as an explicit, visible interim the operator chooses, never a silent fallback (owner 2026-10-01).
+
+## Details
+Former goal (kept verbatim): Raised by the owner during the STATBUS-429 judgment (2026-10-01 13:17 UTC): if you have no certificates you should be able to get going without HTTPS, plain HTTP until you can install the certificates.
 
 Current coverage: standalone mode always serves HTTPS via automatic Let's Encrypt (needs public DNS and ACME reachability); private mode is HTTP behind a host-level proxy by design. A standalone box on an internal network without ACME reachability AND without custom certificates has no supported interim state today.
 
