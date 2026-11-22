@@ -20,8 +20,16 @@ updated: "2026-10-20 20:45"
 ---
 
 ## Goal
+Fast Tests run as weight-balanced parallel shards with one verdict, cutting the gate from about 15 to about 7 minutes.
 
-Purpose: cut the Fast Tests CI gate from ~15 min to ~7 min.
+## Purpose
+The pg_regress fast suite runs its 101 tests serially (614 s), with the 3xx block taking 82% of the time.
+
+## Principle
+Balance shards by measured test weight, not by number range; one combined verdict gates the push.
+
+## Details
+Former goal (kept verbatim): Purpose: cut the Fast Tests CI gate from ~15 min to ~7 min.
 
 Measured (Fast Tests run on 2026-09-28): the pg_regress fast suite runs its 101 shared tests serially in one pg_regress process against one BEGIN/ROLLBACK-isolated clone (dev.sh SHARED_TEST_DB=test_shared_$$), 614 s total. By hundred: 0xx 22 tests 6 s, 1xx 30 tests 69 s, 2xx 5 tests 35 s, 3xx 44 tests 502 s (82%). Slowest: 310_idempotent_import_source_dates 171 s, 314 56 s, 344 40 s, 312 24 s, 309 23 s, 110 20 s. Splitting by hundreds alone leaves the 3xx block at ~8.5 min.
 
