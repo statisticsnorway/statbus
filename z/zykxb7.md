@@ -1,8 +1,6 @@
 ---
 id: "zykxb7"
-title: >-
-  standalone-pgadmin: local pgAdmin on the standalone host at /pgadmin, JWT/user
-  model resolved (no superadmin)
+title: "standalone-pgadmin: local pgAdmin at /pgadmin, no superadmin"
 state: "todo"
 assignee: []
 updated_date: '2026-10-20 20:45'
