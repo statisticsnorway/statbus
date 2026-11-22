@@ -18,6 +18,11 @@ origin: "backlog:STATBUS-343"
 aliases: ["STATBUS-343"]
 backlog_type: "enhancement"
 created: "2026-09-02 12:43"
+design_question: "ci-verdict-ledger proposes recording workflow verdicts on a git ref so nothing polls the GitHub API (after a rate-limit incident). Build it (then it gets acceptance checks), or drop it as solved otherwise?"
+design_for: "jhf"
+design_since: "2026-11-22T23:31"
+design_asked_by: "hibiscus"
+stage: "design"
 ---
 
 ## Goal
@@ -34,3 +39,12 @@ C. Do nothing structural; keep the polite-cadence polling discipline (recorded i
 Scope note: this serves OUR release machinery; customer boxes are untouched (their discovery already uses git transport). The Slack UPGRADE_CALLBACK stays as human notification; this is the machine-readable sibling.
 
 Acceptance (post-ruling, for A): every workflow_run completion lands in the ledger within a minute; ./sb release preflight reads verdicts from the ledger with REST as fallback only; watchers documented to poll the ledger; one release cut end-to-end with zero REST status calls.
+
+
+## Questions
+- 2026-11-22T23:31 question 1 by hibiscus to jhf:
+  ci-verdict-ledger proposes recording workflow verdicts on a git ref so nothing polls the GitHub API (after a rate-limit incident). Build it (then it gets acceptance checks), or drop it as solved otherwise?
+
+
+## History
+- 2026-11-22T23:31 todo -> todo/design (ask)
