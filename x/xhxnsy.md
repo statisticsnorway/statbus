@@ -13,7 +13,7 @@ updated: 2026-11-18
 ---
 
 ## Goal
-StatBus has a Workflows page where batch changes are made through the import system: a built-in workflow analyses a chosen frame, produces an import job with its proposed changes, and the user previews, approves and applies it like any import.
+A Workflows page runs built-in workflows whose result is an import job, previewed, approved and applied like any import.
 
 ## Purpose
 Batch corrections (unit size, primary units) should be made with the same preview, review, approval and accountability as imports, not as silent updates (owner 2026-11-18). This is how people are meant to do bulk work in StatBus.
@@ -22,6 +22,8 @@ Batch corrections (unit size, primary units) should be made with the same previe
 Workflows are built in (hard-coded), not user-written. Each can be activated or not on the Workflows page. A run is: pick an active workflow, configure it (frame, variable), run it, get an import job with the changes, review, apply. Nothing changes the data except the import job. Long-term task; first workflows are unit size and primary selection.
 
 ## Relevant details
+Former goal: StatBus has a Workflows page where batch changes are made through the import system: a built-in workflow analyses a chosen frame, produces an import job with its proposed changes, and the user previews, approves and applies it like any import.
+
 Flow from the owner, 2026-11-18: Workflows page lists the workflows and which are active; the user picks an active one, goes through it, configures it, runs it; the result is an import job with the changes, which can be reviewed and applied. Reuses the existing import system throughout (preview, approval, look at data). Related: the data-quality check in xz3jej finds legal units whose primary establishment has another activity; a workflow could later propose the fix.
 
 ## Depends on
