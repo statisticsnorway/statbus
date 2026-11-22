@@ -69,10 +69,9 @@ and longitude from a point instead of typing.
     (a9168x).
   - Pure helpers with jest tests (node environment): rows to GeoJSON,
     percentile stops, cluster sums, the counts query builder.
-- A truncation notice whenever the points shown are fewer than the matches
-  ("5,000 of 31,204 shown, narrow the search"), and a plain "no unit has
-  coordinates" message instead of an empty map (both from Erik's earlier
-  prototypes).
+- A count of what is shown against what the place holds ("312 of 340
+  related units have coordinates"), and a plain "no unit has coordinates"
+  message instead of an empty map (both from Erik's earlier prototypes).
 
 ## 4. Staying fast on a full register
 
