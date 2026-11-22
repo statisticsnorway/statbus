@@ -1,6 +1,6 @@
 ---
 id: "w0sg6y"
-title: "power-group-viewpoints: enterprise group or sphere of influence, chosen per report"
+title: "power-group-viewpoints: enterprise group or sphere of influence per report"
 state: "todo"
 assignee: []
 updated_date: '2026-10-20 20:45'
