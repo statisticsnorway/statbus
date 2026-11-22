@@ -22,8 +22,16 @@ updated: "2026-10-20 20:45"
 ---
 
 ## Goal
+Operator settings live outside the product-owned checkout, so replacing the checkout never touches them.
 
-Owner question 2026-10-01, during the STATBUS-431 strategy discussion. Direction DECIDED by the owner across 12:04-12:27 UTC (the 12:04 `~/.statbus/` directory form and the 12:24 "single live authority in ~" sketch are superseded by the 12:27 ruling below).
+## Purpose
+Settings inside the checkout mix the operator's files with product files and are at risk when the checkout is replaced.
+
+## Principle
+Two locations, two roles, never mixed, as the owner ruled on 2026-10-01 12:27 UTC (input files in ~, kept verbatim in Details).
+
+## Details
+Former goal (kept verbatim): Owner question 2026-10-01, during the STATBUS-431 strategy discussion. Direction DECIDED by the owner across 12:04-12:27 UTC (the 12:04 `~/.statbus/` directory form and the 12:24 "single live authority in ~" sketch are superseded by the 12:27 ruling below).
 
 ### The decision (2026-10-01 12:27 UTC)
 
