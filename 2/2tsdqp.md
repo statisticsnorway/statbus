@@ -31,6 +31,9 @@ Cause found for the Norway case (rolled-back prototype 2026-11-21, tmp/slack-tod
 - [ ] A legal unit update row without a name whose period starts before the unit existed is refused in analysis with a message naming the unit's first date; a SQL test asserts the row's state, action and error
 - [ ] The same for an establishment update row without its legal unit link; a SQL test asserts it
 - [ ] Each failing dev job, re-run on this fix, either completes or stops in analysis with the reason on the row; the result is recorded here
+- [ ] An establishment-of-legal-unit row with a sector code is refused in analysis with a message saying the sector belongs to its legal unit; a SQL test asserts the row's state, action and error
+- [ ] A row that fails in processing fails alone: the other rows' units, statistics, contacts and activities are written; a SQL test with one bad row asserts the rest are processed
+- [ ] An upload for establishments of legal units whose file has a column an establishment cannot hold (sector, legal form) is refused on the upload page with a message naming the column; a Playwright test asserts it
 
 ## Notes
 
