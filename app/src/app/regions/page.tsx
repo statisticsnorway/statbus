@@ -1,4 +1,7 @@
 "use client";
+import Link from "next/link";
+import { Map as MapIcon } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { TableResultCount } from "@/components/table/table-result-count";
 import TablePagination from "../../components/table/table-pagination";
 import RegionTable from "./region-table";
@@ -13,11 +16,17 @@ export default function RegionPage() {
         Region Hierarchy
       </h1>
       <section className="space-y-3">
-        <TableFilters
-          setQueries={setQueries}
-          setPagination={setPagination}
-          queries={queries}
-        />
+        <div className="flex items-start justify-between gap-3">
+          <TableFilters
+            setQueries={setQueries}
+            setPagination={setPagination}
+            queries={queries}
+          />
+          <Link href="/regions/map" className={buttonVariants({ variant: "outline", size: "sm" })} data-regions-map-link="">
+            <MapIcon className="mr-1.5 h-4 w-4" />
+            Map
+          </Link>
+        </div>
         <div className="rounded-md border overflow-hidden">
           <RegionTable regions={data?.regions ?? []} />
         </div>

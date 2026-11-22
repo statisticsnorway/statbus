@@ -14,16 +14,20 @@ const RegionTable = ({ regions }: RegionTableProps) => {
           <TableCell>Code</TableCell>
           <TableCell>Path</TableCell>
           <TableCell>Name</TableCell>
+          <TableCell className="text-right">Latitude</TableCell>
+          <TableCell className="text-right">Longitude</TableCell>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {regions.map(({ id, code, path, name }) => (
+        {regions.map(({ id, code, path, name, center_latitude, center_longitude }) => (
           <TableRow key={id}>
             <TableCell className="py-3 lg:w-36">{code}</TableCell>
             <TableCell className="py-3 lg:w-36">{path}</TableCell>
             <TableCell className="py-3 overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-72 max-w-52">
               {name}
             </TableCell>
+            <TableCell className="py-3 text-right tabular-nums">{center_latitude ?? ""}</TableCell>
+            <TableCell className="py-3 text-right tabular-nums">{center_longitude ?? ""}</TableCell>
           </TableRow>
         ))}
       </TableBody>
