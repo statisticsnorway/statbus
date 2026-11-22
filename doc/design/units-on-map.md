@@ -147,9 +147,10 @@ Facts for that session (measured on the Norway copy, 2026-11-22):
   the shelf, airspace, abroad, Svalbard reserves, "uoppgitt").
 - **E Location form** (`general-info-form.tsx:216-231`): a "Pick on map"
   button opens a dialog (shadcn `Dialog`) with the map centred on the current
-  point, else on the address found by the geocoder (question 5), else on the
-  unit's region centre; drag the pin; OK fills latitude and longitude (and
-  leaves altitude); Save works as today through `updateLocation`.
+  point, else on the unit's region centre; drag the pin; OK fills latitude and
+  longitude (and leaves altitude); Save works as today through
+  `updateLocation`. No address lookup here: geocoding is done by workflows
+  (question 5).
 
 ## 6. Order of work (proposal)
 
@@ -158,8 +159,9 @@ Facts for that session (measured on the Norway copy, 2026-11-22):
 | 0 | Coordinates for Norway: kvbebr (naming), dbmsxy (an import that updates only lat/lon on existing units; today a coordinates-only file fails), r39dqb (load, after a fresh export), 4pj9bz (2026 regions, the list Erik's region centres follow) | owner's decisions on those tasks |
 | 1 | Map component + **D Regions** (works today from region centres) | ready to build |
 | 2 | **A Links map** (related units as they are) | phase 1; useful once phase 0 data is in |
-| 3 | **E Location picker** with geocoding | question 5 |
+| 3 | **E Location picker** (current point or region centre, drag the pin) | phase 1 |
 | 4 | **Statistical geography** (section 4a): its own design session, then the table, then **B Search map** (5nq78t, Erik's Map beside Export) and **C the general Reports map** on it | owner's design |
+| later | **Geocoding workflows** (xhxnsy): Kartverket for Norway, OpenStreetMap with the office's own key; each run produces an import job of coordinates for units (and for regions) to review and apply | the Workflows design |
 
 Owner 2026-11-22 (questions 1, 3, 4): Regions first; the search map and the
 general report map wait for the statistical geography design, the small
@@ -183,12 +185,13 @@ adding one is its own decision.
    table. For the general report map and the map of statistical units
    (search), a live grid at 11.7 s is not acceptable: they need the special
    table of section 4a.
-5. **Geocoding on the location form**: (a) Kartverket's open address API for
-   Norway (`ws.geonorge.no/adresser/v1/sok`, interactive lookups only), with no
-   lookup elsewhere; (b) OpenStreetMap's Nominatim for all countries (1 request
-   per second, no bulk); (c) a geocoder chosen per installation in settings;
-   (d) no geocoding, the dialog starts at the region centre and the user moves
-   the pin.
+5. **Geocoding**: answered 2026-11-22: geocoding is a workflow (xhxnsy),
+   not part of the picker or of installation. One workflow uses Kartverket
+   for Norway, another OpenStreetMap, possibly with an API key the office
+   enters itself, configured as it is used. A run produces an import job
+   showing the coordinates it proposes, reviewed and applied like any import;
+   the same for region centres (an import job for regions). Built step by
+   step, not all at once.
 6. **The map's page or a dialog**: search, reports and regions maps as their
    own full-width pages (`/search/map`, linkable, back button works), with a
    dialog only for the location picker, as proposed?
