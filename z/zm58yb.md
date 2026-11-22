@@ -24,8 +24,16 @@ updated: "2026-10-20 20:45"
 ---
 
 ## Goal
+A newly created user receives their credentials and welcome by email, through SMTP2GO.
 
-> NORTH STAR: a newly created user receives their credentials/welcome by email — no operator copy-pasting secrets over side channels.
+## Purpose
+Operators copy secrets to new users over side channels today.
+
+## Principle
+Build from doc/design/smtp2go-email.md, the authoritative design, not a fresh sketch.
+
+## Details
+Former goal (kept verbatim): > NORTH STAR: a newly created user receives their credentials/welcome by email — no operator copy-pasting secrets over side channels.
 > STAGE: design DONE and review-hardened; implementation not started. Build follows doc/design/smtp2go-email.md — the authoritative design — not a fresh sketch. One sequencing decision below.
 
 WHERE THIS ACTUALLY STANDS (corrected 2026-07-29 — the operator's code sweep confirmed no implementation exists, but the DESIGN is far from greenfield):
