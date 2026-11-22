@@ -45,6 +45,7 @@ check 1: prototype/5vxfjm/step1.log: stamped rabbit-review under role, postgres 
 check 2: BRREG selection import as rabbit-review, 0 refusals, all unit rows stamped rabbit-review (branch-stamps.log)
 check 3: branch 81.4s/72.9s vs master 72.4s/74.2s
 2026-11-21 19:24 (Rabbit, coordinator) reviewed buffalo's result: branch prototype/import-as-user-role f4aedb8cf pushed, not merged; artifacts tmp/5vxfjm/ (role-probe.sql, patch.sql, branch-run*/master-run* logs, check-stamps.sql). Owner informed; the sql_saga agent (f86twg) is starting the provenance work on that basis. Open for the owner: build or not; admin-user comparison run not done.
+2026-11-22 22:23 still with hibiscus, parked: units on a map (z2qt08) came first by the owner's order; this prototype resumes after z2qt08's phases land.
 ## History
 - 2026-11-21T09:49 todo -> doing/active (take)
 - 2026-11-21T20:10 handed to hibiscus: buffalo's session ended (closed 2026-11-21 10:29)
