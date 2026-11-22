@@ -29,9 +29,9 @@ Papa Parse checks the file in the browser and refuses a broken one with the line
 - dbmsxy
 ## Acceptance
 - [ ] An upload whose notes column has an unterminated quote is refused in the browser before upload, naming the line where the open quote starts; nothing is sent
-- [ ] An import with a notes column stores each row's note; a test file with doubled quotes, commas and line breaks inside quoted notes stores them exactly
-- [ ] [Owner] Settles, per import strategy, what an empty and a filled notes cell do to the unit's note (unit_notes is timeless), recorded in this task's notes; each settled mapping becomes one case of the per-strategy test in the next check
-- [ ] An empty notes cell follows the job's strategy as settled; a test per strategy shows the stored notes
+- [ ] An import with a notes column stores each unit's note; a test file with doubled quotes, commas and line breaks inside quoted notes stores them exactly, and a unit on several rows follows the owner's settlement in the next check
+- [ ] [Owner] Settles, per import strategy, what an empty and a filled notes cell do to the unit's note (unit_notes is timeless), and whether a unit on several rows (periods) has its notes merged into one or the file refused; recorded in this task's notes; each settled case becomes a case of the tests in checks 2 and 4
+- [ ] An empty and a filled notes cell follow the import's strategy as settled; a test per strategy asserts the stored note equals the settled result
 
 ## Notes
 
