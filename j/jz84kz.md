@@ -19,8 +19,16 @@ updated: "2026-10-20 20:45"
 ---
 
 ## Goal
+It is defined when installed release metadata supersedes a newer failed upgrade, and the LXD arcs assert that rule.
 
-Found by the LXD arc run (STATBUS-425 M3b; durable evidence on ci/lxd-arcs at test/install-recovery/lxd/evidence/v2026.09.3-rc.17/). Arcs rollback-pair-terminal and restore-broke-reattempt expect their deliberately failed upgrade row B to stay 'failed'. The LXD ledger instead records 'superseded' after an installer rerun, with the checkout still at A.
+## Purpose
+LXD arcs saw an older installed stable release mark a newer failed upgrade row 'superseded'; the intended rule was undecided.
+
+## Principle
+The owner decides the contract (recorded 2026-10-01); forward migration only for shipped SQL; arcs give their verdict without live GitHub.
+
+## Details
+Former goal (kept verbatim): Found by the LXD arc run (STATBUS-425 M3b; durable evidence on ci/lxd-arcs at test/install-recovery/lxd/evidence/v2026.09.3-rc.17/). Arcs rollback-pair-terminal and restore-broke-reattempt expect their deliberately failed upgrade row B to stay 'failed'. The LXD ledger instead records 'superseded' after an installer rerun, with the checkout still at A.
 
 Both A and B are Git commits. A=ebe058af was committed on 29 September at 00:30:59 UTC and has both v2026.09.3-rc.17 and v2026.09.3 tags. The owner promoted stable around 07:14 UTC. The test created B=29986056 at 14:40:27 UTC, after promotion; B has no RC or stable tag. The ledger records A as release_status='release' and B as release_status='commit', with B superseded at 14:49:52 UTC. Promotion did not happen between B's creation and failure, and no newer fixing version was installed in this observed sequence.
 
