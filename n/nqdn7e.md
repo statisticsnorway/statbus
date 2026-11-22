@@ -19,8 +19,16 @@ updated: "2026-10-30T12:33:00Z"
 ---
 
 ## Goal
+The hidden 'sb upgrade service' alias is removed in the release after the next, with no box crash-looping on upgrade.
 
-Why: STATBUS-527 renamed the upgrader to noun commands (sb upgrader install|start|stop|status|run). Units installed before 527 (statbus-upgrade@.service) run ExecStart='sb upgrade service', so cli/cmd/upgrade.go keeps that as a hidden alias of 'sb upgrader run'. Owner decision 2026-10-30: remove the alias in the release after the next one, so every box that upgrades through the next release already runs statbus-upgrader@.service.
+## Purpose
+The alias stays only for units installed before STATBUS-527 that still start the upgrader with the old command.
+
+## Principle
+Remove it only after every box has passed through a release that migrates its unit, proven by a real upgrade arc (owner 2026-10-30).
+
+## Details
+Former goal (kept verbatim): Why: STATBUS-527 renamed the upgrader to noun commands (sb upgrader install|start|stop|status|run). Units installed before 527 (statbus-upgrade@.service) run ExecStart='sb upgrade service', so cli/cmd/upgrade.go keeps that as a hidden alias of 'sb upgrader run'. Owner decision 2026-10-30: remove the alias in the release after the next one, so every box that upgrades through the next release already runs statbus-upgrader@.service.
 
 Risk to prove away: a box still on a pre-527 release that upgrades straight to the release without the alias. During that upgrade the old unit restarts the new ./sb with 'upgrade service'; if the alias is gone before the unit is migrated, the upgrader crash-loops.
 
