@@ -1,8 +1,6 @@
 ---
 id: "yq9mws"
-title: >-
-  Changing a statistical variable or identifier type returns at once and its
-  regeneration runs in the worker
+title: "Changing a statistical variable returns at once; the worker regenerates"
 state: "todo"
 assignee: []
 labels:
