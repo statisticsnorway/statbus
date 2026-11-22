@@ -35,8 +35,8 @@ Related: 6btpmz (unit notes, waits on this), qtx2xm (same rules for edits and im
 
 ## Acceptance
 - [ ] [Owner] Settles the strategies the Advanced switch offers, their plain names, and the merge mode each uses (e.g. update only given columns = PATCH_FOR_PORTION_OF, insert and update = MERGE_ENTITY_PATCH, replace = MERGE_ENTITY_REPLACE), including whether process_establishment follows the same table; recorded in this task's notes, and that table is what the tests in checks 2 and 3 assert
-- [ ] A file with only tax_ident, physical_latitude and physical_longitude, imported with the update strategy on units that exist from 2026-11-07, sets the coordinates from the chosen date and leaves name and every other value unchanged; a SQL test asserts the stored rows
-- [ ] The same file with a date before a unit existed stores nothing outside the unit's life and reports no processing error; a test asserts it
+- [ ] A file with only tax_ident, physical_latitude and physical_longitude, imported with the update strategy from 2026-11-07 on units that exist from that date, sets the coordinates from 2026-11-07 on; name and every other value, and every value before 2026-11-07, stay as they were; a SQL test asserts the stored rows
+- [ ] The same file dated before a unit existed finishes with no processing error and stores no row before the unit's first date; a SQL test asserts the job state and the unit's rows
 - [ ] The upload page has an Advanced switch that shows the strategy in plain words; a Playwright test picks the update strategy and the job's definition has it
 - [ ] Analysis runs only the steps whose columns the file carries; a test with a 3-column file asserts which steps ran
 - [ ] The job records which analysis steps ran and why the others were skipped (no column in the file); the job page shows it and a test asserts the record for a 3-column file
