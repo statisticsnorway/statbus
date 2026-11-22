@@ -1,8 +1,6 @@
 ---
 id: "w0sg6y"
-title: >-
-  power-group-viewpoints: primary (EU:Enterprise Group,NO:konsern) vs
-  non-primary power groups — layered design + selectable reporting viewpoint
+title: "power-group-viewpoints: enterprise group vs sphere of influence, chosen at report"
 state: "todo"
 assignee: []
 updated_date: '2026-10-20 20:45'
