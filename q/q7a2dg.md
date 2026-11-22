@@ -21,8 +21,16 @@ created: "2026-10-21 21:19"
 ---
 
 ## Goal
+www.statbus.org is a static site with one small Go backend, released like StatBus, whose first job publishes build status.
 
-### North Star
+## Purpose
+A box that cannot find a release's images only knows 'not there'; only GitHub knows whether a build is pending, running or failed.
+
+## Principle
+Boxes never call the GitHub API (rate limits, tokens; STATBUS-302): one program on our side asks GitHub for everyone and publishes it.
+
+## Details
+Former goal (kept verbatim): ### North Star
 www.statbus.org is a static site with one small Go program behind it, the site's own backend. Its first job is to publish build status, so boxes and the admin page can show "pending", "building" or "failed" for real. Later dynamic jobs go into the same program.
 
 ### Zoom out
