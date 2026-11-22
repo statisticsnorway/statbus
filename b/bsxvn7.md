@@ -1,0 +1,35 @@
+---
+id: bsxvn7
+title: "An import without a data source column uses the job's data source"
+state: todo
+type: bug
+priority: "high"
+assignee: []
+labels: []
+group: ""
+rank: "zzzzzz"
+created: 2026-11-22
+updated: 2026-11-22
+---
+
+## Goal
+Each row of an import job gets the data source chosen for the job, unless the file's own data source column gives one.
+
+## Purpose
+jo.statbus.org job 13 (owner 2026-11-22): the job's chosen data source is not on the imported rows. The job stores it (import_job.default_data_source_code), but the six unit definitions map data_source_code_raw only from a file column, never from the job, so a file without the column imports rows without a data source.
+
+## Principle
+The fix is for later jobs: a failed or wrong job stays as it was, and the user clones it after the release to see the new behaviour. Dates already work this way (valid_from_raw falls back to the job's default_valid_from).
+
+## Details
+admin.import_job_prepare already turns source_expression 'default' on data_source_code_raw into the job's default_data_source_code; no definition uses it for data source. Which value wins when both exist (file column vs job choice) is the owner's call.
+
+## Depends on
+
+## Acceptance
+- [ ] [Owner] Decides which wins per row when the file has a data source column and the job has one chosen; recorded here
+- [ ] A legal unit import whose file has no data source column, with a data source chosen for the job, stores that data source on every unit row; a SQL test asserts it
+- [ ] With a data source column in the file, the rows follow the owner's rule; a SQL test asserts it
+- [ ] On jo.statbus.org after the release, a clone of job 13 stores the job's data source on its rows; the result is recorded here
+
+## Notes
