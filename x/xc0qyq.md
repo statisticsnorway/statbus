@@ -1,6 +1,6 @@
 ---
 id: "xc0qyq"
-title: "Statistical variables declare stock, flow or ratio, so reports combine them right"
+title: "Statistical variables declare stock, flow or ratio, so reports combine them"
 state: "todo"
 assignee: []
 updated_date: '2026-11-02T21:45:00Z'
