@@ -23,8 +23,16 @@ updated: "2026-09-24 18:42"
 ---
 
 ## Goal
+After the program swap, a planned upgrade continues under the new program within five seconds, with no restart delay.
 
-After the durable program-swap phase, a planned upgrade resumes under the new program without waiting for a service-restart delay. The reliable acceptance bound is five seconds from the completed swap stamp to the first new-program continuation record.
+## Purpose
+A planned upgrade waited for a service-restart delay after swapping programs before the new program carried on.
+
+## Principle
+Bound it from the completed swap stamp to the first new-program record, proven by recovery scenarios and a crash control.
+
+## Details
+Former goal (kept verbatim): After the durable program-swap phase, a planned upgrade resumes under the new program without waiting for a service-restart delay. The reliable acceptance bound is five seconds from the completed swap stamp to the first new-program continuation record.
 
 ## Depends on
 - mx20tn
