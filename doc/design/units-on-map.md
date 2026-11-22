@@ -134,6 +134,41 @@ Facts for that session (measured on the Norway copy, 2026-11-22):
 - No PostGIS; a quad key is computed from latitude and longitude with plain
   arithmetic, so the table needs no extension.
 
+#### Prototype, measured 2026-11-22 (rolled back; `tmp/hug/z2qt08-data/q10-geography.sql/.log`)
+
+Each of Norway's 2,955,579 current units (enterprises, legal units,
+establishments with a region) placed at its region's centre plus a fixed
+jitter, since Norway has almost no unit coordinates yet. One row per
+(zoom, tile x, tile y, unit type) with the count and the sorted unit ids, for
+zooms 4, 6, 8, 10, 12, 14:
+
+| zoom | tile rows | largest tile |
+|---|---|---|
+| 4 | 13 | 999,410 |
+| 6 | 61 | 587,588 |
+| 8 | 383 | 339,008 |
+| 10 | 3,652 | 80,317 |
+| 12 | 41,331 | 5,645 |
+| 14 | 397,489 | 386 |
+
+- **Size and build:** 442,929 rows, 112 MB with the id arrays; built in 32 s
+  from scratch (16 s more to place the units). The derive pipeline would keep
+  it current per changed unit, as it does `statistical_history_facet_delta`.
+- **Reading a view:** the whole country at zoom 6, or 16 Oslo tiles at zoom
+  12: under 0.1 ms each. Any zoom of the whole register reads in well under a
+  millisecond, against 11.7 s for a live grid.
+- **A search restricting the tiles by unit ids** (the owner's idea): 29,769
+  legal units in activity section C, counted per zoom-6 tile by matching
+  their ids against each tile's id array: 0.38 s. Joining the search's units
+  to a unit-to-tile column instead: 0.62 s. Both fine for one search; the id
+  arrays win as the search grows and are what a map of a saved search can
+  reuse. Without the arrays the table is a fraction of the size.
+
+Open for the session: which zooms (the 2-step 4..14 above, or every zoom),
+whether tiles or region depths drive the first zooms (regions are what users
+know; tiles are uniform), and whether the time dimension (a delta facet, as
+statistical history has) is needed or the map shows only the current frame.
+
 ## 5. Each place in detail
 
 - **B Search** (`SearchPageClient.tsx:117`, beside `ExportCSVLink`): a "Map"
