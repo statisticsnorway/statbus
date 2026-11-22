@@ -20,8 +20,16 @@ updated: "2026-06-30 15:29"
 ---
 
 ## Goal
+A power group can be reported and navigated through statistical_unit_hierarchy, from the group down and from a unit up.
 
-DB/API only (UI is a separate team member's job). Concept: see `doc/power-groups.md`. A **Power Group** = a DAG of legal units bound by ownership/control via `legal_relationship`. The name is SETTLED — never "enterprise group" or "control group".
+## Purpose
+statistical_unit_hierarchy('power_group', X) collapses a group to its root legal unit's enterprise, dropping every other member.
+
+## Principle
+Database and API only (the UI is another's job); the name is Power Group, never enterprise group or control group (doc/power-groups.md).
+
+## Details
+Former goal (kept verbatim): DB/API only (UI is a separate team member's job). Concept: see `doc/power-groups.md`. A **Power Group** = a DAG of legal units bound by ownership/control via `legal_relationship`. The name is SETTLED — never "enterprise group" or "control group".
 
 PROBLEM: `statistical_unit_hierarchy('power_group', X)` today collapses the group to its root LU's single enterprise (via `statistical_unit_enterprise_id`), dropping every other member enterprise. A power group cannot be reported or navigated.
 
