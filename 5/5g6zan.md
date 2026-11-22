@@ -25,8 +25,16 @@ updated: "2026-10-20 21:22"
 ---
 
 ## Goal
+A standalone box with a private name can choose a private certificate, and the operator gets one complete trust setup for it.
 
-A standalone box with a private name can select a private certificate as the final certificate choice. The installer persists that choice, completes installation, exposes only the public root certificate to the operator, prints one pasteable Ubuntu trust command using `sudo`, and serves the same authority certificate with browser trust guidance from the plain-HTTP entry point. PostgreSQL guidance uses direct TLS negotiation.
+## Purpose
+A private-name installation has no public certificate authority; without a full trust setup browsers and PostgreSQL clients refuse it.
+
+## Principle
+Expose only the public root certificate, give one pasteable Ubuntu trust command, and use direct TLS negotiation for PostgreSQL.
+
+## Details
+Former goal (kept verbatim): A standalone box with a private name can select a private certificate as the final certificate choice. The installer persists that choice, completes installation, exposes only the public root certificate to the operator, prints one pasteable Ubuntu trust command using `sudo`, and serves the same authority certificate with browser trust guidance from the plain-HTTP entry point. PostgreSQL guidance uses direct TLS negotiation.
 
 ## Depends on
 - pt37g7
