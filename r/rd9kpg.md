@@ -1,8 +1,6 @@
 ---
 id: "rd9kpg"
-title: >-
-  Operator settings (.env.config, .env.credentials) live outside the
-  product-owned checkout
+title: "Operator settings (.env.config, .env.credentials) live outside the checkout"
 state: "todo"
 assignee: []
 updated_date: '2026-10-20 20:45'
