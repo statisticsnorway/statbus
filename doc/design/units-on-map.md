@@ -58,10 +58,17 @@ and longitude from a point instead of typing.
   dependency, loaded with `import()` only on map pages (about 220 KB gzip).
 - `app/src/components/map/`:
   - `unit-map.tsx`: the map, client only. Props: a GeoJSON source of points
-    or of region counts, the colour per unit type (the existing unit-type
-    colours: enterprise pink, legal unit blue, establishment green), a click
-    handler. Clustering from Erik's PR (#325: clusters, per-variable sums in
-    `clusterProperties`, percentile colour stops) moves here.
+    or of region counts, the colour per unit type, a click handler.
+    **Colours are the app's**, read from the same CSS variables the unit pages
+    use (`--color-enterprise-*` fuchsia, `--color-legal_unit-*` indigo,
+    `--color-establishment-*` lime, `--color-informal-*` grey in
+    `app/src/app/globals.css`), not Erik's ramps (his pink #d63384, blue
+    #2980b9 and green #27ae60 differ; owner 2026-11-22, see the screenshots
+    on z2qt08).
+  - **Statistical variables are read, not hard-coded**: the variable choice
+    and legend sums come from `stat_definition_enabled`, as Erik's later PR
+    #325 does; his statistical_units.html prototype has Employees and Turnover
+    fixed in the page and in its data (owner 2026-11-22).
   - `map-popup.tsx`: name linked to the unit page, type, activity, region,
     status, the statistical variables.
   - `basemap.ts`: one place that names the tile style URL and attribution:
@@ -161,7 +168,7 @@ Facts for that session (measured on the Norway copy, 2026-11-22):
 | 2 | **A Links map** (related units as they are) | phase 1; useful once phase 0 data is in |
 | 3 | **E Location picker** (current point or region centre, drag the pin) | phase 1 |
 | 4 | **Statistical geography** (section 4a): its own design session, then the table, then **B Search map** (5nq78t, Erik's Map beside Export) and **C the general Reports map** on it | owner's design |
-| later | **Geocoding workflows** (xhxnsy): Kartverket for Norway, OpenStreetMap with the office's own key; each run produces an import job of coordinates for units (and for regions) to review and apply | the Workflows design |
+| later | **Geocoding workflows** (nq8zqt, on xhxnsy): Kartverket for Norway, OpenStreetMap with the office's own key; each run produces an import job of coordinates for units (and for regions) to review and apply | the Workflows design |
 
 Owner 2026-11-22 (questions 1, 3, 4): Regions first; the search map and the
 general report map wait for the statistical geography design, the small
@@ -192,11 +199,13 @@ adding one is its own decision.
    showing the coordinates it proposes, reviewed and applied like any import;
    the same for region centres (an import job for regions). Built step by
    step, not all at once.
-6. **The map's page or a dialog**: search, reports and regions maps as their
-   own full-width pages (`/search/map`, linkable, back button works), with a
-   dialog only for the location picker, as proposed?
-7. **Erik's PR #325**: close it with a comment pointing here once the app map
-   replaces it, and credit his clustering and colour work in the commit?
+6. **The map's page**: answered 2026-11-22: full width, with the app's own
+   top bar, and a legend where you pick enterprise, legal unit and
+   establishment (as on Erik's prototype, in the app's colours). Screenshots
+   of the prototypes are attached to z2qt08.
+7. **Erik's PR #325**: answered 2026-11-22: link it to z2qt08 now; no credit
+   for its clustering, which is MapLibre's built-in client-side clustering of
+   up to 5,000 fetched points, not a fast way to load a full register.
 
 ## 8. Branch
 
