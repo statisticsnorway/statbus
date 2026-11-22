@@ -19,8 +19,16 @@ updated: "2026-11-02T21:45:00Z"
 ---
 
 ## Goal
+Every statistical variable says how it behaves over time (stock, flow or ratio), so each report combines it correctly.
 
-North Star: every statistical variable says how it behaves over time, so each report combines it correctly: a stock is read at a date, a flow is added over the period it covers, a ratio is recomputed from its parts. jsonb_stats stays the one generic, variable-agnostic summary.
+## Purpose
+A flow such as yearly turnover is repeated at every instant of its validity, so sums over time and periods come out wrong.
+
+## Principle
+A stock is read at a date, a flow is added over the period it covers, a ratio is recomputed from its parts; jsonb_stats stays generic.
+
+## Details
+Former goal (kept verbatim): North Star: every statistical variable says how it behaves over time, so each report combines it correctly: a stock is read at a date, a flow is added over the period it covers, a ratio is recomputed from its parts. jsonb_stats stays the one generic, variable-agnostic summary.
 
 A stat_for_unit value holds for its validity interval, and every derivation reads it as true at every instant of that interval. That is right for a stock: employees = 12 for 2025 means 12 people at every date. It is wrong for a flow: turnover = 12,000,000 for 2025 is an amount over the year, so the history repeats it in all 12 months and adding the months gives 144 million. It is wrong for a ratio: margin = 0.2 must never be summed, yet jsonb_stats sums it and its mean is unweighted. This is invisible today only because every variable is yearly and valid from 1 January.
 
