@@ -17,6 +17,11 @@ origin: "backlog:STATBUS-550"
 aliases: ["STATBUS-550"]
 type: "feature"
 created: "2026-06-16 08:04"
+design_question: "This task is the rc.03 finalize step (revert defer-checkout, cut a config-drift-only RC); releases have since moved on to v2026.11.6 stable. Drop it as done by later releases, or is any of its three checks still open?"
+design_for: "jhf"
+design_since: "2026-11-22T23:31"
+design_asked_by: "hibiscus"
+stage: "design"
 ---
 
 ## Goal
@@ -45,3 +50,12 @@ Config-drift upgrade-crash wedge (the King's charge) is SOLVED + validated GREEN
 
 ## MECHANIC (on "revert + cut clean")
 git revert 2f52f3b7f + bb4848dd4 (keep f29e03a60 unless King says otherwise) → go build/vet/test → foreman reviews → push origin <sha>:master → cut clean annotated RC tag (next number) on that commit → re-confirm 0-happy (operator, 1 VM); full comprehensive once the quota is raised.
+
+
+## Questions
+- 2026-11-22T23:31 question 1 by hibiscus to jhf:
+  This task is the rc.03 finalize step (revert defer-checkout, cut a config-drift-only RC); releases have since moved on to v2026.11.6 stable. Drop it as done by later releases, or is any of its three checks still open?
+
+
+## History
+- 2026-11-22T23:31 todo -> todo/design (ask)
