@@ -22,8 +22,16 @@ updated: "2026-09-25 13:53"
 ---
 
 ## Goal
+A private-address site receives and renews a publicly trusted certificate after one DNS change.
 
-A private-address installation registers a durable certificate identity, receives human Statistics Norway approval, creates the printed DNS CNAME, and then receives and renews a publicly trusted certificate. Recreate and restore preserve the same identity and approval. If the DNS-answering investigation selects an acme-dns library or provider module, its exact syntax is implemented only after that compatibility is proven.
+## Purpose
+A private-address installation cannot be reached by an ACME HTTP challenge, so it has no trusted certificate today.
+
+## Principle
+A durable certificate identity, approved by a person at Statistics Norway; recreate and restore keep it; a library's syntax only after it is proven.
+
+## Details
+Former goal (kept verbatim): A private-address installation registers a durable certificate identity, receives human Statistics Norway approval, creates the printed DNS CNAME, and then receives and renews a publicly trusted certificate. Recreate and restore preserve the same identity and approval. If the DNS-answering investigation selects an acme-dns library or provider module, its exact syntax is implemented only after that compatibility is proven.
 
 ## Acceptance
 - [ ] #1 `new: cli/internal/certservice/registration_approval_test.go::TestPendingIdentityRequiresHumanApproval` registers one identity, observes pending state, records human approval, and proves only that identity can update its challenge record.
