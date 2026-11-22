@@ -1,8 +1,6 @@
 ---
 id: "5g6zan"
-title: >-
-  A private-name installation offers a private certificate and complete trust
-  setup
+title: "A private-name installation offers a private certificate and full trust setup"
 state: "todo"
 assignee: []
 updated_date: '2026-10-20 21:22'
