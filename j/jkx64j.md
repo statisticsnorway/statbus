@@ -1,6 +1,6 @@
 ---
 id: "jkx64j"
-title: A private-address site receives and renews a trusted certificate after one DNS change
+title: "A private-address site gets and renews a trusted cert after one DNS change"
 state: "todo"
 assignee: []
 updated_date: '2026-09-25 13:53'
