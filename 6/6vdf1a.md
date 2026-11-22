@@ -49,8 +49,16 @@ updated: "2026-09-24 18:47"
 ---
 
 ## Goal
+A third-party operator reaches a ready StatBus site on a fresh Ubuntu 26.04 host from the published instructions alone.
 
-A third-party operator starts with a fresh Ubuntu 26.04 host, follows the published setup and one-command installation instructions, and reaches a ready site without Statistics Norway fleet knowledge. The public setup creates only the StatBus service account and public prerequisites. The installer supplies one recovery path, creates the first administrator privately, verifies every required service, and proves the advertised endpoint before printing success.
+## Purpose
+Installations outside Statistics Norway must not need fleet knowledge to succeed.
+
+## Principle
+Public setup creates only the service account and public prerequisites; the installer proves every service and the endpoint before success.
+
+## Details
+Former goal (kept verbatim): A third-party operator starts with a fresh Ubuntu 26.04 host, follows the published setup and one-command installation instructions, and reaches a ready site without Statistics Norway fleet knowledge. The public setup creates only the StatBus service account and public prerequisites. The installer supplies one recovery path, creates the first administrator privately, verifies every required service, and proves the advertised endpoint before printing success.
 
 ## Depends on
 - vhegky
