@@ -17,6 +17,11 @@ origin: "backlog:DRAFT-002"
 aliases: ["DRAFT-002"]
 backlog_type: "enhancement"
 created: "2026-08-27 16:14"
+design_asked_by: "hibiscus"
+design_question: "drain-before-upgrade awaits your ruling on the architect's design (2026-08-27): finish pending work with a bounded drain before upgrading, falling back to interruption. Accept it (then it gets acceptance checks), reject it, or drop the task?"
+design_for: "jhf"
+design_since: "2026-11-22T23:31"
+stage: "design"
 ---
 
 ## Goal
@@ -32,3 +37,12 @@ VERIFY BEFORE BUILDING — we may already own most of it: the upgrade runs docke
 OPERATOR SURFACE (the deciding argument in the King's frame): "Finishing current work before upgrading…" is what any competent person would do and needs no explanation; "Cannot upgrade: work is pending" alarms and strands; "your import will be redone" invites a support question.
 
 HONEST PRIORITY: worth doing, NOT urgent — the wedge is closed by 264+265; this buys cleanliness (no manufactured interrupted work, faster convergence, unambiguous canary observation), honestly labelled as such. Nothing is at risk in waiting until after the stable ships.
+
+
+## Questions
+- 2026-11-22T23:31 question 1 by hibiscus to jhf:
+  drain-before-upgrade awaits your ruling on the architect's design (2026-08-27): finish pending work with a bounded drain before upgrading, falling back to interruption. Accept it (then it gets acceptance checks), reject it, or drop the task?
+
+
+## History
+- 2026-11-22T23:31 todo -> todo/design (ask)
