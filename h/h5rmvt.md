@@ -1,8 +1,6 @@
 ---
 id: "h5rmvt"
-title: >-
-  A candidate's LXD gate runs as one ordered queue on the existing box and keeps
-  every slot busy
+title: "A candidate's LXD gate runs as one ordered queue and keeps every slot busy"
 state: "todo"
 assignee: []
 updated_date: '2026-10-20 20:43'
