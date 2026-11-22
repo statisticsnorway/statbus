@@ -39,6 +39,8 @@ Related: 6btpmz (unit notes, waits on this), qtx2xm (same rules for edits and im
 - [ ] The same file with a date before a unit existed stores nothing outside the unit's life and reports no processing error; a test asserts it
 - [ ] The upload page has an Advanced switch that shows the strategy in plain words; a Playwright test picks the update strategy and the job's definition has it
 - [ ] Analysis runs only the steps whose columns the file carries; a test with a 3-column file asserts which steps ran
+- [ ] The job records which analysis steps ran and why the others were skipped (no column in the file); the job page shows it and a test asserts the record for a 3-column file
+- [ ] The job's data view shows only the columns of steps that ran for that job; a Playwright test on a 3-column job asserts the shown columns
 
 ## Notes
 
