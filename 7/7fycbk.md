@@ -1,8 +1,6 @@
 ---
 id: "7fycbk"
-title: >-
-  go-worker: recreate the Crystal worker in Go, then delete cli/src/ — end the
-  Crystal/Go overlap
+title: "go-worker: the worker in Go, then delete cli/src/ and end the Crystal overlap"
 state: "todo"
 assignee: []
 updated_date: '2026-10-26 13:19'
