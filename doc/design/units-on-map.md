@@ -75,34 +75,37 @@ and longitude from a point instead of typing.
 
 ## 4. Staying fast on a full register
 
-The rule: **ship counts, not points, until the selection is small.**
+Owner 2026-11-22: the places that show a known, small set of units (regions,
+a unit's links, reports by region, the location picker) use the units and
+regions **as they are**, with no change to the database. A map of **any search
+result** cannot: it needs its own design, a table of units keyed by shortened
+quad keys at several zoom levels, linked from the units, so a map of millions
+of units reads counts per tile at the zoom shown. That design is the last
+phase (section 6) and gets its own session; the points threshold (question 3)
+and the grid (question 4) belong to it.
 
-1. Count first: `GET /rest/statistical_unit?<search params>&select=count()` (the
-   search already does this).
-2. At or under the threshold (proposal: 5,000, question 3): fetch points,
-   `select=unit_id,unit_type,name,physical_latitude,physical_longitude,...`,
-   cluster in the browser.
-3. Above it: per-region counts on the same filter,
-   `select=physical_region_id,count()` (1.4 s for all Norway legal units,
-   0.45 s filtered), drawn as circles at the region centres. Clicking a region
-   adds that region to the filter and goes back to step 1, so drilling down
-   ends in points.
+For the first phases:
 
-This needs no schema change. A finer grid (counts per map tile at every zoom)
-would need a precomputed cell column on `statistical_unit` maintained by the
-derive pipeline; it is **not** proposed for the first build (question 4).
+- Regions and reports draw counts per region at the region centres:
+  `select=physical_region_id,count()` on `statistical_unit` (1.4 s for all
+  Norway legal units, 0.45 s with an activity filter; measured).
+- A unit's links page draws its related units as points: a few hundred at
+  most, from `relevant_statistical_units`.
+- The location picker draws one point.
 
 ## 5. Each place in detail
 
 - **B Search** (`SearchPageClient.tsx:117`, beside `ExportCSVLink`): a "Map"
   button to `/search/map?<same query string>`. The page reads the same Jotai
   search atoms, so filters and time frame carry over; back returns to the list.
-  Points or region counts as in section 4.
+  Its data comes from the quad-key table of section 4, designed in its own
+  session.
 - **A Links**: a "Map" section on the links page (`TopologySlot` neighbour),
   the unit highlighted, related units (`relevant_statistical_units`) around it,
   at most a few hundred points, so always points.
 - **C Reports**: a "Map" tab beside the reports' charts: counts per level-1
-  region, click for level 2, then the search map for that region. Colour by
+  region, click for level 2 (the search map for a region follows once B
+  exists). Colour by
   count or by a statistical variable sum (`stats_summary`).
 - **D Regions**: lat/lon columns in the regions table (they exist in the data
   but are not shown) and a "Map" button: every region at its centre, label and
@@ -119,10 +122,13 @@ derive pipeline; it is **not** proposed for the first build (question 4).
 | Phase | Work | Needs |
 |---|---|---|
 | 0 | Coordinates for Norway: kvbebr (naming), dbmsxy (an import that updates only lat/lon on existing units; today a coordinates-only file fails), r39dqb (load, after a fresh export), 4pj9bz (2026 regions, the list Erik's region centres follow) | owner's decisions on those tasks |
-| 1 | Map component + **D Regions** (works today from region centres) | questions 1, 2 |
-| 2 | **B Search map** with the count/points/regions switch; this is 5nq78t (Erik's step 1, Map beside Export), done as z2qt08's first unit map | phase 1, question 3; useful once phase 0 data is in |
-| 3 | **A Links map**, **C Reports map** | phase 2 |
-| 4 | **E Location picker** with geocoding | question 5 |
+| 1 | Map component + **D Regions** (works today from region centres) | question 2 |
+| 2 | **A Links map**, **C Reports map** (units and regions as they are) | phase 1; links useful once phase 0 data is in |
+| 3 | **E Location picker** with geocoding | question 5 |
+| 4 | **B Search map** (5nq78t, Erik's Map beside Export): first its own design session for the quad-key table, then the build | owner's design; questions 3, 4 |
+
+Owner 2026-11-22 (question 1): Regions first; the search map waits for its
+own database design, the other places use the units as they are.
 
 Each phase is its own STOP for the owner to see it before it is committed, as
 for every feature. Browser checks are driven Firefox runs with screenshots in
@@ -131,9 +137,8 @@ adding one is its own decision.
 
 ## 7. Questions for the owner (each is a separate ask on z2qt08)
 
-1. **First place**: start with Regions (works today without unit coordinates)
-   and Search, as proposed, or another order? 5nq78t (Erik's Map button)
-   becomes the Search phase of this task rather than its own build.
+1. **First place**: answered 2026-11-22: Regions first; Search last, after
+   its own design (a quad-key table at several zoom levels).
 2. **Base map tiles**: (a) OpenFreeMap public tiles (no key, free, no SLA, the
    browser calls tiles.openfreemap.org; Erik's choice); (b) a self-hosted
    country extract as one PMTiles file served by our own Caddy (no third
