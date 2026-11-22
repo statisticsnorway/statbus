@@ -13,7 +13,7 @@ updated: 2026-11-18
 ---
 
 ## Goal
-A workflow picks, for each enterprise, its primary legal unit (and for each legal unit, its primary establishment) as the one that scores highest on a chosen statistical variable such as employees, and produces an import job that sets the primary, so the enterprise's primary activity follows.
+A workflow picks each enterprise's primary legal unit, and each legal unit's primary establishment, by a chosen variable such as employees.
 
 ## Purpose
 How the primary legal unit is chosen is not settled. The owner's idea (2026-11-18): after last year's employees are calculated and analysed, pick the biggest; the enterprise's primary activity then comes from that unit. Calculated dynamically, applied reviewably.
@@ -22,6 +22,8 @@ How the primary legal unit is chosen is not settled. The owner's idea (2026-11-1
 A separate step that generates a change file (an import job), never a silent update. Picking the primary is this workflow's job; checks that use the primary (xz3jej) take it as given and do not re-pick it.
 
 ## Relevant details
+Former goal: A workflow picks, for each enterprise, its primary legal unit (and for each legal unit, its primary establishment) as the one that scores highest on a chosen statistical variable such as employees, and produces an import job that sets the primary, so the enterprise's primary activity follows.
+
 Owner notes 2026-11-18: add support to calculate the primary activity for an enterprise based on the most important unit, with respect to a variable, say employees, and then pick the winner. This could be used for selecting the primary legal_unit, with dynamic calculation. Existing flags: legal_unit.primary_for_enterprise (one per enterprise and period, EXCLUDE constraint), establishment.primary_for_legal_unit.
 
 ## Depends on
