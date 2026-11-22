@@ -1,8 +1,6 @@
 ---
 id: "yregpz"
-title: >-
-  Standalone boxes without certificates can run plain HTTP as an explicit
-  interim until cert install
+title: "Standalone boxes without certificates can run plain HTTP as an explicit interim"
 state: "todo"
 assignee: []
 labels:
