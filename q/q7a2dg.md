@@ -1,8 +1,6 @@
 ---
 id: "q7a2dg"
-title: >-
-  www.statbus.org: a static site with its own small Go program, deployed as
-  releases; first job build status
+title: "www.statbus.org: a static site with a small Go backend; first job build status"
 state: "todo"
 assignee: []
 labels:
