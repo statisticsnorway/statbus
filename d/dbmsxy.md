@@ -34,7 +34,7 @@ Related: 6btpmz (unit notes, waits on this), qtx2xm (same rules for edits and im
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] Settles the strategies the Advanced switch offers, their plain names, and which merge mode each uses (including whether update_only becomes PATCH_FOR_PORTION_OF and process_establishment matches the others); the answer is recorded in this task's notes
+- [ ] [Owner] Settles the strategies the Advanced switch offers, their plain names, and the merge mode each uses (e.g. update only given columns = PATCH_FOR_PORTION_OF, insert and update = MERGE_ENTITY_PATCH, replace = MERGE_ENTITY_REPLACE), including whether process_establishment follows the same table; recorded in this task's notes, and that table is what the tests in checks 2 and 3 assert
 - [ ] A file with only tax_ident, physical_latitude and physical_longitude, imported with the update strategy on units that exist from 2026-11-07, sets the coordinates from the chosen date and leaves name and every other value unchanged; a SQL test asserts the stored rows
 - [ ] The same file with a date before a unit existed stores nothing outside the unit's life and reports no processing error; a test asserts it
 - [ ] The upload page has an Advanced switch that shows the strategy in plain words; a Playwright test picks the update strategy and the job's definition has it
