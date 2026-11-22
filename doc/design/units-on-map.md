@@ -64,8 +64,9 @@ and longitude from a point instead of typing.
     `clusterProperties`, percentile colour stops) moves here.
   - `map-popup.tsx`: name linked to the unit page, type, activity, region,
     status, the statistical variables.
-  - `basemap.ts`: one place that names the tile style URL and attribution
-    (question 2).
+  - `basemap.ts`: one place that names the tile style URL and attribution:
+    OpenFreeMap's public style (owner 2026-11-22); self-hosted PMTiles later
+    (a9168x).
   - Pure helpers with jest tests (node environment): rows to GeoJSON,
     percentile stops, cluster sums, the counts query builder.
 - A truncation notice whenever the points shown are fewer than the matches
@@ -122,7 +123,7 @@ For the first phases:
 | Phase | Work | Needs |
 |---|---|---|
 | 0 | Coordinates for Norway: kvbebr (naming), dbmsxy (an import that updates only lat/lon on existing units; today a coordinates-only file fails), r39dqb (load, after a fresh export), 4pj9bz (2026 regions, the list Erik's region centres follow) | owner's decisions on those tasks |
-| 1 | Map component + **D Regions** (works today from region centres) | question 2 |
+| 1 | Map component + **D Regions** (works today from region centres) | ready to build |
 | 2 | **A Links map**, **C Reports map** (units and regions as they are) | phase 1; links useful once phase 0 data is in |
 | 3 | **E Location picker** with geocoding | question 5 |
 | 4 | **B Search map** (5nq78t, Erik's Map beside Export): first its own design session for the quad-key table, then the build | owner's design; questions 3, 4 |
@@ -139,11 +140,8 @@ adding one is its own decision.
 
 1. **First place**: answered 2026-11-22: Regions first; Search last, after
    its own design (a quad-key table at several zoom levels).
-2. **Base map tiles**: (a) OpenFreeMap public tiles (no key, free, no SLA, the
-   browser calls tiles.openfreemap.org; Erik's choice); (b) a self-hosted
-   country extract as one PMTiles file served by our own Caddy (no third
-   party at run time, works offline in a closed network, one file per country
-   to keep current); (c) configurable per installation, defaulting to (a).
+2. **Base map tiles**: answered 2026-11-22: (a) OpenFreeMap public tiles
+   (light use); serving our own PMTiles is its own task, a9168x.
 3. **Points threshold**: show points up to 5,000 matches and region counts
    above, or another number? Erik (5nq78t) proposes disabling the button
    above about 100,000 units with coordinates; MapLibre clusters 100,000
