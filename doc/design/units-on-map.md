@@ -76,23 +76,57 @@ and longitude from a point instead of typing.
 
 ## 4. Staying fast on a full register
 
-Owner 2026-11-22: the places that show a known, small set of units (regions,
-a unit's links, reports by region, the location picker) use the units and
-regions **as they are**, with no change to the database. A map of **any search
-result** cannot: it needs its own design, a table of units keyed by shortened
+Owner 2026-11-22: the small places (the region list, a unit's links, the
+location picker) use the units and regions **as they are**, with no change
+to the database. A map of **any search result**, and the general report map,
+cannot: they need their own design, a table of units keyed by shortened
 quad keys at several zoom levels, linked from the units, so a map of millions
-of units reads counts per tile at the zoom shown. That design is the last
-phase (section 6) and gets its own session; the points threshold (question 3)
-and the grid (question 4) belong to it.
+of units reads counts per tile at the zoom shown (section 4a). That design is
+the last phase (section 6) and gets its own session.
 
 For the first phases:
 
-- Regions and reports draw counts per region at the region centres:
+- The regions map draws each region at its centre, with its count of units:
   `select=physical_region_id,count()` on `statistical_unit` (1.4 s for all
   Norway legal units, 0.45 s with an activity filter; measured).
 - A unit's links page draws its related units as points: a few hundred at
   most, from `relevant_statistical_units`.
 - The location picker draws one point.
+
+### 4a. The map of everything (search, and the general report map): owner 2026-11-22
+
+Owner (answers 3 and 4): one threshold does not fit every map; each map
+behaves its own way. The small places (regions, related units on a links
+page) show what we have. The general report map and the map of statistical
+units (search) can show everything, so they start aggregated, get finer as
+you zoom, and read a special precomputed table: a live grid took 11.7 s on
+Norway, which is not acceptable. To decide in its design session:
+
+1. **What each zoom level shows**: region depths tied to zoom (country:
+   level-1 regions, nearer: level-2, then units), or quad keys, or both.
+2. **A statistical geography table**, by analogy with the statistical history
+   tables: per quad key and zoom level, counts per unit type (and perhaps
+   statistical variable sums), with a delta facet table beside it if it must
+   follow changes over time as `statistical_history_facet_delta` does.
+   Possibly not needed: the owner is not sure the map needs general drill
+   down.
+3. **Unit ids per quad key**: each quad key row at each zoom level carries
+   `integer[]` arrays of its establishment, legal unit and enterprise ids, as
+   `statistical_history_facet_delta.unit_ids` does today, so the search can
+   hand over its (limited) set of ids and the map keeps only the quad keys,
+   and counts, of those units.
+
+Facts for that session (measured on the Norway copy, 2026-11-22):
+
+- 3,092,717 current units (establishments, legal units, enterprises). With
+  each unit once per zoom level, the id arrays hold 3.1M ids per level: about
+  100 MB for 8 levels, 150 MB for 12, 200 MB for 16 (4 bytes per id, before
+  row overhead).
+- The existing pattern: `statistical_history_facet_delta` has 394,935 rows,
+  411 MB, `unit_ids` sorted per row (average 19 ids, the largest row
+  1,056,318), kept by the derive pipeline.
+- No PostGIS; a quad key is computed from latitude and longitude with plain
+  arithmetic, so the table needs no extension.
 
 ## 5. Each place in detail
 
@@ -104,9 +138,9 @@ For the first phases:
 - **A Links**: a "Map" section on the links page (`TopologySlot` neighbour),
   the unit highlighted, related units (`relevant_statistical_units`) around it,
   at most a few hundred points, so always points.
-- **C Reports**: a "Map" tab beside the reports' charts: counts per level-1
-  region, click for level 2 (the search map for a region follows once B
-  exists). Colour by
+- **C Reports**: the general report map (counts for the whole register,
+  finer as you zoom) reads the statistical geography table of section 4a, so
+  it is built with the search map in phase 4. Colour by
   count or by a statistical variable sum (`stats_summary`).
 - **D Regions**: lat/lon columns in the regions table (they exist in the data
   but are not shown) and a "Map" button: every region at its centre, label and
@@ -124,12 +158,13 @@ For the first phases:
 |---|---|---|
 | 0 | Coordinates for Norway: kvbebr (naming), dbmsxy (an import that updates only lat/lon on existing units; today a coordinates-only file fails), r39dqb (load, after a fresh export), 4pj9bz (2026 regions, the list Erik's region centres follow) | owner's decisions on those tasks |
 | 1 | Map component + **D Regions** (works today from region centres) | ready to build |
-| 2 | **A Links map**, **C Reports map** (units and regions as they are) | phase 1; links useful once phase 0 data is in |
+| 2 | **A Links map** (related units as they are) | phase 1; useful once phase 0 data is in |
 | 3 | **E Location picker** with geocoding | question 5 |
-| 4 | **B Search map** (5nq78t, Erik's Map beside Export): first its own design session for the quad-key table, then the build | owner's design; questions 3, 4 |
+| 4 | **Statistical geography** (section 4a): its own design session, then the table, then **B Search map** (5nq78t, Erik's Map beside Export) and **C the general Reports map** on it | owner's design |
 
-Owner 2026-11-22 (question 1): Regions first; the search map waits for its
-own database design, the other places use the units as they are.
+Owner 2026-11-22 (questions 1, 3, 4): Regions first; the search map and the
+general report map wait for the statistical geography design, the small
+places use the units as they are.
 
 Each phase is its own STOP for the owner to see it before it is committed, as
 for every feature. Browser checks are driven Firefox runs with screenshots in
@@ -142,15 +177,13 @@ adding one is its own decision.
    its own design (a quad-key table at several zoom levels).
 2. **Base map tiles**: answered 2026-11-22: (a) OpenFreeMap public tiles
    (light use); serving our own PMTiles is its own task, a9168x.
-3. **Points threshold**: show points up to 5,000 matches and region counts
-   above, or another number? Erik (5nq78t) proposes disabling the button
-   above about 100,000 units with coordinates; MapLibre clusters 100,000
-   points in the browser, but fetching them is about 20 times the 5,000-row
-   fetch (0.22 s measured for 5,000 in one county), and region counts above
-   the threshold keep the button useful for any selection.
-4. **Finer than regions**: is drill-down by region enough for now, or do you
-   want a precomputed grid (a cell column maintained by the derive pipeline)
-   in the first build?
+3. **Points threshold**: answered 2026-11-22: no single threshold; each map
+   behaves its own way, and the map of everything is designed in section 4a.
+4. **Finer than regions**: answered 2026-11-22: for the small places
+   (regions, related units on the links page) show what we have, no special
+   table. For the general report map and the map of statistical units
+   (search), a live grid at 11.7 s is not acceptable: they need the special
+   table of section 4a.
 5. **Geocoding on the location form**: (a) Kartverket's open address API for
    Norway (`ws.geonorge.no/adresser/v1/sok`, interactive lookups only), with no
    lookup elsewhere; (b) OpenStreetMap's Nominatim for all countries (1 request
