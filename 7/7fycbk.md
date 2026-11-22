@@ -24,8 +24,16 @@ updated: "2026-10-26 13:19"
 ---
 
 ## Goal
+The worker runs in Go like the sb CLI, and cli/src/ with its Crystal code is deleted.
 
-> NORTH STAR: one language for the CLI + worker. The `sb` Go binary already owns config/migrations/ops (it replaced manage.cr); the worker is the last Crystal holdout. Recreate it in Go, then delete cli/src/ entirely — no service runs two languages, no dead-but-compiled Crystal shadows the live Go.
+## Purpose
+Crystal code in cli/src/ is the live worker and also overlaps what the Go CLI already does; two languages do one job.
+
+## Principle
+Port the worker's orchestration only, reuse what Go already provides, and delete the Crystal tree once the Go worker runs.
+
+## Details
+Former goal (kept verbatim): > NORTH STAR: one language for the CLI + worker. The `sb` Go binary already owns config/migrations/ops (it replaced manage.cr); the worker is the last Crystal holdout. Recreate it in Go, then delete cli/src/ entirely — no service runs two languages, no dead-but-compiled Crystal shadows the live Go.
 > RESHAPED (King, 2026-07-13): the original "delete the dead Crystal tree" premise was REFUTED — cli/src/ is the LIVE worker (builds the production statbus-worker image, running on every box; the mechanic's pre-delete sweep caught it, comment #1). The real state: cli/src/ holds BOTH the live worker AND Crystal code (dotenv.cr/config.cr) whose job the Go CLI now ALSO does — a genuine overlap. Two ways out; the King chose the first.
 > COMPLEXITY: engineer-substantial — a real port + a proof, then the deletion.
 > DEPENDS ON: nothing.
