@@ -19,8 +19,16 @@ created: "2026-10-08 11:53"
 ---
 
 ## Goal
+Every script URL the documentation tells an operator to pipe into a shell returns the script, and a check keeps it so.
 
-NORTH STAR: every script URL our documentation tells an operator to pipe into a shell actually returns the script, and a check keeps it that way, so we never again publish a dead shorthand.
+## Purpose
+statbus.org/uninstall.sh returns 404 while /install.sh works: a published shorthand is dead.
+
+## Principle
+Add the missing redirect, and guard every documented script URL with a check rather than fixing them one by one.
+
+## Details
+Former goal (kept verbatim): NORTH STAR: every script URL our documentation tells an operator to pipe into a shell actually returns the script, and a check keeps it that way, so we never again publish a dead shorthand.
 
 THE DEFECT (verified 2026-10-08, coordinator). The two hosted shorthands do not behave alike:
 * https://statbus.org/install.sh -> 302 -> https://raw.githubusercontent.com/statisticsnorway/statbus/refs/heads/master/install.sh -> 200.
