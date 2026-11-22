@@ -1,8 +1,6 @@
 ---
 id: "htk7ze"
-title: >-
-  statbus.org shorthand /uninstall.sh returns 404 while /install.sh works: add
-  the missing redirect and guard the documented URLs
+title: "Every documented script URL returns its script (uninstall.sh returns 404)"
 state: "todo"
 assignee: []
 labels:
