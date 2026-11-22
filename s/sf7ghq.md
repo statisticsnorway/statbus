@@ -23,8 +23,16 @@ updated: "2026-09-24 18:44"
 ---
 
 ## Goal
+Running the installer again lets an operator revise each setup answer, interactively or from the answers file.
 
-An interactive rerun presents current installation mode, site address, display name, site code, and certificate choice as defaults and lets the operator revise each one. The unattended answers file provides the same five revisions. Unchanged answers produce a no-op, while changed answers update only affected settings and services and finish with the selected site's readiness check.
+## Purpose
+An operator who chose the wrong mode, address, name, code or certificate has no way to change it but to start over.
+
+## Principle
+Current answers are the defaults; unchanged answers change nothing; changed ones update only affected settings and services, then check readiness.
+
+## Details
+Former goal (kept verbatim): An interactive rerun presents current installation mode, site address, display name, site code, and certificate choice as defaults and lets the operator revise each one. The unattended answers file provides the same five revisions. Unchanged answers produce a no-op, while changed answers update only affected settings and services and finish with the selected site's readiness check.
 
 ## Depends on
 - 5g6zan
