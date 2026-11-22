@@ -26,8 +26,16 @@ updated: "2026-10-20 20:45"
 ---
 
 ## Goal
+An office reports on the controlling enterprise group and on the wider sphere of influence, choosing the viewpoint when reporting.
 
-> NORTH STAR: an NSO reports on the CONTROLLING group ("Enterprise group" — Eurostat's unit, what the EU wants today) AND on the larger ALIGNED grouping ("Sphere of influence"), choosing the viewpoint at reporting time.
+## Purpose
+The EU asks for the controlling group (Eurostat's enterprise group), while countries also need the larger aligned grouping.
+
+## Principle
+A layered design ratified 2026-07-14: primary and non-primary power groups; the build follows as its own scope.
+
+## Details
+Former goal (kept verbatim): > NORTH STAR: an NSO reports on the CONTROLLING group ("Enterprise group" — Eurostat's unit, what the EU wants today) AND on the larger ALIGNED grouping ("Sphere of influence"), choosing the viewpoint at reporting time.
 > STAGE: design ratified by the King (2026-07-14); build follows as its own scope. History/journal in comments #1-#7.
 
 ## Acceptance
