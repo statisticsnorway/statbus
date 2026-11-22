@@ -1,7 +1,7 @@
 ---
 id: j2g6wd
 title: "Lint every open task once hug stops linting done tasks"
-state: "todo"
+state: "doing"
 type: chore
 priority: "low"
 assignee: ["hibiscus"]
@@ -10,10 +10,12 @@ group: ""
 rank: "000000000004"
 created: 2026-11-18
 updated: 2026-11-18
-stage: "ready"
+stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+doing_since: "2026-11-22T23:23"
+doing_with: "5vxfjm"
 ---
 
 ## Goal
@@ -59,3 +61,4 @@ Installed: hug v0.7.84; hug upgrade reports nothing pending (applied 2026-11-19)
 - 2026-11-19T16:30 request 1 in progress by hibiscus: hug task note j2g6wd "2026-11-19 16:29 owner (request 1): upgrade continuously, without asking. Done: hug upgrade --apply --machine (hug v0.7…"
 - 2026-11-19T16:30 resolved request 1 by hibiscus
 - 2026-11-19T16:30 doing/waiting -> todo/ready (give back; was assignee: hibiscus); was doing_since: 2026-11-18T00:40; waiting_asked_by: hibiscus; waiting_on: the owner's decision on hug upgrade --apply (hug v0.7.53 is installed); waiting_since: 2026-11-18T00:40
+- 2026-11-22T23:23 todo/ready -> doing/active (take with 5vxfjm)
