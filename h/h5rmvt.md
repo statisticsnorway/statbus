@@ -22,8 +22,16 @@ updated: "2026-10-20 20:43"
 ---
 
 ## Goal
+A release candidate's LXD gate runs as one ordered queue on the existing box, keeping every slot busy.
 
-### North Star
+## Purpose
+Separate limiters each decide part of what runs, so slots sit idle while work waits and the verdict comes late.
+
+## Principle
+One runner owns and orders the queue (checkpoints first, smoke-critical early, then longest first); no larger machine.
+
+## Details
+Former goal (kept verbatim): ### North Star
 A release candidate's whole LXD gate runs as one queue on the existing box, keeping every slot busy, so the verdict comes as fast as the work allows without a larger machine.
 
 ### Zoom out
