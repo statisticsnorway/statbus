@@ -24,6 +24,7 @@ import { EditableImageFieldWithMetadata } from "@/components/form/editable-image
 import { useClientReady } from "@/hooks/use-client-ready";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { LOCATION_COLUMNS } from "@/components/form/read-edit-range";
+import { CoordinateRow } from "@/components/map/coordinate-row";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
@@ -73,6 +74,11 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     (loc) => loc.type === "physical"
   );
   const regionOptions = codeListOptions(regions, { optional: true });
+  // The picker opens at the region chosen in the form, when the location has no point yet.
+  const regionCentre = (regionId: unknown) => {
+    const region = regions.find((r) => String(r.id) === String(regionId ?? ""));
+    return region ? { latitude: region.center_latitude, longitude: region.center_longitude } : null;
+  };
   const countriesOptions = countryOptions(countries, domesticCountryId);
 
   return (
@@ -200,7 +206,10 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
                 placeholder="Select a country"
               />
             </div>
-            <div className="grid lg:grid-cols-3 gap-4">
+            <CoordinateRow
+              isEditing={isEditing}
+              regionCentre={regionCentre(valueOf("region_id", physicalLocation?.region?.id))}
+            >
               <FormField
                 readonly={!isEditing}
                 label="Latitude"
@@ -222,7 +231,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
                 value={valueOf("altitude", physicalLocation?.altitude)}
                 response={null}
               />
-            </div>
+            </CoordinateRow>
           </div>
         )}
       </EditableFieldGroup>

@@ -194,6 +194,34 @@ export function maxTotal(features: GeoJSON.Feature<GeoJSON.Point, { total: numbe
   return features.reduce((m, f) => Math.max(m, f.properties.total), 0);
 }
 
+/**
+ * Coordinates as public.location stores them: numeric(9,6), six decimals (about 0.1 m).
+ */
+export function roundCoordinate(value: number): number {
+  return Math.round(value * 1e6) / 1e6;
+}
+
+/**
+ * Where the location picker opens (z2qt08): at the location's own point when its latitude
+ * and longitude are valid numbers, else at its region's centre, else over the whole map.
+ * `fromLocation` says the pin starts on the stored point.
+ */
+export function pickerStart(
+  latitude: string | null | undefined,
+  longitude: string | null | undefined,
+  regionCentre: { latitude: number | null; longitude: number | null } | null
+): { center: [number, number]; zoom: number; fromLocation: boolean } {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  if (latitude && longitude && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+    return { center: [lon, lat], zoom: 14, fromLocation: true };
+  }
+  if (regionCentre?.latitude != null && regionCentre.longitude != null) {
+    return { center: [Number(regionCentre.longitude), Number(regionCentre.latitude)], zoom: 9, fromLocation: false };
+  }
+  return { center: [10, 62], zoom: 4, fromLocation: false };
+}
+
 /** A unit of the hierarchy as the Links map needs it: its kind, name, link and physical locations. */
 type HierarchyLocation = { type: string; latitude: number | null; longitude: number | null };
 type HierarchyUnit = { id: number; name: string; location?: HierarchyLocation[] };

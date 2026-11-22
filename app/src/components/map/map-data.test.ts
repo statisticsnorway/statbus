@@ -1,4 +1,4 @@
-import { countsByRegion, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, regionFeatures, unitTypeColourVariable, unplacedCount, type RegionCountRow } from "./map-data";
+import { countsByRegion, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, type RegionCountRow } from "./map-data";
 
 // z2qt08: the Regions map counts units per region path prefix from statistical_unit_facet and
 // draws each region with a centre; regions without one are listed beside the map.
@@ -127,6 +127,27 @@ describe("linksUnitPoints", () => {
     ]);
     // Five units: the Bergen office has no coordinates, Postal only AS only a postal location.
     expect(total).toBe(5);
+  });
+});
+
+describe("pickerStart and roundCoordinate", () => {
+  const bergen = { latitude: 60.39, longitude: 5.32 };
+  it("opens at the stored point, else the region's centre, else the whole map", () => {
+    expect([
+      pickerStart("59.943901", "10.772135", bergen),
+      pickerStart("", "", bergen),
+      pickerStart("95", "10", null),
+      pickerStart(null, null, { latitude: null, longitude: null }),
+    ]).toEqual([
+      { center: [10.772135, 59.943901], zoom: 14, fromLocation: true },
+      { center: [5.32, 60.39], zoom: 9, fromLocation: false },
+      { center: [10, 62], zoom: 4, fromLocation: false },
+      { center: [10, 62], zoom: 4, fromLocation: false },
+    ]);
+  });
+
+  it("rounds to the six decimals location stores", () => {
+    expect([roundCoordinate(10.7721354999), roundCoordinate(-0.00000049)]).toEqual([10.772135, -0]);
   });
 });
 
