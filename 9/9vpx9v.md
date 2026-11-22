@@ -22,8 +22,16 @@ created: "2026-08-31 14:53"
 ---
 
 ## Goal
+After editing .env.config an operator has one obvious command, and after it the box behaves as its file says.
 
-NORTH STAR: an operator who edits .env.config has one obvious next command, and after it the box's behaviour matches its file. Today the gap between editing and effect (config generate + service restart) lives in the operator's memory — a box whose file and behaviour disagree is exactly the failure class STATBUS-307 exists to kill.
+## Purpose
+Today the regenerate-and-restart step lives in the operator's memory, so a file and the running box can disagree (STATBUS-307).
+
+## Principle
+./sb install applies configuration changes; one command for every key, not a verb per key.
+
+## Details
+Former goal (kept verbatim): NORTH STAR: an operator who edits .env.config has one obvious next command, and after it the box's behaviour matches its file. Today the gap between editing and effect (config generate + service restart) lives in the operator's memory — a box whose file and behaviour disagree is exactly the failure class STATBUS-307 exists to kill.
 
 FILED FROM the architect's superseding CLI-verb ruling on STATBUS-307 (2026-08-31): the upgrade-channel verb is KEPT for now precisely because it carries this three-step workflow (write key, regenerate, restart) for one key. The gap is general, not channel-specific — every .env.config key has it. The right long-term home is ./sb install applying config changes as part of its idempotent config work (it already runs the step-table as a config refresh in the nothing-scheduled state); once install closes the gap for every key, the channel verb becomes redundant and can be removed for the reason originally given (the downstream unknown-value refusal covers every writer; a verb covers only its users).
 
