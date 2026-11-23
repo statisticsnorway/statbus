@@ -2,11 +2,12 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { Maximize2, Minimize2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent } from "maplibre-gl";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { UnitMap, cssColour } from "./unit-map";
-import { UnitTypeLegend } from "./unit-type-legend";
 import { BASEMAP_FONT } from "./basemap";
 import { ViewControl } from "./view-control";
 import { featureBounds, linksUnitPoints, type LinksHierarchy, type MapUnitType, type UnitPointProperties } from "./map-data";
@@ -23,6 +24,8 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
   const [unitTypes, setUnitTypes] = useState<MapUnitType[]>(["legal_unit", "establishment"]);
   const [picked, setPicked] = useState<UnitPointProperties[] | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  // Expand fills the window with the map; Escape or the button brings it back to the page.
+  const [expanded, setExpanded] = useState(false);
   const mapRef = useRef<MapLibreMap | null>(null);
   const shownRef = useRef<GeoJSON.Feature<GeoJSON.Point, UnitPointProperties>[]>([]);
 
@@ -30,10 +33,17 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
     () => (hierarchy?.enterprise ? linksUnitPoints(hierarchy as unknown as LinksHierarchy, { unitType, id: Number(unitId) }) : null),
     [hierarchy, unitType, unitId]
   );
-  const totals = useMemo(() => {
-    const t: Record<MapUnitType, number> = { enterprise: 0, legal_unit: 0, establishment: 0 };
-    for (const f of points?.features.features ?? []) t[f.properties.unit_type] += 1;
-    return t;
+  // Per unit type, how many are at their address and how many at their region's centre; the
+  // legend shows both, each with the marker the map draws (owner 2026-11-23).
+  const counts = useMemo(() => {
+    const c: Record<"legal_unit" | "establishment", { point: number; region: number }> = {
+      legal_unit: { point: 0, region: 0 },
+      establishment: { point: 0, region: 0 },
+    };
+    for (const f of points?.features.features ?? []) {
+      if (f.properties.unit_type === "legal_unit" || f.properties.unit_type === "establishment") c[f.properties.unit_type][f.properties.placed] += 1;
+    }
+    return c;
   }, [points]);
   const shown = useMemo(
     () => ({
@@ -55,16 +65,21 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
   const onReady = useCallback(
     (map: MapLibreMap) => {
       mapRef.current = map;
-      // Units at exactly the same place are clustered into one circle (a tiny radius, so only
-      // identical positions merge: a region's centre); the circle counts them and keeps
-      // whether the page's unit is among them.
+      // Units close on screen are one circle with their count, which splits as the map zooms
+      // in (owner 2026-11-23: the country view showed overlapping circles); units at exactly the
+      // same place (a region's centre) stay one circle at any zoom. The circle keeps how many
+      // of each unit type it holds and whether the page's unit is among them.
       map.addSource("units", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
         cluster: true,
-        clusterRadius: 1,
+        clusterRadius: 40,
         clusterMaxZoom: 22,
-        clusterProperties: { has_current: ["any", ["get", "current"]] },
+        clusterProperties: {
+          has_current: ["any", ["get", "current"]],
+          legal_units: ["+", ["case", ["==", ["get", "unit_type"], "legal_unit"], 1, 0]],
+          establishments: ["+", ["case", ["==", ["get", "unit_type"], "establishment"], 1, 0]],
+        },
       });
       const colour = [
         "match",
@@ -75,6 +90,16 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         cssColour("--color-establishment-500"),
         cssColour("--color-enterprise-500"),
       ] as unknown as string;
+      // A group of units at one place, in its unit type's colour (grey when both types are
+      // there); its count is always drawn, over the unit names.
+      const groupColour = [
+        "case",
+        ["==", ["get", "legal_units"], 0],
+        cssColour("--color-establishment-500"),
+        ["==", ["get", "establishments"], 0],
+        cssColour("--color-legal_unit-500"),
+        cssColour("--color-informal-500"),
+      ] as unknown as string;
       map.addLayer({
         id: "unit-groups",
         type: "circle",
@@ -82,9 +107,9 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         filter: ["has", "point_count"],
         paint: {
           "circle-color": "#ffffff",
-          "circle-stroke-color": ["case", ["get", "has_current"], "#111827", cssColour("--color-establishment-600")],
-          "circle-stroke-width": ["case", ["get", "has_current"], 3, 2],
-          "circle-radius": ["interpolate", ["linear"], ["sqrt", ["get", "point_count"]], 1, 9, 20, 30],
+          "circle-stroke-color": ["case", ["get", "has_current"], "#111827", groupColour],
+          "circle-stroke-width": 3,
+          "circle-radius": ["interpolate", ["linear"], ["sqrt", ["get", "point_count"]], 1, 10, 20, 30],
         },
       });
       map.addLayer({
@@ -92,8 +117,14 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         type: "symbol",
         source: "units",
         filter: ["has", "point_count"],
-        layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": BASEMAP_FONT, "text-size": 11 },
-        paint: { "text-color": "#1f2937" },
+        layout: {
+          "text-field": ["get", "point_count_abbreviated"],
+          "text-font": BASEMAP_FONT,
+          "text-size": 12,
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: { "text-color": "#111827" },
       });
       map.addLayer({
         id: "unit-points",
@@ -132,12 +163,20 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         const f = e.features?.[0];
         if (f) setPicked([f.properties as UnitPointProperties]);
       });
+      // A click on a circle lists its units and zooms in until it splits; a circle whose units
+      // all share one place (a region's centre) does not split, so it only lists them.
       map.on("click", "unit-groups", async (e: MapLayerMouseEvent) => {
         const f = e.features?.[0];
         if (!f) return;
         const source = map.getSource("units") as GeoJSONSource;
-        const leaves = await source.getClusterLeaves(f.properties.cluster_id as number, 1000, 0);
+        const id = f.properties.cluster_id as number;
+        const leaves = await source.getClusterLeaves(id, 1000, 0);
         setPicked(leaves.map((l) => l.properties as UnitPointProperties).sort((a, b) => Number(b.current) - Number(a.current) || a.name.localeCompare(b.name)));
+        const places = new Set(leaves.map((l) => (l.geometry as GeoJSON.Point).coordinates.join(",")));
+        if (places.size > 1) {
+          const zoom = await source.getClusterExpansionZoom(id);
+          map.easeTo({ center: (f.geometry as GeoJSON.Point).coordinates as [number, number], zoom });
+        }
       });
       setMapReady(true);
     },
@@ -163,17 +202,48 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
     "UnitsMap:setData"
   );
 
+  // A new size (expand, back) is measured, and the units framed in it.
+  useGuardedEffect(
+    () => {
+      const map = mapRef.current;
+      if (!map || !mapReady) return;
+      map.resize();
+      fit();
+      if (!expanded) return;
+      const onKey = (e: KeyboardEvent) => e.key === "Escape" && setExpanded(false);
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    },
+    [expanded, mapReady, fit],
+    "UnitsMap:expanded"
+  );
+
   if (!points) return null;
   const unplaced = points.total - points.atPoint - points.atRegion;
-  const regionName = picked && picked.length > 1 ? picked[0].region_name : undefined;
+  // A list from one circle is headed by its region when all its units share one.
+  const regions = new Set((picked ?? []).map((u) => u.region_name ?? ""));
+  const regionName = picked && picked.length > 1 && regions.size === 1 ? picked[0].region_name : undefined;
   return (
-    <section className="space-y-2" data-units-map="">
-      <p className="text-sm text-gray-600" data-units-map-placed="">
-        {points.total.toLocaleString()} units of this enterprise: {points.atPoint.toLocaleString()} at their address,{" "}
-        {points.atRegion.toLocaleString()} at their region&apos;s centre
-        {unplaced > 0 ? `, ${unplaced.toLocaleString()} with no place` : ""}.
-      </p>
-      <div className="flex overflow-hidden rounded-md border" style={{ height: "min(70vh, 40rem)" }}>
+    <section
+      className={expanded ? "fixed inset-0 z-50 flex flex-col gap-2 bg-white p-4" : "space-y-2"}
+      data-units-map=""
+      data-expanded={expanded ? "" : undefined}
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm text-gray-600" data-units-map-placed="">
+          {points.total.toLocaleString()} units of this enterprise: {points.atPoint.toLocaleString()} at their address,{" "}
+          {points.atRegion.toLocaleString()} at their region&apos;s centre
+          {unplaced > 0 ? `, ${unplaced.toLocaleString()} with no place` : ""}.
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={() => setExpanded((e) => !e)} data-units-map-expand="">
+          {expanded ? <Minimize2 className="mr-1.5 h-4 w-4" /> : <Maximize2 className="mr-1.5 h-4 w-4" />}
+          {expanded ? "Back to the page" : "Expand"}
+        </Button>
+      </div>
+      <div
+        className={`flex overflow-hidden rounded-md border ${expanded ? "min-h-0 flex-1" : ""}`}
+        style={expanded ? undefined : { height: "min(70vh, 40rem)" }}
+      >
         <div className="relative min-w-0 flex-1">
           <UnitMap onReady={onReady} className="absolute inset-0" />
         </div>
@@ -181,9 +251,9 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3" data-units-map-picked="">
             {picked ? (
               <>
-                {regionName && (
+                {picked.length > 1 && (
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                    {picked.length} in {regionName}
+                    {regionName ? `${picked.length} in ${regionName}` : `${picked.length} units`}
                   </p>
                 )}
                 <ul className="space-y-1">
@@ -204,25 +274,70 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
               <p className="text-xs text-gray-500">Click a dot or a circle for its units.</p>
             )}
           </div>
-          <div className="space-y-2 border-t p-3">
-            <UnitTypeLegend
-              selected={unitTypes}
-              onChange={setUnitTypes}
-              totals={totals}
-              unitTypes={["legal_unit", "establishment"]}
-              mixedSwatch={false}
-            />
-            <div className="space-y-1 text-xs text-gray-600">
-              <p className="flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded-full bg-gray-500" aria-hidden /> At its address
-              </p>
-              <p className="flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded-full border-2 border-gray-500 bg-white" aria-hidden /> Somewhere in its region
-              </p>
-            </div>
+          <div className="border-t p-3">
+            <UnitsLegend selected={unitTypes} onChange={setUnitTypes} counts={counts} />
           </div>
         </aside>
       </div>
     </section>
+  );
+}
+
+const LEGEND_TYPES = [
+  { unitType: "legal_unit", label: "Legal units", fill: "bg-legal_unit-500", ring: "border-legal_unit-500" },
+  { unitType: "establishment", label: "Establishments", fill: "bg-establishment-500", ring: "border-establishment-500" },
+] as const;
+
+/**
+ * The Map page's legend: per unit type a checkbox, and under it the two markers the map
+ * draws with their counts: solid at the unit's address, a ring at its region's centre
+ * (owner 2026-11-23). At least one type stays picked.
+ */
+function UnitsLegend({
+  selected,
+  onChange,
+  counts,
+}: {
+  selected: readonly MapUnitType[];
+  onChange: (next: MapUnitType[]) => void;
+  counts: Record<"legal_unit" | "establishment", { point: number; region: number }>;
+}) {
+  const toggle = (t: MapUnitType) => {
+    const next = selected.includes(t) ? selected.filter((s) => s !== t) : [...selected, t];
+    if (next.length > 0) onChange(LEGEND_TYPES.map((l) => l.unitType).filter((u) => next.includes(u)));
+  };
+  return (
+    <fieldset className="space-y-2 text-sm" data-units-legend="">
+      <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">Units</legend>
+      {LEGEND_TYPES.map(({ unitType, label, fill, ring }) => (
+        <div key={unitType}>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="checkbox" checked={selected.includes(unitType)} onChange={() => toggle(unitType)} data-unit-type={unitType} />
+            <span className="flex-1">{label}</span>
+            <span className="tabular-nums text-gray-600">
+              {(counts[unitType].point + counts[unitType].region).toLocaleString()}
+            </span>
+          </label>
+          <div className="mt-0.5 space-y-0.5 pl-6 text-xs text-gray-600">
+            <p className="flex items-center gap-2" data-legend-placed="point">
+              <span className={`inline-block h-3 w-3 rounded-full ${fill}`} aria-hidden />
+              <span className="flex-1">At its address</span>
+              <span className="tabular-nums">{counts[unitType].point.toLocaleString()}</span>
+            </p>
+            <p className="flex items-center gap-2" data-legend-placed="region">
+              <span className={`inline-block h-3 w-3 rounded-full border-2 bg-white ${ring}`} aria-hidden />
+              <span className="flex-1">Somewhere in its region</span>
+              <span className="tabular-nums">{counts[unitType].region.toLocaleString()}</span>
+            </p>
+          </div>
+        </div>
+      ))}
+      <p className="flex items-center gap-2 text-xs text-gray-600">
+        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-gray-500 bg-white text-[9px] font-medium" aria-hidden>
+          n
+        </span>
+        Units close together; click to zoom in and list them
+      </p>
+    </fieldset>
   );
 }
