@@ -4,7 +4,7 @@ title: "Regions show and upload their centre coordinates under Advanced"
 state: todo
 type: feature
 priority: "medium"
-assignee: []
+assignee: ["hibiscus"]
 labels: []
 group: ""
 rank: "zzzzzzzq"
