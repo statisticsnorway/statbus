@@ -33,3 +33,5 @@ Found 2026-11-22 (app/src/components/estimated-count.tsx): (1) exactCount state 
 - [ ] On dev, the 2024 cards match the reports and their lists; the cause of the earlier mismatch and the numbers are recorded here
 
 ## Notes
+
+2026-11-23 (Rabbit) Reproduced in a real browser on the test slot (tmp/dwt9kd/repro2.mjs, log repro2.log, journal 11:26): exact legal unit counts live 31, 2024 6; after both are saved, switching in-page from 2024 to live leaves the Legal Units card at 6. The script is the RED case for the first check.
