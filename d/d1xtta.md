@@ -32,3 +32,5 @@ Open for the owner: which host (niue cloud slot or a standalone server), who in 
 - [ ] The first agreed data load completes on mz with no failed job; the job ids and counts are recorded here
 
 ## Notes
+
+2026-11-23 owner: the Mozambique cloud installation takes priority now. They are using demo.statbus.org today; their data there is checked before the install.
