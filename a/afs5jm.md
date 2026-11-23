@@ -36,3 +36,5 @@ Export: app/src/app/search/export (export-sql.ts exportColumns composes the COPY
 2026-11-23 (Rabbit) Checked the code: the download never follows the table (exportColumns always writes the same ~45 columns). Options are in check 1; Rabbit proposed (A).
 
 2026-11-23 (Rabbit) The Download label is done: 8aaf0262b (xz3jej), on master, not yet released.
+
+2026-11-23 owner: (B) a Customize columns dialog, made easy rather than ticking every column: presets such as All, a minimal subset, or Custom. How it works is to be discussed, likely with a local prototype first.
