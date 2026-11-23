@@ -35,3 +35,5 @@ Bring publishes the postcode register (TAB, Latin-1, weekly; https://www.bring.n
 ## Notes
 
 2026-11-23 (Rabbit) From hibiscus: on the local Norway copy Haugesund (11.06) has Rogaland's exact centre (59.407159, 5.278156); derived centres must replace such copied county centres, not keep them. Maps read region.center_latitude/longitude, so better data shows with no map change.
+
+2026-11-23 (Rabbit) Coordinate names: jbc5bs (hibiscus, after z2qt08) renames them to latitude, longitude, altitude everywhere (regions drop center_, units drop physical_, postal locations carry none). Use today's names until jbc5bs lands; whichever lands later uses the new names.
