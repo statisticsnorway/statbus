@@ -28,6 +28,9 @@ export default function QualityFilter() {
         label,
         value: check,
         humanReadableValue: shortLabel,
+        // Every quality check lists units with a data-quality problem, so its
+        // chip is orange like Region and Activity Category "Missing".
+        className: "bg-orange-200",
       })),
     []
   );

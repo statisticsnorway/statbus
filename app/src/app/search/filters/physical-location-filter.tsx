@@ -38,7 +38,14 @@ export default function PhysicalLocationFilter() {
       title="Physical Location"
       options={[
         { label: "Present", value: "present", humanReadableValue: "Present" },
-        { label: "Missing", value: "missing", humanReadableValue: "Missing" },
+        {
+          label: "Missing",
+          value: "missing",
+          humanReadableValue: "Missing",
+          // Orange marks a selection of units with a data-quality problem, as
+          // Region and Activity Category "Missing" do.
+          className: "bg-orange-200",
+        },
       ]}
       selectedValues={selected}
       onReset={reset}

@@ -1,13 +1,10 @@
 "use client";
 
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { useSetAtom, useAtomValue, useAtom } from "jotai";
+import { useAtomValue, useAtom } from "jotai";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
-import { isEqual } from 'moderndash';
 
 import type { Tables } from "@/lib/database.types";
-import { type SearchAction } from "../search.d";
 import {
   paginationAtom,
   type SearchPagination,
@@ -15,8 +12,6 @@ import {
   type SearchSorting,
   queryAtom,
   filtersAtom,
-  searchPageDataAtom,
-  type SearchDirection,
 } from "@/atoms/search";
 import { searchStateInitializedAtom } from "@/atoms/app";
 import {
@@ -25,33 +20,10 @@ import {
 } from "@/atoms/base-data";
 import {
   SEARCH,
-  activityCategoryDeriveStateUpdateFromSearchParams,
-  dataSourceDeriveStateUpdateFromSearchParams,
-  externalIdentDeriveStateUpdateFromSearchParams,
-  fullTextSearchDeriveStateUpdateFromSearchParams,
-  legalFormDeriveStateUpdateFromSearchParams,
-  regionDeriveStateUpdateFromSearchParams,
-  sectorDeriveStateUpdateFromSearchParams,
-  statusDeriveStateUpdateFromSearchParams,
-  domesticDeriveStateUpdateFromSearchParams,
-  physicalLocationDeriveStateUpdateFromSearchParams,
-  lastEditByUserDeriveStateUpdateFromSearchParams,
-  statisticalVariablesDeriveStateUpdateFromSearchParams,
-  unitSizeDeriveStateUpdateFromSearchParams,
-  unitTypeDeriveStateUpdateFromSearchParams,
   ACTIVITY_CATEGORY_PATH,
   REGION,
   SECTOR,
 } from "../filters/url-search-params";
-
-interface UseSearchUrlSyncProps {
-  initialUrlSearchParamsString: string;
-  allRegions: Tables<"region_used">[];
-  allActivityCategories: Tables<"activity_category_used">[];
-  allStatuses: Tables<"status">[];
-  allUnitSizes: Tables<"unit_size">[];
-  allDataSources: Tables<"data_source">[];
-}
 
 // This function derives a URL search string from state atoms.
 // It is a pure function and is the single source of truth for State -> URL conversion.
@@ -105,111 +77,22 @@ const deriveUrlFromState = (
 };
 
 
+// Writes the search state to the URL. Reading the URL into state is
+// SearchResults' deriveStateFromUrl, the one URL -> state conversion; it sets
+// searchStateInitializedAtom once it has run, and this hook writes only after
+// that, so every filter the URL names (quality included) survives the round trip.
 export function useSearchUrlSync() {
   const router = useRouter();
   const [isInitialized, setInitialized] = useAtom(searchStateInitializedAtom);
 
-  // State values and setters
-  const [query, setQuery] = useAtom(queryAtom);
-  const [filters, setFilters] = useAtom(filtersAtom);
-  const [pagination, setPagination] = useAtom(paginationAtom);
-  const [sorting, setSorting] = useAtom(sortingAtom);
-  
-  // Data required for parsing/deriving state
+  const query = useAtomValue(queryAtom);
+  const filters = useAtomValue(filtersAtom);
+  const pagination = useAtomValue(paginationAtom);
+  const sorting = useAtomValue(sortingAtom);
   const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
   const statDefinitions = useAtomValue(statDefinitionsAtom);
-  const { allDataSources } = useAtomValue(searchPageDataAtom);
 
-  // Effect 1: Initialize state from URL on first load
-  useGuardedEffect(() => {
-    // Guard against running if already initialized or if essential data isn't loaded yet.
-    if (isInitialized || !allDataSources.length || !externalIdentTypes.length) {
-      return;
-    }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.toString() === '') {
-      // If there are no params, we are done initializing with default/stored state.
-      setInitialized(true);
-      return;
-    }
-
-    // Most ...fromSearchParams functions return a single action, but some can return multiple.
-    const singleActions: (SearchAction | null)[] = [
-      fullTextSearchDeriveStateUpdateFromSearchParams(urlParams),
-      unitTypeDeriveStateUpdateFromSearchParams(urlParams),
-      legalFormDeriveStateUpdateFromSearchParams(urlParams),
-      regionDeriveStateUpdateFromSearchParams(urlParams),
-      sectorDeriveStateUpdateFromSearchParams(urlParams),
-      activityCategoryDeriveStateUpdateFromSearchParams(urlParams),
-      statusDeriveStateUpdateFromSearchParams(urlParams),
-      domesticDeriveStateUpdateFromSearchParams(urlParams),
-      physicalLocationDeriveStateUpdateFromSearchParams(urlParams),
-      lastEditByUserDeriveStateUpdateFromSearchParams(urlParams),
-      unitSizeDeriveStateUpdateFromSearchParams(urlParams),
-      dataSourceDeriveStateUpdateFromSearchParams(urlParams),
-    ];
-
-    // externalIdent... expects a single type object, so we must map over the available types.
-    // It may return one or more actions, so we use flatMap.
-    const externalIdentActions: (SearchAction | null)[] = externalIdentTypes.flatMap(
-      (type) => externalIdentDeriveStateUpdateFromSearchParams(type, urlParams),
-    );
-
-    // statisticalVariables... expects an array of definitions and returns an array of actions.
-    const statisticalVariableActions =
-      statisticalVariablesDeriveStateUpdateFromSearchParams(
-        statDefinitions,
-        urlParams,
-      );
-
-    const actions: (SearchAction | null)[] = [
-      ...singleActions,
-      ...externalIdentActions,
-      ...statisticalVariableActions,
-    ];
-    
-    const newFilters: Record<string, unknown> = {};
-    let newQuery: string | null = null;
-    
-    actions.forEach(action => {
-      if (action?.type === 'set_query') {
-        const values = action.payload.app_param_values;
-        // Don't set state if values are missing or it's an empty array.
-        if (!values || values.length === 0) {
-          return;
-        }
-
-        if (action.payload.app_param_name === SEARCH) {
-          // Full-text search is a single value.
-          newQuery = values[0];
-        } else {
-          // Other filters can be single or multiple values, store as an array.
-          newFilters[action.payload.app_param_name] = values;
-        }
-      }
-    });
-
-    setFilters(newFilters);
-    if (newQuery !== null) setQuery(newQuery);
-
-    const pageParam = urlParams.get('page');
-    if (pageParam) {
-      const page = parseInt(pageParam, 10);
-      if (!isNaN(page)) setPagination(prev => ({ ...prev, page }));
-    }
-
-    const orderParam = urlParams.get('order');
-    if (orderParam) {
-      const [field, direction] = orderParam.split('.');
-      if (field && direction) setSorting({ field, direction: direction as SearchDirection });
-    }
-
-    setInitialized(true);
-
-  }, [isInitialized, allDataSources, externalIdentTypes, statDefinitions, setInitialized, setQuery, setFilters, setPagination, setSorting], 'useSearchUrlSync:initialize');
-
-  // Effect 2: Sync state back to URL after initialization and on subsequent changes
+  // Effect 1: Sync state to the URL after initialization and on subsequent changes
   useGuardedEffect(() => {
     if (!isInitialized) {
       return;
@@ -230,7 +113,7 @@ export function useSearchUrlSync() {
     
   }, [query, filters, pagination, sorting, router, isInitialized, externalIdentTypes, statDefinitions], 'useSearchUrlSync:sync');
 
-  // Effect 3: Reset initialization status on unmount.
+  // Effect 2: Reset initialization status on unmount.
   // This is critical for ensuring that if the user navigates away from the search
   // page and then returns (e.g., using the back button or a link from another
   // page), the state is re-initialized from the new URL search params.
