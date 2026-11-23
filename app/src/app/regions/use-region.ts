@@ -9,8 +9,6 @@ type Pagination = {
 type Queries = {
   name: string;
   code: string;
-  /** Only regions without a centre point (the Regions map links here for the ones it cannot place). */
-  noCoordinates?: boolean;
 }
 type SearchState = {
   pagination: Pagination;
@@ -33,7 +31,6 @@ const fetcher: Fetcher<RegionResult, SearchState> = async ({pagination, queries}
 
       if (queries.name) query = query.ilike('name', `%${queries.name}%`);
       if (queries.code) query = query.like('code', `${queries.code}%`);
-      if (queries.noCoordinates) query = query.is('center_latitude', null);
 
       const {data: maybeRegions, count: maybeCount} = await query;
       const regions = maybeRegions ?? [];
@@ -42,11 +39,11 @@ const fetcher: Fetcher<RegionResult, SearchState> = async ({pagination, queries}
     return {regions, count};
 }
 
-export default function useRegion(initial?: { noCoordinates?: boolean }) {
+export default function useRegion() {
   const [pagination, setPagination] = useState({ pageSize: 10, pageNumber: 1 } as Pagination);
-  const [queries, setQueries] = useState({ name: "", code: "", noCoordinates: initial?.noCoordinates ?? false } as Queries);
+  const [queries, setQueries] = useState({ name: "", code: "" } as Queries);
 
-  const { data, isLoading } = useSWR<RegionResult>(
+  const { data, isLoading, mutate } = useSWR<RegionResult>(
     `regions?${JSON.stringify(pagination)}${JSON.stringify(queries)}`,
     (key) => fetcher({pagination, queries}),
     {
@@ -58,6 +55,8 @@ export default function useRegion(initial?: { noCoordinates?: boolean }) {
   return {
     data,
     isLoading,
+    /** Reloads the shown page, after a region's centre is saved. */
+    refresh: () => mutate(),
     pagination,
     setPagination,
     queries,

@@ -5,12 +5,9 @@ import TablePagination from "../../components/table/table-pagination";
 import RegionTable from "./region-table";
 import useRegion from "./use-region";
 import TableFilters from "./region-table-filters";
-import { useSearchParams } from "next/navigation";
 
 export default function RegionPage() {
-  // ?coordinates=none: only the regions without a centre point, linked from the Regions map.
-  const noCoordinates = useSearchParams()?.get("coordinates") === "none";
-  const { data, pagination, setPagination, queries, setQueries } = useRegion({ noCoordinates });
+  const { data, pagination, setPagination, queries, setQueries, refresh } = useRegion();
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
@@ -22,7 +19,7 @@ export default function RegionPage() {
           queries={queries}
         />
         <div className="rounded-md border overflow-hidden">
-          <RegionTable regions={data?.regions ?? []} />
+          <RegionTable regions={data?.regions ?? []} onChanged={refresh} />
         </div>
         <div className="lg:grid lg:grid-cols-3 items-center justify-center text-xs text-gray-500">
           <TableResultCount

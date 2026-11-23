@@ -81,7 +81,7 @@ export function LocationPicker({
         Pick on map
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Pick the location</DialogTitle>
             <DialogDescription>Click the map or drag the pin to the unit&apos;s place.</DialogDescription>

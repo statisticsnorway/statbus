@@ -384,13 +384,13 @@ export default function RegionsMapPage() {
                 />
               )}
               {withoutCentre.length > 0 && (
-                <div>
-                  <CountLink
-                    href="/regions?coordinates=none"
-                    label="Units in regions without coordinates"
-                    value={withoutCentre.reduce((s, r) => s + r.total, 0)}
-                    data="regions-without-coordinates"
-                  />
+                <div data-regions-without-coordinates="">
+                  <p className="flex justify-between gap-2">
+                    <span>Units in regions without coordinates</span>
+                    <span className="tabular-nums text-gray-600">
+                      {withoutCentre.reduce((s, r) => s + r.total, 0).toLocaleString()}
+                    </span>
+                  </p>
                   <ul className="mt-0.5 space-y-0.5 pl-3 text-xs text-gray-600">
                     {withoutCentre.map((r) => (
                       <li key={r.path} className="flex justify-between gap-2">
@@ -401,6 +401,13 @@ export default function RegionsMapPage() {
                       </li>
                     ))}
                   </ul>
+                  <p className="mt-1 text-xs text-gray-500">
+                    An admin places a region on the{" "}
+                    <Link className="underline underline-offset-2" href="/regions">
+                      region list
+                    </Link>{" "}
+                    with Place on map.
+                  </p>
                 </div>
               )}
             </section>

@@ -10,13 +10,12 @@ export default function RegionTableFilters({
     SetStateAction<{
       name: string;
       code: string;
-      noCoordinates?: boolean;
     }>
   >;
   readonly setPagination: Dispatch<
     SetStateAction<{ pageSize: number; pageNumber: number }>
   >;
-  readonly queries: { name: string; code: string; noCoordinates?: boolean };
+  readonly queries: Record<string, string | null>;
 }) {
   const handleFilterChange = (filterName: string, value: string) => {
     setQueries((prev) => {
@@ -25,7 +24,7 @@ export default function RegionTableFilters({
     setPagination((prev) => ({ ...prev, pageNumber: 1 }));
   };
   const handleResetFilter = () => {
-    setQueries({ name: "", code: "", noCoordinates: false });
+    setQueries({ name: "", code: "" });
     setPagination((prev) => ({ ...prev, pageNumber: 1 }));
   };
   return (
@@ -40,17 +39,6 @@ export default function RegionTableFilters({
         value={queries["name"]}
         type="name"
       />
-      <label className="flex items-center gap-2 text-sm" data-regions-no-coordinates="">
-        <input
-          type="checkbox"
-          checked={!!queries.noCoordinates}
-          onChange={(e) => {
-            setQueries((prev) => ({ ...prev, noCoordinates: e.target.checked }));
-            setPagination((prev) => ({ ...prev, pageNumber: 1 }));
-          }}
-        />
-        Without coordinates
-      </label>
       <ResetFilterButton onReset={handleResetFilter} />
     </div>
   );
