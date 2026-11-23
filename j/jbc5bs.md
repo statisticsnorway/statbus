@@ -1,6 +1,6 @@
 ---
 id: jbc5bs
-title: "Region coordinates are named latitude, longitude, altitude, without center_"
+title: "Coordinates are named latitude, longitude, altitude; no postal coordinates"
 state: todo
 type: feature
 priority: ""
@@ -13,16 +13,16 @@ updated: 2026-11-23
 ---
 
 ## Goal
-A region's point is stored, uploaded and returned as latitude, longitude and altitude, without the center_ prefix.
+Coordinates are named latitude, longitude and altitude everywhere, for regions and units, and postal addresses carry none.
 
 ## Purpose
-Owner 2026-11-23: center_ over-communicates; a region's single point can only be where it is, and an outline would be a geometry of its own, not latitude/longitude.
+Owner 2026-11-23 (his boss's decision): the center_ and physical_ prefixes over-communicate, and a postal address needs no coordinates; one plain name lets map code and API users read one field.
 
 ## Principle
-One forward migration renames the columns, the region_upload view and its upsert; no lasting alias. Units keep physical_ and postal_ prefixes, which tell two places apart.
+One forward migration with no lasting aliases; postal coordinate columns are dropped, not renamed; an outline, if it ever comes, is a geometry of its own (e.g. boundary).
 
 ## Details
-Touches public.region (center_latitude, center_longitude, center_altitude and its CHECK constraints), public.region_upload and admin.region_upload_upsert, doc/db, app types, test/sql/100_regions_with__itudes and the expected outputs that print region columns (002, 107, 109, 110, 111, 115), doc/data-model.md, the region list and map on feat/units-on-map (z2qt08), and Rabbit's 5yxn4w and s2wvf7. Region upload files with center_* headers stop matching.
+Regions: public.region center_latitude/center_longitude/center_altitude and their CHECK constraints, public.region_upload, admin.region_upload_upsert. Units: statistical_unit physical_latitude/longitude/altitude -> latitude/longitude/altitude; postal_latitude/longitude/altitude dropped (0 units carry them; location already forbids coordinates on postal rows); the timeline views (timeline_legal_unit_def, timeline_establishment_def, timeline_enterprise_def, timeline_power_group_def, statistical_unit_def, timeline_enterprise) and 15 doc/db views/functions naming them; import steps physical_location (physical_latitude/_raw, ...) and postal_location (its coordinate columns dropped) and the import definitions using them. App: search export (export-sql.ts, xlsx-stream.ts), unit-history-table.tsx, the hierarchy types, the map work on feat/units-on-map (z2qt08). Docs: data-model.md, import-system.md, integration/api-reference.md. Tests: test/sql/100_regions_with__itudes and expected outputs printing these columns. Others' tasks to align: kvbebr (decided here), Rabbit's 5yxn4w, s2wvf7, dbmsxy, 8p81cc, r39dqb (Erik's files use physical_latitude headers).
 
 ## Depends on
 - z2qt08
