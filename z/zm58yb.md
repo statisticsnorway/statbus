@@ -11,7 +11,7 @@ labels:
   - worker
   - security
 group: ""
-rank: "000000000190"
+rank: "zzzzzzzzzzx"
 dependencies: []
 documentation:
   - doc/design/smtp2go-email.md
