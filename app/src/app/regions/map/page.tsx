@@ -345,20 +345,26 @@ export default function RegionsMapPage() {
               {depth > 0 && <span className="ml-1.5 text-xs font-normal text-gray-500">{selection}</span>}
             </h2>
             {selectedCounts ? (
-              <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5">
-                {MAP_UNIT_TYPES.map((t) => (
-                  <PickedCount key={t} unitType={t} value={selectedCounts[t]} />
-                ))}
-              </dl>
+              // One list of unit types: tick to show a type on the map and in the list the button
+              // opens; the count is the selection's (owner 2026-11-23: the types were listed twice,
+              // as counts here and as a legend at the bottom).
+              <div className="mt-3">
+                <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} totals={selectedCounts} />
+              </div>
             ) : (
               <WorldSplit world={world} homeName={nameOf("")} countryNames={countryNames} typesParam={typesParam} />
             )}
+            {selection === null && (
+              <div className="mt-3 border-t pt-3">
+                <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} />
+              </div>
+            )}
             {selectionSearch && (
-              // The drilldown report's words and button (reports/drilldown/search-link.tsx), so the
-              // two ways into the list read alike (owner 2026-11-23).
+              // The drilldown report's button (reports/drilldown/search-link.tsx), under the types it
+              // opens, so the two ways into the list read alike (owner 2026-11-23).
               <Button asChild size="sm" className="mt-3 w-full">
                 <Link href={selectionSearch} data-regions-map-view-units="">
-                  View and export statistical units
+                  View and download
                 </Link>
               </Button>
             )}
@@ -421,10 +427,6 @@ export default function RegionsMapPage() {
               </button>
             </p>
           )}
-          </div>
-          {/* The unit types sit at the bottom, under what is selected (owner 2026-11-23). */}
-          <div className="border-t p-4">
-            <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} />
           </div>
         </aside>
       </div>
@@ -502,23 +504,5 @@ function CountLink({ href, label, value, data }: { href: string; label: string; 
       <span>{label}</span>
       <span className="tabular-nums text-gray-600">{value.toLocaleString()}</span>
     </Link>
-  );
-}
-
-const UNIT_TYPE_PLURAL: Record<MapUnitType, string> = {
-  enterprise: "Enterprises",
-  legal_unit: "Legal units",
-  establishment: "Establishments",
-};
-
-function PickedCount({ unitType, value }: { unitType: MapUnitType; value: number }) {
-  return (
-    <>
-      <dt className="flex items-center gap-1.5">
-        <span className={`inline-block h-2.5 w-2.5 rounded-full ${UNIT_TYPE_SWATCH[unitType]}`} aria-hidden />
-        {UNIT_TYPE_PLURAL[unitType]}
-      </dt>
-      <dd className="text-right tabular-nums">{value.toLocaleString()}</dd>
-    </>
   );
 }

@@ -31,7 +31,7 @@ export const SearchLink = ({
   return (
     <Button asChild>
       <Link href={searchParams.size ? `/search?${searchParams}` : "/search"}>
-        View and export statistical units
+        View and download
       </Link>
     </Button>
   );
