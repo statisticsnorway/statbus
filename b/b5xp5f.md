@@ -1,6 +1,6 @@
 ---
 id: b5xp5f
-title: "Albanian register data in public test data: history and reporting"
+title: "Partner register data in public test data: replace and document"
 state: "done"
 type: bug
 priority: "highest"
@@ -17,7 +17,7 @@ done_at: "2026-11-23T16:20"
 ---
 
 ## Goal
-Master and new releases hold no identifying Albanian data, and the history, forks and reporting are decided and recorded.
+Master and new releases hold no identifying partner data, the test data's provenance is documented, and the history decision is recorded.
 
 ## Purpose
 Data about firms in a partner country was public in our repository; it must stop spreading and be documented so a reader can tell what the test data is.
