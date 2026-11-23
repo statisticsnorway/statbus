@@ -35,10 +35,11 @@ Contained 2026-11-23 in cfb49e73a: every identifying value replaced with generat
 - [ ] [Owner] Confirms with Erik where the files came from and whether the partner sent them as test data; recorded here
 - [ ] [Owner] Decides with SSB's data protection officer whether this is reported as a breach and whether the Albanian partner is told; recorded here
 - [ ] [Owner] Decides whether git history is rewritten (all branches and tags, GitHub cache purge, fleet migration plan) or left with master clean; recorded here
-- [ ] Master and the next release contain no value from the original files: a script comparing the old and new files finds 0 original identifying values (done in cfb49e73a, recorded here)
+- [x] Master and the next release contain no value from the original files: a script comparing the old and new files finds 0 original identifying values (done in cfb49e73a, recorded here)
 
 ## Notes
 
 
+check 4: cfb49e73a on master: old vs new comparison found 0 original identifying values left; no gmail, yahoo, gov.al or firm domains; test 404 ok (tmp/albania/404-after.log)
 ## History
 - 2026-11-23T14:39 todo -> doing/active (take)
