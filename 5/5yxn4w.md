@@ -16,13 +16,13 @@ updated: 2026-11-23
 Regions show and upload centre latitude, longitude and altitude, and an admin places a region that lacks one.
 
 ## Purpose
-Owner 2026-11-22: show region lat+lon on /regions, with the same simple/advanced split for plain regions and their extras, for display, upload and upload instructions. Regions already hold center_latitude, center_longitude and center_altitude, but the page does not show them.
+Regions hold centre coordinates, but people cannot see them on /regions or fill in a missing one, and the upload instructions do not say how to supply them.
 
 ## Principle
 One switch per screen: simple shows what every country needs, Advanced adds the optional columns; the upload accepts the optional columns either way.
 
 ## Details
-Pages: app/src/app/regions (region-table.tsx, region-table-filters.tsx, use-region.ts), app/src/app/getting-started/upload-regions. Simple view: code, name, level; Advanced adds centre latitude, longitude and altitude. Owner 2026-11-23: the list filters All / With / Without coordinates, and a region without a centre gets 'Place on map' for admins (OpenStreetMap Nominatim name search in the installation's country; pin on the chosen match; Save writes region.center_latitude/longitude). Built on branch feat/units-on-map with z2qt08: f3637eb36, 14fd35fff. jbc5bs later renames the columns to latitude, longitude, altitude.
+Owner 2026-11-22: show region latitude and longitude on /regions, with the same simple/Advanced split for display, upload and upload instructions. public.region already has center_latitude, center_longitude and center_altitude. Pages: app/src/app/regions (region-table.tsx, region-table-filters.tsx, use-region.ts), app/src/app/getting-started/upload-regions. Simple view: code, name, level; Advanced adds centre latitude, longitude and altitude. Owner 2026-11-23: the list filters All / With / Without coordinates, and a region without a centre gets 'Place on map' for admins (OpenStreetMap Nominatim name search limited to the installation's country; pin on the chosen match; Save writes the centre). Built on branch feat/units-on-map with z2qt08: f3637eb36, 14fd35fff. jbc5bs later renames the columns to latitude, longitude, altitude. Codes that are no place or 'not stated' are 5necw2.
 
 ## Depends on
 
