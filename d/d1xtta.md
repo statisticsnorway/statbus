@@ -33,8 +33,8 @@ Existing evidence: demo.statbus.org is set up for Mozambique (settings country M
 
 ## Acceptance
 - [x] [Owner] Decides the host: a niue cloud slot (adds mz to cloud.sh FLEET_REGISTRY and doc/CLOUD.md with the next free offset, as mw was) or a standalone server (its own machine and DNS, as no on rune); recorded here
-- [x] [Owner] Names the first admin user, the account the install creates; recorded here
-- [x] https://mz.statbus.org answers with a working login on the stable channel and runs the latest stable release, as ./sb upgrade list on the host shows; the output is recorded here
+- [x] [Owner] Names the first admin user, the account the install creates; recorded off the board, with the date noted here
+- [x] https://mz.statbus.org answers with a working login on the stable channel and runs the latest stable release, as ./cloud.sh status mz shows; the output is recorded here
 - [x] [Owner] Decides whether mz starts from demo's Mozambique data (a dump of demo restored on mz: their 145 legal units, 10 establishments and 25 users carry over, demo is then reset) or from a fresh install (their import files run again on mz; users created anew); recorded here, and the data-load check follows it
 - [ ] The first agreed data load completes on mz with no failed job; the job ids and counts are recorded here
 
