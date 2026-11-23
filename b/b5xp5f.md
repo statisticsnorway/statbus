@@ -49,5 +49,6 @@ landed eba013d on master 2026-11-23: doc: test/data README records that the Alba
 2026-11-23 (Rabbit) Morocco (test 341, 003384b83): 600 real-looking company and person names with stat and tax identifiers, meant to be anonymised. Owner 2026-11-23: same treatment. Replaced in 542a15b95 by test/data/341_duplicate_ident_generate.py (names 'Unit NNN', identifiers generated with the same digit count and the same duplicate groups); test 341 gives the same result (597 imported, rows 1, 232, 600 refused). Test 340's file is the invented demo set, unchanged. test/data/README.md records both files' provenance and the decision. Swept test/data, app/public/demo and samples: no personal e-mail or government domains except the public BRREG samples.
 check 5: Owner 2026-11-23: the Moroccan names were meant to be anonymised; replaced in 542a15b95 with generated values, README updated, test 341 same result
 check 1: Erik 2026-11-23: test data from the Albanian partner, already partially anonymised when received, the anonymisation undocumented; recorded in test/data/README.md
+landed 542a15b on master 2026-11-23: test: test 341's Moroccan names and identifiers replaced with generated ones…
 ## History
 - 2026-11-23T14:39 todo -> doing/active (take)
