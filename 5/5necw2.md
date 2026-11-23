@@ -26,6 +26,7 @@ Owner 2026-11-23 (review of z2qt08/5yxn4w): keep the official file; not in this 
 
 ## Depends on
 
+- 5yxn4w
 ## Acceptance
 - [ ] The region upload accepts a kind per region and stores it; a SQL test asserts place, no_place and unknown rows
 - [ ] /regions shows 'No place' for a no_place region and offers Place on map only for a place without a centre; a Playwright test asserts both
