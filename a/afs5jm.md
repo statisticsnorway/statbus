@@ -16,13 +16,13 @@ updated: 2026-11-23
 From /search a user downloads either every column, as today, or only a chosen subset of columns, in CSV or Excel.
 
 ## Purpose
-Owner 2026-11-22: /search should say Download and allow an optional subset of columns. The label is done (8aaf0262b, xz3jej, on master, not yet released); every download today has all columns in a fixed order, whatever the table shows.
+Owner 2026-11-22: a user often wants a file with only some columns; today every download has all columns in a fixed order, whatever the table shows.
 
 ## Principle
 The full download stays the default; a subset keeps the export's column order and the same rows as the full download of the same filter.
 
 ## Details
-Export: app/src/app/search/export (export-sql.ts composes the COPY select from ExportColumnConfig; export-copy-stream.ts streams CSV, xlsx-stream.ts Excel). The search table's shown columns live in tableColumnsAtom (atoms/search.ts). Options for the subset: (a) the columns shown in the table, chosen with its existing Columns menu, as a Download menu item 'Only the columns shown'; (b) a separate column picker in the Download menu.
+Export: app/src/app/search/export (export-sql.ts exportColumns composes the COPY select from ExportColumnConfig; export-copy-stream.ts streams CSV, xlsx-stream.ts Excel). The table's shown columns live in tableColumnsAtom (atoms/search.ts). Today only the unit-type filter changes the columns (no unit_type when one type is chosen; establishments get no sector or legal form).
 
 ## Depends on
 
