@@ -1,0 +1,39 @@
+\set ON_ERROR_STOP on
+-- Migration 20261123114610: countries have a centre latitude and longitude
+--
+-- The Regions map opens on the installation's own country and steps out to the
+-- world, where every country with units is a circle at its centre (owner
+-- 2026-11-23, z2qt08). The centres ship in dbseed/country/country_centres.csv,
+-- keyed by iso_2: Google's public country centres (DSPL canonical
+-- countries.csv, Apache-2.0), with eight codes it lacks filled by hand (AX, BQ,
+-- BL, CW, KK, MF, SS, SX). Two have no geographic centre and are placed where
+-- a reader looks for them (owner 2026-11-23): the United Nations (UN), the
+-- country of demo and test installations, at 0,0 in the middle of the world
+-- map, and the US Minor Outlying Islands (UM) at Wake Island.
+-- The columns are named latitude and longitude, as every coordinate will be
+-- (jbc5bs).
+BEGIN;
+
+ALTER TABLE public.country
+  ADD COLUMN latitude numeric(9,6),
+  ADD COLUMN longitude numeric(9,6),
+  ADD CONSTRAINT country_latitude_and_longitude_together CHECK (num_nonnulls(latitude, longitude) IN (0, 2)),
+  ADD CONSTRAINT country_latitude_from_minus_90_to_90_degrees CHECK (latitude BETWEEN -90 AND 90),
+  ADD CONSTRAINT country_longitude_from_minus_180_to_180_degrees CHECK (longitude BETWEEN -180 AND 180);
+
+COMMENT ON COLUMN public.country.latitude IS
+  'The country''s centre, degrees north (WGS 84), where a map draws the country as one point, such as the Regions map''s world level. Set together with longitude, or neither.';
+COMMENT ON COLUMN public.country.longitude IS
+  'The country''s centre, degrees east (WGS 84). Set together with latitude, or neither.';
+
+CREATE TEMP TABLE country_centre (iso_2 text PRIMARY KEY, latitude numeric(9,6) NOT NULL, longitude numeric(9,6) NOT NULL) ON COMMIT DROP;
+\copy country_centre(iso_2, latitude, longitude) FROM 'dbseed/country/country_centres.csv' WITH (FORMAT csv, HEADER true)
+
+-- Every shipped country gets its centre; a custom country keeps NULL until
+-- one is set.
+UPDATE public.country AS c
+   SET latitude = cc.latitude, longitude = cc.longitude
+  FROM country_centre AS cc
+ WHERE cc.iso_2 = c.iso_2;
+
+END;

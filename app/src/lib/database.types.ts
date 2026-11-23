@@ -517,6 +517,8 @@ export type Database = {
           iso_2: string
           iso_3: string
           iso_num: string
+          latitude: number | null
+          longitude: number | null
           name: string
           updated_at: string
         },
@@ -528,6 +530,8 @@ export type Database = {
           iso_2: string
           iso_3: string
           iso_num: string
+          latitude?: number | null
+          longitude?: number | null
           name: string
           updated_at?: string
         },
@@ -539,6 +543,8 @@ export type Database = {
           iso_2?: string
           iso_3?: string
           iso_num?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           updated_at?: string
         },
