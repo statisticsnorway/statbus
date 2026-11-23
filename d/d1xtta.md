@@ -32,7 +32,7 @@ Existing evidence: demo.statbus.org is set up for Mozambique (settings country M
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] Decides the host: a niue cloud slot (adds mz to cloud.sh FLEET_REGISTRY and doc/CLOUD.md with the next free offset, as mw was) or a standalone server (its own machine and DNS, as no on rune); recorded here
+- [x] [Owner] Decides the host: a niue cloud slot (adds mz to cloud.sh FLEET_REGISTRY and doc/CLOUD.md with the next free offset, as mw was) or a standalone server (its own machine and DNS, as no on rune); recorded here
 - [ ] [Owner] Names the first admin user, the account the install creates; recorded here
 - [ ] https://mz.statbus.org answers with a working login on the stable channel and runs the latest stable release, as ./sb upgrade list on the host shows; the output is recorded here
 - [ ] [Owner] Decides whether mz starts from demo's Mozambique data (a dump of demo restored on mz: their 145 legal units, 10 establishments and 25 users carry over, demo is then reset) or from a fresh install (their import files run again on mz; users created anew); recorded here, and the data-load check follows it
@@ -46,5 +46,6 @@ Existing evidence: demo.statbus.org is set up for Mozambique (settings country M
 
 
 2026-11-23 (Rabbit) mz.statbus.org is live. Cloud slot on niue, offset 13 (a1ace09b5, ee80f851b: cloud.sh registry, doc/CLOUD.md slot and port table, registry test). DNS: CNAME to niue.statbus.org. Created with ./cloud.sh create mz Mozambique v2026.11.6 (FLEET_TRUST_KEY_USER=jhf). Two faults in the create script found and fixed on the way: a comment's backticks ran on the operator's machine and broke the settings step (49962bf99, new test/create-installation-heredoc-test.sh in the harness workflow), and Seq/Slack keys written before install made install skip generating .env (f739ecc87, keys now set after install via sb dotenv set). Verified: https://mz.statbus.org has a valid certificate and the 'Mozambique Statbus' login; ./cloud.sh status mz shows v2026.11.6 (fc8a1d77) channel stable; containers app, worker, proxy, rest, db up (db healthy); upgrader service active; .env.credentials mode 600. Admin users: the owner's first admin plus Jørgen, Erik and Hedda, from .users.yml; a Playwright login as the first admin reached /getting-started. The first admin's demo password hash was copied by the owner's decision; Hedda updates .users.yml and tests her login. Fresh start: the Mozambique team sets it up through Getting started and Admin with Hedda.
+check 1: Owner 2026-11-23: niue cloud slot, offset 13 (a1ace09b5)
 ## History
 - 2026-11-23T12:52 todo -> doing/active (take)
