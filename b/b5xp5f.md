@@ -41,5 +41,6 @@ Contained 2026-11-23 in cfb49e73a: every identifying value replaced with generat
 
 
 check 4: cfb49e73a on master: old vs new comparison found 0 original identifying values left; no gmail, yahoo, gov.al or firm domains; test 404 ok (tmp/albania/404-after.log)
+2026-11-23 (Rabbit) v2026.11.7-rc.01 (tag at 016928a38) is the first release with the generated Albania data; release workflow success, 9 assets.
 ## History
 - 2026-11-23T14:39 todo -> doing/active (take)
