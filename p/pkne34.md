@@ -44,5 +44,6 @@ check 1: 7636c75cb. Test slot fixture: domestic unit without region, a foreign u
 Search toolbar: a filter whose column is hidden still shows while it narrows the search (FilterWrapper filterKeys), and there is a new Physical Location filter (present/missing). Check 2 waits for the next release on no.statbus.org.
 landed 7636c75 on master 2026-11-23: app: Missing Region card counts what its list shows, and search names every…
 62e05147c: the Establishment Activity Differs card lost quality= on a client-side visit (useSearchUrlSync had a second URL->state initializer without quality, which won the race when lookup data was cached). RED tmp/quality-click/repro.log (logo click and Back lose it), GREEN green.log. Physical Location Missing and Quality chips orange: tmp/quality-click/chip-colours.log.
+Owner checked in Firefox on the test slot (62e05147c): the Establishment Activity Differs card opens the list with the Quality: Activity differs chip after a client-side return to the dashboard, and Physical Location: Missing and Quality chips show orange.
 ## History
 - 2026-11-23T16:23 todo -> doing/active (take)
