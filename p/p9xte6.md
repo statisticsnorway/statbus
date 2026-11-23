@@ -1,6 +1,6 @@
 ---
 id: p9xte6
-title: "The navbar shows the installation's country flag and name next to the logo"
+title: "The footer shows the installation's country flag and name"
 state: todo
 type: feature
 priority: "low"
@@ -13,7 +13,7 @@ updated: 2026-11-23
 ---
 
 ## Goal
-Next to the StatBus logo, the navbar shows the configured country's flag as a Unicode emoji and the installation's name.
+The footer, beside the GitHub and website icons and the version, shows the configured country's flag emoji and the installation's name.
 
 ## Purpose
 Owner 2026-11-23: with many country installations open in tabs (dev, demo, no, mz, ...), the header shows only the logo, so a user cannot see at a glance which country's register they are in.
@@ -22,7 +22,7 @@ Owner 2026-11-23: with many country installations open in tabs (dev, demo, no, m
 The flag comes from the configured country (settings.country_id, ISO alpha-2 turned into regional-indicator characters), the name from DEPLOYMENT_SLOT_NAME; no image files.
 
 ## Details
-Navbar logo: app/src/components/navbar.tsx (Image statbus-logo.png, h-9 w-9). The app already has the name as PUBLIC_DEPLOYMENT_SLOT_NAME (layout.tsx, page title '<name> Statbus'). Windows renders flag emoji as two letters (MZ) rather than a flag; development slots with an invented code have no country flag.
+Owner 2026-11-23: in the footer, more subtle than the navbar. Footer: app/src/components/footer.tsx (Github and Globe icons, 'Statbus version vX (sha)'). The app already has the name as PUBLIC_DEPLOYMENT_SLOT_NAME (layout.tsx, page title '<name> Statbus'). Windows renders flag emoji as two letters (MZ) rather than a flag; development slots with an invented code have no country flag.
 
 ## Depends on
 
