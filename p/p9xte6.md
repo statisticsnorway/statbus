@@ -19,7 +19,7 @@ The footer, beside the GitHub and website icons and the version, shows the confi
 Owner 2026-11-23: with many country installations open in tabs (dev, demo, no, mz, ...), the header shows only the logo, so a user cannot see at a glance which country's register they are in.
 
 ## Principle
-The flag comes from the configured country (settings.country_id, ISO alpha-2 turned into regional-indicator characters), the name from DEPLOYMENT_SLOT_NAME; no image files.
+The flag comes from the configured country (settings.country_id, ISO alpha-2 turned into regional-indicator characters), the name from PUBLIC_DEPLOYMENT_SLOT_NAME; no image files.
 
 ## Details
 Owner 2026-11-23: in the footer, more subtle than the navbar. Footer: app/src/components/footer.tsx (Github and Globe icons, 'Statbus version vX (sha)'). The app already has the name as PUBLIC_DEPLOYMENT_SLOT_NAME (layout.tsx, page title '<name> Statbus'). Windows renders flag emoji as two letters (MZ) rather than a flag; development slots with an invented code have no country flag.
