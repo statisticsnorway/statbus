@@ -16,6 +16,7 @@ import { Database, Gauge } from "lucide-react";
 import { TotalActivityCategoryCard } from "./total-activity-category-card";
 import { DashboardSection } from "./dashboard-section";
 import { DashboardClientContent } from "./dashboard-client-content";
+import { CountedUnitsLink } from "./counted-units-link";
 
 export default function Dashboard() {
   return (
@@ -23,32 +24,32 @@ export default function Dashboard() {
       <h1 className="text-center text-2xl">Statbus Status Dashboard</h1>
 
       <DashboardClientContent>
-        <Link href="/search?unit_type=enterprise">
+        <CountedUnitsLink unitType="enterprise">
           <Suspense fallback={<FallBackCard title="Enterprises" />}>
             <StatisticalUnitCountCard
               unitType="enterprise"
               title="Enterprises"
             />
           </Suspense>
-        </Link>
+        </CountedUnitsLink>
 
-        <Link href="/search?unit_type=legal_unit">
+        <CountedUnitsLink unitType="legal_unit">
           <Suspense fallback={<FallBackCard title="Legal Units" />}>
             <StatisticalUnitCountCard
               unitType="legal_unit"
               title="Legal Units"
             />
           </Suspense>
-        </Link>
+        </CountedUnitsLink>
 
-        <Link href="/search?unit_type=establishment">
+        <CountedUnitsLink unitType="establishment">
           <Suspense fallback={<FallBackCard title="Establishments" />}>
             <StatisticalUnitCountCard
               unitType="establishment"
               title="Establishments"
             />
           </Suspense>
-        </Link>
+        </CountedUnitsLink>
         <Link href="/regions">
           <Suspense fallback={<FallBackCard title="Region Hierarchy" />}>
             <RegionCard />
