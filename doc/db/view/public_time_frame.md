@@ -28,18 +28,18 @@ View definition:
            FROM years y
              CROSS JOIN today
         UNION ALL
-         SELECT 'prev'::text,
-            'relative'::time_frame_kind,
+         SELECT 'prev'::text AS text,
+            'relative'::time_frame_kind AS time_frame_kind,
             format('Previous frame (%s)'::text, y.current_year - 1) AS format,
             make_date(y.current_year - 1, 1, 1) AS make_date,
             make_date(y.current_year - 1, 12, 31) AS make_date,
             make_date(y.current_year - 1, 12, 31) AS make_date,
             y.current_year - 1,
-            NULL::text
+            NULL::text AS text
            FROM years y
         UNION ALL
          SELECT 'y_'::text || fy.year,
-            'fixed'::time_frame_kind,
+            'fixed'::time_frame_kind AS time_frame_kind,
             format('Frame %s'::text, fy.year) AS format,
             make_date(fy.year, 1, 1) AS make_date,
             make_date(fy.year, 12, 31) AS make_date,
