@@ -29,7 +29,7 @@ PR #327: migration 20261114090337_rename_location_latitude_longitude (up/down) a
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] Decides the naming (rename as proposed, or another fix for the map code); the answer is recorded in the notes
+- [x] [Owner] Decides the naming (rename as proposed, or another fix for the map code); the answer is recorded in the notes
 - [ ] With the agreed change, the fast SQL suite passes with updated expected outputs, and doc/db and app types are regenerated
 - [ ] Import definitions, samples and docs that name the coordinate columns use the agreed names (rg finds no old name)
 - [ ] PR #327 is merged or closed on GitHub as decided, with a comment that links this task
@@ -37,3 +37,5 @@ PR #327: migration 20261114090337_rename_location_latitude_longitude (up/down) a
 ## Notes
 
 2026-11-21: the map plan (z2qt08, doc/design/units-on-map.md on feat/units-on-map) reads statistical_unit.physical_latitude/longitude, which exist today; the map does not wait for this rename, only the Norway coordinate load (r39dqb) does.
+
+check 1: Owner 2026-11-23 10:46 (his boss's decision, in chat with hibiscus): the opposite of PR #327. Coordinates have one plain name everywhere: latitude, longitude, altitude. Units drop the physical_ prefix (statistical_unit.physical_latitude -> latitude, and the physical_location import step's columns likewise); regions drop center_; the postal coordinates go entirely (statistical_unit.postal_latitude/longitude/altitude and the postal_location step's coordinate columns), since a postal address needs none: location already forbids coordinates on postal rows, and 0 units carry them. PR #327 is closed as superseded. The build is jbc5bs.
