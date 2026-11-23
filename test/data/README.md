@@ -25,10 +25,16 @@ years (up to 2315). Websites, e-mail addresses, phone numbers and figures
 were left as in the register, so the firms could still be identified.
 
 **History.** From 2026-01-29 (`cc13d63dd`) to 2026-11-23, the repository
-held that partially anonymised extract. On 2026-11-23 (`cfb49e73a`, then this
-version) it was replaced with generated values, after a security review
-found the remaining identifying columns. The decision on the earlier
-history is recorded in task b5xp5f; the history was not rewritten.
+held that extract. It was already partially anonymised as described above,
+but the anonymisation was not documented anywhere, so a reader could not
+tell it from raw register data. On 2026-11-23 a security review found the
+columns that still identified firms; `cfb49e73a` and the following commit
+replaced them with generated values and added this record.
+
+**Decision (2026-11-23, Erik Søberg and Jørgen H. Fjeld, SSB).** The
+regenerated data is sufficiently anonymised, and git history is not
+rewritten: earlier commits keep the partially anonymised extract described
+above. Recorded in task b5xp5f.
 
 **Generation.** `318_albania_generate.py` produced the current files from
 that extract and documents every column:
