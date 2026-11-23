@@ -10,10 +10,6 @@ group: ""
 rank: "zzzzzzzq"
 created: 2026-11-23
 updated: 2026-11-23
-design_question: "Checks 1, 2, 4 and 5 ask for Playwright tests, but the app has no Playwright suite (doc/design/units-on-map.md says starting one is your decision, also asked by 5nq78t check 2). Should I start a minimal Playwright suite on this branch for /regions (filter counts; Place on map saving a region's centre against a test database), or should these checks be met by driven-browser runs recorded in tmp/hug plus jest and SQL tests?"
-design_for: "jhf"
-design_since: "2026-11-23T13:58"
-design_asked_by: "hibiscus"
 stage: "depends"
 ---
 
@@ -42,6 +38,8 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 ## Questions
 - 2026-11-23T13:58 question 1 by hibiscus to jhf:
   Checks 1, 2, 4 and 5 ask for Playwright tests, but the app has no Playwright suite (doc/design/units-on-map.md says starting one is your decision, also asked by 5nq78t check 2). Should I start a minimal Playwright suite on this branch for /regions (filter counts; Place on map saving a region's centre against a test database), or should these checks be met by driven-browser runs recorded in tmp/hug plus jest and SQL tests?
+  answered 2026-11-23T16:12 by jhf:
+    I'm not sure the playwright tests brings us that much, but if we're going to have a playwright test, I think we should have systematic tests of almost the entire app. And we should do that in another ticket where we not only do this for these details, but for general interaction in multiple places. But that will need to interact with the database, imports, and so on and so forth. This should be a separate discussion, I think, unless you really think it valuable
 
 ## Notes
 
@@ -60,3 +58,6 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 
 ## History
 - 2026-11-23T13:58 todo -> todo/depends (ask)
+- 2026-11-23T16:12 answered design, by jhf, for hibiscus (todo/depends -> todo/depends):
+  > Checks 1, 2, 4 and 5 ask for Playwright tests, but the app has no Playwright suite (doc/design/units-on-map.md says starting one is your decision, also asked by 5nq78t check 2). Should I start a minimal Playwright suite on this branch for /regions (filter counts; Place on map saving a region's centre against a test database), or should these checks be met by driven-browser runs recorded in tmp/hug plus jest and SQL tests?
+  I'm not sure the playwright tests brings us that much, but if we're going to have a playwright test, I think we should have systematic tests of almost the entire app. And we should do that in another ticket where we not only do this for these details, but for general interaction in multiple places. But that will need to interact with the database, imports, and so on and so forth. This should be a separate discussion, I think, unless you really think it valuable
