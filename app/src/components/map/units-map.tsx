@@ -28,6 +28,8 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
   const [expanded, setExpanded] = useState(false);
   const mapRef = useRef<MapLibreMap | null>(null);
   const shownRef = useRef<GeoJSON.Feature<GeoJSON.Point, UnitPointProperties>[]>([]);
+  // The units at exactly the page's unit's place, listed with it on a click.
+  const alsoHereRef = useRef<UnitPointProperties[]>([]);
 
   const points = useMemo(
     () => (hierarchy?.enterprise ? linksUnitPoints(hierarchy as unknown as LinksHierarchy, { unitType, id: Number(unitId) }) : null),
@@ -184,13 +186,29 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         },
         paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 2 },
       });
+      // "+n": the units at exactly this unit's place, drawn beside its ring.
+      map.addLayer({
+        id: "current-unit-also",
+        type: "symbol",
+        source: "current-unit",
+        filter: [">", ["get", "also_here"], 0],
+        layout: {
+          "text-field": ["get", "also_label"],
+          "text-font": BASEMAP_FONT,
+          "text-size": 12,
+          "text-offset": [1.4, -0.9],
+          "text-anchor": "left",
+          "text-allow-overlap": true,
+        },
+        paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 2 },
+      });
       for (const layer of ["unit-points", "unit-groups", "current-unit-point"]) {
         map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
       }
       map.on("click", "current-unit-point", (e: MapLayerMouseEvent) => {
         const f = e.features?.[0];
-        if (f) setPicked([f.properties as UnitPointProperties]);
+        if (f) setPicked([f.properties as UnitPointProperties, ...alsoHereRef.current]);
       });
       map.on("click", "unit-points", (e: MapLayerMouseEvent) => {
         const f = e.features?.[0];
@@ -220,14 +238,26 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
     () => {
       const map = mapRef.current;
       if (!map || !mapReady) return;
+      // Units at exactly the page's unit's place (the same region centre, the same address)
+      // would hide under it; they go with it instead, counted as "+n" beside its ring and
+      // listed with it on a click (owner 2026-11-23).
+      const current = shown.features.find((f) => f.properties.current);
+      const samePlace = (f: (typeof shown.features)[number]) =>
+        !!current &&
+        f.geometry.coordinates[0] === current.geometry.coordinates[0] &&
+        f.geometry.coordinates[1] === current.geometry.coordinates[1];
+      const withCurrent = shown.features.filter((f) => !f.properties.current && samePlace(f));
       (map.getSource("units") as GeoJSONSource | undefined)?.setData({
         type: "FeatureCollection",
-        features: shown.features.filter((f) => !f.properties.current),
+        features: shown.features.filter((f) => !f.properties.current && !samePlace(f)),
       });
       (map.getSource("current-unit") as GeoJSONSource | undefined)?.setData({
         type: "FeatureCollection",
-        features: shown.features.filter((f) => f.properties.current),
+        features: current
+          ? [{ ...current, properties: { ...current.properties, also_here: withCurrent.length, also_label: withCurrent.length > 0 ? `+${withCurrent.length}` : "" } }]
+          : [],
       });
+      alsoHereRef.current = withCurrent.map((f) => f.properties);
       shownRef.current = shown.features;
       // The page lays out after the map is created, so the map measures its box again
       // before framing the units; framing at the first, smaller box zooms in too far.
@@ -298,14 +328,29 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
                 )}
                 <ul className="space-y-1">
                   {picked.map((u) => (
-                    <li key={`${u.unit_type}:${u.id}`}>
-                      <Link className="underline underline-offset-2" href={u.href}>
-                        {u.name}
-                      </Link>
-                      {u.current && <span className="ml-1 text-xs text-gray-500">(this unit)</span>}
-                      {u.placed === "region" && picked.length === 1 && (
-                        <span className="block text-xs text-gray-500">Somewhere in {u.region_name}</span>
-                      )}
+                    <li key={`${u.unit_type}:${u.id}`} className="flex items-start gap-2">
+                      {/* The unit type's marker: a legal unit and its establishment often share a name. */}
+                      <span
+                        className={`mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full ${
+                          u.placed === "point"
+                            ? u.unit_type === "legal_unit" ? "bg-legal_unit-500" : "bg-establishment-500"
+                            : `border-2 bg-white ${u.unit_type === "legal_unit" ? "border-legal_unit-500" : "border-establishment-500"}`
+                        }`}
+                        title={u.unit_type === "legal_unit" ? "Legal unit" : "Establishment"}
+                        aria-hidden
+                      />
+                      <span>
+                        <Link className="underline underline-offset-2" href={u.href}>
+                          {u.name}
+                        </Link>
+                        <span className="ml-1 text-xs text-gray-500">
+                          {u.unit_type === "legal_unit" ? "legal unit" : "establishment"}
+                          {u.current ? ", this unit" : ""}
+                        </span>
+                        {u.placed === "region" && picked.length === 1 && (
+                          <span className="block text-xs text-gray-500">Somewhere in {u.region_name}</span>
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ul>
