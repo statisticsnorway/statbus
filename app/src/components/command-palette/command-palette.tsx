@@ -30,6 +30,7 @@ import {
   Footprints,
   Home,
   LogOut,
+  MapPinned,
   Network,
   Pilcrow,
   Plus,
@@ -427,8 +428,16 @@ export function CommandPalette() {
                   <span>Show API key</span>
                 </CommandItem>
               </CommandGroup>
-              {(canAccessGettingStarted || canImport) && (
-                <CommandGroup heading="Other Pages">
+              <CommandGroup heading="Other Pages">
+                {/* Everyone may read the regions; the list has a Map button (z2qt08). */}
+                <CommandItem
+                  onSelect={() => navigate("/regions")}
+                  value="Region Hierarchy"
+                  keywords={["regions", "map", "geography", "counties", "municipalities"]}
+                >
+                  <MapPinned className="mr-2 h-4 w-4" />
+                  <span>Region Hierarchy</span>
+                </CommandItem>
                   {canAccessGettingStarted && (
                     <>
                       <CommandItem
@@ -528,8 +537,7 @@ export function CommandPalette() {
                       </CommandItem>
                     </>
                   )}
-                </CommandGroup>
-              )}
+              </CommandGroup>
               <CommandSeparator />
               {canAccessAdminTools && (
                 <>
