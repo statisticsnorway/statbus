@@ -33,7 +33,7 @@ Observed (owner 2026-11-22): no.statbus.org Missing Region card about 100 000, i
 ## Depends on
 
 ## Acceptance
-- [ ] Switching the time frame shows each card's count for that frame; a Playwright test switches between two frames with different counts and asserts both
+- [x] Switching the time frame shows each card's count for that frame; a Playwright test switches between two frames with different counts and asserts both
 - [ ] A saved count is tied to the data's last change and is not shown after it; a test changes the data from another session and asserts the card then shows the new exact count
 - [ ] For every card that links to a list, a Playwright test asserts the card's exact count equals the list total for two frames
 - [ ] On dev, the 2024 cards match the reports and their lists; the cause of the earlier mismatch and the numbers are recorded here
@@ -43,5 +43,6 @@ Observed (owner 2026-11-22): no.statbus.org Missing Region card about 100 000, i
 2026-11-23 (Rabbit) Reproduced in a real browser on the test slot (tmp/dwt9kd/repro2.mjs, log repro2.log, journal 11:26): exact legal unit counts live 31, 2024 6; after both are saved, switching in-page from 2024 to live leaves the Legal Units card at 6. The script is the RED case for the first check.
 
 
+check 1: adb5b7d2e (saved counts read per cacheKey via useSavedExactCount). tmp/dwt9kd/frame-switch.mjs switches 2024 -> live -> 2024 through the Time frame menu, with both frames' exact counts saved. RED on adb5b7d2e~1 (frame-switch-red.log): back on 2024 the Legal Units card showed 31, live's number. GREEN on HEAD (frame-switch.log): 6, 31, 6 = exact counts.
 ## History
 - 2026-11-23T22:27 todo -> doing/active (take with pkne34)
