@@ -27,7 +27,7 @@ Export: app/src/app/search/export (export-sql.ts composes the COPY select from E
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] Chooses (a) the columns shown in the table or (b) a separate picker; recorded here
+- [ ] [Owner] Chooses: (A) Download follows the table: an info icon says the file holds the columns shown, changed with the Columns menu; the menu has Columns shown (default, from tableColumnsAtom) and All columns; or (B) a Customize columns dialog on Download, starting from all columns, separate from the table; recorded here, and checks 2 and 3 test the chosen one
 - [ ] With the subset chosen, a CSV and an Excel download contain exactly those columns in export order and the same rows as the full download; a test asserts header and row count for both formats
 - [ ] The full download is unchanged; the existing export tests pass
 
