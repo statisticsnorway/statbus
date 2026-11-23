@@ -46,5 +46,6 @@ check 4: cfb49e73a on master: old vs new comparison found 0 original identifying
 check 3: Erik and the owner 2026-11-23: history not rewritten; the forks keep the old history, accepted with it
 landed 3d30130 on master 2026-11-23: test: Albania test data documented and fully generated; its provenance is in…
 landed eba013d on master 2026-11-23: doc: test/data README records that the Albania extract was partially anonymised…
+2026-11-23 (Rabbit) Morocco (test 341, 003384b83): 600 real-looking company and person names with stat and tax identifiers, meant to be anonymised. Owner 2026-11-23: same treatment. Replaced in 542a15b95 by test/data/341_duplicate_ident_generate.py (names 'Unit NNN', identifiers generated with the same digit count and the same duplicate groups); test 341 gives the same result (597 imported, rows 1, 232, 600 refused). Test 340's file is the invented demo set, unchanged. test/data/README.md records both files' provenance and the decision. Swept test/data, app/public/demo and samples: no personal e-mail or government domains except the public BRREG samples.
 ## History
 - 2026-11-23T14:39 todo -> doing/active (take)
