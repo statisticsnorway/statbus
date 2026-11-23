@@ -1,7 +1,7 @@
 ---
 id: rwavxg
 title: "Quality card colours follow the number shown, and a pending count says so"
-state: "doing"
+state: "done"
 type: bug
 priority: "low"
 assignee: ["rabbit"]
@@ -10,12 +10,10 @@ group: ""
 rank: "zzzzzzy"
 created: 2026-11-22
 updated: 2026-11-22
-doing_since: "2026-11-23T21:41"
-doing_with: "pkne34"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+done_at: "2026-11-23T21:54"
 ---
 
 ## Goal
@@ -43,3 +41,4 @@ check 1: adb5b7d2e. tmp/rwavxg/colour-follows-number.mjs holds the estimate and 
 check 2: Same test: with no saved count and the exact request unanswered, the card shows ~3 (orange) and ~0 (grey); EstimatedCount already prefixes estimates with ~, and the test asserts the text.
 ## History
 - 2026-11-23T21:41 todo -> doing/active (take with pkne34)
+- 2026-11-23T21:54 doing/active -> done (done); was doing_since: 2026-11-23T21:41; doing_with: pkne34
