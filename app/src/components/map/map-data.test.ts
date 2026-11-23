@@ -1,4 +1,4 @@
-import { countsByRegion, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, type RegionCountRow } from "./map-data";
+import { childCounts, countsByRegion, countsUnder, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, type RegionCountRow } from "./map-data";
 
 // z2qt08: the Regions map counts units per region path prefix from statistical_unit_facet and
 // draws each region with a centre; regions without one are listed beside the map.
@@ -157,5 +157,52 @@ describe("unitTypeColourVariable", () => {
       "--color-legal_unit-500",
       "--color-establishment-700",
     ]);
+  });
+});
+
+// z2qt08, owner 2026-11-23: the Regions map is a drill-down from the world through the
+// installation's own country (id 1 here) to its regions; one selection decides what it shows.
+describe("the map selection", () => {
+  const NO = 1;
+  const SE = 2;
+  const worldRows: RegionCountRow[] = [
+    { unit_type: "legal_unit", physical_region_path: "46.4601", physical_country_id: NO, count: 10 },
+    { unit_type: "legal_unit", physical_region_path: "46.4602", physical_country_id: NO, count: 5 },
+    { unit_type: "legal_unit", physical_region_path: "46", physical_country_id: NO, count: 2 },
+    { unit_type: "legal_unit", physical_region_path: "03.0301", physical_country_id: NO, count: 20 },
+    { unit_type: "legal_unit", physical_region_path: "460", physical_country_id: NO, count: 1 },
+    { unit_type: "legal_unit", physical_region_path: null, physical_country_id: NO, count: 1 },
+    { unit_type: "legal_unit", physical_region_path: null, physical_country_id: SE, count: 30 },
+    { unit_type: "establishment", physical_region_path: null, physical_country_id: SE, count: 4 },
+    { unit_type: "legal_unit", physical_region_path: null, physical_country_id: null, count: 7 },
+  ];
+
+  it("walks from the world through the country to a region and back", () => {
+    expect(selectionTrail("46.4601")).toEqual([null, "", "46", "46.4601"]);
+    expect(selectionTrail("")).toEqual([null, ""]);
+    expect(selectionTrail(null)).toEqual([null]);
+    expect([selectionParent("46.4601"), selectionParent("46"), selectionParent(""), selectionParent(null)]).toEqual(["46", "", null, null]);
+    expect([selectionDepth(null), selectionDepth(""), selectionDepth("46"), selectionDepth("46.4601")]).toEqual([-1, 0, 1, 2]);
+  });
+
+  it("shows the country's counties, then a county's municipalities, with a county's own units at the county", () => {
+    const counts = (s: string) => childCounts(worldRows, s, NO).map((c) => [c.path, c.counts.legal_unit]);
+    expect(counts("")).toEqual([["03", 20], ["46", 17], ["460", 1]]);
+    expect(counts("46")).toEqual([["46", 2], ["46.4601", 10], ["46.4602", 5]]);
+  });
+
+  it("counts a selection's region and everything below it, by path label, not by text prefix", () => {
+    expect(countsUnder(worldRows, "46", NO).legal_unit).toBe(17);
+    expect(countsUnder(worldRows, "", NO).legal_unit).toBe(39);
+  });
+
+  it("splits the world into the country, its units without a region, abroad by country and no location", () => {
+    expect(worldCounts(worldRows, NO, ["legal_unit"])).toEqual({
+      domestic: 39,
+      domesticWithoutRegion: 1,
+      abroad: [{ countryId: SE, count: 30 }],
+      noLocation: 7,
+    });
+    expect(worldCounts(worldRows, NO, ["establishment"]).abroad).toEqual([{ countryId: SE, count: 4 }]);
   });
 });

@@ -1,32 +1,26 @@
 "use client";
-import Link from "next/link";
-import { Map as MapIcon } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { RegionsHeader } from "./regions-header";
 import { TableResultCount } from "@/components/table/table-result-count";
 import TablePagination from "../../components/table/table-pagination";
 import RegionTable from "./region-table";
 import useRegion from "./use-region";
 import TableFilters from "./region-table-filters";
+import { useSearchParams } from "next/navigation";
+
 export default function RegionPage() {
-  const { data, pagination, setPagination, queries, setQueries } = useRegion();
+  // ?coordinates=none: only the regions without a centre point, linked from the Regions map.
+  const noCoordinates = useSearchParams()?.get("coordinates") === "none";
+  const { data, pagination, setPagination, queries, setQueries } = useRegion({ noCoordinates });
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
-      <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
-        Region Hierarchy
-      </h1>
+      <RegionsHeader view="list" />
       <section className="space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <TableFilters
-            setQueries={setQueries}
-            setPagination={setPagination}
-            queries={queries}
-          />
-          <Link href="/regions/map" className={buttonVariants({ variant: "outline", size: "sm" })} data-regions-map-link="">
-            <MapIcon className="mr-1.5 h-4 w-4" />
-            Map
-          </Link>
-        </div>
+        <TableFilters
+          setQueries={setQueries}
+          setPagination={setPagination}
+          queries={queries}
+        />
         <div className="rounded-md border overflow-hidden">
           <RegionTable regions={data?.regions ?? []} />
         </div>

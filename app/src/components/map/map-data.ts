@@ -43,6 +43,8 @@ export function unitTypeColourVariable(unitType: MapUnitType, shade: 300 | 500 |
 export interface RegionCountRow {
   unit_type: UnitType | null;
   physical_region_path: string | null;
+  /** The country of the unit's physical location; null when it has no physical location. */
+  physical_country_id?: number | null;
   count: number | null;
 }
 
@@ -113,6 +115,92 @@ export function unplacedCount(rows: RegionCountRow[], unitTypes: readonly MapUni
 
 export function isMapUnitType(unitType: UnitType | null): unitType is MapUnitType {
   return unitType !== null && (MAP_UNIT_TYPES as readonly UnitType[]).includes(unitType);
+}
+
+/**
+ * Where the Regions map stands (owner 2026-11-23, z2qt08): the world (null), the installation's
+ * own country (""), or a region by its path ("50", "50.5001"). The selection alone decides what
+ * the map shows, its children, and what the breadcrumb, the panel and the fit button refer to.
+ */
+export type MapSelection = string | null;
+
+/** The selection's region path depth: the world -1, the country 0, a county 1, and so on. */
+export function selectionDepth(selection: MapSelection): number {
+  if (selection === null) return -1;
+  return selection === "" ? 0 : selection.split(".").length;
+}
+
+/** The selections from the world down to `selection`, for the breadcrumb: null, "", "50", "50.5001". */
+export function selectionTrail(selection: MapSelection): MapSelection[] {
+  if (selection === null) return [null];
+  const labels = selection === "" ? [] : selection.split(".");
+  return [null, "", ...labels.map((_, i) => labels.slice(0, i + 1).join("."))];
+}
+
+/** One step up: a region to its parent region or the country, the country to the world. */
+export function selectionParent(selection: MapSelection): MapSelection {
+  if (selection === null || selection === "") return null;
+  return selection.split(".").slice(0, -1).join(".");
+}
+
+/** A facet row of the installation's own country that lies in `selection` ("" is the whole country). */
+function isUnder(row: RegionCountRow, selection: string, homeCountryId: number | null): boolean {
+  if (row.physical_country_id != null && homeCountryId != null && row.physical_country_id !== homeCountryId) return false;
+  if (selection === "") return row.physical_country_id != null && row.physical_country_id === homeCountryId;
+  const path = row.physical_region_path;
+  return path === selection || (path?.startsWith(`${selection}.`) ?? false);
+}
+
+/**
+ * The regions one level below a domestic selection, with their units: the counties of the
+ * country, the municipalities of a county. Units placed on the selected region itself, not on
+ * one of its children, are counted at the region's own path, so a leaf region shows itself.
+ */
+export function childCounts(rows: RegionCountRow[], selection: string, homeCountryId: number | null): RegionCount[] {
+  return countsByRegion(
+    rows.filter((r) => isUnder(r, selection, homeCountryId)),
+    selectionDepth(selection) + 1
+  );
+}
+
+/** Units per type in a domestic selection, the region and everything below it. */
+export function countsUnder(rows: RegionCountRow[], selection: string, homeCountryId: number | null): Record<MapUnitType, number> {
+  const counts: Record<MapUnitType, number> = { enterprise: 0, legal_unit: 0, establishment: 0 };
+  for (const r of rows) {
+    if (isMapUnitType(r.unit_type) && isUnder(r, selection, homeCountryId)) counts[r.unit_type] += r.count ?? 0;
+  }
+  return counts;
+}
+
+/**
+ * The world split of the picked unit types: units in the installation's own country, those of
+ * them without a region, units abroad by country (largest first), and units with no physical
+ * location, which have no country (owner 2026-11-23: domestic and abroad both at the top).
+ */
+export function worldCounts(
+  rows: RegionCountRow[],
+  homeCountryId: number | null,
+  unitTypes: readonly MapUnitType[]
+): { domestic: number; domesticWithoutRegion: number; abroad: { countryId: number; count: number }[]; noLocation: number } {
+  let domestic = 0;
+  let domesticWithoutRegion = 0;
+  let noLocation = 0;
+  const abroad = new Map<number, number>();
+  for (const r of rows) {
+    if (!isMapUnitType(r.unit_type) || !unitTypes.includes(r.unit_type)) continue;
+    const n = r.count ?? 0;
+    if (r.physical_country_id == null) noLocation += n;
+    else if (r.physical_country_id === homeCountryId) {
+      domestic += n;
+      if (!r.physical_region_path) domesticWithoutRegion += n;
+    } else abroad.set(r.physical_country_id, (abroad.get(r.physical_country_id) ?? 0) + n);
+  }
+  return {
+    domestic,
+    domesticWithoutRegion,
+    abroad: [...abroad].map(([countryId, count]) => ({ countryId, count })).sort((a, b) => b.count - a.count),
+    noLocation,
+  };
 }
 
 /** A region's units of the picked types. */
