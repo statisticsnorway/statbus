@@ -6,7 +6,7 @@ import { List as ListIcon, Map as MapIcon } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 
 /**
- * The Region Hierarchy's header, the same on its list and its map (owner 2026-11-23, z2qt08):
+ * The Regions header, the same on its list and its map (owner 2026-11-23, z2qt08):
  * the title centred, and on the right the button to the other view, alike but for its icon.
  * The map puts its region trail (World › Norway › Trøndelag) on the left.
  */
@@ -18,7 +18,7 @@ export function RegionsHeader({ view, breadcrumb }: { view: "list" | "map"; brea
   return (
     <div className="relative mb-6 flex items-center justify-center lg:mb-12" data-regions-header="">
       {breadcrumb && <div className="absolute left-0 max-w-[35%]">{breadcrumb}</div>}
-      <h1 className="text-center text-xl lg:text-2xl">Region Hierarchy</h1>
+      <h1 className="text-center text-xl lg:text-2xl">Regions</h1>
       <Link href={other.href} className={`${buttonVariants({ variant: "outline", size: "sm" })} absolute right-0`} {...other.data}>
         <other.Icon className="mr-1.5 h-4 w-4" />
         {other.label}

@@ -432,11 +432,11 @@ export function CommandPalette() {
                 {/* Everyone may read the regions; the list has a Map button (z2qt08). */}
                 <CommandItem
                   onSelect={() => navigate("/regions")}
-                  value="Region Hierarchy"
-                  keywords={["regions", "map", "geography", "counties", "municipalities"]}
+                  value="Regions"
+                  keywords={["region", "map", "geography", "hierarchy", "counties", "municipalities"]}
                 >
                   <MapPinned className="mr-2 h-4 w-4" />
-                  <span>Region Hierarchy</span>
+                  <span>Regions</span>
                 </CommandItem>
                   {canAccessGettingStarted && (
                     <>
@@ -458,11 +458,11 @@ export function CommandPalette() {
                       </CommandItem>
                       <CommandItem
                         onSelect={() => navigate("/getting-started/upload-regions")}
-                        value="Upload Region Hierarchy"
+                        value="Upload Regions"
                         keywords={["regions"]}
                       >
                         <Upload className="mr-2 h-4 w-4" />
-                        <span>Upload Region Hierarchy</span>
+                        <span>Upload Regions</span>
                       </CommandItem>
                       <CommandItem
                         onSelect={() =>

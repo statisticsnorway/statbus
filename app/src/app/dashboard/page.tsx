@@ -48,7 +48,7 @@ export default function Dashboard() {
           </Suspense>
         </CountedUnitsLink>
         <Link href="/regions">
-          <Suspense fallback={<FallBackCard title="Region Hierarchy" />}>
+          <Suspense fallback={<FallBackCard title="Regions" />}>
             <RegionCard />
           </Suspense>
         </Link>

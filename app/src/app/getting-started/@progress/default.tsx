@@ -67,7 +67,7 @@ const ProgressStatusContent = () => {
       <li className="mb-6">
         <NavItem
           done={!!numberOfRegions && numberOfRegions > 0}
-          title="4. Upload Region Hierarchy"
+          title="4. Upload Regions"
           href="/getting-started/upload-regions"
           subtitle={`${numberOfRegions ?? 0} regions uploaded`}
         />
