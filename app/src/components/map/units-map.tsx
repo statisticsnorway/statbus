@@ -155,10 +155,43 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         paint: { "text-color": "#1f2937", "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
       });
       map.addControl(new ViewControl([{ title: "Fit all units in view", icon: "⤢", onClick: () => fit() }]), "top-left");
-      for (const layer of ["unit-points", "unit-groups"]) {
+      // The page's own unit is never merged into a circle: it is drawn by itself, ringed and
+      // named, on top of the others (owner 2026-11-23: on a shop's page the shop was hidden in a
+      // circle of 19).
+      map.addSource("current-unit", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({
+        id: "current-unit-point",
+        type: "circle",
+        source: "current-unit",
+        paint: {
+          "circle-color": ["case", ["==", ["get", "placed"], "point"], colour, "#ffffff"],
+          "circle-radius": 9,
+          "circle-stroke-color": "#111827",
+          "circle-stroke-width": 3,
+        },
+      });
+      map.addLayer({
+        id: "current-unit-label",
+        type: "symbol",
+        source: "current-unit",
+        layout: {
+          "text-field": ["get", "name"],
+          "text-font": BASEMAP_FONT,
+          "text-size": 12,
+          "text-offset": [0, 1.2],
+          "text-anchor": "top",
+          "text-allow-overlap": true,
+        },
+        paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 2 },
+      });
+      for (const layer of ["unit-points", "unit-groups", "current-unit-point"]) {
         map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
       }
+      map.on("click", "current-unit-point", (e: MapLayerMouseEvent) => {
+        const f = e.features?.[0];
+        if (f) setPicked([f.properties as UnitPointProperties]);
+      });
       map.on("click", "unit-points", (e: MapLayerMouseEvent) => {
         const f = e.features?.[0];
         if (f) setPicked([f.properties as UnitPointProperties]);
@@ -187,7 +220,14 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
     () => {
       const map = mapRef.current;
       if (!map || !mapReady) return;
-      (map.getSource("units") as GeoJSONSource | undefined)?.setData(shown);
+      (map.getSource("units") as GeoJSONSource | undefined)?.setData({
+        type: "FeatureCollection",
+        features: shown.features.filter((f) => !f.properties.current),
+      });
+      (map.getSource("current-unit") as GeoJSONSource | undefined)?.setData({
+        type: "FeatureCollection",
+        features: shown.features.filter((f) => f.properties.current),
+      });
       shownRef.current = shown.features;
       // The page lays out after the map is created, so the map measures its box again
       // before framing the units; framing at the first, smaller box zooms in too far.
