@@ -10,6 +10,11 @@ group: ""
 rank: "zzzzzzzq"
 created: 2026-11-23
 updated: 2026-11-23
+design_question: "Checks 1, 2, 4 and 5 ask for Playwright tests, but the app has no Playwright suite (doc/design/units-on-map.md says starting one is your decision, also asked by 5nq78t check 2). Should I start a minimal Playwright suite on this branch for /regions (filter counts; Place on map saving a region's centre against a test database), or should these checks be met by driven-browser runs recorded in tmp/hug plus jest and SQL tests?"
+design_for: "jhf"
+design_since: "2026-11-23T13:58"
+design_asked_by: "hibiscus"
+stage: "depends"
 ---
 
 ## Goal
@@ -34,6 +39,10 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 - [ ] /regions filters All, With coordinates and Without coordinates; a Playwright test asserts each count against the region table
 - [ ] An admin's Place on map for a region without a centre searches OpenStreetMap by its name, puts the pin on the chosen match, and Save stores the region's centre; a Playwright test saves one and reads it back
 
+## Questions
+- 2026-11-23T13:58 question 1 by hibiscus to jhf:
+  Checks 1, 2, 4 and 5 ask for Playwright tests, but the app has no Playwright suite (doc/design/units-on-map.md says starting one is your decision, also asked by 5nq78t check 2). Should I start a minimal Playwright suite on this branch for /regions (filter counts; Place on map saving a region's centre against a test database), or should these checks be met by driven-browser runs recorded in tmp/hug plus jest and SQL tests?
+
 ## Notes
 
 2026-11-23 (Rabbit) From hibiscus: z2qt08's branch feat/units-on-map already adds always-shown Latitude/Longitude columns and a Map button to /regions (app/src/app/regions/region-table.tsx, page.tsx). Build this task on top of that region-table.tsx after the owner approves z2qt08 phase 1 and it lands; this task moves the coordinate columns under Advanced and adds altitude. Hibiscus does not touch the upload page.
@@ -47,3 +56,7 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 2026-11-23 (hibiscus) Owner: drop the 'Without coordinates' filter (empty columns confused), and add a way for an admin to look up a missing region's centre. Done on branch feat/units-on-map, f3637eb36: a region without a centre shows 'Not set'; an admin gets 'Place on map', which searches OpenStreetMap (Nominatim) by the region's name in the installation's country, puts the pin on the chosen match, and lets the admin check and Save it (region.center_latitude/longitude). Observed: Bjørnøya naturreservat (21.21) finds Bear Island Nature Reserve at 74.424213, 19.010207, with the pin on the island. Save was not pressed on the owner's data.
 
 2026-11-23 (hibiscus) Correction to the earlier note: the owner first dropped the single 'Without coordinates' checkbox (empty columns confused him), then asked at 12:23 for a list filter showing regions with and without coordinates. That is check 4's three-way filter (All / With / Without), built in 14fd35fff. Place on map searches only within the installation's country (settings.country_id).
+
+
+## History
+- 2026-11-23T13:58 todo -> todo/depends (ask)
