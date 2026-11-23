@@ -18,7 +18,7 @@ worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
-The Albania test data exposure is contained, and the history, forks and reporting are decided and recorded.
+Master and new releases hold no identifying Albanian data, and the history, forks and reporting are decided and recorded.
 
 ## Purpose
 Data about firms in a partner country was public in our repository; it must stop spreading, and SSB and the partner must decide with full facts what the exposure means.
