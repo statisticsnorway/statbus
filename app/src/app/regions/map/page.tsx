@@ -51,7 +51,7 @@ export default function RegionsMapPage() {
   const client = useAtomValue(restClientAtom);
   const { selectedTimeFrame } = useTimeFrame();
   const validOn = selectedTimeFrame?.valid_on ?? null;
-  // The selection and the unit types live in the URL (?at=50&types=legal_unit), so Back,
+  // The selection and the unit types live in the URL (?at=50&types=legal_unit,establishment), so Back,
   // a reload or a shared link land where the map was. Each step in or out is a history
   // entry; a unit-type change replaces the current one.
   const router = useRouter();
@@ -71,7 +71,7 @@ export default function RegionsMapPage() {
   const mapUrl = useCallback((at: MapSelection, types: readonly MapUnitType[]) => {
     const params = new URLSearchParams();
     if (at !== "") params.set("at", at === null ? "world" : at);
-    if (types.join(",") !== "legal_unit") params.set("types", types.join(","));
+    if (types.join(",") !== DEFAULT_UNIT_TYPE) params.set("types", types.join(","));
     const query = params.toString();
     return query ? `/regions/map?${query}` : "/regions/map";
   }, []);
@@ -427,6 +427,12 @@ export default function RegionsMapPage() {
   );
 }
 
+/**
+ * The unit type the map opens with: enterprises, the statistical unit, as the reports open
+ * with (history-reports.tsx; owner 2026-11-23).
+ */
+const DEFAULT_UNIT_TYPE: MapUnitType = "enterprise";
+
 /** ?at= in the map's URL: absent is the country, "world" the world, else a region path. */
 function parseSelection(at: string | null): MapSelection {
   if (at === null || at === "") return "";
@@ -434,10 +440,10 @@ function parseSelection(at: string | null): MapSelection {
   return /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/.test(at) ? at : "";
 }
 
-/** ?types= in the map's URL: the picked unit types, legal units when absent or unknown. */
+/** ?types= in the map's URL: the picked unit types, enterprises when absent or unknown. */
 function parseUnitTypes(types: string | null): MapUnitType[] {
   const picked = (types ?? "").split(",").filter((t): t is MapUnitType => (MAP_UNIT_TYPES as readonly string[]).includes(t));
-  return picked.length > 0 ? MAP_UNIT_TYPES.filter((t) => picked.includes(t)) : ["legal_unit"];
+  return picked.length > 0 ? MAP_UNIT_TYPES.filter((t) => picked.includes(t)) : [DEFAULT_UNIT_TYPE];
 }
 
 /** The world selection's panel: the units in the country, abroad by country, and without a location. */
