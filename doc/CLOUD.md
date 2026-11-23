@@ -355,7 +355,7 @@ Current allocations on niue.statbus.org:
 | mz   | Mozambique | 13 | 3130  | 3131  | 3132  | 3133  | 3134       | 3135   | 3136       |
 
 Offset 2 is reserved (kept for rollback if `no` ever needs to come back to niue).
-Offset 4 (`tcc`) is FREE for the next slot — the box was torn down (STATBUS-321 phase 4a), not migrated, so there is nothing to reserve it for.
+Offset 4 (`tcc`) is unused — the box was torn down (STATBUS-321 phase 4a), not migrated. The create script does not reuse gaps; it takes the highest offset in use plus one.
 
 The REST column is the slot's *internal* PostgREST port. External REST access is
 not a port at all — it is a path, `https://<slot>.statbus.org/rest`, served over
