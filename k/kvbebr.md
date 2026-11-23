@@ -13,7 +13,7 @@ updated: 2026-11-18
 ---
 
 ## Goal
-A location's coordinates have one name in the location table and in what the API returns, so map code reads one name.
+Coordinates have one plain name, latitude, longitude, altitude, in location, units and regions; postal addresses carry none.
 
 ## Purpose
 Today location has latitude/longitude while statistical_unit and the hierarchy RPC return physical_latitude/physical_longitude, so client map code must translate field names (PR https://github.com/statisticsnorway/statbus/pull/327, rsbssbno, 2026-11-14).
