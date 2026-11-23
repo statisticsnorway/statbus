@@ -207,7 +207,12 @@ weight in `pipeline_step_weight` can stay at 1 (same as the existing check).
 2. Should we add a generic quality filter dropdown in the search bar that lists
    all available checks, rather than separate filter components?
 3. Should missing email also flag obviously invalid formats beyond just the `@` check?
-4. The dashboard's "Missing physical location" card checks
+4. The existing check "Primary establishment has another activity" is confusing —
+   it actually lists **legal units** whose most significant (largest) establishment
+   has a different activity than the legal unit itself. Suggested rename:
+   **"Legal units with significant different establishment activity"** or similar,
+   to make clear it is about legal units, not establishments.
+5. The dashboard's "Missing physical location" card checks
    `physical_country_id IS NULL` — it flags units with **no location record
    at all**, not units missing coordinates. A unit can have a country and
    address but still lack `physical_latitude`/`physical_longitude`, which
