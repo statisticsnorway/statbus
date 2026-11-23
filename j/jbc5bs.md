@@ -33,3 +33,5 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 - [ ] Uploading a region file with the new headers stores each region's point; a SQL test asserts the stored values
 
 ## Notes
+
+2026-11-23 10:47 widened from regions only to units too, on the owner's word: drop physical_ as well, and drop postal coordinates altogether (no coordinates for a postal address). kvbebr check 1 records the decision.
