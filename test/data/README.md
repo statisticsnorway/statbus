@@ -3,10 +3,10 @@
 Files here are inputs for the SQL tests in `test/sql/`. The number in a file
 name is the test that reads it.
 
-Everything here is invented, generated or public, except the files listed
-below with their provenance. Apart from the register names noted for tests
-340 and 341, no file here holds a firm's or person's identifying data that is
-not public.
+Everything here is invented, generated or public. Files generated from a
+partner's data are listed below with their provenance and the script that
+generated them; no file here holds a firm's or person's identifying data
+that is not public.
 
 ## Provenance
 
@@ -54,6 +54,28 @@ produces the same row states, actions and errors as with the source files.
 
 The source extract is not kept in the repository.
 
+### 341_duplicate_tax_ident_big_file.csv
+
+Read by test 341, which checks that an import refuses the rows sharing a tax
+identifier and imports the rest: 600 rows, three of them (1, 232, 600)
+sharing the deliberate tax identifier `01`.
+
+**Source.** A list of 600 Moroccan company and person names with a
+statistical and a tax identifier each (no addresses, contacts or figures),
+committed on 2026-01-21 (`003384b83`). It was meant to be anonymised test
+data, but the names were real-looking register names and this was not
+documented.
+
+**Decision and replacement (2026-11-23).** Replaced in the same review as
+the Albania files, under the same decision (sufficiently anonymised, git
+history not rewritten; task b5xp5f). `341_duplicate_ident_generate.py`
+produced the current file and documents every column: names become
+`Unit NNN`; statistical and tax identifiers become generated numbers of the
+same digit count, one source value always giving the same number, so every
+duplicate and every empty cell stays where it was; values of up to two
+digits (such as `01`) are kept. Test 341 gives the same result as before:
+597 units imported, the same three rows refused.
+
 ### Other files
 
 `318_albania_legal_forms.csv`, `318_albania_regions.csv` and
@@ -63,11 +85,6 @@ The Norwegian files (`*norwegian*.csv`) are built from, or shaped like, the
 Norwegian Central Coordinating Register for Legal Entities (BRREG), which is
 public open data; the full BRREG loaders live in `samples/norway/brreg/`.
 
-`340_duplicate_tax_ident_small_file.csv` and
-`341_duplicate_tax_ident_big_file.csv` (2026-01-21) hold company names that
-look like real Moroccan register entries, with a statistical and a tax
-identifier each; no addresses, contacts or figures. Whether the names and
-identifiers are real is being checked under task b5xp5f.
-
-The remaining files were written for their tests (for example
+The remaining files, including `340_duplicate_tax_ident_small_file.csv`,
+were written for their tests from the invented demo units (for example
 `NILE PEARL WATER`, `Nordic Holdings ASA`, `Unit A Partition Test`).
