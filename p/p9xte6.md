@@ -27,7 +27,7 @@ Owner 2026-11-23: in the footer, more subtle than the navbar. Footer: app/src/co
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] Approves the look (flag and name, or flag only; small text) from a screenshot on the test slot; recorded here
+- [ ] [Owner] Approves the look (flag and name, size and placement) from a screenshot on the test slot; recorded here
 - [ ] On an installation configured for Mozambique, the footer shows the Mozambique flag and the installation name; a Playwright test asserts both
 - [ ] With no country configured, the footer shows the name only and no empty flag; a test asserts it
 
