@@ -18,7 +18,7 @@ worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
-The Albania test data exposure is contained: master holds no real values, and the history, forks and reporting are decided and carried out.
+The Albania test data exposure is contained, and the history, forks and reporting are decided and recorded.
 
 ## Purpose
 Security review 2026-11-23 (Erik, Slack): test/data/318_albania_legal_units.csv (333 rows) and 318_albania_establishments.csv (8,439 rows) in the public statisticsnorway/statbus repository held values from Albania's register: firms' websites and e-mail addresses (including gmail, yahoo and arsimi.gov.al), phones and figures identifying businesses. Test 404 called it 'actual Albania client data'.
@@ -34,6 +34,7 @@ Contained 2026-11-23 in cfb49e73a: every identifying value replaced with generat
 - [ ] [Owner] Decides with SSB's data protection officer whether this is reported as a breach and whether the Albanian partner is told; recorded here, and a report or message, if decided, is sent and noted here
 - [ ] [Owner] Decides whether git history is rewritten (then a separate task plans the rewrite of all branches and tags, the GitHub cache purge and the fleet migration) or left with master clean (then nothing more is done in git); recorded here
 - [x] Master and v2026.11.7-rc.01 contain no value from the original files: a script comparing the old and new files finds 0 original identifying values (cfb49e73a; the rc.01 tag holds the generated files, checked 2026-11-23)
+- [ ] [Owner] Confirms with Erik whether the names and identifiers in test/data/340 and 341 are real Moroccan register entries; if real, they are replaced the same way and recorded here, if invented, the README says so
 
 ## Notes
 
