@@ -30,6 +30,7 @@ Bring publishes the postcode register (TAB, Latin-1, weekly; https://www.bring.n
 ## Acceptance
 - [ ] [Owner] Agrees the centre rule (mean of postcode points or another) and the postcode file to use; recorded here
 - [ ] The script writes a 2026 region file with centre coordinates for every fylke and kommune; uploading it on a scratch database stores a centre for every region, and Oslo's lies inside Oslo; the counts are recorded here
+- [ ] No kommune keeps its county's exact centre after the derived file is loaded (e.g. Haugesund 11.06 no longer at 59.407159, 5.278156); a SQL check over the loaded regions returns no kommune whose centre equals its fylke's
 
 ## Notes
 
