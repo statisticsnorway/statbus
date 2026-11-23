@@ -39,3 +39,5 @@ public.region: path, level, code, name, center_latitude numeric(9,6), center_lon
 2026-11-23 (owner) Handed to hibiscus: the region coordinates under Advanced are done together with the map work (z2qt08), on his branch's region-table.tsx; the owner reviews the map things with him.
 
 2026-11-23 (hibiscus) Taken with z2qt08. The coordinate columns move under Advanced in the branch's region-table.tsx (worktree /Users/jhf/ssb/statbus-map), and altitude is added. jbc5bs will later rename center_latitude/longitude/altitude to latitude/longitude/altitude; this task keeps today's column names.
+
+2026-11-23 (hibiscus) This replaces Rabbit's earlier note that hibiscus does not touch the upload page. The owner handed the whole task to hibiscus, so hibiscus also does the upload page and its instructions (check 2).
