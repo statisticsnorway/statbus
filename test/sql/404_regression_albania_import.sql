@@ -8,7 +8,7 @@ BEGIN;
 SET datestyle TO 'ISO, DMY';
 
 \echo "=== Test 318: Albania Import Regression Test ==="
-\echo "This test uses actual Albania client data to reproduce an import analysis hang issue."
+\echo "This test uses Albania-shaped generated data (identifiers, names, contacts and figures replaced, 2026-11-23) to reproduce an import analysis hang issue."
 
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');

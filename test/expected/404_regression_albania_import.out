@@ -11,8 +11,8 @@ BEGIN;
 SET datestyle TO 'ISO, DMY';
 \echo "=== Test 318: Albania Import Regression Test ==="
 "=== Test 318: Albania Import Regression Test ==="
-\echo "This test uses actual Albania client data to reproduce an import analysis hang issue."
-"This test uses actual Albania client data to reproduce an import analysis hang issue."
+\echo "This test uses Albania-shaped generated data (identifiers, names, contacts and figures replaced, 2026-11-23) to reproduce an import analysis hang issue."
+"This test uses Albania-shaped generated data (identifiers, names, contacts and figures replaced, 2026-11-23) to reproduce an import analysis hang issue."
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
 \echo "Setting up Albania customizations (tax data source, status codes, stat variables)"
@@ -27,12 +27,10 @@ UPDATE public.external_ident_type SET enabled = FALSE WHERE code = 'stat_ident';
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
@@ -57,48 +55,40 @@ VALUES
 ON CONFLICT (code) DO UPDATE SET enabled = true;
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition female
 NOTICE:  Created indices for stat_definition male
 NOTICE:  Created indices for stat_definition selfemp
 NOTICE:  Created indices for stat_definition punpag
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_s_female_idx
-NOTICE:  Dropped index su_s_male_idx
-NOTICE:  Dropped index su_s_punpag_idx
-NOTICE:  Dropped index su_s_selfemp_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_female_count_idx
-NOTICE:  Dropped index su_ss_female_sum_idx
-NOTICE:  Dropped index su_ss_male_count_idx
-NOTICE:  Dropped index su_ss_male_sum_idx
-NOTICE:  Dropped index su_ss_punpag_count_idx
-NOTICE:  Dropped index su_ss_punpag_sum_idx
-NOTICE:  Dropped index su_ss_selfemp_count_idx
-NOTICE:  Dropped index su_ss_selfemp_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_sum_asc_idx
+NOTICE:  Dropped index su_ss_employees_sum_desc_idx
+NOTICE:  Dropped index su_ss_female_sum_asc_idx
+NOTICE:  Dropped index su_ss_female_sum_desc_idx
+NOTICE:  Dropped index su_ss_male_sum_asc_idx
+NOTICE:  Dropped index su_ss_male_sum_desc_idx
+NOTICE:  Dropped index su_ss_punpag_sum_asc_idx
+NOTICE:  Dropped index su_ss_punpag_sum_desc_idx
+NOTICE:  Dropped index su_ss_selfemp_sum_asc_idx
+NOTICE:  Dropped index su_ss_selfemp_sum_desc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_asc_idx
+NOTICE:  Dropped index su_ss_turnover_sum_desc_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition female
 NOTICE:  Created indices for stat_definition male
 NOTICE:  Created indices for stat_definition selfemp
 NOTICE:  Created indices for stat_definition punpag
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 \echo "Setting activity category standard to ISIC v4 and country to Albania"
 "Setting activity category standard to ISIC v4 and country to Albania"
 INSERT INTO settings(activity_category_standard_id, country_id, region_version_id)
@@ -146,12 +136,12 @@ SELECT COUNT(*) AS legal_form_count FROM public.legal_form_custom_only;
 SELECT code, name, type FROM public.stat_definition ORDER BY priority;
    code    |   name    | type  
 -----------+-----------+-------
- employees | Employees | int
- turnover  | Turnover  | float
  female    | Female    | int
  male      | Male      | int
  selfemp   | SelfEmp   | int
  punpag    | PunPag    | int
+ employees | Employees | int
+ turnover  | Turnover  | float
 (6 rows)
 
 \echo "Checking data sources (should include 'tax')"
@@ -234,13 +224,13 @@ ORDER BY row_id
 LIMIT 20;
  row_id | tax_ident_raw | name_raw | state | action |                                              errors                                              
 --------+---------------+----------+-------+--------+--------------------------------------------------------------------------------------------------
-     18 |               | SHMA     | error | skip   | {"tax_ident_raw": "No identifier specified", "person_ident_raw": "No identifier specified"}
-    172 | K492533       | drje     | error | skip   | {"physical_latitude_raw": "Value '8520' is out of range for type NUMERIC(9,6). SQLSTATE: 22003"}
-    307 | M235402       | Shqr     | error | skip   | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
-    308 | M312029       | Opip     | error | skip   | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
-    309 | M320014       | xhnk     | error | skip   | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
-    310 | M328037       | Tiag     | error | skip   | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
-    311 | M372202       | Shq      | error | skip   | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
+     18 |               | VSBB     | error | skip   | {"tax_ident_raw": "No identifier specified", "person_ident_raw": "No identifier specified"}
+    172 | I267678       | nwkk     | error | skip   | {"physical_latitude_raw": "Value '8520' is out of range for type NUMERIC(9,6). SQLSTATE: 22003"}
+    307 | H684147       | Aahb     | error | skip   | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
+    308 | C150551       | Tmku     | error | skip   | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
+    309 | R606845       | jqkj     | error | skip   | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
+    310 | O655164       | Gihw     | error | skip   | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
+    311 | I585502       | Kbc      | error | skip   | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
     312 |               |          | error | skip   | {"valid_from_raw": "Missing mandatory value"}
     313 |               |          | error | skip   | {"valid_from_raw": "Missing mandatory value"}
     314 |               |          | error | skip   | {"valid_from_raw": "Missing mandatory value"}
@@ -320,26 +310,26 @@ ORDER BY row_id
 LIMIT 20;
  row_id | tax_ident_raw | name_raw | legal_unit_tax_ident_raw | state | action |                                     errors                                      
 --------+---------------+----------+--------------------------+-------+--------+---------------------------------------------------------------------------------
-      1 | 329238        | J614031V | J614031V                 | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   2361 | 4224          | K119002  | K119002                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4034 | 130653        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4035 | 128853        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4036 | 130826        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4037 | 127517        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4038 | 128136        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4039 | 130032        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4040 | 127290        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4041 | 129122        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4042 | 127372        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4043 | 128839        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4044 | 131158        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4045 | 130291        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4046 | 130038        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4047 | 127513        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4048 | 129410        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4049 | 127535        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4050 | 128465        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4051 | 129000        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+      1 | 694319        | M813530N | M813530N                 | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   2361 | 5087          | E508743  | E508743                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4034 | 826784        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4035 | 093483        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4036 | 728715        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4037 | 539843        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4038 | 232416        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4039 | 005417        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4040 | 441129        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4041 | 606139        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4042 | 257994        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4043 | 050567        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4044 | 146542        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4045 | 730596        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4046 | 440826        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4047 | 985149        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4048 | 507944        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4049 | 707130        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4050 | 704431        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+   4051 | 927430        | I267678  | I267678                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
 (20 rows)
 
 \echo "Final unit counts"
@@ -361,7 +351,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    40
+ analytics | completed |    41
  import    | completed |   109
 (2 rows)
 
@@ -380,17 +370,17 @@ count         | 8292
 stats_summary | {                                             +
               |     "type": "stats_agg",                      +
               |     "employees": {                            +
-              |         "max": 5372,                          +
+              |         "max": 8638,                          +
               |         "min": 0,                             +
-              |         "sum": 170397,                        +
-              |         "mean": 20.55,                        +
+              |         "sum": 334371,                        +
+              |         "mean": 40.32,                        +
               |         "type": "int_agg",                    +
               |         "count": 8292,                        +
-              |         "stddev": 107.27,                     +
-              |         "sum_sq": 98897223,                   +
-              |         "variance": 11505.93,                 +
-              |         "sum_sq_diff": 95395638.63,           +
-              |         "coefficient_of_variation_pct": 521.99+
+              |         "stddev": 251.48,                     +
+              |         "sum_sq": 537807055,                  +
+              |         "variance": 63240.10,                 +
+              |         "sum_sq_diff": 524323701.69,          +
+              |         "coefficient_of_variation_pct": 623.63+
               |     }                                         +
               | }
 -[ RECORD 2 ]-+-----------------------------------------------
@@ -398,83 +388,83 @@ unit_type     | legal_unit
 count         | 293
 stats_summary | {                                             +
               |     "male": {                                 +
-              |         "max": 4505,                          +
-              |         "min": -186,                          +
-              |         "sum": 57989,                         +
-              |         "mean": 197.91,                       +
+              |         "max": 8268,                          +
+              |         "min": -583,                          +
+              |         "sum": 90481,                         +
+              |         "mean": 308.81,                       +
               |         "type": "int_agg",                    +
               |         "count": 293,                         +
-              |         "stddev": 373.46,                     +
-              |         "sum_sq": 52202185,                   +
-              |         "variance": 139470.24,                +
-              |         "sum_sq_diff": 40725310.87,           +
-              |         "coefficient_of_variation_pct": 188.70+
+              |         "stddev": 655.60,                     +
+              |         "sum_sq": 153447933,                  +
+              |         "variance": 429817.11,                +
+              |         "sum_sq_diff": 125506597.30,          +
+              |         "coefficient_of_variation_pct": 212.30+
               |     },                                        +
               |     "type": "stats_agg",                      +
               |     "female": {                               +
-              |         "max": 4944,                          +
-              |         "min": 1,                             +
-              |         "sum": 76807,                         +
-              |         "mean": 326.84,                       +
+              |         "max": 9290,                          +
+              |         "min": 0,                             +
+              |         "sum": 146022,                        +
+              |         "mean": 621.37,                       +
               |         "type": "int_agg",                    +
               |         "count": 235,                         +
-              |         "stddev": 475.75,                     +
-              |         "sum_sq": 78067095,                   +
-              |         "variance": 226340.28,                +
-              |         "sum_sq_diff": 52963625.86,           +
-              |         "coefficient_of_variation_pct": 145.56+
+              |         "stddev": 1323.40,                    +
+              |         "sum_sq": 500557308,                  +
+              |         "variance": 1751382.85,               +
+              |         "sum_sq_diff": 409823586.79,          +
+              |         "coefficient_of_variation_pct": 212.98+
               |     },                                        +
               |     "punpag": {                               +
-              |         "max": 5734,                          +
-              |         "min": 3,                             +
-              |         "sum": 133011,                        +
-              |         "mean": 561.23,                       +
+              |         "max": 9922,                          +
+              |         "min": 0,                             +
+              |         "sum": 221650,                        +
+              |         "mean": 935.23,                       +
               |         "type": "int_agg",                    +
               |         "count": 237,                         +
-              |         "stddev": 693.53,                     +
-              |         "sum_sq": 188160885,                  +
-              |         "variance": 480980.54,                +
-              |         "sum_sq_diff": 113511407.70,          +
-              |         "coefficient_of_variation_pct": 123.57+
+              |         "stddev": 1722.63,                    +
+              |         "sum_sq": 907610322,                  +
+              |         "variance": 2967441.25,               +
+              |         "sum_sq_diff": 700316134.24,          +
+              |         "coefficient_of_variation_pct": 184.19+
               |     },                                        +
               |     "selfemp": {                              +
-              |         "max": 5,                             +
-              |         "min": 0,                             +
-              |         "sum": 30,                            +
-              |         "mean": 0.13,                         +
+              |         "max": 7,                             +
+              |         "min": 5,                             +
+              |         "sum": 1637,                          +
+              |         "mean": 6.97,                         +
               |         "type": "int_agg",                    +
               |         "count": 235,                         +
-              |         "stddev": 0.72,                       +
-              |         "sum_sq": 126,                        +
-              |         "variance": 0.52,                     +
-              |         "sum_sq_diff": 122.17,                +
-              |         "coefficient_of_variation_pct": 566.01+
+              |         "stddev": 0.24,                       +
+              |         "sum_sq": 11417,                      +
+              |         "variance": 0.06,                     +
+              |         "sum_sq_diff": 13.73,                 +
+              |         "coefficient_of_variation_pct": 3.48  +
               |     },                                        +
               |     "turnover": {                             +
-              |         "max": 20025,                         +
-              |         "min": 555,                           +
-              |         "sum": 182085,                        +
-              |         "mean": 621.45,                       +
+              |         "max": 13112,                         +
+              |         "min": 944,                           +
+              |         "sum": 288760,                        +
+              |         "mean": 985.53,                       +
               |         "type": "float_agg",                  +
               |         "count": 293,                         +
-              |         "stddev": 1137.45,                    +
-              |         "sum_sq": 490943925,                  +
-              |         "variance": 1293791.47,               +
-              |         "sum_sq_diff": 377787108.53,          +
-              |         "coefficient_of_variation_pct": 183.03+
+              |         "stddev": 710.86,                     +
+              |         "sum_sq": 432136256,                  +
+              |         "variance": 505325.00,                +
+              |         "sum_sq_diff": 147554899.00,          +
+              |         "coefficient_of_variation_pct": 72.13 +
               |     },                                        +
               |     "employees": {                            +
-              |         "max": 5863,                          +
+              |         "max": 9868,                          +
               |         "min": 0,                             +
-              |         "sum": 305161,                        +
-              |         "mean": 35.55,                        +
+              |         "sum": 590893,                        +
+              |         "mean": 68.84,                        +
               |         "type": "int_agg",                    +
               |         "count": 8583,                        +
-              |         "stddev": 181.13,                     +
-              |         "sum_sq": 292400267,                  +
-              |         "variance": 32807.10,                 +
-              |         "sum_sq_diff": 281550536.61,          +
-              |         "coefficient_of_variation_pct": 509.44+
+              |         "stddev": 460.28,                     +
+              |         "sum_sq": 1858803305,                 +
+              |         "variance": 211853.13,                +
+              |         "sum_sq_diff": 1818123526.67,         +
+              |         "coefficient_of_variation_pct": 668.57+
               |     }                                         +
               | }
 -[ RECORD 3 ]-+-----------------------------------------------
@@ -482,83 +472,83 @@ unit_type     | enterprise
 count         | 293
 stats_summary | {                                             +
               |     "male": {                                 +
-              |         "max": 4505,                          +
-              |         "min": -186,                          +
-              |         "sum": 57989,                         +
-              |         "mean": 197.91,                       +
+              |         "max": 8268,                          +
+              |         "min": -583,                          +
+              |         "sum": 90481,                         +
+              |         "mean": 308.81,                       +
               |         "type": "int_agg",                    +
               |         "count": 293,                         +
-              |         "stddev": 373.46,                     +
-              |         "sum_sq": 52202185,                   +
-              |         "variance": 139470.24,                +
-              |         "sum_sq_diff": 40725310.87,           +
-              |         "coefficient_of_variation_pct": 188.70+
+              |         "stddev": 655.60,                     +
+              |         "sum_sq": 153447933,                  +
+              |         "variance": 429817.11,                +
+              |         "sum_sq_diff": 125506597.30,          +
+              |         "coefficient_of_variation_pct": 212.30+
               |     },                                        +
               |     "type": "stats_agg",                      +
               |     "female": {                               +
-              |         "max": 4944,                          +
-              |         "min": 1,                             +
-              |         "sum": 76807,                         +
-              |         "mean": 326.84,                       +
+              |         "max": 9290,                          +
+              |         "min": 0,                             +
+              |         "sum": 146022,                        +
+              |         "mean": 621.37,                       +
               |         "type": "int_agg",                    +
               |         "count": 235,                         +
-              |         "stddev": 475.75,                     +
-              |         "sum_sq": 78067095,                   +
-              |         "variance": 226340.28,                +
-              |         "sum_sq_diff": 52963625.86,           +
-              |         "coefficient_of_variation_pct": 145.56+
+              |         "stddev": 1323.40,                    +
+              |         "sum_sq": 500557308,                  +
+              |         "variance": 1751382.85,               +
+              |         "sum_sq_diff": 409823586.79,          +
+              |         "coefficient_of_variation_pct": 212.98+
               |     },                                        +
               |     "punpag": {                               +
-              |         "max": 5734,                          +
-              |         "min": 3,                             +
-              |         "sum": 133011,                        +
-              |         "mean": 561.23,                       +
+              |         "max": 9922,                          +
+              |         "min": 0,                             +
+              |         "sum": 221650,                        +
+              |         "mean": 935.23,                       +
               |         "type": "int_agg",                    +
               |         "count": 237,                         +
-              |         "stddev": 693.53,                     +
-              |         "sum_sq": 188160885,                  +
-              |         "variance": 480980.54,                +
-              |         "sum_sq_diff": 113511407.70,          +
-              |         "coefficient_of_variation_pct": 123.57+
+              |         "stddev": 1722.63,                    +
+              |         "sum_sq": 907610322,                  +
+              |         "variance": 2967441.25,               +
+              |         "sum_sq_diff": 700316134.24,          +
+              |         "coefficient_of_variation_pct": 184.19+
               |     },                                        +
               |     "selfemp": {                              +
-              |         "max": 5,                             +
-              |         "min": 0,                             +
-              |         "sum": 30,                            +
-              |         "mean": 0.13,                         +
+              |         "max": 7,                             +
+              |         "min": 5,                             +
+              |         "sum": 1637,                          +
+              |         "mean": 6.97,                         +
               |         "type": "int_agg",                    +
               |         "count": 235,                         +
-              |         "stddev": 0.72,                       +
-              |         "sum_sq": 126,                        +
-              |         "variance": 0.52,                     +
-              |         "sum_sq_diff": 122.17,                +
-              |         "coefficient_of_variation_pct": 566.01+
+              |         "stddev": 0.24,                       +
+              |         "sum_sq": 11417,                      +
+              |         "variance": 0.06,                     +
+              |         "sum_sq_diff": 13.73,                 +
+              |         "coefficient_of_variation_pct": 3.48  +
               |     },                                        +
               |     "turnover": {                             +
-              |         "max": 20025,                         +
-              |         "min": 555,                           +
-              |         "sum": 182085,                        +
-              |         "mean": 621.45,                       +
+              |         "max": 13112,                         +
+              |         "min": 944,                           +
+              |         "sum": 288760,                        +
+              |         "mean": 985.53,                       +
               |         "type": "float_agg",                  +
               |         "count": 293,                         +
-              |         "stddev": 1137.45,                    +
-              |         "sum_sq": 490943925,                  +
-              |         "variance": 1293791.47,               +
-              |         "sum_sq_diff": 377787108.53,          +
-              |         "coefficient_of_variation_pct": 183.03+
+              |         "stddev": 710.86,                     +
+              |         "sum_sq": 432136256,                  +
+              |         "variance": 505325.00,                +
+              |         "sum_sq_diff": 147554899.00,          +
+              |         "coefficient_of_variation_pct": 72.13 +
               |     },                                        +
               |     "employees": {                            +
-              |         "max": 5863,                          +
+              |         "max": 9868,                          +
               |         "min": 0,                             +
-              |         "sum": 305161,                        +
-              |         "mean": 35.55,                        +
+              |         "sum": 590893,                        +
+              |         "mean": 68.84,                        +
               |         "type": "int_agg",                    +
               |         "count": 8583,                        +
-              |         "stddev": 181.13,                     +
-              |         "sum_sq": 292400267,                  +
-              |         "variance": 32807.10,                 +
-              |         "sum_sq_diff": 281550536.61,          +
-              |         "coefficient_of_variation_pct": 509.44+
+              |         "stddev": 460.28,                     +
+              |         "sum_sq": 1858803305,                 +
+              |         "variance": 211853.13,                +
+              |         "sum_sq_diff": 1818123526.67,         +
+              |         "coefficient_of_variation_pct": 668.57+
               |     }                                         +
               | }
 
