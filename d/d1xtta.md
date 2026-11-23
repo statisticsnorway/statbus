@@ -30,6 +30,7 @@ Open for the owner: which host (niue cloud slot or a standalone server), who in 
 - [ ] [Owner] Decides the host, the first admin user and the first data to load; recorded here
 - [ ] https://mz.statbus.org answers with a working login on the stable channel, and ./sb upgrade list on the host shows the installed release; the output is recorded here
 - [ ] The first agreed data load completes on mz with no failed job; the job ids and counts are recorded here
+- [ ] [Owner] Decides whether mz.statbus.org starts from demo's Mozambique data (145 legal units, 10 establishments, 25 users) or from a fresh install with their files re-imported; recorded here
 
 ## Notes
 
