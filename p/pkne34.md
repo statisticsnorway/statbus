@@ -1,6 +1,6 @@
 ---
 id: pkne34
-title: "Missing region counts only domestic units with a physical location"
+title: "Missing Region counts domestic units that have a location but no region"
 state: "doing"
 type: bug
 priority: "high"
