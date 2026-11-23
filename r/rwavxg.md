@@ -20,13 +20,13 @@ done_at: "2026-11-23T21:54"
 A quality card's colour comes from the number it shows (saved or estimated) at once, and a count still being fetched is marked with ~.
 
 ## Purpose
-Owner 2026-11-22: quality card colours lag behind their numbers, which appear early.
+A reader takes a card's colour as the verdict on its number: an orange card showing 0, or a grey one showing 5, tells two different stories about the same data.
 
 ## Principle
 The card's colour and number come from the same value at the same moment.
 
 ## Details
-Cards set failed from the estimated count state (e.g. missing-region-card.tsx failed={!!error || (count ?? 0) > 0}) while EstimatedCount shows a saved exact count from localStorage immediately, so colour waits for the estimate fetch. Related: the dashboard count ticket.
+Before adb5b7d2e the cards set failed from the estimated count state (e.g. missing-region-card.tsx failed={!!error || (count ?? 0) > 0}) while EstimatedCount showed a saved exact count from localStorage immediately, so the colour waited for the estimate and then followed it. Related: dwt9kd (each card's count equals its list).
 
 ## Depends on
 
