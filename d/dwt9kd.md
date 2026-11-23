@@ -16,13 +16,13 @@ updated: 2026-11-22
 Each dashboard card's exact count equals the total of its linked list for the selected frame, after any frame or data change.
 
 ## Purpose
-Owner 2026-11-22: no.statbus.org Missing Region card about 100 000, its list about 76 000; other dashboard vs list mismatches; numbers right only after live, previous, cache clear, live; on dev the 2024 cards do not match the reports.
+A user reads the dashboard to know the register's state for a chosen time; a card that shows another frame's number, or disagrees with its own list, makes every figure doubtful.
 
 ## Principle
 A card and its list ask the same question; a saved count belongs to one frame and one state of the data and is never shown for another.
 
 ## Details
-Found 2026-11-22 (app/src/components/estimated-count.tsx): (1) exactCount state is seeded from localStorage once; on a cacheKey (frame) change the cacheInvalidation effect only clears it when the new key has no saved count, so a frame whose count is saved keeps showing the previous frame's number. (2) localStorage exact counts never expire; they are cleared only when this open browser sees is_importing or is_deriving_statistical_units finish, so changes seen from another browser or while closed leave stale numbers. Card queries and the search list use the same existence rule (lib/unit-existence.ts) on valid_on. Domestic Yes/No cannot sum to the list while domestic is NULL for units without a physical location (see pkne34). Dev 2024 vs reports not yet inspected: either this cache fault or a different count in reports. Colours: rwavxg.
+Observed (owner 2026-11-22): no.statbus.org Missing Region card about 100 000, its list about 76 000; other dashboard vs list mismatches; numbers right only after live, previous, cache clear, live; on dev the 2024 cards do not match the reports.
 
 ## Depends on
 
