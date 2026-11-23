@@ -22,7 +22,7 @@ updated: "2026-11-10T08:47:00Z"
 ---
 
 ## Goal
-Norway (rune) takes in BRREG every month with no manual steps, and units that leave the register stop counting from the day they left.
+Norway (rune) takes in BRREG monthly with no manual steps; units leaving the register stop counting, and garbled names are repaired.
 
 ## Purpose
 The boss wants a monthly BRREG import on rune to exercise StatBus at national scale; today's hand-run snapshot never ends a unit BRREG deletes, so deleted units keep counting.
@@ -69,6 +69,7 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 - [ ] #6 [Owner] The full-file valid-from date and the flags that make a legal unit Passive are decided and recorded in Implementation Notes with their consequence
 - [ ] Over three consecutive monthly runs on rune, database size and run time grow in proportion to the units changed that month, not faster; the figures per month are recorded here
 - [ ] Three consecutive monthly runs complete with no failed job and no manual step; the run log for each is recorded here
+- [ ] After the repopulation, no legal_unit row on rune holds the garbled pattern (Ã˜, Ã…, Ã†); the count query tmp/hug/mojibake-count.sql returns 0 where it returned 454,278 rows, recorded here
 
 ## Implementation Notes
 
