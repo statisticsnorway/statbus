@@ -51,6 +51,7 @@ FLEET_REGISTRY=(
     "jo|cloud|statbus_jo@niue.statbus.org|jo.statbus.org|anon"
     "ma|cloud|statbus_ma@niue.statbus.org|ma.statbus.org|anon"
     "mw|cloud|statbus_mw@niue.statbus.org|mw.statbus.org|anon"
+    "mz|cloud|statbus_mz@niue.statbus.org|mz.statbus.org|anon"
     "ug|cloud|statbus_ug@niue.statbus.org|ug.statbus.org|anon"
     "ua|cloud|statbus_ua@niue.statbus.org|ua.statbus.org|anon"
     "gh|cloud|statbus_gh@niue.statbus.org|gh.statbus.org|anon"

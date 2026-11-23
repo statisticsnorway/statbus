@@ -33,6 +33,7 @@ Active multi-tenant instances on niue.statbus.org. `FLEET_REGISTRY` in `cloud.sh
 | ua | Ukraine | statbus_ua | ua.statbus.org | 10 |
 | gh | Ghana | statbus_gh | gh.statbus.org | 11 |
 | mw | Malawi | statbus_mw | mw.statbus.org | 12 |
+| mz | Mozambique | statbus_mz | mz.statbus.org | 13 |
 
 **Moved off niue:**
 - `no` (Norway) — migrated to a dedicated standalone box `rune.statbus.org` to dog-food the standalone deployment mode that external clients use. See [SSB-Operated Standalone Instances](#ssb-operated-standalone-instances). Port offset 2 stays reserved on niue for future use. The `statbus_no` Linux user and home were cleaned up from niue on 2026-04-21 after the rune install was verified live; final pre-decomm DB dumps are preserved on rune at `/home/statbus/statbus/tmp/` alongside the niue import source CSVs.
@@ -349,6 +350,9 @@ Current allocations on niue.statbus.org:
 | et   | Ethiopia | 8    | 3080  | 3081  | 3082  | 3083  | 3084       | 3085   | 3086       |
 | jo   | Jordan | 9      | 3090  | 3091  | 3092  | 3093  | 3094       | 3095   | 3096       |
 | ua   | Ukraine | 10    | 3100  | 3101  | 3102  | 3103  | 3104       | 3105   | 3106       |
+| gh   | Ghana | 11      | 3110  | 3111  | 3112  | 3113  | 3114       | 3115   | 3116       |
+| mw   | Malawi | 12     | 3120  | 3121  | 3122  | 3123  | 3124       | 3125   | 3126       |
+| mz   | Mozambique | 13 | 3130  | 3131  | 3132  | 3133  | 3134       | 3135   | 3136       |
 
 Offset 2 is reserved (kept for rollback if `no` ever needs to come back to niue).
 Offset 4 (`tcc`) is FREE for the next slot — the box was torn down (STATBUS-321 phase 4a), not migrated, so there is nothing to reserve it for.
@@ -362,7 +366,7 @@ the main HTTPS port.
 - **443** (HTTPS) → Host Caddy → routes by domain to instance Caddy
 - **5432** (PostgreSQL) → Host Caddy → routes by SNI to instance Caddy
 
-**Note**: Next available offset is 11 for new deployments.
+**Note**: `ops/create-new-statbus-installation.sh` takes the highest offset in use on niue plus one (14 after mz).
 
 ---
 

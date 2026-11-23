@@ -105,7 +105,7 @@ run_cloud_closed() { run_cloud "$@" </dev/null; }
 STATBUS_CLOUD_LIB_ONLY=1 source "$ROOT/cloud.sh"
 assert_eq "dev|cloud|statbus_dev@niue.statbus.org|dev.statbus.org|token" "$(registry_entry dev)" "cloud registry entry"
 assert_eq "no|standalone|statbus@rune.statbus.org|no.statbus.org|anon" "$(registry_entry no)" "standalone registry entry"
-assert_eq "9" "$(registry_entries_for_group cloud | wc -l | xargs)" "cloud group count"
+assert_eq "10" "$(registry_entries_for_group cloud | wc -l | xargs)" "cloud group count"
 assert_eq "1" "$(registry_entries_for_group standalone | wc -l | xargs)" "standalone group count"
 # FLEET_REGISTRY is the one list of operated niue slots (STATBUS-356); the
 # "Current Deployments" table in doc/CLOUD.md shows exactly those slots, each
@@ -119,11 +119,11 @@ assert_eq "$(registry_entries_for_group cloud | awk -F'|' '{print $1 "|" $4}' | 
 read_server_metadata() {
     case "$1" in dev|no) printf 'sb version test|prerelease|%s name\n' "$1" ;; *) printf 'sb version test|stable|%s name\n' "$1" ;; esac
 }
-assert_words "dev demo et jo ma mw ug ua gh no" "$(resolve_target_codes all)" "all target"
+assert_words "dev demo et jo ma mw mz ug ua gh no" "$(resolve_target_codes all)" "all target"
 assert_words "ma" "$(resolve_target_codes ma)" "code target"
-assert_words "demo et jo ma mw ug ua gh" "$(resolve_target_codes stable)" "stable channel"
+assert_words "demo et jo ma mw mz ug ua gh" "$(resolve_target_codes stable)" "stable channel"
 assert_words "dev no" "$(resolve_target_codes prerelease)" "prerelease channel"
-assert_words "dev demo et jo ma mw ug ua gh" "$(resolve_target_codes cloud)" "cloud group"
+assert_words "dev demo et jo ma mw mz ug ua gh" "$(resolve_target_codes cloud)" "cloud group"
 assert_words "no" "$(resolve_target_codes standalone)" "standalone group"
 
 # STATBUS-341 owner ruling: manually driven no+demo are anonymous sentinels;
@@ -131,7 +131,7 @@ assert_words "no" "$(resolve_target_codes standalone)" "standalone group"
 assert_eq "anon" "$(entry_auth no)" "Norway sentinel auth"
 assert_eq "anon" "$(entry_auth demo)" "demo sentinel auth"
 assert_eq "token" "$(entry_auth dev)" "automated dev auth"
-for code in et jo ma mw ug ua gh; do
+for code in et jo ma mw mz ug ua gh; do
     assert_eq "anon" "$(entry_auth "$code")" "$code country auth"
 done
 output=$(run_cloud status all 2>&1) || fail "status all should succeed: $output"
@@ -305,16 +305,16 @@ test_all_entrypoint() {
         create)
             output=$(run_cloud create all "Test" vX 2>&1); rc=$?
             assert_eq "0" "$rc" "create all exit"
-            assert_eq "9" "$(wc -l <"$OPS_LOG" | xargs)" "create all eligible count"
+            assert_eq "10" "$(wc -l <"$OPS_LOG" | xargs)" "create all eligible count"
             assert_not_contains "$(cat "$OPS_LOG")" "create no" "create all never runs standalone"
             assert_contains "$output" "no: skipped" "create all skip no"
             ;;
         wipe)
             set +e
-            output=$(printf 'wipe %s.statbus.org\n' dev demo et jo ma mw ug ua gh | run_cloud wipe all 2>&1); rc=$?
+            output=$(printf 'wipe %s.statbus.org\n' dev demo et jo ma mw mz ug ua gh | run_cloud wipe all 2>&1); rc=$?
             set -e
             assert_eq "0" "$rc" "wipe all exit"
-            assert_eq "9" "$(wc -l <"$SSH_LOG" | xargs)" "wipe all eligible count"
+            assert_eq "10" "$(wc -l <"$SSH_LOG" | xargs)" "wipe all eligible count"
             assert_not_contains "$(cat "$SSH_LOG")" "statbus@rune.statbus.org" "wipe all never contacts standalone"
             assert_contains "$output" "no: skipped" "wipe all skip no"
             ;;
@@ -323,7 +323,7 @@ test_all_entrypoint() {
             assert_eq "0" "$rc" "import all exit"
             assert_contains "$(cat "$SSH_LOG")" "statbus@rune.statbus.org" "import all eligible entry"
             assert_not_contains "$(cat "$SSH_LOG")" "niue.statbus.org" "import all never contacts cloud"
-            for code in dev demo et jo ma mw ug ua gh; do assert_contains "$output" "$code: skipped" "import all skip $code"; done
+            for code in dev demo et jo ma mw mz ug ua gh; do assert_contains "$output" "$code: skipped" "import all skip $code"; done
             ;;
         inspect|ssh)
             set +e
