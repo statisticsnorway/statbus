@@ -33,6 +33,6 @@ Export: app/src/app/search/export (export-sql.ts exportColumns composes the COPY
 
 ## Notes
 
-2026-11-23 (Rabbit) Checked the code: the download never follows the table. exportColumns (app/src/app/search/export/export-sql.ts) always writes the same ~45 columns in a fixed order; only the unit-type filter changes it (no unit_type when one type is chosen; establishments get no sector or legal form). Owner 2026-11-23 named two ways: (a) a 'Customize columns' dialog on Download, or (b) an info icon saying the download holds the columns shown, adjusted with the table's Columns menu, and Download respects that. Rabbit proposed (b) with two menu items: 'Columns shown' (default, with the info icon) and 'All columns'. Awaiting the owner's pick (check 1).
+2026-11-23 (Rabbit) Checked the code: the download never follows the table (exportColumns always writes the same ~45 columns). Options are in check 1; Rabbit proposed (A).
 
 2026-11-23 (Rabbit) The Download label is done: 8aaf0262b (xz3jej), on master, not yet released.
