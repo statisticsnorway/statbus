@@ -30,6 +30,6 @@ admin.import_job_prepare already turns source_expression 'default' on data_sourc
 - [ ] [Owner] Decides which wins per row when the file has a data source column and the job has one chosen; recorded here
 - [ ] A legal unit import whose file has no data source column, with a data source chosen for the job, stores that data source on every unit row; a SQL test asserts it
 - [ ] With a data source column in the file, the rows follow the owner's rule; a SQL test asserts it
-- [ ] On jo.statbus.org after the release, a clone of job 13 stores the job's data source on its rows; the result is recorded here
+- [ ] On no.statbus.org (rune) after the release, a clone of job 13 stores data source nlr on its rows and on the legal units it writes; the result is recorded here
 
 ## Notes
