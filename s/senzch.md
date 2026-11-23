@@ -65,6 +65,8 @@ Deletion comes from BRREG's own record of what left the register, not from a uni
 - [ ] #4 On rune, the first monthly run closes 879755662 and 969313480 at 2026-11-07, and the monthly figures (sizes, rows, run times, closed units) are recorded and reported
 - [ ] #5 The statbus user's crontab on rune runs the monthly cycle unattended; a failure stops the cycle and is reported, without retrying
 - [ ] #6 [Owner] The full-file valid-from date and the flags that make a legal unit Passive are decided and recorded in Implementation Notes with their consequence
+- [ ] Over three consecutive monthly runs on rune, database size and run time grow in proportion to the units changed that month, not faster; the figures per month are recorded here
+- [ ] Three consecutive monthly runs complete with no failed job and no manual step; the run log for each is recorded here
 
 ## Implementation Notes
 
