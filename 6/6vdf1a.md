@@ -13,7 +13,7 @@ labels:
   - release
   - fail-fast
 group: ""
-rank: "00000000000p"
+rank: "00000000000r"
 dependencies:
   - STATBUS-384
   - STATBUS-385
