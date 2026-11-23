@@ -34,6 +34,8 @@ Today (app/src/app/dashboard/missing-region-card.tsx and the link in dashboard/p
 ## Acceptance
 - [x] On a test database with a domestic unit without region, a foreign unit, and a unit without physical location, the card's exact count and its list both show only the domestic unit; a Playwright test asserts both numbers
 - [ ] On no.statbus.org after the release, the card's exact count equals the list total; the numbers are recorded here
+- [ ] On a test database with one domestic unit that has a physical location but no region, one foreign unit, and one unit without a physical location, the card's exact count is 1 and its list has one row, that domestic unit; a Playwright test asserts both numbers
+- [ ] On no.statbus.org after the release, the card's exact count equals the list total, and the list contains no foreign units and no units without a physical location; the numbers are recorded here
 
 ## Notes
 
