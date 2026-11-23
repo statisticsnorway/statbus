@@ -42,5 +42,6 @@ Today (app/src/app/dashboard/missing-region-card.tsx and the link in dashboard/p
 
 check 1: 7636c75cb. Test slot fixture: domestic unit without region, a foreign unit, and a unit without physical location. tmp/pkne34/card-vs-list.mjs, card vs list total: RED 3 and 3 before (red.log), GREEN 1 and 1 after (green.log). The search toolbar now shows every filter a card applies. tmp/pkne34/filters-shown.mjs clicks each Data quality card: RED filters-red.log (Missing Region hid 'Physical Location Present', Missing Physical Location showed no chip), GREEN filters-green.log. filter-clear.mjs: clearing the chip drops the filter from the URL. tsc and eslint pass; owner saw it in Firefox.
 Search toolbar: a filter whose column is hidden still shows while it narrows the search (FilterWrapper filterKeys), and there is a new Physical Location filter (present/missing). Check 2 waits for the next release on no.statbus.org.
+landed 7636c75 on master 2026-11-23: app: Missing Region card counts what its list shows, and search names every…
 ## History
 - 2026-11-23T16:23 todo -> doing/active (take)
