@@ -21,13 +21,13 @@ worktree: "/Users/jhf/ssb/statbus_test"
 The Albania test data exposure is contained, and the history, forks and reporting are decided and recorded.
 
 ## Purpose
-Security review 2026-11-23 (Erik, Slack): test/data/318_albania_legal_units.csv (333 rows) and 318_albania_establishments.csv (8,439 rows) in the public statisticsnorway/statbus repository held values from Albania's register: firms' websites and e-mail addresses (including gmail, yahoo and arsimi.gov.al), phones and figures identifying businesses. Test 404 called it 'actual Albania client data'.
+Data about firms in a partner country was public in our repository; it must stop spreading, and SSB and the partner must decide with full facts what the exposure means.
 
 ## Principle
 Stop the spread first, then decide the irreversible steps with the people who own them; personal data is never copied anywhere while checking.
 
 ## Details
-Contained 2026-11-23 in cfb49e73a: every identifying value replaced with generated values of the same shape; test 404 reproduces the same states and errors. Still exposed: added in cc13d63dd (2026-01-29), present in every later commit and in 368 tags up to v2026.11.6; the repository is public with 5 forks. Release assets (binaries, install scripts) do not include test/data. Spot checks (public business facts only): names are cut to four letters and tax identifiers shortened (A999999 instead of the 10-character NUIS), but websites and e-mails identify real firms such as a bank, a hospital and a supermarket chain. Rewriting history changes every commit SHA, which the upgrade system and every installation's checkout depend on; forks keep the old history regardless.
+Found by a security review 2026-11-23 (Erik, Slack): test/data/318_albania_legal_units.csv (333 rows) and 318_albania_establishments.csv (8,439 rows) in the public statisticsnorway/statbus repository held partially anonymised data from Albania's register; websites and e-mails (including gmail, yahoo and arsimi.gov.al), phones and figures still identified firms.
 
 ## Acceptance
 - [ ] [Owner] Confirms with Erik where the files came from and whether the partner sent them as test data; recorded here (the answer shapes what the partner is told)
