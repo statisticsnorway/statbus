@@ -41,6 +41,7 @@ check 1: adb5b7d2e. tmp/rwavxg/colour-follows-number.mjs holds the estimate and 
 check 2: Same test: with no saved count and the exact request unanswered, the card shows ~3 (orange) and ~0 (grey); EstimatedCount already prefixes estimates with ~, and the test asserts the text.
 landed adb5b7d on master 2026-11-23: app: quality card colour follows the number it shows (rwavxg)
 Pending marker as built: a card shows its estimate as ~N (e.g. ~3) until the exact count arrives, then N. Related dashboard count ticket: dwt9kd.
+Owner 2026-11-22: quality card colours lag behind their numbers, which appear early. Check 1 as built: a saved 0 shows grey, a saved 5 shows orange.
 ## History
 - 2026-11-23T21:41 todo -> doing/active (take with pkne34)
 - 2026-11-23T21:54 doing/active -> done (done); was doing_since: 2026-11-23T21:41; doing_with: pkne34
