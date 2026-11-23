@@ -11,10 +11,13 @@ rank: "zzzzq"
 created: 2026-11-21
 updated: 2026-11-21
 doing_since: "2026-11-21T09:49"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-4"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+waiting_on: "parked behind z2qt08 (units on a map), which the owner is reviewing page by page"
+waiting_since: "2026-11-23T12:14"
+waiting_asked_by: "hibiscus"
 ---
 
 ## Goal
@@ -49,3 +52,4 @@ check 3: branch 81.4s/72.9s vs master 72.4s/74.2s
 ## History
 - 2026-11-21T09:49 todo -> doing/active (take)
 - 2026-11-21T20:10 handed to hibiscus: buffalo's session ended (closed 2026-11-21 10:29)
+- 2026-11-23T12:14 doing/active -> doing/waiting (wait)
