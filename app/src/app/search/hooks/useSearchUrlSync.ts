@@ -20,6 +20,21 @@ import {
 } from "@/atoms/base-data";
 import {
   SEARCH,
+  activityCategoryDeriveStateUpdateFromSearchParams,
+  dataSourceDeriveStateUpdateFromSearchParams,
+  externalIdentDeriveStateUpdateFromSearchParams,
+  fullTextSearchDeriveStateUpdateFromSearchParams,
+  legalFormDeriveStateUpdateFromSearchParams,
+  regionDeriveStateUpdateFromSearchParams,
+  sectorDeriveStateUpdateFromSearchParams,
+  statusDeriveStateUpdateFromSearchParams,
+  domesticDeriveStateUpdateFromSearchParams,
+  physicalLocationDeriveStateUpdateFromSearchParams,
+  physicalCountryDeriveStateUpdateFromSearchParams,
+  lastEditByUserDeriveStateUpdateFromSearchParams,
+  statisticalVariablesDeriveStateUpdateFromSearchParams,
+  unitSizeDeriveStateUpdateFromSearchParams,
+  unitTypeDeriveStateUpdateFromSearchParams,
   ACTIVITY_CATEGORY_PATH,
   REGION,
   SECTOR,
@@ -92,7 +107,97 @@ export function useSearchUrlSync() {
   const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
   const statDefinitions = useAtomValue(statDefinitionsAtom);
 
-  // Effect 1: Sync state to the URL after initialization and on subsequent changes
+  // Effect 1: Initialize state from URL on first load
+  useGuardedEffect(() => {
+    // Guard against running if already initialized or if essential data isn't loaded yet.
+    if (isInitialized || !allDataSources.length || !externalIdentTypes.length) {
+      return;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.toString() === '') {
+      // If there are no params, we are done initializing with default/stored state.
+      setInitialized(true);
+      return;
+    }
+
+    // Most ...fromSearchParams functions return a single action, but some can return multiple.
+    const singleActions: (SearchAction | null)[] = [
+      fullTextSearchDeriveStateUpdateFromSearchParams(urlParams),
+      unitTypeDeriveStateUpdateFromSearchParams(urlParams),
+      legalFormDeriveStateUpdateFromSearchParams(urlParams),
+      regionDeriveStateUpdateFromSearchParams(urlParams),
+      sectorDeriveStateUpdateFromSearchParams(urlParams),
+      activityCategoryDeriveStateUpdateFromSearchParams(urlParams),
+      statusDeriveStateUpdateFromSearchParams(urlParams),
+      domesticDeriveStateUpdateFromSearchParams(urlParams),
+      physicalLocationDeriveStateUpdateFromSearchParams(urlParams),
+      physicalCountryDeriveStateUpdateFromSearchParams(urlParams),
+      lastEditByUserDeriveStateUpdateFromSearchParams(urlParams),
+      unitSizeDeriveStateUpdateFromSearchParams(urlParams),
+      dataSourceDeriveStateUpdateFromSearchParams(urlParams),
+    ];
+
+    // externalIdent... expects a single type object, so we must map over the available types.
+    // It may return one or more actions, so we use flatMap.
+    const externalIdentActions: (SearchAction | null)[] = externalIdentTypes.flatMap(
+      (type) => externalIdentDeriveStateUpdateFromSearchParams(type, urlParams),
+    );
+
+    // statisticalVariables... expects an array of definitions and returns an array of actions.
+    const statisticalVariableActions =
+      statisticalVariablesDeriveStateUpdateFromSearchParams(
+        statDefinitions,
+        urlParams,
+      );
+
+    const actions: (SearchAction | null)[] = [
+      ...singleActions,
+      ...externalIdentActions,
+      ...statisticalVariableActions,
+    ];
+    
+    const newFilters: Record<string, unknown> = {};
+    let newQuery: string | null = null;
+    
+    actions.forEach(action => {
+      if (action?.type === 'set_query') {
+        const values = action.payload.app_param_values;
+        // Don't set state if values are missing or it's an empty array.
+        if (!values || values.length === 0) {
+          return;
+        }
+
+        if (action.payload.app_param_name === SEARCH) {
+          // Full-text search is a single value.
+          newQuery = values[0];
+        } else {
+          // Other filters can be single or multiple values, store as an array.
+          newFilters[action.payload.app_param_name] = values;
+        }
+      }
+    });
+
+    setFilters(newFilters);
+    if (newQuery !== null) setQuery(newQuery);
+
+    const pageParam = urlParams.get('page');
+    if (pageParam) {
+      const page = parseInt(pageParam, 10);
+      if (!isNaN(page)) setPagination(prev => ({ ...prev, page }));
+    }
+
+    const orderParam = urlParams.get('order');
+    if (orderParam) {
+      const [field, direction] = orderParam.split('.');
+      if (field && direction) setSorting({ field, direction: direction as SearchDirection });
+    }
+
+    setInitialized(true);
+
+  }, [isInitialized, allDataSources, externalIdentTypes, statDefinitions, setInitialized, setQuery, setFilters, setPagination, setSorting], 'useSearchUrlSync:initialize');
+
+  // Effect 2: Sync state back to URL after initialization and on subsequent changes
   useGuardedEffect(() => {
     if (!isInitialized) {
       return;

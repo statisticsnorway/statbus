@@ -20,6 +20,7 @@ import {
   statusDeriveStateUpdateFromSearchParams,
   domesticDeriveStateUpdateFromSearchParams,
   physicalLocationDeriveStateUpdateFromSearchParams,
+  physicalCountryDeriveStateUpdateFromSearchParams,
   lastEditByUserDeriveStateUpdateFromSearchParams,
   qualityDeriveStateUpdateFromSearchParams,
   statisticalVariablesDeriveStateUpdateFromSearchParams,
@@ -60,6 +61,8 @@ const deriveStateFromUrl = (
     domesticDeriveStateUpdateFromSearchParams(urlSearchParams);
   const physicalLocationAction =
     physicalLocationDeriveStateUpdateFromSearchParams(urlSearchParams);
+  const physicalCountryAction =
+    physicalCountryDeriveStateUpdateFromSearchParams(urlSearchParams);
   const lastEditByUserAction =
     lastEditByUserDeriveStateUpdateFromSearchParams(urlSearchParams);
   const unitSizeAction =
@@ -85,6 +88,7 @@ const deriveStateFromUrl = (
     statusAction,
     domesticAction,
     physicalLocationAction,
+    physicalCountryAction,
     lastEditByUserAction,
     unitSizeAction,
     dataSourceAction,

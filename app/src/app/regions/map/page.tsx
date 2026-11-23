@@ -16,15 +16,18 @@ import { UnitMap, cssColour } from "@/components/map/unit-map";
 import { UnitTypeLegend } from "@/components/map/unit-type-legend";
 import { BASEMAP_FONT } from "@/components/map/basemap";
 import { ViewControl } from "@/components/map/view-control";
+import { RegionPreview, type PreviewTarget } from "./region-preview";
 import {
   MAP_UNIT_TYPES,
   UNIT_TYPE_SWATCH,
   childCounts,
+  countryCounts,
   countsUnder,
   featureBounds,
   framingFeatures,
   maxTotal,
   regionFeatures,
+  selectedCountryCode,
   selectedTotal,
   selectionDepth,
   selectionParent,
@@ -39,9 +42,10 @@ import {
 
 /**
  * The Regions map is a drill-down (owner 2026-11-23, z2qt08). One selection decides everything:
- * the world, the installation's own country (where the page opens), or a region. The map shows
- * the selection's children, one circle each, sized by its units; clicking a circle selects it,
- * and the breadcrumb, the panel's X (one level up) and the fit button act on the selection.
+ * the world, the installation's own country (where the page opens), a foreign country, or a
+ * region. The map shows the selection's children, one circle each, sized by its units. A click on
+ * a circle opens a readable box with its name and units (RegionPreview) and a double click goes
+ * in; the breadcrumb, the panel's X (one level up) and the fit button act on the selection.
  * Zooming and panning only move the view; they do not change what is shown.
  *
  * Counts come from statistical_unit_facet, the pre-aggregated counts the reports' drilldown
@@ -59,9 +63,15 @@ export default function RegionsMapPage() {
   const searchParams = useSearchParams();
   const requested = parseSelection(searchParams?.get("at") ?? null);
   const unitTypes = parseUnitTypes(searchParams?.get("types") ?? null);
-  const [mapReady, setMapReady] = useState(false);
+  // The map once its style has loaded: the preview box renders over it.
+  const [readyMap, setReadyMap] = useState<MapLibreMap | null>(null);
+  const mapReady = readyMap !== null;
   const mapRef = useRef<MapLibreMap | null>(null);
   const featuresRef = useRef<GeoJSON.Feature<GeoJSON.Point, { total: number }>[]>([]);
+  // The circle a single click previews, with the selection it was clicked in: a new selection
+  // (going in, Back, the trail) leaves it behind, so it shows only where it was opened.
+  const [preview, setPreview] = useState<{ at: MapSelection; target: PreviewTarget } | null>(null);
+  const closePreview = useCallback(() => setPreview(null), [setPreview]);
 
   // The map's own handlers (click, fit) run outside React's render, so they read the
   // current selection and unit types from the URL at the moment they run.
@@ -110,7 +120,8 @@ export default function RegionsMapPage() {
     if (!bounds) return;
     const [west, south, east, north] = bounds;
     if (east - west < 0.01 && north - south < 0.01) {
-      map.easeTo({ center: [west, south], zoom: at === null ? 2 : at === "" ? 4 : 9 });
+      // A foreign country is its one circle, at its centre.
+      map.easeTo({ center: [west, south], zoom: at === null ? 2 : selectionDepth(at) === 0 ? 4 : 9 });
       return;
     }
     map.fitBounds(bounds, { padding: 60, maxZoom: at === null ? 4 : 11 });
@@ -131,9 +142,24 @@ export default function RegionsMapPage() {
     if (error) throw error;
     return (data ?? []) as MapRegion[];
   });
-  // A region path the region table does not have (an old or mistyped link) shows the country.
+  const { data: countries } = useSWR(client ? ["regions-map:countries"] : null, async () => {
+    const { data, error } = await client!.from("country").select("id,iso_2,name,latitude,longitude");
+    if (error) throw error;
+    return new Map((data ?? []).map((c) => [c.id, c]));
+  });
+  const countryByCode = useMemo(() => new Map([...(countries?.values() ?? [])].map((c) => [c.iso_2, c])), [countries]);
+  // A region path or country code the tables do not have (an old or mistyped link) shows the
+  // installation's own country, as does its own code.
+  const requestedCode = selectedCountryCode(requested);
   const selection: MapSelection =
-    requested && regions && !regions.some((r) => r.path === requested) ? "" : requested;
+    requestedCode !== null
+      ? countries && (!countryByCode.has(requestedCode) || countryByCode.get(requestedCode)?.id === home?.id)
+        ? ""
+        : requested
+      : requested && regions && !regions.some((r) => r.path === requested)
+        ? ""
+        : requested;
+  const selectedCountry = countryByCode.get(selectedCountryCode(selection) ?? "") ?? null;
 
   const { data: rows, error: countError } = useSWR(
     client && validOn ? ["regions-map:counts", validOn] : null,
@@ -152,54 +178,56 @@ export default function RegionsMapPage() {
   );
 
   const world = useMemo(() => worldCounts(rows ?? [], homeId, unitTypes), [rows, homeId, unitTypes]);
-  const { data: countries } = useSWR(client ? ["regions-map:countries"] : null, async () => {
-    const { data, error } = await client!.from("country").select("id,name,latitude,longitude");
-    if (error) throw error;
-    return new Map((data ?? []).map((c) => [c.id, c]));
-  });
-  const countryNames = useMemo(() => (countries ? new Map([...countries].map(([id, c]) => [id, c.name])) : undefined), [countries]);
+  const perCountry = useMemo(() => countryCounts(rows ?? []), [rows]);
 
   const regionName = useMemo(() => new Map((regions ?? []).map((r) => [r.path, r.name])), [regions]);
   const nameOf = useCallback(
-    (s: MapSelection) => (s === null ? "World" : s === "" ? (home?.name ?? "Country") : (regionName.get(s) ?? s)),
-    [home, regionName]
+    (s: MapSelection) => {
+      if (s === null) return "World";
+      if (s === "") return home?.name ?? "Country";
+      const code = selectedCountryCode(s);
+      return code !== null ? (countryByCode.get(code)?.name ?? code) : (regionName.get(s) ?? s);
+    },
+    [home, regionName, countryByCode]
   );
 
-  // What the map draws for the selection: the children of a domestic selection, or at the
-  // world every country with units at its centre (country.latitude, longitude), the
-  // installation's own one among them.
+  // What the map draws for the selection: the children of a domestic selection; at the world
+  // every country with units at its centre (country.latitude, longitude), the installation's
+  // own one among them; a foreign country, which has no regions here, as its one circle.
   const { features, withoutCentre } = useMemo(() => {
     if (!rows || !regions) return { features: { type: "FeatureCollection" as const, features: [] }, withoutCentre: [] };
-    if (selection === null) {
-      const perCountry = [{ countryId: homeId ?? -1, count: world.domestic }, ...world.abroad];
+    if (selection === null || selectedCountry) {
       const placed: GeoJSON.Feature<GeoJSON.Point, RegionFeatureProperties>[] = [];
       const unplaced: { path: string; name: string; total: number }[] = [];
-      for (const { countryId, count } of perCountry) {
-        if (count === 0) continue;
+      for (const [countryId, counts] of perCountry) {
+        if (selectedCountry && countryId !== selectedCountry.id) continue;
+        const total = selectedTotal(counts, unitTypes);
+        if (total === 0) continue;
         const c = countries?.get(countryId);
         const name = c?.name ?? String(countryId);
-        // The home country is selected by "", a foreign one is shown but not entered.
-        const path = countryId === homeId ? "" : `country:${countryId}`;
+        // The installation's own country is selected by "", a foreign one by its code.
+        const path = countryId === homeId ? "" : `country:${c?.iso_2 ?? countryId}`;
         if (c?.latitude == null || c.longitude == null) {
-          unplaced.push({ path, name, total: count });
+          unplaced.push({ path, name, total });
           continue;
         }
         placed.push({
           type: "Feature",
           geometry: { type: "Point", coordinates: [Number(c.longitude), Number(c.latitude)] },
-          properties: { path, name, total: count, enterprise: 0, legal_unit: 0, establishment: 0 },
+          properties: { path, name, total, ...counts },
         });
       }
       return { features: { type: "FeatureCollection" as const, features: placed }, withoutCentre: unplaced };
     }
     const { features: f, withoutCentre: w } = regionFeatures(regions, childCounts(rows, selection, homeId), unitTypes);
     return { features: f, withoutCentre: w };
-  }, [rows, regions, selection, homeId, unitTypes, world, countries]);
+  }, [rows, regions, selection, selectedCountry, homeId, unitTypes, perCountry, countries]);
 
-  const selectedCounts = useMemo(
-    () => (rows && selection !== null ? countsUnder(rows, selection, homeId) : null),
-    [rows, selection, homeId]
-  );
+  const selectedCounts = useMemo(() => {
+    if (!rows || selection === null) return null;
+    if (selectedCountry) return perCountry.get(selectedCountry.id) ?? { enterprise: 0, legal_unit: 0, establishment: 0 };
+    return countsUnder(rows, selection, homeId);
+  }, [rows, selection, selectedCountry, perCountry, homeId]);
 
   // The circles take the colour of the one picked unit type, grey when types are mixed.
   const circleColour = unitTypes.length === 1 ? `--color-${unitTypes[0]}-500` : "--color-informal-500";
@@ -219,7 +247,7 @@ export default function RegionsMapPage() {
           "circle-opacity": 0.75,
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 1.5,
-          "circle-radius": 4,
+          "circle-radius": 6,
         },
       });
       map.addLayer({
@@ -229,34 +257,44 @@ export default function RegionsMapPage() {
         layout: {
           "text-field": ["concat", ["get", "name"], "\n", ["number-format", ["get", "total"], { locale: "en" }]],
           "text-font": BASEMAP_FONT,
-          "text-size": 11,
+          "text-size": 13,
           "text-allow-overlap": false,
         },
         paint: { "text-color": "#1f2937", "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
       });
       map.addControl(new ViewControl([{ title: "Fit the selection in view", icon: "⤢", onClick: () => fitSelection() }]), "top-left");
       map.on("moveend", () => scaleToView(map));
-      map.on("mouseenter", "region-circles", (e: MapLayerMouseEvent) => {
-        // Pointer only where a click goes in: not on foreign countries, not on the selection itself.
-        const path = e.features?.[0]?.properties?.path as string | undefined;
-        if (path !== undefined && !path.startsWith("country:") && path !== current().at) map.getCanvas().style.cursor = "pointer";
-      });
+      map.on("mouseenter", "region-circles", () => (map.getCanvas().style.cursor = "pointer"));
       map.on("mouseleave", "region-circles", () => (map.getCanvas().style.cursor = ""));
-      // A click on a circle selects it. A double click is a click: the map's own double-click
-      // zoom is held back on circles, and the second click lands while the map is moving to
-      // the new selection, so it does not select a second level.
-      map.on("dblclick", "region-circles", (e: MapLayerMouseEvent) => e.preventDefault());
-      map.on("click", "region-circles", (e: MapLayerMouseEvent) => {
-        if (map.isMoving()) return;
+      // A click on a circle previews it, a double click goes in (owner 2026-11-23: the labels
+      // are too small to read, so a click first shows the circle readably). The map's own
+      // double-click zoom is held back on circles; going in frames the new selection instead.
+      // A leaf region's own circle is the selection already, so select() ignores it.
+      map.on("dblclick", "region-circles", (e: MapLayerMouseEvent) => {
+        e.preventDefault();
         const path = e.features?.[0]?.properties?.path as string | undefined;
-        // Foreign countries have no regions here: they are shown, not entered. A leaf
-        // region's own circle is the selection already, so select() ignores it.
-        if (path === undefined || path.startsWith("country:")) return;
-        select(path);
+        if (path !== undefined) select(path);
       });
-      setMapReady(true);
+      map.on("click", (e) => {
+        const feature = map.queryRenderedFeatures(e.point, { layers: ["region-circles"] })[0] as unknown as
+          | GeoJSON.Feature<GeoJSON.Point, RegionFeatureProperties>
+          | undefined;
+        if (!feature) return setPreview(null);
+        const p = feature.properties;
+        setPreview({
+          at: current().at,
+          target: {
+            path: p.path,
+            name: p.name,
+            code: p.path === "" || p.path.startsWith("country:") ? null : p.path,
+            coordinates: feature.geometry.coordinates as [number, number],
+            counts: { enterprise: p.enterprise, legal_unit: p.legal_unit, establishment: p.establishment },
+          },
+        });
+      });
+      setReadyMap(map);
     },
-    [scaleToView, fitSelection, select, current]
+    [scaleToView, fitSelection, select, current, setPreview, setReadyMap]
   );
 
   // New data for the map; a new selection is also framed. Unit-type or time-frame changes keep
@@ -285,8 +323,16 @@ export default function RegionsMapPage() {
   const childNoun = selection === null ? "countries" : depth === 0 ? "regions" : "subregions";
   const shown = features.features.reduce((s, f) => s + f.properties.total, 0);
   const typesParam = `unit_type=${unitTypes.join(",")}`;
-  const selectionSearch =
-    selection === null ? null : selection === "" ? `/search?${typesParam}&domestic=true` : `/search?${typesParam}&physical_region_path=${encodeURIComponent(selection)}`;
+  // The search list for a selection: the country's own units, a foreign country's units, or a region's.
+  const searchFor = (s: MapSelection) => {
+    if (s === null) return `/search?${typesParam}`;
+    if (s === "") return `/search?${typesParam}&domestic=true`;
+    const code = selectedCountryCode(s);
+    if (code !== null) return `/search?${typesParam}&physical_country=${countryByCode.get(code)?.id ?? ""}`;
+    return `/search?${typesParam}&physical_region_path=${encodeURIComponent(s)}`;
+  };
+  const selectionSearch = searchFor(selection);
+  const shownPreview = preview && preview.at === selection ? preview.target : null;
   const abroadTotal = world.abroad.reduce((s, a) => s + a.count, 0);
 
   return (
@@ -317,6 +363,18 @@ export default function RegionsMapPage() {
       <div className="flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
           <UnitMap onReady={onReady} className="absolute inset-0" />
+          {shownPreview && readyMap && (
+            <RegionPreview
+              key={shownPreview.path}
+              map={readyMap}
+              target={shownPreview}
+              unitTypes={unitTypes}
+              canEnter={shownPreview.path !== selection}
+              searchHref={searchFor(shownPreview.path)}
+              onEnter={() => select(shownPreview.path)}
+              onClose={closePreview}
+            />
+          )}
           {countError && (
             <p className="absolute left-1/2 top-4 -translate-x-1/2 rounded bg-red-50 px-3 py-2 text-sm text-red-700 shadow" role="alert">
               {countError instanceof Error ? countError.message : String(countError)}
@@ -352,7 +410,7 @@ export default function RegionsMapPage() {
                 <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} totals={selectedCounts} />
               </div>
             ) : (
-              <WorldSplit world={world} homeName={nameOf("")} countryNames={countryNames} typesParam={typesParam} />
+              <WorldSplit world={world} homeName={nameOf("")} countries={countries} typesParam={typesParam} onSelect={select} />
             )}
             {selection === null && (
               <div className="mt-3 border-t pt-3">
@@ -370,18 +428,20 @@ export default function RegionsMapPage() {
             )}
             <p className="mt-2 text-xs text-gray-500" data-regions-map-level="">
               {selection === null
-                ? `The map shows ${features.features.length.toLocaleString()} ${childNoun} with units. Click ${nameOf("")} to see its regions.`
-                : isLeaf
-                  ? "The lowest level: no regions below this one. X or the trail above goes back up."
-                  : features.features.length > 0
-                    ? `The map shows ${shown.toLocaleString()} units in ${features.features.length.toLocaleString()} ${childNoun}. Click a circle to go into it, X or the trail above to go back up.`
-                    : "No units of the picked types here."}
+                ? `The map shows ${features.features.length.toLocaleString()} ${childNoun} with units. Click a circle to see its units, double-click to go in.`
+                : selectedCountry
+                  ? `This registry has no regions of ${selectedCountry.name}. X or the trail above goes back up.`
+                  : isLeaf
+                    ? "The lowest level: no regions below this one. X or the trail above goes back up."
+                    : features.features.length > 0
+                      ? `The map shows ${shown.toLocaleString()} units in ${features.features.length.toLocaleString()} ${childNoun}. Click a circle to see its units, double-click to go in.`
+                      : "No units of the picked types here."}
             </p>
           </section>
-          {selection !== null && ((depth === 0 && world.domesticWithoutRegion > 0) || withoutCentre.length > 0) && (
+          {selection !== null && !selectedCountry && ((selection === "" && world.domesticWithoutRegion > 0) || withoutCentre.length > 0) && (
             <section className="space-y-2" data-regions-not-on-map="">
               <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">Not on the map</h2>
-              {depth === 0 && world.domesticWithoutRegion > 0 && (
+              {selection === "" && world.domesticWithoutRegion > 0 && (
                 <CountLink
                   href={`/search?${typesParam}&domestic=true&physical_region_path=null`}
                   label={`Units in ${nameOf("")} without a region`}
@@ -418,7 +478,7 @@ export default function RegionsMapPage() {
               )}
             </section>
           )}
-          {depth === 0 && (
+          {selection === "" && (
             <p className="text-xs text-gray-500">
               Outside {nameOf("")}: {abroadTotal.toLocaleString()} units abroad and {world.noLocation.toLocaleString()} without a
               location.{" "}
@@ -440,10 +500,11 @@ export default function RegionsMapPage() {
  */
 const DEFAULT_UNIT_TYPE: MapUnitType = "enterprise";
 
-/** ?at= in the map's URL: absent is the country, "world" the world, else a region path. */
+/** ?at= in the map's URL: absent is the country, "world" the world, "country:SE" a foreign country, else a region path. */
 function parseSelection(at: string | null): MapSelection {
   if (at === null || at === "") return "";
   if (at === "world") return null;
+  if (/^country:[A-Z]{2}$/.test(at)) return at;
   return /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/.test(at) ? at : "";
 }
 
@@ -453,48 +514,67 @@ function parseUnitTypes(types: string | null): MapUnitType[] {
   return picked.length > 0 ? MAP_UNIT_TYPES.filter((t) => picked.includes(t)) : [DEFAULT_UNIT_TYPE];
 }
 
-/** The world selection's panel: the units in the country, abroad by country, and without a location. */
+/**
+ * The world selection's panel: the units in the installation's own country, abroad by country,
+ * and without a location. Each country is a button that selects it on the map, as a click on
+ * its circle does (owner 2026-11-23: "In Norway" should select Norway, not open the search,
+ * and every country abroad should be reachable). The list scrolls inside the panel.
+ */
 function WorldSplit({
   world,
   homeName,
-  countryNames,
+  countries,
   typesParam,
+  onSelect,
 }: {
   world: ReturnType<typeof worldCounts>;
   homeName: string;
-  countryNames: Map<number, string> | undefined;
+  countries: Map<number, { iso_2: string; name: string }> | undefined;
   typesParam: string;
+  onSelect: (selection: MapSelection) => void;
 }) {
   const abroadTotal = world.abroad.reduce((s, a) => s + a.count, 0);
-  const shownAbroad = world.abroad.slice(0, 10);
-  const rest = abroadTotal - shownAbroad.reduce((s, a) => s + a.count, 0);
   return (
     <div className="mt-2 space-y-1.5" data-regions-map-world="">
-      <CountLink href={`/search?${typesParam}&domestic=true`} label={`In ${homeName}`} value={world.domestic} data="domestic" />
+      <CountButton label={`In ${homeName}`} value={world.domestic} onClick={() => onSelect("")} data="domestic" />
       <div>
-        <CountLink
-          href={`/search?${typesParam}&domestic=false`}
-          label={`Abroad, in ${world.abroad.length.toLocaleString()} countries`}
-          value={abroadTotal}
-          data="abroad"
-        />
-        <ul className="mt-0.5 space-y-0.5 pl-3 text-xs text-gray-600">
-          {shownAbroad.map((a) => (
-            <li key={a.countryId} className="flex justify-between gap-2">
-              <span className="truncate">{countryNames?.get(a.countryId) ?? "…"}</span>
-              <span className="tabular-nums">{a.count.toLocaleString()}</span>
-            </li>
-          ))}
-          {rest > 0 && (
-            <li className="flex justify-between gap-2">
-              <span>Other countries</span>
-              <span className="tabular-nums">{rest.toLocaleString()}</span>
-            </li>
-          )}
+        <p className="flex justify-between gap-2" data-count="abroad">
+          <span>Abroad, in {world.abroad.length.toLocaleString()} countries</span>
+          <span className="tabular-nums text-gray-600">{abroadTotal.toLocaleString()}</span>
+        </p>
+        <ul className="mt-0.5 max-h-64 overflow-y-auto pl-3 text-xs text-gray-700" data-regions-map-abroad="">
+          {world.abroad.map((a) => {
+            const c = countries?.get(a.countryId);
+            return (
+              <li key={a.countryId}>
+                <CountButton
+                  label={c?.name ?? "…"}
+                  value={a.count}
+                  onClick={() => c && onSelect(`country:${c.iso_2}`)}
+                  data={c?.iso_2 ?? String(a.countryId)}
+                />
+              </li>
+            );
+          })}
         </ul>
       </div>
       <CountLink href={`/search?${typesParam}&physical_location=missing`} label="No location" value={world.noLocation} data="no-location" />
     </div>
+  );
+}
+
+/** A count that selects a place on the map, styled as the panel's count links. */
+function CountButton({ label, value, onClick, data }: { label: string; value: number; onClick: () => void; data: string }) {
+  return (
+    <button
+      type="button"
+      className="flex w-full justify-between gap-2 rounded px-0.5 text-left underline-offset-2 hover:bg-gray-200 hover:underline"
+      onClick={onClick}
+      data-count-select={data}
+    >
+      <span className="truncate">{label}</span>
+      <span className="tabular-nums text-gray-600">{value.toLocaleString()}</span>
+    </button>
   );
 }
 

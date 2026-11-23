@@ -1,4 +1,4 @@
-import { childCounts, countsByRegion, countsUnder, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, type RegionCountRow } from "./map-data";
+import { childCounts, countryCounts, countsByRegion, countsUnder, selectedCountryCode, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, type RegionCountRow } from "./map-data";
 
 // z2qt08: the Regions map counts units per region path prefix from statistical_unit_facet and
 // draws each region with a centre; regions without one are listed beside the map.
@@ -191,6 +191,20 @@ describe("the map selection", () => {
     expect(selectionTrail(null)).toEqual([null]);
     expect([selectionParent("46.4601"), selectionParent("46"), selectionParent(""), selectionParent(null)]).toEqual(["46", "", null, null]);
     expect([selectionDepth(null), selectionDepth(""), selectionDepth("46"), selectionDepth("46.4601")]).toEqual([-1, 0, 1, 2]);
+  });
+
+  it("selects a foreign country by its code, one step below the world", () => {
+    expect([selectedCountryCode("country:SE"), selectedCountryCode(""), selectedCountryCode("46"), selectedCountryCode(null)]).toEqual(["SE", null, null, null]);
+    expect([selectionTrail("country:SE"), selectionParent("country:SE"), selectionDepth("country:SE")]).toEqual([[null, "country:SE"], null, 0]);
+  });
+
+  it("counts each unit type per country, leaving out units without a location", () => {
+    const counts = countryCounts(worldRows);
+    expect([counts.get(NO), counts.get(SE), counts.size]).toEqual([
+      { enterprise: 0, legal_unit: 39, establishment: 0 },
+      { enterprise: 0, legal_unit: 30, establishment: 4 },
+      2,
+    ]);
   });
 
   it("shows the country's counties, then a county's municipalities, with a county's own units at the county", () => {

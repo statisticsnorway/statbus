@@ -119,28 +119,50 @@ export function isMapUnitType(unitType: UnitType | null): unitType is MapUnitTyp
 
 /**
  * Where the Regions map stands (owner 2026-11-23, z2qt08): the world (null), the installation's
- * own country (""), or a region by its path ("50", "50.5001"). The selection alone decides what
- * the map shows, its children, and what the breadcrumb, the panel and the fit button refer to.
+ * own country (""), a foreign country ("country:SE", by its ISO 3166 alpha-2 code), or a region
+ * by its path ("50", "50.5001"). The selection alone decides what the map shows, its children,
+ * and what the breadcrumb, the panel and the fit button refer to.
  */
 export type MapSelection = string | null;
 
-/** The selection's region path depth: the world -1, the country 0, a county 1, and so on. */
+/** The ISO 3166 alpha-2 code of a selected foreign country, or null for any other selection. */
+export function selectedCountryCode(selection: MapSelection): string | null {
+  return selection?.startsWith("country:") ? selection.slice("country:".length) : null;
+}
+
+/** The selection's region path depth: the world -1, a country 0, a county 1, and so on. */
 export function selectionDepth(selection: MapSelection): number {
   if (selection === null) return -1;
-  return selection === "" ? 0 : selection.split(".").length;
+  return selection === "" || selectedCountryCode(selection) ? 0 : selection.split(".").length;
 }
 
 /** The selections from the world down to `selection`, for the breadcrumb: null, "", "50", "50.5001". */
 export function selectionTrail(selection: MapSelection): MapSelection[] {
   if (selection === null) return [null];
+  if (selectedCountryCode(selection)) return [null, selection];
   const labels = selection === "" ? [] : selection.split(".");
   return [null, "", ...labels.map((_, i) => labels.slice(0, i + 1).join("."))];
 }
 
-/** One step up: a region to its parent region or the country, the country to the world. */
+/** One step up: a region to its parent region or the country, a country to the world. */
 export function selectionParent(selection: MapSelection): MapSelection {
-  if (selection === null || selection === "") return null;
+  if (selection === null || selection === "" || selectedCountryCode(selection)) return null;
   return selection.split(".").slice(0, -1).join(".");
+}
+
+/** Units per type in each country, by country id; units without a physical location are left out. */
+export function countryCounts(rows: RegionCountRow[]): Map<number, Record<MapUnitType, number>> {
+  const byCountry = new Map<number, Record<MapUnitType, number>>();
+  for (const r of rows) {
+    if (r.physical_country_id == null || !isMapUnitType(r.unit_type)) continue;
+    let c = byCountry.get(r.physical_country_id);
+    if (!c) {
+      c = { enterprise: 0, legal_unit: 0, establishment: 0 };
+      byCountry.set(r.physical_country_id, c);
+    }
+    c[r.unit_type] += r.count ?? 0;
+  }
+  return byCountry;
 }
 
 /** A facet row of the installation's own country that lies in `selection` ("" is the whole country). */

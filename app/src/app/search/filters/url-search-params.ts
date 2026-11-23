@@ -222,6 +222,32 @@ export function physicalLocationDeriveStateUpdateFromValues(value: string | null
   } as SearchAction;
 }
 
+/**
+ * The country a unit is located in, by country id (z2qt08): the Regions map's "View and
+ * download" for a foreign country links here. It filters statistical_unit.physical_country_id,
+ * which has its own index.
+ */
+export const PHYSICAL_COUNTRY = "physical_country";
+
+export function physicalCountryDeriveStateUpdateFromSearchParams(
+  urlSearchParams: URLSearchParams
+): SearchAction {
+  return physicalCountryDeriveStateUpdateFromValues(urlSearchParams.get(PHYSICAL_COUNTRY));
+}
+
+export function physicalCountryDeriveStateUpdateFromValues(value: string | null): SearchAction {
+  const id = value !== null && /^[0-9]+$/.test(value) ? value : null;
+  return {
+    type: "set_query",
+    payload: {
+      app_param_name: PHYSICAL_COUNTRY,
+      api_param_name: "physical_country_id",
+      api_param_value: id === null ? null : `eq.${id}`,
+      app_param_values: id === null ? [] : [id],
+    },
+  } as SearchAction;
+}
+
 export function domesticDeriveStateUpdateFromSearchParams(
   urlSearchParams: URLSearchParams
 ): SearchAction {

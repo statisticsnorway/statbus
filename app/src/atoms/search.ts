@@ -30,6 +30,7 @@ import {
   statusDeriveStateUpdateFromValues,
   domesticDeriveStateUpdateFromValues,
   physicalLocationDeriveStateUpdateFromValues,
+  physicalCountryDeriveStateUpdateFromValues,
   lastEditByUserDeriveStateUpdateFromValues,
   unitSizeDeriveStateUpdateFromValues,
   dataSourceDeriveStateUpdateFromValues,
@@ -49,6 +50,7 @@ import {
   DATA_SOURCE,
   DOMESTIC,
   PHYSICAL_LOCATION,
+  PHYSICAL_COUNTRY,
   QUALITY,
 } from "../app/search/filters/url-search-params";
 
@@ -977,6 +979,15 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
         if (physicalLocationAction.type === "set_query")
           actionPayloadPart = physicalLocationAction.payload;
         break;
+      case PHYSICAL_COUNTRY:
+        const physicalCountryAction = physicalCountryDeriveStateUpdateFromValues(
+          Array.isArray(appParamValue) && appParamValue.length > 0
+            ? (appParamValue[0] as string | null)
+            : null
+        );
+        if (physicalCountryAction.type === "set_query")
+          actionPayloadPart = physicalCountryAction.payload;
+        break;
       case LEGAL_FORM:
         const ensuredLegalFormValues = Array.isArray(appParamValue)
           ? appParamValue.map((v) => (v == null ? null : String(v)))
@@ -1138,8 +1149,10 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
           params.append(actionPayloadPart.api_param_name, condition);
         }
       } else {
-        // Single condition - use set() as before
-        params.set(
+        // Single condition. Appended, not set: two filters on one column (physical_location
+        // and physical_country both filter physical_country_id) are both conditions, which
+        // PostgREST combines with AND.
+        params.append(
           actionPayloadPart.api_param_name,
           actionPayloadPart.api_param_value
         );
