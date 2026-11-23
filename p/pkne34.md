@@ -1,15 +1,20 @@
 ---
 id: pkne34
 title: "Missing region counts only domestic units with a physical location"
-state: todo
+state: "doing"
 type: bug
 priority: "high"
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzx"
 created: 2026-11-22
 updated: 2026-11-22
+doing_since: "2026-11-23T16:23"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -33,3 +38,7 @@ Today (app/src/app/dashboard/missing-region-card.tsx and the link in dashboard/p
 ## Notes
 
 2026-11-23 (Rabbit) Norway (rune) read-only, records valid today (tmp/slack-todos/validate.log): units with no region = 54,541 foreign (42,995 LU + 11,546 EST, domestic false) + 22,445 with no physical location (17,152 LU + 5,293 EST, domestic NULL) + 2 domestic with a location but no region (1 LU + 1 EST). So today's card counts about 77,000 where the owner's rule gives 2; domestic is NULL exactly for the units without a physical location (why Domestic Yes/No does not add up to the list).
+
+
+## History
+- 2026-11-23T16:23 todo -> doing/active (take)
