@@ -186,21 +186,39 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         },
         paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 2 },
       });
-      // "+n": the units at exactly this unit's place, drawn beside its ring.
+      // The units at exactly this unit's place, as small dots in their own colour inside its
+      // ring, spread round its centre when there are several (owner 2026-11-23). Drawn as icons,
+      // since an icon's offset can differ per dot and a circle's cannot.
+      const dot = (fill: string, stroke: string) => {
+        const size = 20; // drawn at twice the size, shown at pixelRatio 2: 10 px
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = size;
+        const ctx = canvas.getContext("2d")!;
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2 - 2, 0, 2 * Math.PI);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = stroke;
+        ctx.stroke();
+        return ctx.getImageData(0, 0, size, size);
+      };
+      for (const t of ["legal_unit", "establishment"] as const) {
+        const c = cssColour(`--color-${t}-500`);
+        map.addImage(`also-${t}-point`, dot(c, "#ffffff"), { pixelRatio: 2 });
+        map.addImage(`also-${t}-region`, dot("#ffffff", c), { pixelRatio: 2 });
+      }
+      map.addSource("current-unit-also", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({
         id: "current-unit-also",
         type: "symbol",
-        source: "current-unit",
-        filter: [">", ["get", "also_here"], 0],
+        source: "current-unit-also",
         layout: {
-          "text-field": ["get", "also_label"],
-          "text-font": BASEMAP_FONT,
-          "text-size": 12,
-          "text-offset": [1.4, -0.9],
-          "text-anchor": "left",
-          "text-allow-overlap": true,
+          "icon-image": ["concat", "also-", ["get", "unit_type"], "-", ["get", "placed"]],
+          "icon-offset": ["get", "offset"],
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
         },
-        paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 2 },
       });
       for (const layer of ["unit-points", "unit-groups", "current-unit-point"]) {
         map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
@@ -254,8 +272,18 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
       (map.getSource("current-unit") as GeoJSONSource | undefined)?.setData({
         type: "FeatureCollection",
         features: current
-          ? [{ ...current, properties: { ...current.properties, also_here: withCurrent.length, also_label: withCurrent.length > 0 ? `+${withCurrent.length}` : "" } }]
+          ? [{ ...current, properties: { ...current.properties } }]
           : [],
+      });
+      // One small dot per unit at this place; a single one sits in the ring's centre, several
+      // are spread on a small circle so each shows.
+      (map.getSource("current-unit-also") as GeoJSONSource | undefined)?.setData({
+        type: "FeatureCollection",
+        features: withCurrent.map((f, i) => {
+          const angle = (2 * Math.PI * i) / withCurrent.length - Math.PI / 2;
+          const r = withCurrent.length === 1 ? 0 : 4;
+          return { ...f, properties: { ...f.properties, offset: [Math.round(r * Math.cos(angle)), Math.round(r * Math.sin(angle))] } };
+        }),
       });
       alsoHereRef.current = withCurrent.map((f) => f.properties);
       shownRef.current = shown.features;
