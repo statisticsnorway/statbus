@@ -25,6 +25,8 @@ on:
       - 'samples/norway/brreg/**'
       - 'test/brreg-validity-test.sh'
       - 'test/cloud-registry-test.sh'
+      - 'ops/create-new-statbus-installation.sh'
+      - 'test/create-installation-heredoc-test.sh'
 
 permissions:
   contents: read
@@ -63,6 +65,8 @@ jobs:
         run: bash test/brreg-validity-test.sh
       - name: Prove cloud.sh targets the registered fleet and doc/CLOUD.md lists the same slots (STATBUS-356)
         run: bash test/cloud-registry-test.sh
+      - name: Prove slot creation's remote steps run nothing on the operator's machine and are valid bash (d1xtta)
+        run: bash test/create-installation-heredoc-test.sh
       - name: Prove every page answers with the maintenance page during an upgrade and /monitor stays readable (STATBUS-588)
         run: bash test/caddy-maintenance-route-test.sh
       - name: Prove install mutex handoff is gapless and never steals a healthy hold

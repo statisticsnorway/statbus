@@ -382,8 +382,8 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
     # OVERWRITE, not set-if-missing: a wrong value may already be present on a
     # retried run, and set-if-missing is the exact behaviour that let stale
     # values survive on five statistical offices' installations.
-    # STATBUS-307: nothing is written about upgrade policy. `./sb config
-    # generate` derives the channel from CADDY_DEPLOYMENT_MODE (private →
+    # STATBUS-307: nothing is written about upgrade policy. './sb config
+    # generate' derives the channel from CADDY_DEPLOYMENT_MODE (private →
     # stable), which is exactly what this slot wants. The key is written only
     # when a box deliberately follows something other than its mode implies.
 
