@@ -31,7 +31,7 @@ Found by a security review 2026-11-23 (Erik, Slack): test/data/318_albania_legal
 
 ## Acceptance
 - [x] [Owner] Confirms with Erik where the files came from and whether the partner sent them as test data; recorded here (the answer shapes what the partner is told)
-- [ ] [Owner] Decides with SSB's data protection officer whether this is reported as a breach and whether the Albanian partner is told; recorded here, and a report or message, if decided, is sent and noted here
+- [x] [Owner] Decides with SSB's data protection officer whether this is reported as a breach and whether the Albanian partner is told; recorded here, and a report or message, if decided, is sent and noted here
 - [x] [Owner] Decides whether git history is rewritten (then a separate task plans the rewrite of all branches and tags, the GitHub cache purge and the fleet migration) or left with master clean (then nothing more is done in git), and whether the owners of the 5 forks are asked to update or the old history there is accepted; recorded here
 - [x] Master and v2026.11.7-rc.01 contain no identifying value from the original files (tax identifiers, names, addresses, phones, e-mail, web address, figures): a script comparing the old and new files finds 0 such values; activity, region, legal form and sector codes are kept but moved between units
 - [x] [Owner] Confirms with Erik whether the names and identifiers in test/data/340 and 341 are real Moroccan register entries; if real, they are replaced the same way and recorded here, if invented, the README says so
@@ -50,5 +50,6 @@ landed eba013d on master 2026-11-23: doc: test/data README records that the Alba
 check 5: Owner 2026-11-23: the Moroccan names were meant to be anonymised; replaced in 542a15b95 with generated values, README updated, test 341 same result
 check 1: Erik 2026-11-23: test data from the Albanian partner, already partially anonymised when received, the anonymisation undocumented; recorded in test/data/README.md
 landed 542a15b on master 2026-11-23: test: test 341's Moroccan names and identifiers replaced with generated ones…
+check 2: Owner 2026-11-23: no report to the data protection officer; Erik Søberg (SSB) made the consideration and decided
 ## History
 - 2026-11-23T14:39 todo -> doing/active (take)
