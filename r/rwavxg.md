@@ -1,15 +1,21 @@
 ---
 id: rwavxg
 title: "Quality card colours follow the number shown, and a pending count says so"
-state: todo
+state: "doing"
 type: bug
 priority: "low"
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzy"
 created: 2026-11-22
 updated: 2026-11-22
+doing_since: "2026-11-23T21:41"
+doing_with: "pkne34"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -31,3 +37,7 @@ Cards set failed from the estimated count state (e.g. missing-region-card.tsx fa
 - [ ] While the exact count is being fetched the number shows ~; a test asserts it
 
 ## Notes
+
+
+## History
+- 2026-11-23T21:41 todo -> doing/active (take with pkne34)
