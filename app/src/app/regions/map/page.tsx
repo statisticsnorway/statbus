@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { RegionsHeader } from "../regions-header";
 import { useAtomValue } from "jotai";
 import useSWR from "swr";
@@ -353,9 +354,13 @@ export default function RegionsMapPage() {
               <WorldSplit world={world} homeName={nameOf("")} countryNames={countryNames} typesParam={typesParam} />
             )}
             {selectionSearch && (
-              <Link className="mt-2 inline-block underline underline-offset-2" href={selectionSearch}>
-                Search these units
-              </Link>
+              // The drilldown report's words and button (reports/drilldown/search-link.tsx), so the
+              // two ways into the list read alike (owner 2026-11-23).
+              <Button asChild size="sm" className="mt-3 w-full">
+                <Link href={selectionSearch} data-regions-map-view-units="">
+                  View and export statistical units
+                </Link>
+              </Button>
             )}
             <p className="mt-2 text-xs text-gray-500" data-regions-map-level="">
               {selection === null
