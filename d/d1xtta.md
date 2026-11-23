@@ -36,7 +36,7 @@ Existing evidence: demo.statbus.org is set up for Mozambique (settings country M
 - [x] [Owner] Names the first admin user, the account the install creates; recorded off the board, with the date noted here
 - [x] https://mz.statbus.org answers with a working login on the stable channel and runs the latest stable release, as ./cloud.sh status mz shows; the output is recorded here
 - [x] [Owner] Decides whether mz starts from demo's Mozambique data (a dump of demo restored on mz: their 145 legal units, 10 establishments and 25 users carry over, demo is then reset) or from a fresh install (their import files run again on mz; users created anew); recorded here, and the data-load check follows it
-- [ ] The first agreed data load completes on mz with no failed job; the job ids and counts are recorded here
+- [ ] ~~The first agreed data load completes on mz with no failed job; the job ids and counts are recorded here~~ (not relevant: Owner 2026-11-23: the handover is complete; the first data load is the Mozambique team's work with Hedda, not this task's, rabbit, 2026-11-23)
 
 ## Notes
 
