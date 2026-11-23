@@ -1,7 +1,7 @@
 ---
 id: d1xtta
 title: "mz.statbus.org: Mozambique gets its StatBus installation"
-state: "doing"
+state: "done"
 type: chore
 priority: "highest"
 assignee: ["rabbit"]
@@ -10,11 +10,10 @@ group: ""
 rank: "zzzzzzzv"
 created: 2026-11-23
 updated: 2026-11-23
-doing_since: "2026-11-23T12:52"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+done_at: "2026-11-23T13:38"
 ---
 
 ## Goal
@@ -56,3 +55,4 @@ landed 49962bf on master 2026-11-23: ops: slot creation's settings step runs on 
 landed f739ecc on master 2026-11-23: ops: slot creation sets the fleet's Seq and Slack keys after install, through sb…
 ## History
 - 2026-11-23T12:52 todo -> doing/active (take)
+- 2026-11-23T13:38 doing/active -> done (done); was doing_since: 2026-11-23T12:52
