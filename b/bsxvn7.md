@@ -16,7 +16,7 @@ updated: 2026-11-22
 Each row of an import job gets the data source chosen for the job, unless the file's own data source column gives one.
 
 ## Purpose
-jo.statbus.org job 13 (owner 2026-11-22): the job's chosen data source is not on the imported rows. The job stores it (import_job.default_data_source_code), but the six unit definitions map data_source_code_raw only from a file column, never from the job, so a file without the column imports rows without a data source.
+Norway (rune) job 13 (owner 2026-11-22; Erik, legal_unit_job_provided, 2026-11-13): the job's data source nlr is on none of its 5 rows (data_source_code_raw and data_source_id NULL) nor on the 5 legal_unit rows it wrote (checked read-only 2026-11-23). The job stores it (import_job.default_data_source_code), but the six unit definitions map data_source_code_raw only from a file column, never from the job.
 
 ## Principle
 The fix is for later jobs: a failed or wrong job stays as it was, and the user clones it after the release to see the new behaviour. Dates already work this way (valid_from_raw falls back to the job's default_valid_from).
