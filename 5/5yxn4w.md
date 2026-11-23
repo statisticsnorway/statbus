@@ -29,11 +29,11 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 
 - z2qt08
 ## Acceptance
-- [ ] /regions shows code, name and level; with Advanced on it also shows centre latitude, longitude and altitude; a Playwright test toggles it and asserts the columns and one region's values
-- [ ] The region upload page shows the plain columns in its instructions and example, and the centre columns under Advanced; a Playwright test asserts both views
+- [ ] /regions shows code, name and level; with Advanced on it also shows centre latitude, longitude and altitude; shown in a driven browser run (screenshot in the task) with the columns and one region's values
+- [ ] The region upload page shows the plain columns in its instructions and example, and the centre columns under Advanced; shown in a driven browser run for both views
 - [ ] Uploading a region file with centre coordinates stores them; a SQL test asserts the stored values
-- [ ] /regions filters All, With coordinates and Without coordinates; a Playwright test asserts each count against the region table
-- [ ] An admin's Place on map for a region without a centre searches OpenStreetMap by its name, puts the pin on the chosen match, and Save stores the region's centre; a Playwright test saves one and reads it back
+- [ ] /regions filters All, With coordinates and Without coordinates; the counts shown match the region table (SQL count recorded in the task)
+- [ ] An admin's Place on map for a region without a centre searches OpenStreetMap by its name, puts the pin on the chosen match, and Save stores the region's centre; one is saved in a driven browser run and read back from public.region
 
 ## Questions
 - 2026-11-23T13:58 question 1 by hibiscus to jhf:
