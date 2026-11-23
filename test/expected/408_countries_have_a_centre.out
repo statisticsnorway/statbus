@@ -1,0 +1,55 @@
+-- z2qt08: every shipped country has a centre where the Regions map's world level draws
+-- it, from dbseed/country/country_centres.csv: the United Nations, a demo installation's
+-- country, at 0,0 and the US Minor Outlying Islands at Wake Island. A centre is a latitude and a
+-- longitude together.
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\echo "Countries with and without a centre"
+"Countries with and without a centre"
+SELECT count(*) AS countries,
+       count(latitude) AS with_centre,
+       string_agg(iso_2, ',' ORDER BY iso_2) FILTER (WHERE latitude IS NULL) AS without_centre
+FROM public.country;
+ countries | with_centre | without_centre 
+-----------+-------------+----------------
+       251 |         251 | 
+(1 row)
+
+\echo "Some centres, as shipped"
+"Some centres, as shipped"
+SELECT iso_2, latitude, longitude
+FROM public.country
+WHERE iso_2 IN ('NO', 'SE', 'FJ', 'SS', 'MA', 'UG', 'UN', 'UM')
+ORDER BY iso_2;
+ iso_2 |  latitude  | longitude  
+-------+------------+------------
+ FJ    | -16.578193 | 179.414413
+ MA    |  31.791702 |  -7.092620
+ NO    |  60.472024 |   8.468946
+ SE    |  60.128161 |  18.643501
+ SS    |   6.877000 |  31.307000
+ UG    |   1.373333 |  32.290275
+ UM    |  19.282300 | 166.647000
+ UN    |   0.000000 |   0.000000
+(8 rows)
+
+\echo "A centre is a latitude and a longitude together"
+"A centre is a latitude and a longitude together"
+SAVEPOINT half;
+UPDATE public.country SET longitude = NULL WHERE iso_2 = 'NO';
+ERROR:  new row for relation "country" violates check constraint "country_latitude_and_longitude_together"
+DETAIL:  Failing row contains (167, NO, NOR, 578, Norway, t, f, 2026-11-23 11:48:15.340081+00, 2026-11-23 11:48:15.340081+00, 60.472024, null).
+ROLLBACK TO SAVEPOINT half;
+\echo "A latitude is within -90 to 90 degrees"
+"A latitude is within -90 to 90 degrees"
+SAVEPOINT range;
+UPDATE public.country SET latitude = 91 WHERE iso_2 = 'NO';
+ERROR:  new row for relation "country" violates check constraint "country_latitude_from_minus_90_to_90_degrees"
+DETAIL:  Failing row contains (167, NO, NOR, 578, Norway, t, f, 2026-11-23 11:48:15.340081+00, 2026-11-23 11:48:15.340081+00, 91.000000, 8.468946).
+ROLLBACK TO SAVEPOINT range;
+ROLLBACK;
