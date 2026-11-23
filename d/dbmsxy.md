@@ -45,3 +45,5 @@ Related: 6btpmz (unit notes, waits on this), qtx2xm (same rules for edits and im
 ## Notes
 
 2026-11-21 21:50 (hibiscus) the map (z2qt08) needs this to put Erik's coordinates on Norway's existing units; it is phase 0 of doc/design/units-on-map.md on feat/units-on-map.
+
+2026-11-23 (Rabbit) Coordinate names: jbc5bs (hibiscus, after z2qt08) renames them to latitude, longitude, altitude everywhere (regions drop center_, units drop physical_, postal locations carry none). Use today's names until jbc5bs lands; whichever lands later uses the new names.
