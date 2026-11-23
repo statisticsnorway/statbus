@@ -10,6 +10,11 @@ group: ""
 rank: "zzzzzzzzh"
 created: 2026-11-23
 updated: 2026-11-23
+design_for: "jhf"
+design_since: "2026-11-23T11:47"
+design_asked_by: "hibiscus"
+design_question: "Old headers in upload files: region files with center_latitude/longitude/altitude and unit files with physical_latitude/longitude/altitude (Erik's coordinate files use those) stop matching after the rename. Refuse them with a message naming the new headers, or accept them for one release before refusing?"
+stage: "depends"
 ---
 
 ## Goal
@@ -35,6 +40,14 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 - [ ] The import's physical location step takes latitude, longitude, altitude; the postal location step takes no coordinates; an import of a unit with a point stores it, a SQL test asserts it
 - [ ] The app (search export, unit history, maps) and docs (data-model, import-system, API reference) use the new names: rg finds none of the old coordinate names outside migrations
 
+## Questions
+- 2026-11-23T11:47 question 1 by hibiscus to jhf:
+  Old headers in upload files: region files with center_latitude/longitude/altitude and unit files with physical_latitude/longitude/altitude (Erik's coordinate files use those) stop matching after the rename. Refuse them with a message naming the new headers, or accept them for one release before refusing?
+
 ## Notes
 
 2026-11-23 10:47 widened from regions only to units too, on the owner's word: drop physical_ as well, and drop postal coordinates altogether (no coordinates for a postal address). kvbebr check 1 records the decision.
+
+
+## History
+- 2026-11-23T11:47 todo -> todo/depends (ask)
