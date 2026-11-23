@@ -7,7 +7,7 @@ priority: "high"
 assignee: ["rabbit"]
 labels: []
 group: ""
-rank: "zzzzzzz"
+rank: "00000000000f"
 created: 2026-11-22
 updated: 2026-11-22
 doing_since: "2026-11-23T22:27"
