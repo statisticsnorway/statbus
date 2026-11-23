@@ -22,7 +22,15 @@ updated: "2026-11-10T08:47:00Z"
 ---
 
 ## Goal
+Norway (rune) takes in BRREG every month with no manual steps, and units that leave the register stop counting from the day they left.
 
+## Purpose
+The boss wants a monthly BRREG import on rune to exercise StatBus at national scale; today's hand-run snapshot never ends a unit BRREG deletes, so deleted units keep counting.
+
+## Principle
+Deletion comes from BRREG's own record of what left the register, not from a unit's absence in a file.
+
+## Details
 ### North Star
 
 Norway (rune) takes in the BRREG register every month with no manual steps. The monthly figures show StatBus stays healthy at national scale: database size and run times grow in line with real changes in the register, not exponentially; every run finishes cleanly; a unit that leaves the register stops counting from the day it left. (Owner, 2026-11-09, from the boss's wish: a monthly import from BRREG on rune to exercise the system.)
@@ -51,12 +59,6 @@ Evidence: `tmp/brreg-feed/`, `tmp/journal.md` and `tmp/600-*-proto.log` in the R
 ### Closing review
 
 At closing, decide: memory (the monthly job layout and the per-row valid_from rule), documentation (`doc/import-system.md` monthly intake section, `samples/norway/brreg/README.md`), and cleanup (the scratch database `statbus_600_close_proto` and the fixed `import_*_2025` job slugs).
-
-## Purpose
-The boss wants a monthly BRREG import on rune to exercise StatBus at national scale; today's hand-run snapshot never ends a unit BRREG deletes, so deleted units keep counting.
-
-## Principle
-Deletion comes from BRREG's own record of what left the register, not from a unit's absence in a file.
 
 ## Acceptance
 - [x] #1 Deletion jobs on the existing definitions close each listed legal unit and establishment on its death date, in the job's month or the previous one, and leave every other unit unchanged (SQL test 395)
