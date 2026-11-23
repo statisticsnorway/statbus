@@ -32,3 +32,5 @@ Today: postgres/Dockerfile ARG sql_saga_release=v1.6; the test slot reports extv
 - [ ] A real-guest upgrade from the last release to a build with 1.12 succeeds (install/upgrade testing guide)
 
 ## Notes
+
+2026-11-23 (Rabbit) Checked read-only: rune and dev both run sql_saga 1.6; the sql_saga repo has v1.12 at 676370d as stated, and since then v1.13 (a96e1cf, 2026-11-22 22:50: era drop protection, covering an era's checks, sync trigger and range column). The sql_saga agent's message said 1.12; whether StatBus takes 1.13 instead is the owner's or that agent's call.
