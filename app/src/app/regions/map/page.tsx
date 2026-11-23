@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import { RegionsHeader } from "../regions-header";
 import { useAtomValue } from "jotai";
@@ -32,6 +33,7 @@ import {
   type MapSelection,
   type MapUnitType,
   type RegionCountRow,
+  type RegionFeatureProperties,
 } from "@/components/map/map-data";
 
 /**
@@ -49,17 +51,41 @@ export default function RegionsMapPage() {
   const client = useAtomValue(restClientAtom);
   const { selectedTimeFrame } = useTimeFrame();
   const validOn = selectedTimeFrame?.valid_on ?? null;
-  const [unitTypes, setUnitTypes] = useState<MapUnitType[]>(["legal_unit"]);
+  // The selection and the unit types live in the URL (?at=50&types=legal_unit), so Back,
+  // a reload or a shared link land where the map was. Each step in or out is a history
+  // entry; a unit-type change replaces the current one.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const selection = parseSelection(searchParams?.get("at") ?? null);
+  const unitTypes = parseUnitTypes(searchParams?.get("types") ?? null);
   const [mapReady, setMapReady] = useState(false);
-  const [selection, setSelection] = useState<MapSelection>("");
-  const selectionRef = useRef<MapSelection>("");
   const mapRef = useRef<MapLibreMap | null>(null);
   const featuresRef = useRef<GeoJSON.Feature<GeoJSON.Point, { total: number }>[]>([]);
 
-  const select = useCallback((next: MapSelection) => {
-    selectionRef.current = next;
-    setSelection(next);
+  // The map's own handlers (click, fit) run outside React's render, so they read the
+  // current selection and unit types from the URL at the moment they run.
+  const current = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    return { at: parseSelection(params.get("at")), types: parseUnitTypes(params.get("types")) };
   }, []);
+  const mapUrl = useCallback((at: MapSelection, types: readonly MapUnitType[]) => {
+    const params = new URLSearchParams();
+    if (at !== "") params.set("at", at === null ? "world" : at);
+    if (types.join(",") !== "legal_unit") params.set("types", types.join(","));
+    const query = params.toString();
+    return query ? `/regions/map?${query}` : "/regions/map";
+  }, []);
+  const select = useCallback(
+    (next: MapSelection) => {
+      const { at, types } = current();
+      if (next !== at) router.push(mapUrl(next, types), { scroll: false });
+    },
+    [router, mapUrl, current]
+  );
+  const setUnitTypes = useCallback(
+    (types: MapUnitType[]) => router.replace(mapUrl(current().at, types), { scroll: false }),
+    [router, mapUrl, current]
+  );
 
   // Circle sizes follow the largest circle in view: the area grows with the count, the
   // largest in view 28 px in radius.
@@ -69,19 +95,25 @@ export default function RegionsMapPage() {
     map.setPaintProperty("region-circles", "circle-radius", ["interpolate", ["linear"], ["sqrt", ["get", "total"]], 0, 4, Math.sqrt(top), 28]);
   }, []);
 
-  // Frames what the selection shows: its children, or a region without children by itself.
-  // The world frames the country, the only place with circles until countries have centres.
+  // Frames what the selection shows. The world frames every country with units, so the
+  // countries abroad are in view; the country frames its regions with at least 1% of the
+  // largest one's units, so a far-off region with few units (Svalbard) does not shrink the
+  // mainland; a region frames all its subregions. Bounds that are one point (a single
+  // circle, or framing that kept one) centre on it at a fixed zoom per level.
   const fitSelection = useCallback(() => {
     const map = mapRef.current;
     const features = featuresRef.current;
     if (!map || features.length === 0) return;
-    if (features.length === 1) {
-      map.easeTo({ center: features[0].geometry.coordinates as [number, number], zoom: selectionRef.current === null ? 4 : 9 });
+    const { at } = current();
+    const bounds = featureBounds(at === "" ? framingFeatures(features) : features);
+    if (!bounds) return;
+    const [west, south, east, north] = bounds;
+    if (east - west < 0.01 && north - south < 0.01) {
+      map.easeTo({ center: [west, south], zoom: at === null ? 2 : at === "" ? 4 : 9 });
       return;
     }
-    const bounds = featureBounds(selectionRef.current === "" ? framingFeatures(features) : features);
-    if (bounds) map.fitBounds(bounds, { padding: 60, maxZoom: 11 });
-  }, []);
+    map.fitBounds(bounds, { padding: 60, maxZoom: at === null ? 4 : 11 });
+  }, [current]);
 
   const { data: home } = useSWR(client ? ["regions-map:home"] : null, async () => {
     const { data, error } = await client!.from("settings").select("country(id,name)").limit(1).single();
@@ -116,12 +148,12 @@ export default function RegionsMapPage() {
   );
 
   const world = useMemo(() => worldCounts(rows ?? [], homeId, unitTypes), [rows, homeId, unitTypes]);
-  const abroadIds = useMemo(() => world.abroad.slice(0, 10).map((a) => a.countryId), [world]);
-  const { data: countryNames } = useSWR(client && abroadIds.length ? ["regions-map:countries", abroadIds.join(",")] : null, async () => {
-    const { data, error } = await client!.from("country").select("id,name").in("id", abroadIds);
+  const { data: countries } = useSWR(client ? ["regions-map:countries"] : null, async () => {
+    const { data, error } = await client!.from("country").select("id,name,latitude,longitude");
     if (error) throw error;
-    return new Map((data ?? []).map((c) => [c.id, c.name]));
+    return new Map((data ?? []).map((c) => [c.id, c]));
   });
+  const countryNames = useMemo(() => (countries ? new Map([...countries].map(([id, c]) => [id, c.name])) : undefined), [countries]);
 
   const regionName = useMemo(() => new Map((regions ?? []).map((r) => [r.path, r.name])), [regions]);
   const nameOf = useCallback(
@@ -130,24 +162,35 @@ export default function RegionsMapPage() {
   );
 
   // What the map draws for the selection: the children of a domestic selection, or at the
-  // world the country as one circle at the middle of its regions.
+  // world every country with units at its centre (country.latitude, longitude), the
+  // installation's own one among them.
   const { features, withoutCentre } = useMemo(() => {
     if (!rows || !regions) return { features: { type: "FeatureCollection" as const, features: [] }, withoutCentre: [] };
     if (selection === null) {
-      const counties = regionFeatures(regions, childCounts(rows, "", homeId), unitTypes).features.features;
-      const bounds = featureBounds(framingFeatures(counties));
-      const c = countsUnder(rows, "", homeId);
-      const total = selectedTotal(c, unitTypes);
-      const country: GeoJSON.Feature<GeoJSON.Point, ReturnType<typeof regionFeatures>["features"]["features"][number]["properties"]> = {
-        type: "Feature",
-        geometry: { type: "Point", coordinates: bounds ? [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2] : [0, 0] },
-        properties: { path: "", name: home?.name ?? "Country", total, ...c },
-      };
-      return { features: { type: "FeatureCollection" as const, features: total > 0 && bounds ? [country] : [] }, withoutCentre: [] };
+      const perCountry = [{ countryId: homeId ?? -1, count: world.domestic }, ...world.abroad];
+      const placed: GeoJSON.Feature<GeoJSON.Point, RegionFeatureProperties>[] = [];
+      const unplaced: { path: string; name: string; total: number }[] = [];
+      for (const { countryId, count } of perCountry) {
+        if (count === 0) continue;
+        const c = countries?.get(countryId);
+        const name = c?.name ?? String(countryId);
+        // The home country is selected by "", a foreign one is shown but not entered.
+        const path = countryId === homeId ? "" : `country:${countryId}`;
+        if (c?.latitude == null || c.longitude == null) {
+          unplaced.push({ path, name, total: count });
+          continue;
+        }
+        placed.push({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [Number(c.longitude), Number(c.latitude)] },
+          properties: { path, name, total: count, enterprise: 0, legal_unit: 0, establishment: 0 },
+        });
+      }
+      return { features: { type: "FeatureCollection" as const, features: placed }, withoutCentre: unplaced };
     }
     const { features: f, withoutCentre: w } = regionFeatures(regions, childCounts(rows, selection, homeId), unitTypes);
     return { features: f, withoutCentre: w };
-  }, [rows, regions, selection, homeId, unitTypes, home]);
+  }, [rows, regions, selection, homeId, unitTypes, world, countries]);
 
   const selectedCounts = useMemo(
     () => (rows && selection !== null ? countsUnder(rows, selection, homeId) : null),
@@ -194,7 +237,10 @@ export default function RegionsMapPage() {
       });
       map.addControl(new ViewControl([{ title: "Fit the selection in view", icon: "⤢", onClick: () => fitSelection() }]), "top-left");
       map.on("moveend", () => scaleToView(map));
-      map.on("mouseenter", "region-circles", () => (map.getCanvas().style.cursor = "pointer"));
+      map.on("mouseenter", "region-circles", (e: MapLayerMouseEvent) => {
+        const path = e.features?.[0]?.properties?.path as string | undefined;
+        if (path !== undefined && !path.startsWith("country:")) map.getCanvas().style.cursor = "pointer";
+      });
       map.on("mouseleave", "region-circles", () => (map.getCanvas().style.cursor = ""));
       // A click on a circle selects it. A double click is a click: the map's own double-click
       // zoom is held back on circles, and the second click lands while the map is moving to
@@ -203,7 +249,8 @@ export default function RegionsMapPage() {
       map.on("click", "region-circles", (e: MapLayerMouseEvent) => {
         if (map.isMoving()) return;
         const path = e.features?.[0]?.properties?.path as string | undefined;
-        if (path === undefined || path === selectionRef.current) return;
+        // Foreign countries have no regions here: they are shown, not entered.
+        if (path === undefined || path.startsWith("country:")) return;
         select(path);
       });
       setMapReady(true);
@@ -273,8 +320,8 @@ export default function RegionsMapPage() {
             </p>
           )}
         </div>
-        <aside className="w-72 shrink-0 space-y-4 overflow-y-auto border-l p-4 text-sm" data-regions-map-side="">
-          <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} totals={totals} />
+        <aside className="flex w-72 shrink-0 flex-col border-l text-sm" data-regions-map-side="">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           <section className="relative rounded border-2 border-gray-900 bg-gray-50 p-3" data-regions-map-selection="">
             {selection !== null && (
               <button
@@ -358,10 +405,28 @@ export default function RegionsMapPage() {
               </button>
             </p>
           )}
+          </div>
+          {/* The unit types sit at the bottom, under what is selected (owner 2026-11-23). */}
+          <div className="border-t p-4">
+            <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} totals={totals} />
+          </div>
         </aside>
       </div>
     </main>
   );
+}
+
+/** ?at= in the map's URL: absent is the country, "world" the world, else a region path. */
+function parseSelection(at: string | null): MapSelection {
+  if (at === null || at === "") return "";
+  if (at === "world") return null;
+  return /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/.test(at) ? at : "";
+}
+
+/** ?types= in the map's URL: the picked unit types, legal units when absent or unknown. */
+function parseUnitTypes(types: string | null): MapUnitType[] {
+  const picked = (types ?? "").split(",").filter((t): t is MapUnitType => (MAP_UNIT_TYPES as readonly string[]).includes(t));
+  return picked.length > 0 ? MAP_UNIT_TYPES.filter((t) => picked.includes(t)) : ["legal_unit"];
 }
 
 /** The world selection's panel: the units in the country, abroad by country, and without a location. */
