@@ -27,7 +27,7 @@ Mechanism: the job stores its choice in import_job.default_data_source_code, but
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] Decides which wins per row when the file has a data source column and the job has one chosen; recorded here
+- [ ] [Owner] Decides which wins per row when the file has a data source column and the job has one chosen (the file's value, or the job's choice); recorded here, and the SQL test in check 3 asserts that rule
 - [ ] A legal unit import whose file has no data source column, with a data source chosen for the job, stores that data source on every unit row; a SQL test asserts it
 - [ ] With a data source column in the file, the rows follow the owner's rule; a SQL test asserts it
 - [ ] On no.statbus.org (rune) after the release, a clone of job 13 stores data source nlr on its rows and on the legal units it writes; the result is recorded here
