@@ -207,3 +207,7 @@ weight in `pipeline_step_weight` can stay at 1 (same as the existing check).
 2. Should we add a generic quality filter dropdown in the search bar that lists
    all available checks, rather than separate filter components?
 3. Should missing email also flag obviously invalid formats beyond just the `@` check?
+4. The dashboard already has a "Missing physical location" card. Units flagged
+   by that check have no coordinates — this is exactly the set that cannot be
+   placed on the statistical units map. Could the map link to this quality
+   filter, or vice versa (e.g. a "Show on map" action from the quality list)?
