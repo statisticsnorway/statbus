@@ -361,18 +361,6 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
         fi
     }
 
-    # Tokens belong in the private credentials file, never in .env.config.
-    touch .env.credentials
-    chmod 600 .env.credentials
-    set_credential() {
-        key="\$1"; value="\$2"
-        if grep -q "^\${key}=" .env.credentials; then
-            sed -i "s#^\${key}=.*#\${key}=\${value}#" .env.credentials
-        else
-            echo "\${key}=\${value}" >> .env.credentials
-        fi
-    }
-
     set_or_update DEPLOYMENT_SLOT_PORT_OFFSET "$OFFSET"
     set_or_update DEPLOYMENT_SLOT_NAME "$DEPLOYMENT_SLOT_NAME"
     set_or_update DEPLOYMENT_SLOT_CODE "$DEPLOYMENT_SLOT_CODE"
@@ -392,30 +380,6 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
     set_or_update STATBUS_URL "https://$DOMAIN"
     set_or_update BROWSER_REST_URL "https://$DOMAIN"
 
-    # Check and update API keys from statbus_dev if defaults are present
-    current_seq_key=\$(grep '^SEQ_API_KEY=' .env.credentials | cut -d'=' -f2)
-    if [ -z "\$current_seq_key" ] || [ "\$current_seq_key" = "secret_seq_api_key" ]; then
-        dev_seq_key=\$(grep '^SEQ_API_KEY=' /home/statbus_dev/statbus/.env.credentials | cut -d'=' -f2-)
-        if [ -z "\$dev_seq_key" ]; then
-            dev_seq_key=\$(grep '^SEQ_API_KEY=' /home/statbus_dev/statbus/.env.config | cut -d'=' -f2-)
-        fi
-        set_credential SEQ_API_KEY "\$dev_seq_key"
-        echo "Updated SEQ_API_KEY from statbus_dev"
-    else
-        echo "SEQ_API_KEY already configured with non-default value"
-    fi
-
-    current_slack_token=\$(grep '^SLACK_TOKEN=' .env.credentials | cut -d'=' -f2)
-    if [ -z "\$current_slack_token" ] || [ "\$current_slack_token" = "secret_slack_api_token" ]; then
-        dev_slack_token=\$(grep '^SLACK_TOKEN=' /home/statbus_dev/statbus/.env.credentials | cut -d'=' -f2-)
-        if [ -z "\$dev_slack_token" ]; then
-            dev_slack_token=\$(grep '^SLACK_TOKEN=' /home/statbus_dev/statbus/.env.config | cut -d'=' -f2-)
-        fi
-        set_credential SLACK_TOKEN "\$dev_slack_token"
-        echo "Updated SLACK_TOKEN from statbus_dev"
-    else
-        echo "SLACK_TOKEN already configured with non-default value"
-    fi
 UPDATE_SETTINGS
 
 # STATBUS-283: binary procurement, ./sb config generate, docker, DB creation,
@@ -454,6 +418,33 @@ ssh $DEPLOYMENT_USER@$HOST bash <<INSTALL_STATBUS
     fi
     curl -fsSL https://statbus.org/install.sh | bash -s -- --version $VERSION --trust-github-user $RESOLVED_TRUST_USER
 INSTALL_STATBUS
+
+# The fleet's Seq and Slack keys are set after install: ./sb install creates
+# .env.credentials and decides from it whether the box is already configured,
+# so a file written before install makes install skip generating .env (mz,
+# 2026-11-23). Root reads them from statbus_dev (its credentials are
+# owner-only) and hands them to ./sb dotenv set as the slot user; values are
+# never printed. A key the slot already holds is left as it is.
+echo "Setting the fleet's Seq and Slack keys..."
+ssh root@$HOST bash -s -- "$DEPLOYMENT_USER" <<'FLEET_KEYS'
+    set -euo pipefail
+    slot_user="$1"
+    src=/home/statbus_dev/statbus/.env.credentials
+    for key in SEQ_API_KEY SLACK_TOKEN; do
+        current=$(su - "$slot_user" -c "cd statbus && ./sb dotenv -f .env.credentials get $key" 2>/dev/null || true)
+        case "$current" in
+            ""|secret_seq_api_key|secret_slack_api_token) ;;
+            *) echo "$key already set"; continue ;;
+        esac
+        value=$(grep "^$key=" "$src" | cut -d= -f2- || true)
+        if [ -z "$value" ]; then
+            echo "Warning: $key not found in $src; left unset"
+            continue
+        fi
+        printf '%s' "$value" | su - "$slot_user" -c "cd statbus && ./sb dotenv -f .env.credentials set $key \"\$(cat)\""
+        echo "$key set"
+    done
+FLEET_KEYS
 
 # Configure Caddy access permissions — BEFORE validate (architect ruling,
 # STATBUS-283 part 2): Caddy reads the generated caddyfile as the caddy user,
