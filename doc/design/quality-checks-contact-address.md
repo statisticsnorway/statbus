@@ -207,9 +207,11 @@ weight in `pipeline_step_weight` can stay at 1 (same as the existing check).
 2. Should we add a generic quality filter dropdown in the search bar that lists
    all available checks, rather than separate filter components?
 3. Should missing email also flag obviously invalid formats beyond just the `@` check?
-4. The dashboard already has a "Missing physical location" card — in practice
-   this means missing coordinates (`physical_latitude`/`physical_longitude`),
-   i.e. the units that cannot be placed on the map. Could the map link to
-   this quality filter, or vice versa (e.g. a "Show on map" action from the
-   quality list)? Consider whether "missing coordinates" is clearer wording
-   than "missing physical location" for this check.
+4. The dashboard's "Missing physical location" card checks
+   `physical_country_id IS NULL` — it flags units with **no location record
+   at all**, not units missing coordinates. A unit can have a country and
+   address but still lack `physical_latitude`/`physical_longitude`, which
+   means it cannot be placed on the map. Consider adding a separate
+   **"Missing coordinates"** quality check (`physical_latitude IS NULL`)
+   for units that have a location but no lat/lon. This is the set the
+   statistical units map cannot show.
