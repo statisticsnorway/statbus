@@ -34,3 +34,5 @@ Kartverket's address API (ws.geonorge.no/adresser/v1) is open but not meant for 
 - [ ] Applying the job sets the units' (or regions') coordinates and nothing else, shown by a SQL test on the stored rows
 
 ## Notes
+
+2026-11-23 (hibiscus, owner's review of z2qt08) Each unit now has a Map page (/establishments|legal-units|enterprises/[id]/map, branch feat/units-on-map). It places a unit without coordinates at its region's centre as a ring ('somewhere in its region'). The owner wants a sensible way to set a unit's pin, like 'Place on map' for regions. Proposed entry point: a 'Look up from address' action for units that have only a region, on the Map page and on the location form. It uses the unit's own address (geocoding, this workflow), not a name search. Units at the same address get the same point; the Map page then shows them together as the page's unit '+n'.
