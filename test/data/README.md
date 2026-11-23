@@ -31,10 +31,9 @@ tell it from raw register data. On 2026-11-23 a security review found the
 columns that still identified firms; `cfb49e73a` and the following commit
 replaced them with generated values and added this record.
 
-**Decision (2026-11-23, Erik Søberg and Jørgen H. Fjeld, SSB).** The
-regenerated data is sufficiently anonymised, and git history is not
-rewritten: earlier commits keep the partially anonymised extract described
-above. Recorded in task b5xp5f.
+**Decision (2026-11-23).** The regenerated data is sufficiently anonymised,
+and git history is not rewritten: earlier commits keep the partially
+anonymised extract described above. Recorded in task b5xp5f.
 
 **Generation.** `318_albania_generate.py` produced the current files from
 that extract and documents every column:
