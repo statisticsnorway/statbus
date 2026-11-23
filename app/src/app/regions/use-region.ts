@@ -9,6 +9,8 @@ type Pagination = {
 type Queries = {
   name: string;
   code: string;
+  /** Regions with a centre point, without one, or both (""): a list filter (owner 2026-11-23, z2qt08). */
+  coordinates: "" | "with" | "without";
 }
 type SearchState = {
   pagination: Pagination;
@@ -31,6 +33,8 @@ const fetcher: Fetcher<RegionResult, SearchState> = async ({pagination, queries}
 
       if (queries.name) query = query.ilike('name', `%${queries.name}%`);
       if (queries.code) query = query.like('code', `${queries.code}%`);
+      if (queries.coordinates === 'with') query = query.not('center_latitude', 'is', null);
+      if (queries.coordinates === 'without') query = query.is('center_latitude', null);
 
       const {data: maybeRegions, count: maybeCount} = await query;
       const regions = maybeRegions ?? [];
@@ -41,7 +45,7 @@ const fetcher: Fetcher<RegionResult, SearchState> = async ({pagination, queries}
 
 export default function useRegion() {
   const [pagination, setPagination] = useState({ pageSize: 10, pageNumber: 1 } as Pagination);
-  const [queries, setQueries] = useState({ name: "", code: "" } as Queries);
+  const [queries, setQueries] = useState({ name: "", code: "", coordinates: "" } as Queries);
 
   const { data, isLoading, mutate } = useSWR<RegionResult>(
     `regions?${JSON.stringify(pagination)}${JSON.stringify(queries)}`,

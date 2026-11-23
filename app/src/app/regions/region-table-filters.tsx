@@ -1,21 +1,25 @@
 import { Dispatch, SetStateAction } from "react";
 import TableTextSearchFilter from "../../components/table/table-text-search-filter";
 import ResetFilterButton from "@/components/table/reset-filter-button";
+
+type RegionQueries = { name: string; code: string; coordinates: "" | "with" | "without" };
+
+const COORDINATE_CHOICES: { value: RegionQueries["coordinates"]; label: string }[] = [
+  { value: "", label: "All" },
+  { value: "with", label: "With coordinates" },
+  { value: "without", label: "Without coordinates" },
+];
+
 export default function RegionTableFilters({
   setQueries,
   setPagination,
   queries,
 }: {
-  readonly setQueries: Dispatch<
-    SetStateAction<{
-      name: string;
-      code: string;
-    }>
-  >;
+  readonly setQueries: Dispatch<SetStateAction<RegionQueries>>;
   readonly setPagination: Dispatch<
     SetStateAction<{ pageSize: number; pageNumber: number }>
   >;
-  readonly queries: Record<string, string | null>;
+  readonly queries: RegionQueries;
 }) {
   const handleFilterChange = (filterName: string, value: string) => {
     setQueries((prev) => {
@@ -24,7 +28,7 @@ export default function RegionTableFilters({
     setPagination((prev) => ({ ...prev, pageNumber: 1 }));
   };
   const handleResetFilter = () => {
-    setQueries({ name: "", code: "" });
+    setQueries({ name: "", code: "", coordinates: "" });
     setPagination((prev) => ({ ...prev, pageNumber: 1 }));
   };
   return (
@@ -39,6 +43,21 @@ export default function RegionTableFilters({
         value={queries["name"]}
         type="name"
       />
+      {/* All, with or without a centre point: the ones without are where an admin uses Place on map. */}
+      <div className="inline-flex h-9 overflow-hidden rounded-md border text-sm" role="group" aria-label="Coordinates" data-regions-coordinates-filter="">
+        {COORDINATE_CHOICES.map(({ value, label }) => (
+          <button
+            key={value || "all"}
+            type="button"
+            aria-pressed={queries.coordinates === value}
+            className={`px-3 ${queries.coordinates === value ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"}`}
+            onClick={() => handleFilterChange("coordinates", value)}
+            data-coordinates={value || "all"}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <ResetFilterButton onReset={handleResetFilter} />
     </div>
   );

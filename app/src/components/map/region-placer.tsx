@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UnitMap, cssColour } from "./unit-map";
+import { ViewControl } from "./view-control";
 import { roundCoordinate } from "./map-data";
 
 /** One place OpenStreetMap's Nominatim found for a name. */
@@ -117,6 +118,21 @@ export function RegionPlacer({
         const marker = new Marker({ draggable: true, color: cssColour("--color-legal_unit-600") || undefined });
         markerRef.current = marker;
         if (start) marker.setLngLat(start).addTo(map);
+        // ⤢ brings the pin back into view after panning away (owner 2026-11-23); choosing
+        // a match again does the same.
+        map.addControl(
+          new ViewControl([
+            {
+              title: "Centre on the pin",
+              icon: "⤢",
+              onClick: () => {
+                const at = markerRef.current?.getLngLat();
+                if (at) map.easeTo({ center: at, zoom: Math.max(map.getZoom(), 8) });
+              },
+            },
+          ]),
+          "top-left"
+        );
         map.on("click", (e) => place([e.lngLat.lng, e.lngLat.lat], false));
         marker.on("dragend", () => {
           const { lng, lat } = marker.getLngLat();
