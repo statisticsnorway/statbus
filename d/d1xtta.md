@@ -16,13 +16,13 @@ updated: 2026-11-23
 Mozambique's statistical office has a StatBus at https://mz.statbus.org, installed by the standard path on the stable channel.
 
 ## Purpose
-Owner 2026-11-22: set up mz.statbus.org for Mozambique. dev.statbus.org already holds Mozambique test imports (jobs 5 and 6 use a NUIT column, Mozambique's tax identifier).
+Mozambique's statistical office has been trying StatBus on demo.statbus.org and needs its own installation, so its data and users stand apart from the shared demo.
 
 ## Principle
 Installed exactly as every country is (./sb install, country code mz), following the Ghana installation (8fjct2); no hand steps outside the documented path.
 
 ## Details
-Open for the owner: which host (niue cloud slot or a standalone server), who in Mozambique gets the first admin account, and which data files (NUIT identifiers, regions, activity standard) are loaded first. doc/CLOUD.md lists the cloud slots.
+Existing evidence: demo.statbus.org is set up for Mozambique (settings country MZ, external idents nuit and nuel) with their data and 25 users (notes 2026-11-23); dev.statbus.org holds Mozambique test imports (jobs 5 and 6, NUIT column). Host options: a niue cloud slot like mw (5x8w0h, the most recent cloud install: cloud.sh FLEET_REGISTRY entry, doc/CLOUD.md slot table, offset, DNS) or a standalone server like no (rune). Data options: start from demo's Mozambique data (dump of demo restored on mz, keeps users and units) or a fresh install with their import files run again. The first admin user is the person the owner names.
 
 ## Depends on
 
