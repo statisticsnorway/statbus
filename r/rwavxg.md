@@ -34,11 +34,12 @@ Cards set failed from the estimated count state (e.g. missing-region-card.tsx fa
 
 ## Acceptance
 - [x] With a saved count of 0 and of 5, a card shows the right colour on first paint; a Playwright test asserts the colour before the estimate request answers
-- [ ] While the exact count is being fetched the number shows ~; a test asserts it
+- [x] While the exact count is being fetched the number shows ~; a test asserts it
 
 ## Notes
 
 
 check 1: adb5b7d2e. tmp/rwavxg/colour-follows-number.mjs holds the estimate and exact requests unanswered and reads the Missing Region card. RED (red.log): saved 5 showed '-' and grey; saved 0 with estimate 3 showed ~3 orange. GREEN (green.log, three runs): saved 5 shows 5 orange, saved 0 shows 0 grey, before any estimate answers.
+check 2: Same test: with no saved count and the exact request unanswered, the card shows ~3 (orange) and ~0 (grey); EstimatedCount already prefixes estimates with ~, and the test asserts the text.
 ## History
 - 2026-11-23T21:41 todo -> doing/active (take with pkne34)
