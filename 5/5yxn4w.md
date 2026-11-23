@@ -13,7 +13,7 @@ updated: 2026-11-23
 ---
 
 ## Goal
-The regions page, the region upload and its instructions show code, name and level by default, and the centre coordinates under Advanced.
+Regions show and upload centre latitude, longitude and altitude, and an admin places a region that lacks one.
 
 ## Purpose
 Owner 2026-11-22: show region lat+lon on /regions, with the same simple/advanced split for plain regions and their extras, for display, upload and upload instructions. Regions already hold center_latitude, center_longitude and center_altitude, but the page does not show them.
@@ -22,7 +22,7 @@ Owner 2026-11-22: show region lat+lon on /regions, with the same simple/advanced
 One switch per screen: simple shows what every country needs, Advanced adds the optional columns; the upload accepts the optional columns either way.
 
 ## Details
-public.region: path, level, code, name, center_latitude numeric(9,6), center_longitude numeric(9,6), center_altitude numeric(6,1). Pages: app/src/app/regions (region-table.tsx), app/src/app/getting-started/upload-regions. Norway's coordinates come from postcodes (see the Norwegian region coordinates task); a map is z2qt08.
+Pages: app/src/app/regions (region-table.tsx, region-table-filters.tsx, use-region.ts), app/src/app/getting-started/upload-regions. Simple view: code, name, level; Advanced adds centre latitude, longitude and altitude. Owner 2026-11-23: the list filters All / With / Without coordinates, and a region without a centre gets 'Place on map' for admins (OpenStreetMap Nominatim name search in the installation's country; pin on the chosen match; Save writes region.center_latitude/longitude). Built on branch feat/units-on-map with z2qt08: f3637eb36, 14fd35fff. jbc5bs later renames the columns to latitude, longitude, altitude.
 
 ## Depends on
 
@@ -31,6 +31,8 @@ public.region: path, level, code, name, center_latitude numeric(9,6), center_lon
 - [ ] /regions shows code, name and level; with Advanced on it also shows centre latitude, longitude and altitude; a Playwright test toggles it and asserts the columns and one region's values
 - [ ] The region upload page shows the plain columns in its instructions and example, and the centre columns under Advanced; a Playwright test asserts both views
 - [ ] Uploading a region file with centre coordinates stores them; a SQL test asserts the stored values
+- [ ] /regions filters All, With coordinates and Without coordinates; a Playwright test asserts each count against the region table
+- [ ] An admin's Place on map for a region without a centre searches OpenStreetMap by its name, puts the pin on the chosen match, and Save stores the region's centre; a Playwright test saves one and reads it back
 
 ## Notes
 
