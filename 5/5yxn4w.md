@@ -56,9 +56,11 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 2026-11-23 (hibiscus) Correction to the earlier note: the owner first dropped the single 'Without coordinates' checkbox (empty columns confused him), then asked at 12:23 for a list filter showing regions with and without coordinates. That is check 4's three-way filter (All / With / Without), built in 14fd35fff. Place on map searches only within the installation's country (settings.country_id).
 
 
+2026-11-23 (hibiscus) Owner's answer on Playwright: browser tests only as a systematic suite for most of the app, in its own ticket, created as m1gadc. Checks 1, 2, 4 and 5 now ask for driven-browser and SQL evidence instead of Playwright tests.
 ## History
 - 2026-11-23T13:58 todo -> todo/depends (ask)
 - 2026-11-23T16:12 answered design, by jhf, for hibiscus (todo/depends -> todo/depends):
   > Checks 1, 2, 4 and 5 ask for Playwright tests, but the app has no Playwright suite (doc/design/units-on-map.md says starting one is your decision, also asked by 5nq78t check 2). Should I start a minimal Playwright suite on this branch for /regions (filter counts; Place on map saving a region's centre against a test database), or should these checks be met by driven-browser runs recorded in tmp/hug plus jest and SQL tests?
   I'm not sure the playwright tests brings us that much, but if we're going to have a playwright test, I think we should have systematic tests of almost the entire app. And we should do that in another ticket where we not only do this for these details, but for general interaction in multiple places. But that will need to interact with the database, imports, and so on and so forth. This should be a separate discussion, I think, unless you really think it valuable
 - 2026-11-23T16:12 answer 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
+- 2026-11-23T16:21 hibiscus read the answer: hug task note 5yxn4w "2026-11-23 (hibiscus) Owner's answer on Playwright: browser tests only as a systematic suite for most of the app, in it…"
