@@ -28,6 +28,7 @@ export default async function Nav(
       <SidebarLink href={`/legal-units/${id}/links`}>
         Links and external references
       </SidebarLink>
+      <SidebarLink href={`/legal-units/${id}/map`}>Map</SidebarLink>
       <SidebarLink href={`/legal-units/${id}/inspect`}>Inspect</SidebarLink>
     </SidebarNav>
   );

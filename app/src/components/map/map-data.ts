@@ -311,7 +311,8 @@ export function pickerStart(
 }
 
 /** A unit of the hierarchy as the Links map needs it: its kind, name, link and physical locations. */
-type HierarchyLocation = { type: string; latitude: number | null; longitude: number | null };
+type HierarchyRegion = { name: string; path: string; center_latitude: number | null; center_longitude: number | null };
+type HierarchyLocation = { type: string; latitude: number | null; longitude: number | null; region?: HierarchyRegion | null };
 type HierarchyUnit = { id: number; name: string; location?: HierarchyLocation[] };
 export interface LinksHierarchy {
   enterprise: {
@@ -327,8 +328,12 @@ export interface UnitPointProperties {
   id: number;
   name: string;
   href: string;
-  /** The unit whose Links page this is. */
+  /** The unit whose page this is. */
   current: boolean;
+  /** "point": the unit's own coordinates; "region": its region's centre, the unit is somewhere there. */
+  placed: "point" | "region";
+  /** The region of a unit placed at its region's centre. */
+  region_name?: string;
 }
 
 const UNIT_PATH: Record<MapUnitType, string> = {
@@ -338,15 +343,21 @@ const UNIT_PATH: Record<MapUnitType, string> = {
 };
 
 /**
- * The legal units and establishments of the enterprise a Links page shows, at their physical
- * location, and the ones without coordinates counted for the "N of M" line (z2qt08). The
- * enterprise has no location of its own: it is where its primary unit is, so it is not drawn
- * as a point of its own.
+ * The legal units and establishments of the page's enterprise on the map (z2qt08, owner
+ * 2026-11-23): at their physical location's coordinates, or, without them, at their region's
+ * centre, which says the unit is somewhere in that region. A unit with neither has no place
+ * and is only counted. The enterprise has no location of its own: it is where its primary
+ * unit is, so it is not drawn as a point of its own.
  */
 export function linksUnitPoints(
   hierarchy: LinksHierarchy,
   current: { unitType: MapUnitType; id: number }
-): { features: GeoJSON.FeatureCollection<GeoJSON.Point, UnitPointProperties>; total: number } {
+): {
+  features: GeoJSON.FeatureCollection<GeoJSON.Point, UnitPointProperties>;
+  total: number;
+  atPoint: number;
+  atRegion: number;
+} {
   const units: { unit_type: MapUnitType; unit: HierarchyUnit }[] = [];
   for (const lu of hierarchy.enterprise.legal_unit ?? []) {
     units.push({ unit_type: "legal_unit", unit: lu });
@@ -355,20 +366,35 @@ export function linksUnitPoints(
   for (const es of hierarchy.enterprise.establishment ?? []) units.push({ unit_type: "establishment", unit: es });
 
   const features: GeoJSON.Feature<GeoJSON.Point, UnitPointProperties>[] = [];
+  let atPoint = 0;
+  let atRegion = 0;
   for (const { unit_type, unit } of units) {
-    const physical = (unit.location ?? []).find((l) => l.type === "physical" && l.latitude != null && l.longitude != null);
-    if (!physical) continue;
-    features.push({
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [Number(physical.longitude), Number(physical.latitude)] },
-      properties: {
-        unit_type,
-        id: unit.id,
-        name: unit.name,
-        href: `/${UNIT_PATH[unit_type]}/${unit.id}`,
-        current: unit_type === current.unitType && unit.id === current.id,
-      },
-    });
+    const physical = (unit.location ?? []).find((l) => l.type === "physical");
+    const base = {
+      unit_type,
+      id: unit.id,
+      name: unit.name,
+      href: `/${UNIT_PATH[unit_type]}/${unit.id}`,
+      current: unit_type === current.unitType && unit.id === current.id,
+    };
+    if (physical?.latitude != null && physical.longitude != null) {
+      atPoint += 1;
+      features.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [Number(physical.longitude), Number(physical.latitude)] },
+        properties: { ...base, placed: "point" },
+      });
+      continue;
+    }
+    const region = physical?.region;
+    if (region?.center_latitude != null && region.center_longitude != null) {
+      atRegion += 1;
+      features.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [Number(region.center_longitude), Number(region.center_latitude)] },
+        properties: { ...base, placed: "region", region_name: region.name },
+      });
+    }
   }
-  return { features: { type: "FeatureCollection", features }, total: units.length };
+  return { features: { type: "FeatureCollection", features }, total: units.length, atPoint, atRegion };
 }

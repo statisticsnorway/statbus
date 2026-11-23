@@ -98,7 +98,10 @@ describe("framingFeatures and maxTotal", () => {
 });
 
 describe("linksUnitPoints", () => {
-  const at = (lat: number | null, lon: number | null, type = "physical") => [{ type, latitude: lat, longitude: lon }];
+  const gjerdrum = { name: "Gjerdrum", path: "32.30", center_latitude: 60.08, center_longitude: 11.05 };
+  const at = (lat: number | null, lon: number | null, type = "physical", region: typeof gjerdrum | null = null) => [
+    { type, latitude: lat, longitude: lon, region },
+  ];
   const hierarchy = {
     enterprise: {
       id: 10,
@@ -109,7 +112,8 @@ describe("linksUnitPoints", () => {
           location: at(59.91, 10.75),
           establishment: [
             { id: 30, name: "Oslo office", location: at(59.92, 10.76) },
-            { id: 31, name: "Bergen office", location: at(null, null) },
+            { id: 31, name: "Gjerdrum shop", location: at(null, null, "physical", gjerdrum) },
+            { id: 32, name: "Nowhere office", location: at(null, null) },
           ],
         },
         { id: 21, name: "Postal only AS", location: at(60.1, 10.2, "postal") },
@@ -118,15 +122,19 @@ describe("linksUnitPoints", () => {
     },
   };
 
-  it("places the legal units and establishments at their physical location, marks the page's unit, and counts all", () => {
-    const { features, total } = linksUnitPoints(hierarchy, { unitType: "establishment", id: 30 });
-    expect(features.features.map((f) => [f.properties.unit_type, f.properties.name, f.properties.href, f.properties.current, f.geometry.coordinates])).toEqual([
-      ["legal_unit", "VERIDIT AS", "/legal-units/20", false, [10.75, 59.91]],
-      ["establishment", "Oslo office", "/establishments/30", true, [10.76, 59.92]],
-      ["establishment", "Kiosk", "/establishments/40", false, [5.32, 60.39]],
+  it("places units at their coordinates, else at their region's centre, marks the page's unit, and counts all", () => {
+    const { features, total, atPoint, atRegion } = linksUnitPoints(hierarchy, { unitType: "establishment", id: 30 });
+    expect(
+      features.features.map((f) => [f.properties.unit_type, f.properties.name, f.properties.placed, f.properties.current, f.geometry.coordinates])
+    ).toEqual([
+      ["legal_unit", "VERIDIT AS", "point", false, [10.75, 59.91]],
+      ["establishment", "Oslo office", "point", true, [10.76, 59.92]],
+      ["establishment", "Gjerdrum shop", "region", false, [11.05, 60.08]],
+      ["establishment", "Kiosk", "point", false, [5.32, 60.39]],
     ]);
-    // Five units: the Bergen office has no coordinates, Postal only AS only a postal location.
-    expect(total).toBe(5);
+    // Six units: three at their point, one at its region, the Nowhere office has neither, and
+    // Postal only AS has only a postal location.
+    expect([total, atPoint, atRegion]).toEqual([6, 3, 1]);
   });
 });
 

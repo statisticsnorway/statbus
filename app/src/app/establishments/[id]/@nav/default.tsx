@@ -28,6 +28,7 @@ export default async function NavSlot(
       <SidebarLink href={`/establishments/${id}/links`}>
         Links and external references
       </SidebarLink>
+      <SidebarLink href={`/establishments/${id}/map`}>Map</SidebarLink>
       <SidebarLink href={`/establishments/${id}/inspect`}>Inspect</SidebarLink>
     </SidebarNav>
   );
