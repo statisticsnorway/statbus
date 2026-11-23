@@ -32,3 +32,5 @@ Bring publishes the postcode register (TAB, Latin-1, weekly; https://www.bring.n
 - [ ] The script writes a 2026 region file with centre coordinates for every fylke and kommune; uploading it on a scratch database stores a centre for every region, and Oslo's lies inside Oslo; the counts are recorded here
 
 ## Notes
+
+2026-11-23 (Rabbit) From hibiscus: on the local Norway copy Haugesund (11.06) has Rogaland's exact centre (59.407159, 5.278156); derived centres must replace such copied county centres, not keep them. Maps read region.center_latitude/longitude, so better data shows with no map change.
