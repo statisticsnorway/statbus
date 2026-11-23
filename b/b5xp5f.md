@@ -34,7 +34,7 @@ Found by a security review 2026-11-23 (Erik, Slack): test/data/318_albania_legal
 - [ ] [Owner] Decides with SSB's data protection officer whether this is reported as a breach and whether the Albanian partner is told; recorded here, and a report or message, if decided, is sent and noted here
 - [x] [Owner] Decides whether git history is rewritten (then a separate task plans the rewrite of all branches and tags, the GitHub cache purge and the fleet migration) or left with master clean (then nothing more is done in git), and whether the owners of the 5 forks are asked to update or the old history there is accepted; recorded here
 - [x] Master and v2026.11.7-rc.01 contain no identifying value from the original files (tax identifiers, names, addresses, phones, e-mail, web address, figures): a script comparing the old and new files finds 0 such values; activity, region, legal form and sector codes are kept but moved between units
-- [ ] [Owner] Confirms with Erik whether the names and identifiers in test/data/340 and 341 are real Moroccan register entries; if real, they are replaced the same way and recorded here, if invented, the README says so
+- [x] [Owner] Confirms with Erik whether the names and identifiers in test/data/340 and 341 are real Moroccan register entries; if real, they are replaced the same way and recorded here, if invented, the README says so
 
 ## Notes
 
@@ -47,5 +47,6 @@ check 3: Erik and the owner 2026-11-23: history not rewritten; the forks keep th
 landed 3d30130 on master 2026-11-23: test: Albania test data documented and fully generated; its provenance is in…
 landed eba013d on master 2026-11-23: doc: test/data README records that the Albania extract was partially anonymised…
 2026-11-23 (Rabbit) Morocco (test 341, 003384b83): 600 real-looking company and person names with stat and tax identifiers, meant to be anonymised. Owner 2026-11-23: same treatment. Replaced in 542a15b95 by test/data/341_duplicate_ident_generate.py (names 'Unit NNN', identifiers generated with the same digit count and the same duplicate groups); test 341 gives the same result (597 imported, rows 1, 232, 600 refused). Test 340's file is the invented demo set, unchanged. test/data/README.md records both files' provenance and the decision. Swept test/data, app/public/demo and samples: no personal e-mail or government domains except the public BRREG samples.
+check 5: Owner 2026-11-23: the Moroccan names were meant to be anonymised; replaced in 542a15b95 with generated values, README updated, test 341 same result
 ## History
 - 2026-11-23T14:39 todo -> doing/active (take)
