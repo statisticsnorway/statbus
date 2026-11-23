@@ -26,6 +26,7 @@ public.region: path, level, code, name, center_latitude numeric(9,6), center_lon
 
 ## Depends on
 
+- z2qt08
 ## Acceptance
 - [ ] /regions shows code, name and level; with Advanced on it also shows centre latitude, longitude and altitude; a Playwright test toggles it and asserts the columns and one region's values
 - [ ] The region upload page shows the plain columns in its instructions and example, and the centre columns under Advanced; a Playwright test asserts both views
