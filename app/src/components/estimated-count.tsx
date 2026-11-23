@@ -8,6 +8,7 @@ import {
   MouseEvent,
 } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { getBrowserRestClient } from "@/context/RestClientStore";
 import {
   Popover,
   PopoverContent,
@@ -24,38 +25,163 @@ import { Info, Loader2 } from "lucide-react";
 // through useSavedExactCount, an external store, so every reader (the number
 // and a card's colour) sees the same value in the same render, from the first
 // client render on, and re-renders when a count is saved or cleared.
+//
+// A saved count belongs to one state of the data: it is stored with the data
+// version it was counted at ({"v": version, "n": count}) and shown only while
+// that is still the current data version (dwt9kd). A saved count from before
+// the last change, or saved before the version is known, is never shown.
 const STORAGE_KEY_PREFIX = "statbus:exactCount:";
 const savedCountListeners = new Set<() => void>();
 const notifySavedCountListeners = () =>
   savedCountListeners.forEach((listener) => listener());
 
+// ============================================================================
+// DATA VERSION
+// ============================================================================
+
+/**
+ * The data version: when the latest derivation of statistical units or
+ * reports completed, as an ISO timestamp. Every change to the data a count
+ * reads ends in such a derivation, so a new version means counts may differ.
+ * "none" when no completed derivation is recorded (completed tasks are purged
+ * after a week, so the data has not changed since). undefined until known.
+ */
+type DataVersion = string;
+let currentDataVersion: DataVersion | undefined = undefined;
+let dataVersionRequest: Promise<void> | null = null;
+let dataVersionRequestAgain = false;
+
+async function fetchDataVersion(): Promise<DataVersion | undefined> {
+  const client = await getBrowserRestClient();
+  const { data, error } = await client
+    .from("worker_task")
+    .select("completed_at")
+    .in("command", ["derive_units_phase", "derive_reports_phase"])
+    .eq("state", "completed")
+    .order("completed_at", { ascending: false })
+    .limit(1);
+  if (error) return undefined;
+  return data?.[0]?.completed_at ?? "none";
+}
+
+/**
+ * Reads the data version again; readers re-render when it changed. Called on
+ * load and whenever the worker reports a derivation or import has stopped.
+ * The stop events arrive coalesced (db-listener relays the newest status per
+ * type), so this reads the version on every stop rather than on a start/stop
+ * edge. A call made while a read is running reads once more after it.
+ */
+export function refreshDataVersion(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (dataVersionRequest) {
+    dataVersionRequestAgain = true;
+    return dataVersionRequest;
+  }
+  dataVersionRequest = (async () => {
+    do {
+      dataVersionRequestAgain = false;
+      let version: DataVersion | undefined;
+      try {
+        version = await fetchDataVersion();
+      } catch {
+        version = undefined;
+      }
+      if (version !== undefined && version !== currentDataVersion) {
+        currentDataVersion = version;
+        pruneSavedCounts();
+        notifySavedCountListeners();
+      }
+    } while (dataVersionRequestAgain);
+    dataVersionRequest = null;
+  })();
+  return dataVersionRequest;
+}
+
 function subscribeSavedCounts(listener: () => void): () => void {
   savedCountListeners.add(listener);
   window.addEventListener("storage", listener);
+  if (currentDataVersion === undefined) void refreshDataVersion();
   return () => {
     savedCountListeners.delete(listener);
     window.removeEventListener("storage", listener);
   };
 }
 
-function getCachedExactCount(cacheKey: string): number | null {
-  if (typeof window === "undefined") return null;
+/**
+ * The current data version, or null until known. A card adds it to the
+ * dependencies of its estimate fetch, so a data change refetches the estimate
+ * as well as dropping the saved exact count.
+ */
+export function useDataVersion(): string | null {
+  return useSyncExternalStore(
+    subscribeSavedCounts,
+    () => currentDataVersion ?? null,
+    () => null
+  );
+}
+
+interface SavedCount {
+  v: DataVersion;
+  n: number;
+}
+
+function readSavedCount(raw: string | null): SavedCount | null {
+  if (raw === null) return null;
   try {
-    const cached = localStorage.getItem(STORAGE_KEY_PREFIX + cacheKey);
-    if (cached !== null) {
-      const parsed = parseInt(cached, 10);
-      if (!isNaN(parsed)) return parsed;
+    const parsed = JSON.parse(raw) as Partial<SavedCount> | null;
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.v === "string" &&
+      typeof parsed.n === "number"
+    ) {
+      return { v: parsed.v, n: parsed.n };
     }
+  } catch {
+    // Not a stamped count: it belongs to no known data version.
+  }
+  return null;
+}
+
+/** Removes saved counts that belong to another data version than the current. */
+function pruneSavedCounts(): void {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(STORAGE_KEY_PREFIX)) continue;
+      const saved = readSavedCount(localStorage.getItem(key));
+      if (saved?.v !== currentDataVersion) keysToRemove.push(key);
+    }
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function getCachedExactCount(cacheKey: string): number | null {
+  if (typeof window === "undefined" || currentDataVersion === undefined)
     return null;
+  try {
+    const saved = readSavedCount(
+      localStorage.getItem(STORAGE_KEY_PREFIX + cacheKey)
+    );
+    return saved && saved.v === currentDataVersion ? saved.n : null;
   } catch {
     return null;
   }
 }
 
-function setCachedExactCount(cacheKey: string, value: number): void {
+/** Saves a count counted while version was the data version. */
+function setCachedExactCount(
+  cacheKey: string,
+  value: number,
+  version: DataVersion
+): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY_PREFIX + cacheKey, value.toString());
+    const saved: SavedCount = { v: version, n: value };
+    localStorage.setItem(STORAGE_KEY_PREFIX + cacheKey, JSON.stringify(saved));
   } catch {
     // Ignore storage errors
   }
@@ -158,9 +284,13 @@ export function EstimatedCount({
 
     setIsLoading(true);
     try {
+      // Stamp with the version known before counting: if the data changes
+      // while counting, the count is stamped with the old version and dropped.
+      if (currentDataVersion === undefined) await refreshDataVersion();
+      const version = currentDataVersion;
       const count = await onGetExact();
-      if (count !== null) {
-        setCachedExactCount(cacheKey, count);
+      if (count !== null && version !== undefined) {
+        setCachedExactCount(cacheKey, count, version);
       }
     } catch (error) {
       // Ignore abort errors

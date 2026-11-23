@@ -1,7 +1,7 @@
 "use client";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
-import { EstimatedCount, useShownCount } from "@/components/estimated-count";
+import { EstimatedCount, useShownCount, useDataVersion } from "@/components/estimated-count";
 import { AlertTriangle } from "lucide-react";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { useState, useCallback } from "react";
@@ -38,6 +38,8 @@ export const MISSING_REGION_HREF =
 
 export const MissingRegionCard = () => {
   const { selectedTimeFrame } = useTimeFrame();
+  // A new data version refetches the estimate (see useDataVersion).
+  const dataVersion = useDataVersion();
   const [data, setData] = useState<{
     count: number | null;
     error: PostgrestError | null;
@@ -51,7 +53,7 @@ export const MissingRegionCard = () => {
         setData({ count, error })
       );
     },
-    [selectedTimeFrame],
+    [selectedTimeFrame, dataVersion],
     "MissingRegionCard:fetchData"
   );
 

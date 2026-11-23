@@ -10,7 +10,7 @@
 import { atom } from 'jotai';
 import { useAtomValue } from 'jotai';
 import { refreshBaseDataAtom, invalidateHasStatisticalUnitsCache } from './base-data';
-import { invalidateExactCountsCache } from '@/components/estimated-count';
+import { invalidateExactCountsCache, refreshDataVersion } from '@/components/estimated-count';
 import { searchPageDataReadyAtom } from './search';
 import { restClientAtom } from './rest-client';
 import { isAuthenticatedStrictAtom } from './auth';
@@ -246,6 +246,14 @@ export const setWorkerStatusAtom = atom(
 
     const newStatusState = { ...prevStatus, ...updatedStatus, loading: false, error: null };
     set(workerStatusAtom, newStatusState);
+
+    // Any stop may follow a data change: read the data version, which drops
+    // saved counts of an older version and makes cards refetch (dwt9kd). Every
+    // stop, not a start->stop edge: the relay coalesces statuses per type, so a
+    // derivation shorter than its window arrives as a stop alone.
+    if (!status) {
+      void refreshDataVersion();
+    }
 
     // Key condition: Check if the unit derivation process has just completed.
     // statistical_unit counts are only final after derivation, so invalidate

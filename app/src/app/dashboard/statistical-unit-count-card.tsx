@@ -2,7 +2,7 @@
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
-import { EstimatedCount } from "@/components/estimated-count";
+import { EstimatedCount, useDataVersion } from "@/components/estimated-count";
 import { useTimeFrame } from '@/atoms/app-derived';
 import { hasStatisticalUnitsAtom } from '@/atoms/base-data';
 import { useState, useCallback } from "react";
@@ -19,6 +19,8 @@ export const StatisticalUnitCountCard = ({
   readonly title: string;
 }) => {
   const { selectedTimeFrame } = useTimeFrame();
+  // A new data version refetches the estimate (see useDataVersion).
+  const dataVersion = useDataVersion();
   const hasStatisticalUnits = useAtomValue(hasStatisticalUnitsAtom);
 
   const [data, setData] = useState<{ count: number | null; error: PostgrestError | null }>({ count: null, error: null });
@@ -56,7 +58,7 @@ export const StatisticalUnitCountCard = ({
     };
 
     fetchDataAsync();
-  }, [selectedTimeFrame, unitType, hasStatisticalUnits], `StatisticalUnitCountCard:${unitType}:fetchData`);
+  }, [selectedTimeFrame, unitType, hasStatisticalUnits, dataVersion], `StatisticalUnitCountCard:${unitType}:fetchData`);
 
   const { count, error } = data;
 

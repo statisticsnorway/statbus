@@ -1,7 +1,7 @@
 "use client";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
-import { EstimatedCount, useShownCount } from "@/components/estimated-count";
+import { EstimatedCount, useShownCount, useDataVersion } from "@/components/estimated-count";
 import { AlertTriangle } from "lucide-react";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { useState, useCallback } from "react";
@@ -14,6 +14,8 @@ import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
 // category, so the number matches what the Statistical Units list shows when clicked.
 export const MissingActivityCategoryCard = () => {
   const { selectedTimeFrame } = useTimeFrame();
+  // A new data version refetches the estimate (see useDataVersion).
+  const dataVersion = useDataVersion();
 
   const [data, setData] = useState<{
     count: number | null;
@@ -46,7 +48,7 @@ export const MissingActivityCategoryCard = () => {
 
       fetchDataAsync();
     },
-    [selectedTimeFrame],
+    [selectedTimeFrame, dataVersion],
     "MissingActivityCategoryCard:fetchData"
   );
 

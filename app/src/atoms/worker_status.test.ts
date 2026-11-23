@@ -11,7 +11,9 @@ jest.mock("./base-data", () => ({
 }));
 jest.mock("@/components/estimated-count", () => ({
   invalidateExactCountsCache: jest.fn(),
+  refreshDataVersion: jest.fn(() => Promise.resolve()),
 }));
+import { refreshDataVersion } from "@/components/estimated-count";
 jest.mock("./search", () => ({ searchPageDataReadyAtom: atom(false) }));
 jest.mock("./rest-client", () => ({ restClientAtom: atom(null) }));
 jest.mock("./auth", () => ({ isAuthenticatedStrictAtom: atom(false) }));
@@ -148,4 +150,16 @@ test("starting units advances only their structured phase and preserves queued r
     active: false,
     pending: true,
   });
+});
+
+test("a stop arriving without its start reads the data version (dwt9kd)", () => {
+  // The relay coalesces statuses per type, so a derivation shorter than its
+  // window reaches the browser as a stop alone.
+  const store = createStore();
+  jest.mocked(refreshDataVersion).mockClear();
+  store.set(setWorkerStatusAtom, {
+    type: "is_deriving_statistical_units",
+    status: false,
+  });
+  expect(refreshDataVersion).toHaveBeenCalledTimes(1);
 });
