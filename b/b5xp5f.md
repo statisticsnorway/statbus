@@ -32,7 +32,7 @@ Contained 2026-11-23 in cfb49e73a: every identifying value replaced with generat
 ## Acceptance
 - [ ] [Owner] Confirms with Erik where the files came from and whether the partner sent them as test data; recorded here (the answer shapes what the partner is told)
 - [ ] [Owner] Decides with SSB's data protection officer whether this is reported as a breach and whether the Albanian partner is told; recorded here, and a report or message, if decided, is sent and noted here
-- [ ] [Owner] Decides whether git history is rewritten (then a separate task plans the rewrite of all branches and tags, the GitHub cache purge and the fleet migration) or left with master clean (then nothing more is done in git); recorded here
+- [ ] [Owner] Decides whether git history is rewritten (then a separate task plans the rewrite of all branches and tags, the GitHub cache purge and the fleet migration) or left with master clean (then nothing more is done in git), and whether the owners of the 5 forks are asked to update or the old history there is accepted; recorded here
 - [x] Master and v2026.11.7-rc.01 contain no value from the original files: a script comparing the old and new files finds 0 original identifying values (cfb49e73a; the rc.01 tag holds the generated files, checked 2026-11-23)
 - [ ] [Owner] Confirms with Erik whether the names and identifiers in test/data/340 and 341 are real Moroccan register entries; if real, they are replaced the same way and recorded here, if invented, the README says so
 
