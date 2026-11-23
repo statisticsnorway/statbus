@@ -30,6 +30,7 @@ Today: postgres/Dockerfile ARG sql_saga_release=v1.6; the test slot reports extv
 - [ ] The postgres image builds with sql_saga v1.12 and a migration runs ALTER EXTENSION sql_saga UPDATE; on a database upgraded from the last release extversion is 1.12 and SELECT sql_saga.check_integrity() reports no problem
 - [ ] The fast SQL suite passes on 1.12
 - [ ] A real-guest upgrade from the last release to a build with 1.12 succeeds (install/upgrade testing guide)
+- [ ] [Owner] Confirms the target version (1.12 as the sql_saga agent said, or 1.13 tagged since); recorded here, and the other checks use that version
 
 ## Notes
 
