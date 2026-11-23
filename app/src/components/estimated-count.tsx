@@ -1,9 +1,13 @@
 "use client";
 
-import { useState, useCallback, useRef, MouseEvent } from "react";
+import {
+  useState,
+  useCallback,
+  useRef,
+  useSyncExternalStore,
+  MouseEvent,
+} from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { atom } from "jotai";
-import { useAtomValue } from "jotai";
 import {
   Popover,
   PopoverContent,
@@ -12,15 +16,27 @@ import {
 import { Button } from "@/components/ui/button";
 import { Info, Loader2 } from "lucide-react";
 
-// Generation counter — incremented when caches are invalidated.
-// EstimatedCount components subscribe to this to reset their React state.
-export const exactCountCacheGenerationAtom = atom(0);
-
 // ============================================================================
 // LOCALSTORAGE CACHING FOR EXACT COUNTS
 // ============================================================================
 
+// Saved exact counts live in localStorage, keyed by cacheKey. They are read
+// through useSavedExactCount, an external store, so every reader (the number
+// and a card's colour) sees the same value in the same render, from the first
+// client render on, and re-renders when a count is saved or cleared.
 const STORAGE_KEY_PREFIX = "statbus:exactCount:";
+const savedCountListeners = new Set<() => void>();
+const notifySavedCountListeners = () =>
+  savedCountListeners.forEach((listener) => listener());
+
+function subscribeSavedCounts(listener: () => void): () => void {
+  savedCountListeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    savedCountListeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
 
 function getCachedExactCount(cacheKey: string): number | null {
   if (typeof window === "undefined") return null;
@@ -43,6 +59,28 @@ function setCachedExactCount(cacheKey: string, value: number): void {
   } catch {
     // Ignore storage errors
   }
+  notifySavedCountListeners();
+}
+
+/**
+ * The saved exact count for cacheKey, or null when none is saved. A card that
+ * colours itself by its count reads this with the same cacheKey it gives
+ * EstimatedCount, so colour and number come from one value (rwavxg).
+ */
+export function useSavedExactCount(cacheKey: string): number | null {
+  return useSyncExternalStore(
+    subscribeSavedCounts,
+    () => getCachedExactCount(cacheKey),
+    () => null
+  );
+}
+
+/** The number a count card shows: the saved exact count, else the estimate. */
+export function useShownCount(
+  cacheKey: string,
+  estimatedCount: number | null
+): number | null {
+  return useSavedExactCount(cacheKey) ?? estimatedCount;
 }
 
 /**
@@ -63,6 +101,7 @@ export function invalidateExactCountsCache(): void {
   } catch {
     // Ignore storage errors
   }
+  notifySavedCountListeners();
 }
 
 // ============================================================================
@@ -72,7 +111,7 @@ export function invalidateExactCountsCache(): void {
 interface EstimatedCountProps {
   readonly estimatedCount: number | null;
   readonly onGetExact?: () => Promise<number | null>;
-  readonly cacheKey?: string; // Unique key for localStorage caching (e.g., "enterprise" or "missing-region")
+  readonly cacheKey: string; // Unique key for the saved exact count (e.g., "enterprise-2026-11-23"); see useSavedExactCount
   readonly autoFetchDelay?: number; // Max random delay in ms before auto-fetching (default: 10000)
   readonly className?: string;
 }
@@ -89,31 +128,11 @@ export function EstimatedCount({
   autoFetchDelay = 10000,
   className,
 }: EstimatedCountProps) {
-  // Subscribe to cache generation — when it changes, reset exactCount
-  const cacheGeneration = useAtomValue(exactCountCacheGenerationAtom);
-
-  // Check localStorage cache first
-  const cachedCount = cacheKey ? getCachedExactCount(cacheKey) : null;
-
-  const [exactCount, setExactCount] = useState<number | null>(cachedCount);
+  // The exact count is the saved one; fetching saves it, clearing drops it.
+  const exactCount = useSavedExactCount(cacheKey);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
-
-  // When the cache generation changes, re-check localStorage.
-  // If the cache was cleared, reset React state so the component re-fetches.
-  useGuardedEffect(
-    () => {
-      if (cacheKey) {
-        const currentCache = getCachedExactCount(cacheKey);
-        if (currentCache === null && exactCount !== null) {
-          setExactCount(null);
-        }
-      }
-    },
-    [cacheGeneration, cacheKey],
-    "EstimatedCount:cacheInvalidation"
-  );
 
   // Refs for cleanup
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -141,11 +160,7 @@ export function EstimatedCount({
     try {
       const count = await onGetExact();
       if (count !== null) {
-        setExactCount(count);
-        // Cache the result
-        if (cacheKey) {
-          setCachedExactCount(cacheKey, count);
-        }
+        setCachedExactCount(cacheKey, count);
       }
     } catch (error) {
       // Ignore abort errors

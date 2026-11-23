@@ -1,7 +1,7 @@
 "use client";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
-import { EstimatedCount } from "@/components/estimated-count";
+import { EstimatedCount, useShownCount } from "@/components/estimated-count";
 import { AlertTriangle } from "lucide-react";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { useState, useCallback } from "react";
@@ -15,33 +15,40 @@ import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
 export const MissingActivityCategoryCard = () => {
   const { selectedTimeFrame } = useTimeFrame();
 
-  const [data, setData] = useState<{ count: number | null; error: PostgrestError | null }>({ count: null, error: null });
+  const [data, setData] = useState<{
+    count: number | null;
+    error: PostgrestError | null;
+  }>({ count: null, error: null });
 
-  useGuardedEffect(() => {
-    const fetchData = async (validOn: string) => {
-      const client = await getBrowserRestClient();
-      // Use estimated count for fast loading
-      const { count, error } = await client
-        .from("statistical_unit")
-        .select("", { count: "estimated" })
-        .is("primary_activity_category_path", null)
-        .neq("unit_type", "enterprise")
-        .lte(EXISTENCE_FROM, validOn)
-        .gt(EXISTENCE_UNTIL, validOn)
-        .limit(0);
+  useGuardedEffect(
+    () => {
+      const fetchData = async (validOn: string) => {
+        const client = await getBrowserRestClient();
+        // Use estimated count for fast loading
+        const { count, error } = await client
+          .from("statistical_unit")
+          .select("", { count: "estimated" })
+          .is("primary_activity_category_path", null)
+          .neq("unit_type", "enterprise")
+          .lte(EXISTENCE_FROM, validOn)
+          .gt(EXISTENCE_UNTIL, validOn)
+          .limit(0);
 
-      return { count, error };
-    };
+        return { count, error };
+      };
 
-    const fetchDataAsync = async () => {
-      if (selectedTimeFrame?.valid_on) {
-        const result = await fetchData(selectedTimeFrame.valid_on);
-        setData(result);
-      }
-    };
+      const fetchDataAsync = async () => {
+        if (selectedTimeFrame?.valid_on) {
+          const result = await fetchData(selectedTimeFrame.valid_on);
+          setData(result);
+        }
+      };
 
-    fetchDataAsync();
-  }, [selectedTimeFrame], 'MissingActivityCategoryCard:fetchData');
+      fetchDataAsync();
+    },
+    [selectedTimeFrame],
+    "MissingActivityCategoryCard:fetchData"
+  );
 
   const { count, error } = data;
 
@@ -60,16 +67,19 @@ export const MissingActivityCategoryCard = () => {
     return exactCount;
   }, [selectedTimeFrame]);
 
+  const cacheKey = `missing-activity-${selectedTimeFrame?.valid_on ?? "default"}`;
+  const shownCount = useShownCount(cacheKey, count);
+
   return (
     <DashboardCard
       title="Units Missing Activity Category"
       icon={<AlertTriangle className="h-4" />}
-      failed={!!error || (count ?? 0) > 0}
+      failed={!!error || (shownCount ?? 0) > 0}
     >
       <EstimatedCount
         estimatedCount={count}
         onGetExact={handleGetExact}
-        cacheKey={`missing-activity-${selectedTimeFrame?.valid_on ?? 'default'}`}
+        cacheKey={cacheKey}
       />
     </DashboardCard>
   );

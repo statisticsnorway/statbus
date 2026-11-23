@@ -11,7 +11,6 @@ jest.mock("./base-data", () => ({
 }));
 jest.mock("@/components/estimated-count", () => ({
   invalidateExactCountsCache: jest.fn(),
-  exactCountCacheGenerationAtom: atom(0),
 }));
 jest.mock("./search", () => ({ searchPageDataReadyAtom: atom(false) }));
 jest.mock("./rest-client", () => ({ restClientAtom: atom(null) }));

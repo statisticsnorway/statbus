@@ -1,7 +1,7 @@
 "use client";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
-import { EstimatedCount } from "@/components/estimated-count";
+import { EstimatedCount, useShownCount } from "@/components/estimated-count";
 import { AlertTriangle } from "lucide-react";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { useState, useCallback } from "react";
@@ -53,6 +53,8 @@ export const QualityEstablishmentActivityDiffersCard = () => {
   );
 
   const { count, error } = data;
+  const cacheKey = `quality-establishment-activity-differs-${selectedTimeFrame?.valid_on ?? "default"}`;
+  const shownCount = useShownCount(cacheKey, count);
 
   const handleGetExact = useCallback(async (): Promise<number | null> => {
     if (!selectedTimeFrame?.valid_on) return null;
@@ -68,12 +70,12 @@ export const QualityEstablishmentActivityDiffersCard = () => {
       title="Establishment Activity Differs"
       description="Legal units whose primary establishment has another primary activity"
       icon={<AlertTriangle className="h-4" />}
-      failed={!!error || (count ?? 0) > 0}
+      failed={!!error || (shownCount ?? 0) > 0}
     >
       <EstimatedCount
         estimatedCount={count}
         onGetExact={handleGetExact}
-        cacheKey={`quality-establishment-activity-differs-${selectedTimeFrame?.valid_on ?? "default"}`}
+        cacheKey={cacheKey}
       />
     </DashboardCard>
   );

@@ -1,7 +1,7 @@
 "use client";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
-import { EstimatedCount } from "@/components/estimated-count";
+import { EstimatedCount, useShownCount } from "@/components/estimated-count";
 import { AlertTriangle } from "lucide-react";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { useState, useCallback } from "react";
@@ -65,16 +65,18 @@ export const MissingRegionCard = () => {
   }, [selectedTimeFrame]);
 
   const { count, error } = data;
+  const cacheKey = `missing-region-${selectedTimeFrame?.valid_on ?? "default"}`;
+  const shownCount = useShownCount(cacheKey, count);
   return (
     <DashboardCard
       title="Units Missing Region"
       icon={<AlertTriangle className="h-4" />}
-      failed={!!error || (count ?? 0) > 0}
+      failed={!!error || (shownCount ?? 0) > 0}
     >
       <EstimatedCount
         estimatedCount={count}
         onGetExact={handleGetExact}
-        cacheKey={`missing-region-${selectedTimeFrame?.valid_on ?? "default"}`}
+        cacheKey={cacheKey}
       />
     </DashboardCard>
   );

@@ -10,7 +10,7 @@
 import { atom } from 'jotai';
 import { useAtomValue } from 'jotai';
 import { refreshBaseDataAtom, invalidateHasStatisticalUnitsCache } from './base-data';
-import { invalidateExactCountsCache, exactCountCacheGenerationAtom } from '@/components/estimated-count';
+import { invalidateExactCountsCache } from '@/components/estimated-count';
 import { searchPageDataReadyAtom } from './search';
 import { restClientAtom } from './rest-client';
 import { isAuthenticatedStrictAtom } from './auth';
@@ -259,7 +259,6 @@ export const setWorkerStatusAtom = atom(
         console.log("setWorkerStatusAtom: Detected completion of 'isDerivingUnits'. Refreshing base data and invalidating caches.");
       }
       invalidateExactCountsCache();
-      set(exactCountCacheGenerationAtom, (n) => n + 1);
       set(refreshBaseDataAtom);
       set(searchPageDataReadyAtom, false);
     }
@@ -275,7 +274,6 @@ export const setWorkerStatusAtom = atom(
       }
       invalidateHasStatisticalUnitsCache();
       invalidateExactCountsCache();
-      set(exactCountCacheGenerationAtom, (n) => n + 1);
       set(refreshBaseDataAtom);
     }
   }
