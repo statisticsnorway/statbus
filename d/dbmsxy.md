@@ -47,3 +47,5 @@ Related: 6btpmz (unit notes, waits on this), qtx2xm (same rules for edits and im
 2026-11-21 21:50 (hibiscus) the map (z2qt08) needs this to put Erik's coordinates on Norway's existing units; it is phase 0 of doc/design/units-on-map.md on feat/units-on-map.
 
 2026-11-23 (Rabbit) Coordinate names: jbc5bs (hibiscus, after z2qt08) renames them to latitude, longitude, altitude everywhere (regions drop center_, units drop physical_, postal locations carry none). Use today's names until jbc5bs lands; whichever lands later uses the new names.
+
+2026-11-23 (Rabbit) Confirmed on Norway (rune, read-only, tmp/slack-todos/validate.log): Erik's establishment jobs 5 and 6 (establishment_for_lu_job_provided, insert_or_update = MERGE_ENTITY_PATCH, default_valid_from 2026-01-01) failed in processing with 'null value in column name of relation establishment' and 'Must have either legal_unit_id or enterprise_id'. All 792,183 rows matched existing establishments whose first valid_from is 2026-11-07, and no row carried a name (job 5) or a legal unit (job 6): exactly the before-life gap seen in the prototype. Legal unit jobs 10-13 with 2026-11-07 or name present finished.
