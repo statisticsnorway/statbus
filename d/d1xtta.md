@@ -3,7 +3,7 @@ id: d1xtta
 title: "mz.statbus.org: Mozambique gets its StatBus installation"
 state: todo
 type: chore
-priority: "medium"
+priority: "highest"
 assignee: []
 labels: []
 group: ""
