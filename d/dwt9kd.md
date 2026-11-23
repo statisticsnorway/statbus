@@ -44,5 +44,6 @@ Observed (owner 2026-11-22): no.statbus.org Missing Region card about 100 000, i
 
 
 check 1: adb5b7d2e (saved counts read per cacheKey via useSavedExactCount). tmp/dwt9kd/frame-switch.mjs switches 2024 -> live -> 2024 through the Time frame menu, with both frames' exact counts saved. RED on adb5b7d2e~1 (frame-switch-red.log): back on 2024 the Legal Units card showed 31, live's number. GREEN on HEAD (frame-switch.log): 6, 31, 6 = exact counts.
+Data change not reflected (check 2), RED: tmp/dwt9kd/data-change.mjs, data-change.log (card 0, exact 1 after 60 s). The SSE stream delivers is_deriving_* stop events (sse-watch.log, trace2.log), yet no saved count is removed: worker_status.ts clears saved counts only on a true->false edge of isDerivingUnits, which fast derivations do not produce reliably. Frame switching (check 1) holds since adb5b7d2e. Dev data, live frame: Legal Units card 7593 vs list 7961, Establishments 1562 vs 1672; the gap is the units whose status is not used_for_counting (dev statuses 1, 3, 4); quality cards match their lists.
 ## History
 - 2026-11-23T22:27 todo -> doing/active (take with pkne34)
