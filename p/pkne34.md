@@ -27,7 +27,7 @@ Owner 2026-11-22 on no.statbus.org: the list includes foreign units, which have 
 Each data-quality problem shows on one card, and the card's exact count equals the total of the list it links to, for the selected time frame.
 
 ## Details
-Today (app/src/app/dashboard/missing-region-card.tsx and the link in dashboard/page.tsx): physical_region_path IS NULL, unit_type not enterprise, existing at the frame's valid_on. No domestic filter and no physical-location filter. Note: statistical_unit.domestic is NULL for a unit without a physical location, which is likely why the Domestic Yes/No facets do not add up to the list total.
+Before 7636c75cb (app/src/app/dashboard/missing-region-card.tsx and the link in dashboard/page.tsx) the card counted physical_region_path IS NULL, unit_type not enterprise, existing at the frame's valid_on, with no domestic or physical-location filter. Since then the card and its link share one definition (domestic, physical location present, region missing, not enterprise), and the search toolbar shows a Physical Location filter and any filter in effect even when its column is hidden. statistical_unit.domestic is NULL for a unit without a physical location, which is why the Domestic Yes/No facets do not add up to the list total.
 
 ## Depends on
 
