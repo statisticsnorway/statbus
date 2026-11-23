@@ -709,12 +709,16 @@ func TestInstallationProvisionerWritesSecretsToCredentials_STATBUS361(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range []string{"set_credential SEQ_API_KEY", "set_credential SLACK_TOKEN", "chmod 600 .env.credentials"} {
+	// The fleet's Seq and Slack keys reach the slot after install through
+	// ./sb dotenv on .env.credentials (f739ecc87); before install the script
+	// writes no credentials at all, since install reads that file's presence
+	// as "already configured".
+	for _, line := range []string{"for key in SEQ_API_KEY SLACK_TOKEN", "./sb dotenv -f .env.credentials set $key"} {
 		if !strings.Contains(string(script), line) {
 			t.Fatalf("provisioner missing %q", line)
 		}
 	}
-	for _, line := range []string{"set_or_update SEQ_API_KEY", "set_or_update SLACK_TOKEN"} {
+	for _, line := range []string{"set_or_update SEQ_API_KEY", "set_or_update SLACK_TOKEN", "touch .env.credentials"} {
 		if strings.Contains(string(script), line) {
 			t.Fatalf("provisioner still writes a secret through config helper: %q", line)
 		}
