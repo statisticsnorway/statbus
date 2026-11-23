@@ -16,7 +16,7 @@ import StatusFilter from "../filters/status/status-filter";
 import UnitSizeFilter from "../filters/unit-size/unit-size-filter";
 import LastEditByUserFilter from "../filters/last-edit-by-user/last-edit-by-user-filter";
 import DomesticFilter from "../filters/domestic-filter";
-import PhysicalLocationFilter from "../filters/physical-location-filter";
+import CountryFilter from "../filters/country-filter";
 import QualityFilter from "../filters/quality-filter";
 import {
   ACTIVITY_CATEGORY_PATH,
@@ -58,13 +58,9 @@ export default function TableToolbar() {
       <FilterWrapper columnCode="domestic" filterKeys={[DOMESTIC]}>
         <DomesticFilter />
       </FilterWrapper>
-      <FilterWrapper
-        columnCode="physical_address"
-        filterKeys={[PHYSICAL_LOCATION]}
-      >
-        <PhysicalLocationFilter />
-      </FilterWrapper>
-      <FilterWrapper columnCode="status" filterKeys={[STATUS]}>
+      {/* Always shown, as Unit Type and Quality are: the Regions map's View and download sets it. */}
+      <CountryFilter />
+      <FilterWrapper columnCode="status">
         <StatusFilter />
       </FilterWrapper>
       <FilterWrapper columnCode="unit_size" filterKeys={[UNIT_SIZE]}>

@@ -15,9 +15,15 @@ describe("the physical country search filter", () => {
       payload: {
         app_param_name: "physical_country",
         api_param_name: "physical_country_id",
-        api_param_value: "eq.214",
+        api_param_value: "in.(214)",
         app_param_values: ["214"],
       },
+    });
+  });
+
+  it("lists the units located in any of several countries", () => {
+    expect(derive(`${PHYSICAL_COUNTRY}=214,215`)).toMatchObject({
+      payload: { api_param_value: "in.(214,215)", app_param_values: ["214", "215"] },
     });
   });
 

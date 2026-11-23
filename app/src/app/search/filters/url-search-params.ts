@@ -223,27 +223,28 @@ export function physicalLocationDeriveStateUpdateFromValues(value: string | null
 }
 
 /**
- * The country a unit is located in, by country id (z2qt08): the Regions map's "View and
- * download" for a foreign country links here. It filters statistical_unit.physical_country_id,
- * which has its own index.
+ * The countries units are located in, by country id (z2qt08): the search's Country filter, and
+ * the Regions map's "View and download" for a foreign country, link here as
+ * physical_country=215 or physical_country=215,216. It filters
+ * statistical_unit.physical_country_id, which has its own index.
  */
 export const PHYSICAL_COUNTRY = "physical_country";
 
 export function physicalCountryDeriveStateUpdateFromSearchParams(
   urlSearchParams: URLSearchParams
 ): SearchAction {
-  return physicalCountryDeriveStateUpdateFromValues(urlSearchParams.get(PHYSICAL_COUNTRY));
+  return physicalCountryDeriveStateUpdateFromValues(parseInitialValues(urlSearchParams.get(PHYSICAL_COUNTRY)));
 }
 
-export function physicalCountryDeriveStateUpdateFromValues(value: string | null): SearchAction {
-  const id = value !== null && /^[0-9]+$/.test(value) ? value : null;
+export function physicalCountryDeriveStateUpdateFromValues(values: (string | null)[]): SearchAction {
+  const ids = values.filter((v): v is string => v !== null && /^[0-9]+$/.test(v));
   return {
     type: "set_query",
     payload: {
       app_param_name: PHYSICAL_COUNTRY,
       api_param_name: "physical_country_id",
-      api_param_value: id === null ? null : `eq.${id}`,
-      app_param_values: id === null ? [] : [id],
+      api_param_value: ids.length === 0 ? null : `in.(${ids.join(",")})`,
+      app_param_values: ids,
     },
   } as SearchAction;
 }

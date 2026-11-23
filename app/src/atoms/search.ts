@@ -120,6 +120,8 @@ export interface SearchPageData {
   allExternalIdentTypes: Tables<"external_ident_type_enabled">[];
   allLegalForms: Tables<"legal_form_used">[];
   allSectors: Tables<"sector_used">[];
+  /** The countries units are located in, for the Country filter. */
+  allCountries: Tables<"country_used">[];
 }
 
 export const searchPageDataAtom = atom<SearchPageData>({
@@ -131,6 +133,7 @@ export const searchPageDataAtom = atom<SearchPageData>({
   allExternalIdentTypes: [],
   allLegalForms: [],
   allSectors: [],
+  allCountries: [],
 });
 
 // Tracks whether searchPageDataAtom has been populated with lookup data.
@@ -177,6 +180,7 @@ export const fetchSearchPageDataAtom = atom(
         { data: externalIdentTypes, error: externalIdentTypesError },
         { data: legalForms, error: legalFormsError },
         { data: sectors, error: sectorsError },
+        { data: countries, error: countriesError },
       ] = await Promise.all([
         client.from("region_used").select().order("path"),
         client.from("activity_category_used").select().order("path"),
@@ -190,6 +194,7 @@ export const fetchSearchPageDataAtom = atom(
           .not("code", "is", null)
           .order("code"),
         client.from("sector_used").select().order("path"),
+        client.from("country_used").select().order("name"),
       ]);
 
       // Log any errors
@@ -201,6 +206,7 @@ export const fetchSearchPageDataAtom = atom(
       if (externalIdentTypesError) console.error('[fetchSearchPageDataAtom] Error fetching external ident types:', externalIdentTypesError);
       if (legalFormsError) console.error('[fetchSearchPageDataAtom] Error fetching legal forms:', legalFormsError);
       if (sectorsError) console.error('[fetchSearchPageDataAtom] Error fetching sectors:', sectorsError);
+      if (countriesError) console.error('[fetchSearchPageDataAtom] Error fetching countries:', countriesError);
 
       const newData = {
         allRegions: regions || [],
@@ -211,6 +217,7 @@ export const fetchSearchPageDataAtom = atom(
         allExternalIdentTypes: externalIdentTypes || [],
         allLegalForms: legalForms || [],
         allSectors: sectors || [],
+        allCountries: countries || [],
       };
       set(searchPageDataAtom, newData);
 
@@ -981,9 +988,11 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
         break;
       case PHYSICAL_COUNTRY:
         const physicalCountryAction = physicalCountryDeriveStateUpdateFromValues(
-          Array.isArray(appParamValue) && appParamValue.length > 0
-            ? (appParamValue[0] as string | null)
-            : null
+          Array.isArray(appParamValue)
+            ? appParamValue.map((v) => (v == null ? null : String(v)))
+            : appParamValue != null
+              ? [String(appParamValue)]
+              : []
         );
         if (physicalCountryAction.type === "set_query")
           actionPayloadPart = physicalCountryAction.payload;

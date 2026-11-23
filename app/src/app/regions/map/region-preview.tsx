@@ -95,7 +95,7 @@ export function RegionPreview({
         ))}
         {unitTypes.length > 1 && (
           <li className="flex justify-between border-t pt-1 font-medium">
-            <span>Together</span>
+            <span>Total</span>
             <span className="tabular-nums">{selectedTotal(target.counts, unitTypes).toLocaleString()}</span>
           </li>
         )}
