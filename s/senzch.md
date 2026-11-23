@@ -62,9 +62,9 @@ At closing, decide: memory (the monthly job layout and the per-row valid_from ru
 
 ## Acceptance
 - [x] #1 Deletion jobs on the existing definitions close each listed legal unit and establishment on its death date, in the job's month or the previous one, and leave every other unit unchanged (SQL test 395)
-- [ ] #2 A monthly BRREG run creates the four jobs for that month (two full files, two deletion lists) and leaves earlier months' jobs untouched
+- [ ] #2 A monthly BRREG run creates that month's jobs: the two full files always, and a deletion job only for a deletion list that has rows; earlier months' jobs stay untouched
 - [ ] #3 [Owner] The rule for a unit missing from the full file with no feed deletion is decided and recorded in Implementation Notes with its consequence, and the run follows it
-- [ ] #4 On rune, the first monthly run closes 879755662 and 969313480 at 2026-11-07, and the monthly figures (sizes, rows, run times, closed units) are recorded and reported
+- [ ] #4 On rune, after the re-baseline from the November files, 879755662 and 969313480 (deleted by BRREG 1 to 9 November) are absent from the November register, and the monthly figures (sizes, rows, run times, closed units) are recorded and reported
 - [ ] #5 The statbus user's crontab on rune runs the monthly cycle unattended; a failure stops the cycle and is reported, without retrying
 - [ ] #6 [Owner] The full-file valid-from date and the flags that make a legal unit Passive are decided and recorded in Implementation Notes with their consequence
 - [ ] Over three consecutive monthly runs on rune, database size and run time grow in proportion to the units changed that month, not faster; the figures per month are recorded here
