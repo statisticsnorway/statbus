@@ -56,7 +56,7 @@ export default function RegionsMapPage() {
   // entry; a unit-type change replaces the current one.
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selection = parseSelection(searchParams?.get("at") ?? null);
+  const requested = parseSelection(searchParams?.get("at") ?? null);
   const unitTypes = parseUnitTypes(searchParams?.get("types") ?? null);
   const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -130,6 +130,9 @@ export default function RegionsMapPage() {
     if (error) throw error;
     return (data ?? []) as MapRegion[];
   });
+  // A region path the region table does not have (an old or mistyped link) shows the country.
+  const selection: MapSelection =
+    requested && regions && !regions.some((r) => r.path === requested) ? "" : requested;
 
   const { data: rows, error: countError } = useSWR(
     client && validOn ? ["regions-map:counts", validOn] : null,
@@ -238,8 +241,9 @@ export default function RegionsMapPage() {
       map.addControl(new ViewControl([{ title: "Fit the selection in view", icon: "⤢", onClick: () => fitSelection() }]), "top-left");
       map.on("moveend", () => scaleToView(map));
       map.on("mouseenter", "region-circles", (e: MapLayerMouseEvent) => {
+        // Pointer only where a click goes in: not on foreign countries, not on the selection itself.
         const path = e.features?.[0]?.properties?.path as string | undefined;
-        if (path !== undefined && !path.startsWith("country:")) map.getCanvas().style.cursor = "pointer";
+        if (path !== undefined && !path.startsWith("country:") && path !== current().at) map.getCanvas().style.cursor = "pointer";
       });
       map.on("mouseleave", "region-circles", () => (map.getCanvas().style.cursor = ""));
       // A click on a circle selects it. A double click is a click: the map's own double-click
@@ -249,13 +253,14 @@ export default function RegionsMapPage() {
       map.on("click", "region-circles", (e: MapLayerMouseEvent) => {
         if (map.isMoving()) return;
         const path = e.features?.[0]?.properties?.path as string | undefined;
-        // Foreign countries have no regions here: they are shown, not entered.
+        // Foreign countries have no regions here: they are shown, not entered. A leaf
+        // region's own circle is the selection already, so select() ignores it.
         if (path === undefined || path.startsWith("country:")) return;
         select(path);
       });
       setMapReady(true);
     },
-    [scaleToView, fitSelection, select]
+    [scaleToView, fitSelection, select, current]
   );
 
   // New data for the map; a new selection is also framed. Unit-type or time-frame changes keep
@@ -279,7 +284,9 @@ export default function RegionsMapPage() {
   );
 
   const depth = selectionDepth(selection);
-  const childNoun = selection === null ? "country" : depth === 0 ? "regions" : "subregions";
+  // A region with no regions below it (a municipality) shows itself as its one circle.
+  const isLeaf = depth > 0 && features.features.length === 1 && features.features[0].properties.path === selection;
+  const childNoun = selection === null ? "countries" : depth === 0 ? "regions" : "subregions";
   const shown = features.features.reduce((s, f) => s + f.properties.total, 0);
   const typesParam = `unit_type=${unitTypes.join(",")}`;
   const selectionSearch =
@@ -357,10 +364,12 @@ export default function RegionsMapPage() {
             )}
             <p className="mt-2 text-xs text-gray-500" data-regions-map-level="">
               {selection === null
-                ? "Click the country to see its regions."
-                : features.features.length > 0
-                  ? `The map shows ${shown.toLocaleString()} units in ${features.features.length.toLocaleString()} ${childNoun}. Click a circle to go into it, X or the trail above to go back up.`
-                  : "No units of the picked types here."}
+                ? `The map shows ${features.features.length.toLocaleString()} ${childNoun} with units. Click ${nameOf("")} to see its regions.`
+                : isLeaf
+                  ? "The lowest level: no regions below this one. X or the trail above goes back up."
+                  : features.features.length > 0
+                    ? `The map shows ${shown.toLocaleString()} units in ${features.features.length.toLocaleString()} ${childNoun}. Click a circle to go into it, X or the trail above to go back up.`
+                    : "No units of the picked types here."}
             </p>
           </section>
           {selection !== null && ((depth === 0 && world.domesticWithoutRegion > 0) || withoutCentre.length > 0) && (

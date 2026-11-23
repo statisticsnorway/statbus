@@ -45,8 +45,14 @@ export function UnitTypeLegend({
           <span className="tabular-nums text-gray-600">{totals[unitType].toLocaleString()}</span>
         </label>
       ))}
-      {mixedSwatch && selected.length > 1 && (
-        <p className="flex items-center gap-2 pt-1 text-xs text-gray-600">
+      {/* The grey line keeps its space when hidden, so ticking a second type does not move
+          the legend (owner 2026-11-23). */}
+      {mixedSwatch && (
+        <p
+          className={`flex items-center gap-2 pt-1 text-xs text-gray-600 ${selected.length > 1 ? "" : "invisible"}`}
+          aria-hidden={selected.length <= 1}
+          data-unit-type-mixed=""
+        >
           <span className={`inline-block h-3 w-3 rounded-full border border-black/20 ${UNIT_TYPE_SWATCH.mixed}`} aria-hidden />
           Several types together
         </p>
