@@ -1,15 +1,20 @@
 ---
 id: b5xp5f
 title: "Albanian register data in public test data: history and reporting"
-state: todo
+state: "doing"
 type: bug
 priority: "highest"
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzy"
 created: 2026-11-23
 updated: 2026-11-23
+doing_since: "2026-11-23T14:39"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -33,3 +38,7 @@ Contained 2026-11-23 in cfb49e73a: every identifying value replaced with generat
 - [ ] Master and the next release contain no value from the original files: a script comparing the old and new files finds 0 original identifying values (done in cfb49e73a, recorded here)
 
 ## Notes
+
+
+## History
+- 2026-11-23T14:39 todo -> doing/active (take)
