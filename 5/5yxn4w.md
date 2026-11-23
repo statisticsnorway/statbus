@@ -35,3 +35,5 @@ public.region: path, level, code, name, center_latitude numeric(9,6), center_lon
 ## Notes
 
 2026-11-23 (Rabbit) From hibiscus: z2qt08's branch feat/units-on-map already adds always-shown Latitude/Longitude columns and a Map button to /regions (app/src/app/regions/region-table.tsx, page.tsx). Build this task on top of that region-table.tsx after the owner approves z2qt08 phase 1 and it lands; this task moves the coordinate columns under Advanced and adds altitude. Hibiscus does not touch the upload page.
+
+2026-11-23 (owner) Handed to hibiscus: the region coordinates under Advanced are done together with the map work (z2qt08), on his branch's region-table.tsx; the owner reviews the map things with him.
