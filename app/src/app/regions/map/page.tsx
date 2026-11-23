@@ -199,11 +199,6 @@ export default function RegionsMapPage() {
     () => (rows && selection !== null ? countsUnder(rows, selection, homeId) : null),
     [rows, selection, homeId]
   );
-  const totals = useMemo(() => {
-    const t: Record<MapUnitType, number> = { enterprise: 0, legal_unit: 0, establishment: 0 };
-    for (const r of rows ?? []) if (r.unit_type && (MAP_UNIT_TYPES as readonly string[]).includes(r.unit_type)) t[r.unit_type as MapUnitType] += r.count ?? 0;
-    return t;
-  }, [rows]);
 
   // The circles take the colour of the one picked unit type, grey when types are mixed.
   const circleColour = unitTypes.length === 1 ? `--color-${unitTypes[0]}-500` : "--color-informal-500";
@@ -424,7 +419,7 @@ export default function RegionsMapPage() {
           </div>
           {/* The unit types sit at the bottom, under what is selected (owner 2026-11-23). */}
           <div className="border-t p-4">
-            <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} totals={totals} />
+            <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} />
           </div>
         </aside>
       </div>

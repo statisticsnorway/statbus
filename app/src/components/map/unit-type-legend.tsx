@@ -3,9 +3,10 @@
 import { MAP_UNIT_TYPES, UNIT_TYPE_LABEL, UNIT_TYPE_SWATCH, type MapUnitType } from "./map-data";
 
 /**
- * The map's legend: pick enterprises, legal units and establishments, each in its app colour,
- * with the number of units of that type shown (owner 2026-11-22, z2qt08). At least one type
- * stays picked.
+ * The map's legend: pick enterprises, legal units and establishments, each in its app colour
+ * (owner 2026-11-22, z2qt08). At least one type stays picked. `totals` shows beside each type
+ * how many of it the map draws, where that is what the map shows (the Links map's units);
+ * the Regions map leaves it out, since its counts belong to the selection, shown above.
  */
 export function UnitTypeLegend({
   selected,
@@ -16,7 +17,7 @@ export function UnitTypeLegend({
 }: {
   selected: readonly MapUnitType[];
   onChange: (next: MapUnitType[]) => void;
-  totals: Record<MapUnitType, number>;
+  totals?: Record<MapUnitType, number>;
   /** The types this map can show; the Links map draws no enterprises (they have no place of their own). */
   unitTypes?: readonly MapUnitType[];
   /** Whether the map paints grey where types are counted together (the Regions map), so the legend explains grey. */
@@ -42,7 +43,7 @@ export function UnitTypeLegend({
             aria-hidden
           />
           <span className="flex-1">{UNIT_TYPE_LABEL[unitType]}</span>
-          <span className="tabular-nums text-gray-600">{totals[unitType].toLocaleString()}</span>
+          {totals && <span className="tabular-nums text-gray-600">{totals[unitType].toLocaleString()}</span>}
         </label>
       ))}
       {/* The grey line keeps its space when hidden, so ticking a second type does not move
