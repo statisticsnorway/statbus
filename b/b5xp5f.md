@@ -1,7 +1,7 @@
 ---
 id: b5xp5f
 title: "Albanian register data in public test data: history and reporting"
-state: "doing"
+state: "done"
 type: bug
 priority: "highest"
 assignee: ["rabbit"]
@@ -10,11 +10,10 @@ group: ""
 rank: "zzzzzzzzy"
 created: 2026-11-23
 updated: 2026-11-23
-doing_since: "2026-11-23T14:39"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+done_at: "2026-11-23T16:20"
 ---
 
 ## Goal
@@ -53,3 +52,4 @@ landed 542a15b on master 2026-11-23: test: test 341's Moroccan names and identif
 check 2: Owner 2026-11-23: no report to the data protection officer; Erik Søberg (SSB) made the consideration and decided
 ## History
 - 2026-11-23T14:39 todo -> doing/active (take)
+- 2026-11-23T16:20 doing/active -> done (done); was doing_since: 2026-11-23T14:39
