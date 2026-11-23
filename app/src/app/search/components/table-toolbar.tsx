@@ -16,7 +16,20 @@ import StatusFilter from "../filters/status/status-filter";
 import UnitSizeFilter from "../filters/unit-size/unit-size-filter";
 import LastEditByUserFilter from "../filters/last-edit-by-user/last-edit-by-user-filter";
 import DomesticFilter from "../filters/domestic-filter";
+import PhysicalLocationFilter from "../filters/physical-location-filter";
 import QualityFilter from "../filters/quality-filter";
+import {
+  ACTIVITY_CATEGORY_PATH,
+  DATA_SOURCE,
+  DOMESTIC,
+  LAST_EDIT_BY_USER,
+  LEGAL_FORM,
+  PHYSICAL_LOCATION,
+  REGION,
+  SECTOR,
+  STATUS,
+  UNIT_SIZE,
+} from "../filters/url-search-params";
 
 export default function TableToolbar() {
   return (
@@ -27,31 +40,40 @@ export default function TableToolbar() {
       </FilterWrapper>
       <UnitTypeFilter />
       <QualityFilter />
-      <FilterWrapper columnCode="activity">
+      <FilterWrapper
+        columnCode="activity"
+        filterKeys={[ACTIVITY_CATEGORY_PATH]}
+      >
         <ActivityCategoryFilter />
       </FilterWrapper>
-      <FilterWrapper columnCode="region">
+      <FilterWrapper columnCode="region" filterKeys={[REGION]}>
         <RegionFilter />
       </FilterWrapper>
-      <FilterWrapper columnCode="sector">
+      <FilterWrapper columnCode="sector" filterKeys={[SECTOR]}>
         <SectorFilter />
       </FilterWrapper>
-      <FilterWrapper columnCode="legal_form">
+      <FilterWrapper columnCode="legal_form" filterKeys={[LEGAL_FORM]}>
         <LegalFormFilter />
       </FilterWrapper>
-      <FilterWrapper columnCode="domestic">
+      <FilterWrapper columnCode="domestic" filterKeys={[DOMESTIC]}>
         <DomesticFilter />
       </FilterWrapper>
-      <FilterWrapper columnCode="status">
+      <FilterWrapper
+        columnCode="physical_address"
+        filterKeys={[PHYSICAL_LOCATION]}
+      >
+        <PhysicalLocationFilter />
+      </FilterWrapper>
+      <FilterWrapper columnCode="status" filterKeys={[STATUS]}>
         <StatusFilter />
       </FilterWrapper>
-      <FilterWrapper columnCode="unit_size">
+      <FilterWrapper columnCode="unit_size" filterKeys={[UNIT_SIZE]}>
         <UnitSizeFilter />
       </FilterWrapper>
-      <FilterWrapper columnCode="data_sources">
+      <FilterWrapper columnCode="data_sources" filterKeys={[DATA_SOURCE]}>
         <DataSourceFilter />
       </FilterWrapper>
-      <FilterWrapper columnCode="last_edit">
+      <FilterWrapper columnCode="last_edit" filterKeys={[LAST_EDIT_BY_USER]}>
         <LastEditByUserFilter />
       </FilterWrapper>
       <StatisticalVariablesFilter />

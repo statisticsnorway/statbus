@@ -5,7 +5,7 @@ import Link from "next/link";
 import { StatisticalUnitCountCard } from "@/app/dashboard/statistical-unit-count-card";
 import { FallBackCard } from "@/app/dashboard/fallBack-card";
 import { RegionCard } from "@/app/dashboard/region-card";
-import { MissingRegionCard } from "@/app/dashboard/missing-region-card";
+import { MissingRegionCard, MISSING_REGION_HREF } from "@/app/dashboard/missing-region-card";
 import { MissingPhysicalLocationCard } from "@/app/dashboard/missing-physical-location-card";
 import { MissingActivityCategoryCard } from "@/app/dashboard/missing-activity-category-card";
 import { QualityEstablishmentActivityDiffersCard } from "@/app/dashboard/quality-establishment-activity-differs-card";
@@ -87,7 +87,7 @@ export default function Dashboard() {
         title="Data quality"
         icon={<Gauge className="w-4 h-4 stroke-current" />}
       >
-        <Link href="/search?unit_type=legal_unit,establishment&physical_region_path=null">
+        <Link href={MISSING_REGION_HREF}>
           <Suspense fallback={<FallBackCard title="Units Missing Region" />}>
             <MissingRegionCard />
           </Suspense>
