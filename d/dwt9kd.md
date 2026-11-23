@@ -33,11 +33,10 @@ Observed (owner 2026-11-22): no.statbus.org Missing Region card about 100 000, i
 ## Depends on
 
 ## Acceptance
-- [x] Switching the time frame shows each card's count for that frame; a Playwright test switches between two frames with different counts and asserts both
+- [x] Switching the time frame through the Time frame menu shows each card's count for that frame: with both frames' exact counts saved, switching 2024 -> live -> 2024 shows the Legal Units card 6, 31, 6 (the exact counts) on the test slot; a Playwright test asserts each
 - [ ] A saved count is tied to the data's last change and is not shown after it; a test changes the data from another session and asserts the card then shows the new exact count
 - [ ] For every card that links to a list, a Playwright test asserts the card's exact count equals the list total for two frames
 - [ ] On dev, the 2024 cards match the reports and their lists; the cause of the earlier mismatch and the numbers are recorded here
-- [ ] Switching the time frame through the Time frame menu shows each card's count for that frame: with both frames' exact counts saved, switching 2024 -> live -> 2024 shows the Legal Units card 6, 31, 6 (the exact counts) on the test slot; a Playwright test asserts each
 
 ## Notes
 
