@@ -112,6 +112,9 @@ function PickerBody({
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [regionShown, setRegionShown] = useState(false);
+  // Read by the map callbacks, which outlive a render: while the region is shown, a moved pin is
+  // framed together with it (owner 2026-11-24).
+  const regionShownRef = useRef(false);
   const hideRegionRef = useRef<(() => void) | null>(null);
   const markerRef = useRef<Marker | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -123,17 +126,27 @@ function PickerBody({
   ).fromLocation;
 
   // Puts the pin at a place and the place into the draft; a looked-up place also moves the map.
-  const place = useCallback((lngLat: [number, number], fly: boolean) => {
-    const map = mapRef.current;
-    const marker = markerRef.current;
-    const lng = roundCoordinate(lngLat[0]);
-    const lat = roundCoordinate(lngLat[1]);
-    setDraft((d) => ({ ...d, latitude: String(lat), longitude: String(lng) }));
-    if (!map || !marker) return;
-    marker.setLngLat([lng, lat]).addTo(map);
-    if (fly)
-      map.easeTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15) });
-  }, []);
+  const place = useCallback(
+    (lngLat: [number, number], fly: boolean) => {
+      const map = mapRef.current;
+      const marker = markerRef.current;
+      const lng = roundCoordinate(lngLat[0]);
+      const lat = roundCoordinate(lngLat[1]);
+      setDraft((d) => ({
+        ...d,
+        latitude: String(lat),
+        longitude: String(lng),
+      }));
+      if (!map || !marker) return;
+      marker.setLngLat([lng, lat]).addTo(map);
+      if (!fly) return;
+      if (regionShownRef.current)
+        frame(map, locationView(String(lat), String(lng), regionCentre), true);
+      else
+        map.easeTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15) });
+    },
+    [regionCentre]
+  );
 
   const onReady = useCallback(
     (map: MapLibreMap) => {
@@ -168,6 +181,7 @@ function PickerBody({
       hideRegionRef.current();
       hideRegionRef.current = null;
       setRegionShown(false);
+      regionShownRef.current = false;
       frame(map, view, false);
       return;
     }
@@ -177,6 +191,7 @@ function PickerBody({
       shownAddress.regionName
     );
     setRegionShown(true);
+    regionShownRef.current = true;
   };
 
   // Brings the point (with the region, when shown) back into view.
@@ -194,11 +209,12 @@ function PickerBody({
   const typeCoordinate = (field: keyof PointValues, text: string) => {
     const next = { ...draft, [field]: text };
     setDraft(next);
-    const at = pickerStart(next.latitude, next.longitude, null);
-    if (at.fromLocation && field !== "altitude") {
-      const map = mapRef.current;
-      markerRef.current?.setLngLat(at.center).addTo(map!);
-      map?.easeTo({ center: at.center });
+    const at = locationView(next.latitude, next.longitude, regionCentre);
+    const map = mapRef.current;
+    if (at.point && field !== "altitude" && map) {
+      markerRef.current?.setLngLat(at.point).addTo(map);
+      if (regionShown) frame(map, at, true);
+      else map.easeTo({ center: at.point });
     }
   };
 
