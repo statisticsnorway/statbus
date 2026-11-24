@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { Map as MapLibreMap, Marker } from "maplibre-gl";
-import { Maximize2, Pencil } from "lucide-react";
+import type { Map as MapLibreMap } from "maplibre-gl";
+import { Expand, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { UnitMap, cssColour } from "./unit-map";
-import { pickerStart } from "./map-data";
+import { UnitMap } from "./unit-map";
+import { locationView } from "./map-data";
+import { Coordinates, drawLocation } from "./location-map";
 import {
   LocationPicker,
   type AddressForLookup,
@@ -14,12 +15,12 @@ import {
 } from "./location-picker";
 
 /**
- * A physical location's place, shown as a map instead of number boxes (owner 2026-11-24: nobody
- * types six-decimal coordinates; the map is the field, the numbers are secondary). A small map
- * shows the pin, or the region's centre when there is no point, with one line under it saying
- * which. "Show on map" opens it large; while the location is edited, "Edit on map" opens the
- * editor (address, lookup, place search, coordinates). The values live in hidden inputs named
- * latitude, longitude and altitude, which the form's Save reads as it read the boxes before.
+ * A physical location's place in its form (z2qt08, owner 2026-11-24: nobody types six-decimal
+ * coordinates, so the map is the field). A small still map shows the point, and beside it the
+ * latitude and longitude, each named. "Larger map" opens it large; while the location is edited,
+ * "Edit on map" opens the editor (address, lookup, place search, coordinates). The values live in
+ * hidden inputs named latitude, longitude and altitude, which the form's Save reads as it read
+ * the boxes before.
  */
 export function LocationField({
   isEditing,
@@ -53,14 +54,7 @@ export function LocationField({
     "LocationField:syncStored"
   );
   const [open, setOpen] = useState<"show" | "edit" | null>(null);
-
-  const start = pickerStart(values.latitude, values.longitude, regionCentre);
-  const hasPoint = start.fromLocation;
-  const line = hasPoint
-    ? `${Number(values.latitude).toFixed(4)}, ${Number(values.longitude).toFixed(4)}${values.altitude ? `, ${values.altitude} m` : ""}`
-    : regionCentre?.latitude != null
-      ? "No point; the region's centre is shown"
-      : "No point";
+  const view = locationView(values.latitude, values.longitude, regionCentre);
 
   return (
     <div className="space-y-2" data-location-field="">
@@ -68,47 +62,41 @@ export function LocationField({
       <input type="hidden" name="latitude" value={values.latitude} />
       <input type="hidden" name="longitude" value={values.longitude} />
       <input type="hidden" name="altitude" value={values.altitude} />
-      <div className="flex flex-wrap items-start gap-3">
-        <button
-          type="button"
-          className="relative h-40 w-full max-w-md overflow-hidden rounded border text-left focus:outline-none focus:ring-2 focus:ring-gray-400"
-          onClick={() => setOpen(isEditing ? "edit" : "show")}
-          title={isEditing ? "Edit on map" : "Show on map"}
-          aria-label={
-            isEditing
-              ? "Edit the location on the map"
-              : "Show the location on the map"
-          }
-          data-location-preview=""
-        >
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="relative h-40 w-full max-w-md overflow-hidden rounded border">
           <PreviewMap
-            key={`${start.center.join(",")}:${hasPoint}`}
-            center={start.center}
-            zoom={hasPoint ? 13 : start.zoom}
-            pin={hasPoint}
+            key={`${values.latitude},${values.longitude}:${view.region?.join(",")}`}
+            view={view}
           />
-        </button>
-        <div className="space-y-2">
-          <p
-            className="text-sm tabular-nums text-gray-700"
-            data-location-line=""
-          >
-            {line}
-          </p>
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="sm"
+            className="absolute right-2 top-2 flex items-center gap-1 rounded bg-white px-2 py-1 text-xs font-medium text-gray-700 shadow hover:bg-gray-100 hover:text-gray-900"
             onClick={() => setOpen(isEditing ? "edit" : "show")}
-            data-location-open=""
+            data-location-expand=""
           >
-            {isEditing ? (
+            <Expand className="h-3.5 w-3.5" />
+            Larger map
+          </button>
+        </div>
+        <div className="space-y-3">
+          <Coordinates
+            latitude={values.latitude}
+            longitude={values.longitude}
+            altitude={values.altitude}
+            view={view}
+          />
+          {isEditing && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setOpen("edit")}
+              data-location-open=""
+            >
               <Pencil className="mr-1.5 h-4 w-4" />
-            ) : (
-              <Maximize2 className="mr-1.5 h-4 w-4" />
-            )}
-            {isEditing ? "Edit on map" : "Show on map"}
-          </Button>
+              Edit on map
+            </Button>
+          )}
         </div>
       </div>
       <LocationPicker
@@ -128,21 +116,12 @@ export function LocationField({
 }
 
 /**
- * The small map: still (no pan, zoom or rotate), so it reads as a picture of the place and a click
- * anywhere on it opens the large map.
+ * The small map: still (no pan, zoom or rotate), so it reads as a picture of the place; the
+ * expand button opens the large one.
  */
-function PreviewMap({
-  center,
-  zoom,
-  pin,
-}: {
-  center: [number, number];
-  zoom: number;
-  pin: boolean;
-}) {
+function PreviewMap({ view }: { view: ReturnType<typeof locationView> }) {
   const onReady = useCallback(
     (map: MapLibreMap) => {
-      map.jumpTo({ center, zoom });
       for (const h of [
         map.dragPan,
         map.scrollZoom,
@@ -155,15 +134,9 @@ function PreviewMap({
         h.disable();
       // The preview has no zoom buttons: the large map has them.
       map.getContainer().querySelector(".maplibregl-ctrl-top-left")?.remove();
-      if (!pin) return;
-      import("maplibre-gl").then(({ Marker }) => {
-        const marker: Marker = new Marker({
-          color: cssColour("--color-legal_unit-600") || undefined,
-        });
-        marker.setLngLat(center).addTo(map);
-      });
+      void drawLocation(map, view, { draggable: false });
     },
-    [center, zoom, pin]
+    [view]
   );
   return (
     <UnitMap

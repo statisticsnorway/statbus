@@ -332,6 +332,36 @@ export function pickerStart(
   return { center: [10, 62], zoom: 4, fromLocation: false };
 }
 
+/**
+ * What a location's map shows (z2qt08, owner 2026-11-24): the point and its region's centre
+ * together, so the place reads against the region it is registered in and a point far from it
+ * shows as far. A point alone is shown at street level, a region alone at its centre, and with
+ * neither the map shows the country. `bounds` ([west, south, east, north]) is set when both
+ * are known and the map fits them; else `center` and `zoom` say where it stands.
+ */
+export function locationView(
+  latitude: string | null | undefined,
+  longitude: string | null | undefined,
+  regionCentre: { latitude: number | null; longitude: number | null } | null
+): { center: [number, number]; zoom: number; bounds: [number, number, number, number] | null; point: [number, number] | null; region: [number, number] | null } {
+  const at = pickerStart(latitude, longitude, null);
+  const point = at.fromLocation ? at.center : null;
+  const region: [number, number] | null =
+    regionCentre?.latitude != null && regionCentre.longitude != null ? [Number(regionCentre.longitude), Number(regionCentre.latitude)] : null;
+  if (point && region) {
+    const bounds: [number, number, number, number] = [
+      Math.min(point[0], region[0]),
+      Math.min(point[1], region[1]),
+      Math.max(point[0], region[0]),
+      Math.max(point[1], region[1]),
+    ];
+    return { center: point, zoom: 13, bounds, point, region };
+  }
+  if (point) return { center: point, zoom: 13, bounds: null, point, region };
+  const start = pickerStart(null, null, regionCentre);
+  return { center: start.center, zoom: start.zoom, bounds: null, point, region };
+}
+
 /** A unit of the hierarchy as the Links map needs it: its kind, name, link and physical locations. */
 type HierarchyRegion = { name: string; path: string; center_latitude: number | null; center_longitude: number | null };
 type HierarchyLocation = { type: string; latitude: number | null; longitude: number | null; region?: HierarchyRegion | null };

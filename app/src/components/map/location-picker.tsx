@@ -2,7 +2,13 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
-import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  LocateFixed,
+  Search,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +21,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { UnitMap, cssColour } from "./unit-map";
-import { pickerStart, roundCoordinate } from "./map-data";
+import { locationView, pickerStart, roundCoordinate } from "./map-data";
+import { Coordinates, drawLocation, frame, showRegion } from "./location-map";
 import { searchPlaces, type PlaceMatch } from "./region-placer";
 
 /** The physical address the form holds, read when the map opens. */
@@ -102,13 +109,15 @@ function PickerBody({
   const [draft, setDraft] = useState<PointValues>(values);
   const [shownAddress] = useState<AddressForLookup>(address);
   const [start] = useState(() =>
-    pickerStart(values.latitude, values.longitude, regionCentre)
+    locationView(values.latitude, values.longitude, regionCentre)
   );
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<PlaceMatch[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [numbersOpen, setNumbersOpen] = useState(false);
+  const [regionShown, setRegionShown] = useState(false);
+  const hideRegionRef = useRef<(() => void) | null>(null);
   const markerRef = useRef<Marker | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
 
@@ -136,22 +145,15 @@ function PickerBody({
       mapRef.current = map;
       // The dialog opens with a zoom animation, so the map measured its box mid-way; measure
       // again once it has settled, or markers are placed against the wrong size.
-      const settle = () => {
+      window.setTimeout(() => {
         map.resize();
-        map.jumpTo({ center: start.center, zoom: start.zoom });
-      };
-      settle();
-      window.setTimeout(settle, 250);
-      import("maplibre-gl").then(({ Marker }) => {
-        const canEdit = isEditing;
-        const marker = new Marker({
-          draggable: canEdit,
-          color: cssColour("--color-legal_unit-600") || undefined,
-        });
+        frame(map, start, false);
+      }, 250);
+      void drawLocation(map, start, {
+        draggable: isEditing,
+      }).then((marker) => {
         markerRef.current = marker;
-        // The stored point, if any, is where the map opened.
-        if (start.fromLocation) marker.setLngLat(start.center).addTo(map);
-        if (!canEdit) return;
+        if (!isEditing) return;
         map.on("click", (e) => place([e.lngLat.lng, e.lngLat.lat], false));
         marker.on("dragend", () => {
           const { lng, lat } = marker.getLngLat();
@@ -161,6 +163,37 @@ function PickerBody({
     },
     [place, start, isEditing]
   );
+
+  // "Region" shows the region's centre with the point; a second click goes back to the point.
+  const toggleRegion = async () => {
+    const map = mapRef.current;
+    if (!map || !shownAddress.regionName) return;
+    const view = locationView(draft.latitude, draft.longitude, regionCentre);
+    if (hideRegionRef.current) {
+      hideRegionRef.current();
+      hideRegionRef.current = null;
+      setRegionShown(false);
+      frame(map, view, false);
+      return;
+    }
+    hideRegionRef.current = await showRegion(
+      map,
+      view,
+      shownAddress.regionName
+    );
+    setRegionShown(true);
+  };
+
+  // Brings the point (with the region, when shown) back into view.
+  const recentre = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    frame(
+      map,
+      locationView(draft.latitude, draft.longitude, regionCentre),
+      regionShown
+    );
+  };
 
   // A coordinate typed by hand moves the pin once it is a valid point.
   const typeCoordinate = (field: keyof PointValues, text: string) => {
@@ -199,33 +232,56 @@ function PickerBody({
             ? "Edit the location on the map"
             : "The location on the map"}
         </DialogTitle>
-        <DialogDescription>
+        <DialogDescription className={isEditing ? undefined : "sr-only"}>
           {isEditing
             ? "Look up the address, or find a place, then click the map or drag the pin to the unit's place."
-            : hasPoint
-              ? "The stored point."
-              : "No point is stored; the map shows the region's centre."}
+            : "The unit's point and its region's centre."}
         </DialogDescription>
       </DialogHeader>
-      {/* The address stays in view while the point is judged (owner 2026-11-24). */}
+      {/* The address stays in view while the point is judged; the region stands at its right as
+          its own small box, a click showing it on the map (owner 2026-11-24). */}
       <div
-        className="rounded border bg-gray-50 px-3 py-2 text-sm"
+        className="flex items-stretch gap-2 text-sm"
         data-location-picker-address=""
       >
-        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          Address
-        </span>
-        <p>
-          {shownAddress?.line || (
-            <span className="text-gray-500">No address</span>
-          )}
-          {shownAddress?.regionName && (
-            <span className="ml-2 text-xs text-gray-500">
-              Region: {shownAddress.regionName}
+        <div className="flex-1 rounded border bg-gray-50 px-3 py-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            Address
+          </span>
+          <p>
+            {shownAddress.line || (
+              <span className="text-gray-500">No address</span>
+            )}
+          </p>
+        </div>
+        {shownAddress.regionName && (
+          <button
+            type="button"
+            className={`rounded border px-3 py-2 text-left ${regionShown ? "border-gray-800 bg-gray-800 text-white" : "bg-gray-50 hover:bg-gray-100"} disabled:cursor-default disabled:hover:bg-gray-50`}
+            onClick={() => void toggleRegion()}
+            disabled={regionCentre?.latitude == null}
+            aria-pressed={regionShown}
+            title={
+              regionShown ? "Back to the point" : "Show the region on the map"
+            }
+            data-location-picker-region=""
+          >
+            <span
+              className={`block text-xs font-medium uppercase tracking-wide ${regionShown ? "text-gray-300" : "text-gray-500"}`}
+            >
+              Region
             </span>
-          )}
-        </p>
+            <span className="block">{shownAddress.regionName}</span>
+          </button>
+        )}
       </div>
+      {/* Address, then the coordinates, then the map (owner 2026-11-24). */}
+      <Coordinates
+        latitude={draft.latitude}
+        longitude={draft.longitude}
+        altitude={draft.altitude}
+        view={locationView(draft.latitude, draft.longitude, regionCentre)}
+      />
       {isEditing && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -307,6 +363,17 @@ function PickerBody({
       )}
       <div className="relative h-[24rem] overflow-hidden rounded border">
         <UnitMap onReady={onReady} className="absolute inset-0" />
+        {/* Back to the point after panning or zooming away (owner 2026-11-24). */}
+        <button
+          type="button"
+          className="absolute left-[10px] top-[84px] flex h-[29px] w-[29px] items-center justify-center rounded bg-white text-gray-800 shadow-[0_0_0_2px_rgba(0,0,0,0.1)] hover:bg-gray-100"
+          onClick={recentre}
+          title="Back to the point"
+          aria-label="Back to the point"
+          data-location-picker-recentre=""
+        >
+          <LocateFixed className="h-4 w-4" />
+        </button>
       </div>
       {isEditing && (
         <div data-location-picker-numbers="">
@@ -321,7 +388,7 @@ function PickerBody({
             ) : (
               <ChevronRight className="h-4 w-4" />
             )}
-            Enter coordinates
+            Edit coordinates
           </button>
           {numbersOpen && (
             <div className="mt-2 grid grid-cols-3 gap-3">
@@ -340,15 +407,7 @@ function PickerBody({
           )}
         </div>
       )}
-      <DialogFooter className="items-center gap-3 sm:justify-between">
-        <span
-          className="text-sm tabular-nums text-gray-600"
-          data-location-picker-point=""
-        >
-          {hasPoint
-            ? `Latitude ${draft.latitude}, longitude ${draft.longitude}`
-            : "No point yet"}
-        </span>
+      <DialogFooter className="items-center gap-3">
         <div className="flex gap-2">
           {isEditing ? (
             <>

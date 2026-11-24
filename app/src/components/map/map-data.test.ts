@@ -1,4 +1,4 @@
-import { childCounts, countryCounts, countsByRegion, countsUnder, selectedCountryCode, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, spiderNodes, type RegionCountRow } from "./map-data";
+import { childCounts, countryCounts, countsByRegion, countsUnder, selectedCountryCode, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, locationView, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, spiderNodes, type RegionCountRow } from "./map-data";
 
 // z2qt08: the Regions map counts units per region path prefix from statistical_unit_facet and
 // draws each region with a centre; regions without one are listed beside the map.
@@ -151,6 +151,15 @@ describe("pickerStart and roundCoordinate", () => {
       { center: [5.32, 60.39], zoom: 9, fromLocation: false },
       { center: [10, 62], zoom: 4, fromLocation: false },
       { center: [10, 62], zoom: 4, fromLocation: false },
+    ]);
+  });
+
+  it("shows the point with its region's centre, the point alone, or the region alone", () => {
+    const gjerdrum = { latitude: 60.08, longitude: 11.03 };
+    expect([locationView("58", "9", gjerdrum), locationView("60.07", "11.04", null), locationView("", "", gjerdrum)]).toEqual([
+      { center: [9, 58], zoom: 13, bounds: [9, 58, 11.03, 60.08], point: [9, 58], region: [11.03, 60.08] },
+      { center: [11.04, 60.07], zoom: 13, bounds: null, point: [11.04, 60.07], region: null },
+      { center: [11.03, 60.08], zoom: 9, bounds: null, point: null, region: [11.03, 60.08] },
     ]);
   });
 
