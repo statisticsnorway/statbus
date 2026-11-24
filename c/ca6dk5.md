@@ -33,7 +33,7 @@ Rule (covers): legal unit total = greatest(own value, sum of its establishments'
 ## Depends on
 
 ## Acceptance
-- [ ] A SQL regression test builds legal units for each pattern (LU only, establishments only, both equal, LU larger, establishments larger) and asserts each legal unit's employee total is the covers value (the larger of its own value and its establishments' sum) and its enterprise's total is the sum of its legal units' totals
+- [x] A SQL regression test builds legal units for each pattern (LU only, establishments only, both equal, LU larger, establishments larger) and asserts each legal unit's employee total is the covers value (the larger of its own value and its establishments' sum) and its enterprise's total is the sum of its legal units' totals
 - [ ] On the local Norway copy the Reports' legal unit and enterprise employee total for 2026 is 3,892,227 (from 7,317,939); recorded here with the query
 - [ ] Quality check 'establishments above their legal unit' lists exactly the legal units where the establishments' sum exceeds the legal unit's value (17 on the Norway copy at 2026-11-24), and its dashboard card's count equals its list
 - [ ] Quality check 'legal unit above its establishments' lists exactly the legal units larger than their establishments' sum while every establishment has a value (5 on the Norway copy at 2026-11-24), and its dashboard card's count equals its list
@@ -48,5 +48,6 @@ Literature (2026-11-24, web): the standard model is COVERS with a consistency ch
 2026-11-24 owner: settled without Erik's confirmation: covers is the UN/EU standard and Norway's numbers show it; the per-variable adds setting is dropped. Both quality checks are wanted (owner: suspicious when the legal unit is not covered by its establishments, and when it is lower than its establishments).
 2026-11-24 owner: rc.01 is not promoted; the next release candidate carries everything on master since rc.01 (pkne34, rwavxg, dwt9kd) plus this rule, both quality checks and the documentation, so installations get the new counting together with the reports that explain it.
 Covers rule implemented (migration 20261124114235, public.jsonb_stats_covers). Test 410 RED under adding (tmp/ca6dk5/test-410-red.out: LU-EQUAL 18, LU-MORE 26, LU-LESS 12, totals 73), GREEN after (test-410-green.out: 9, 20, 7, totals 53; enterprises equal). Prototype on Norway copy read-only: covers 3,892,227 vs added 7,317,939 (tmp/ca6dk5/covers-perf.log). Fast suite: 6 expected outputs change only in stats summaries (no sum rose, none disappeared; diffs in tmp/ca6dk5/diff-*.txt): 302/303/309/310 totals drop where LU and establishments reported the same values; 109/306 sums unchanged, count/mean change because a legal unit no longer adds its establishments' zero values. 016 needed ./sb types generate for the new function.
+check 1: test/sql/410_legal_unit_covers_its_establishments: five patterns, legal unit totals 10/7/9/20/7 and enterprise totals equal (= sum of their legal units), 53 both; RED under adding 73 (tmp/ca6dk5/test-410-red.out), GREEN with migration 20261124114235.
 ## History
 - 2026-11-24T11:13 todo -> doing/active (take with pkne34)
