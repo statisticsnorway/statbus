@@ -397,10 +397,9 @@ export async function setPrimaryLegalUnit(id: number) {
     legal_unit_id: id,
   });
 
-  if (error) {
-    logger.error(error, "failed to set primary legal unit");
-    return;
-  }
-
-  revalidatePath("/legal-units/[id]", "page");
+   if (error) {
+     logger.error(error, "failed to set primary legal unit");
+     return { status: "error" as const, message: error.message };
+   }
+   return { status: "success" as const };
 }

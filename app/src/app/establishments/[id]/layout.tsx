@@ -8,14 +8,9 @@ export const metadata: Metadata = {
   title: "Details",
 };
 
-export default function SettingsLayout({
-  children,
-  header,
-  nav,
-  primaryUnitInfo,
-}: DetailsPageLayoutProps) {
+export default function SettingsLayout({ children, header, nav }: DetailsPageLayoutProps) {
   return (
-    <DetailsPageLayout header={header} nav={nav} primaryUnitInfo={primaryUnitInfo}>
+    <DetailsPageLayout header={header} nav={nav}>
       {children}
     </DetailsPageLayout>
   );

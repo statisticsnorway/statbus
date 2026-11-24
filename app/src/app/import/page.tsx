@@ -124,7 +124,7 @@ export default function ImportPage() {
               </Link>
             </>
           ) : (
-            "Contact an administratior to customize these."
+            "Contact an administrator to customize these."
           )}
         </p>
       </div>
