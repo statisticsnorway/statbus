@@ -31,7 +31,7 @@ import {
   resetSearchStateAtom,
 } from './search'
 import { refreshWorkerStatusAtom } from './worker_status'
-import { invalidateExactCountsCache } from '@/components/estimated-count'
+import { invalidateExactCountsCache } from '@/components/exact-count'
 import { restClientAtom } from './rest-client'
 
 // ============================================================================

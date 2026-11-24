@@ -9,11 +9,11 @@ jest.mock("./base-data", () => ({
   refreshBaseDataAtom: atom(null, () => {}),
   invalidateHasStatisticalUnitsCache: jest.fn(),
 }));
-jest.mock("@/components/estimated-count", () => ({
+jest.mock("@/components/exact-count", () => ({
   invalidateExactCountsCache: jest.fn(),
   refreshDataVersion: jest.fn(() => Promise.resolve()),
 }));
-import { refreshDataVersion } from "@/components/estimated-count";
+import { refreshDataVersion } from "@/components/exact-count";
 jest.mock("./search", () => ({ searchPageDataReadyAtom: atom(false) }));
 jest.mock("./rest-client", () => ({ restClientAtom: atom(null) }));
 jest.mock("./auth", () => ({ isAuthenticatedStrictAtom: atom(false) }));

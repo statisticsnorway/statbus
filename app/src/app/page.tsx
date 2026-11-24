@@ -3,16 +3,12 @@
 import { useState } from "react"; // Import useState
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue } from "jotai";
-import { appReadyAtom, timeFrameAutoSelectEffectAtom } from "@/atoms/app-derived";
+import { appReadyAtom } from "@/atoms/app-derived";
 import Dashboard from "@/app/dashboard/page";
 
 export const dynamic = 'force-dynamic';
 
 export default function HomePage() {
-  // Activate the auto-select effect atom by reading it in a top-level component.
-  // This ensures the logic runs once and is decoupled from other component lifecycles.
-  useAtomValue(timeFrameAutoSelectEffectAtom);
-  
   const appReadyState = useAtomValue(appReadyAtom);
   const [isMounted, setIsMounted] = useState(false);
 

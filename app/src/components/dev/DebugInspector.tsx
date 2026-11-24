@@ -39,7 +39,7 @@ import {
 // Feature state atoms
 import { baseDataAtom, invalidateHasStatisticalUnitsCache } from '@/atoms/base-data';
 import { workerStatusAtom } from '@/atoms/worker_status';
-import { invalidateExactCountsCache } from '@/components/estimated-count';
+import { invalidateExactCountsCache } from '@/components/exact-count';
 import { queryAtom, filtersAtom, searchResultAtom, selectedUnitsAtom, paginationAtom, sortingAtom, resetSearchInitializationAtom } from '@/atoms/search';
 import { redirectRelevantStateAtom } from '@/atoms/app-derived';
 import { navigationMachineAtom } from '@/atoms/navigation-machine';

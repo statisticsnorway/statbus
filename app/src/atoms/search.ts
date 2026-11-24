@@ -17,7 +17,7 @@ import { isEqual } from 'moderndash'
 
 import type { Database, Tables } from '@/lib/database.types'
 import type { TableColumn, AdaptableTableColumn, ColumnProfile, SearchResult as ApiSearchResultType, SearchAction, SetQuery } from '../app/search/search.d'
-import { getStatisticalUnitsData, getStatisticalUnitsEstimatedCount, getStatisticalUnitsExactCount } from '../app/search/search-requests'
+import { getStatisticalUnitsData, getStatisticalUnitsExactCount } from '../app/search/search-requests'
 import { setExistenceSearchParams } from '@/lib/unit-existence'
 import { reverseOrder } from '@/lib/search-order'
 import {
@@ -96,8 +96,7 @@ export interface SearchResult {
   data: StatisticalUnit[]
   total: number | null  // null means count not yet fetched
   loading: boolean      // true while fetching data
-  countLoading: boolean // true while fetching count in background
-  countIsEstimate: boolean // true when total is from count=estimated
+  countLoading: boolean // true while the exact count is being fetched
   error: string | null
 }
 
@@ -106,7 +105,6 @@ export const searchResultAtom = atom<SearchResult>({
   total: null,
   loading: false,
   countLoading: false,
-  countIsEstimate: false,
   error: null,
 })
 
@@ -412,7 +410,6 @@ export const performSearchAtom = atom(null, async (get, set) => {
       total: null,
       loading: false,
       countLoading: false,
-      countIsEstimate: false,
       error: "Search client not initialized.",
     });
     return;
@@ -423,13 +420,12 @@ export const performSearchAtom = atom(null, async (get, set) => {
     ...prev,
     loading: true,
     countLoading: true,
-    countIsEstimate: false,
     error: null,
   }));
 
   // Detect tail-page condition: when the page is in the back half of results,
   // reverse the sort so the DB walks the index from the other end (fast offset).
-  // Use prevResult.total (from prior search) or estimated count to decide strategy.
+  // Use prevResult.total (from prior search) or this search's exact count to decide strategy.
   // fetchedExactCount tracks whether we already fetched the exact count for the
   // current params (to avoid a redundant second count fetch).
   const hintTotal = prevResult.total;
@@ -441,31 +437,29 @@ export const performSearchAtom = atom(null, async (get, set) => {
   let tailTotal: number | null = null;
 
   if (forwardOffset > LARGE_OFFSET_THRESHOLD) {
-    // First try using the previous total as a hint
-    let estimatedTotal = hintTotal;
-
-    // If no hint, fetch estimated count (fast) to decide strategy
-    if (estimatedTotal === null) {
+    // The previous total is the hint; without one, the exact count decides.
+    let knownTotal = hintTotal;
+    if (knownTotal === null) {
       try {
-        estimatedTotal = await getStatisticalUnitsEstimatedCount(postgrestClient, derivedApiParams, signal);
+        fetchedExactCount = await getStatisticalUnitsExactCount(postgrestClient, derivedApiParams, signal);
+        knownTotal = fetchedExactCount;
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
       }
     }
 
-    if (estimatedTotal !== null && estimatedTotal > 0) {
-      const estLastPage = Math.ceil(estimatedTotal / pagination.pageSize);
-      const estMidPage = Math.ceil(estLastPage / 2);
-      if (pagination.page > estMidPage) {
-        // We're in the tail — need exact count for precise reversed offset
+    if (knownTotal !== null && knownTotal > 0) {
+      const lastPage = Math.ceil(knownTotal / pagination.pageSize);
+      const midPage = Math.ceil(lastPage / 2);
+      if (pagination.page > midPage) {
+        // We're in the tail: the reversed offset needs this search's exact count.
         try {
-          fetchedExactCount = await getStatisticalUnitsExactCount(postgrestClient, derivedApiParams, signal);
+          fetchedExactCount ??= await getStatisticalUnitsExactCount(postgrestClient, derivedApiParams, signal);
           tailTotal = fetchedExactCount;
           isTailPage = true;
           set(searchResultAtom, (prev) => ({
             ...prev,
             total: fetchedExactCount,
-            countIsEstimate: false,
             countLoading: false,
           }));
         } catch (err) {
@@ -481,38 +475,28 @@ export const performSearchAtom = atom(null, async (get, set) => {
     : derivedApiParams;
 
   try {
-    // Fetch data (+ estimated count if we don't have one yet)
-    const dataResponse = await getStatisticalUnitsData(
+    const statisticalUnits = await getStatisticalUnitsData(
       postgrestClient,
       fetchParams,
       signal
     );
 
     // If tail-page reversal was used, reverse the data back to original order
-    const data = isTailPage
-      ? [...dataResponse.statisticalUnits].reverse()
-      : dataResponse.statisticalUnits;
+    const data = isTailPage ? [...statisticalUnits].reverse() : statisticalUnits;
 
-    // Use tail total if we have it, otherwise use the estimated count from data response
-    const estimatedCount = tailTotal ?? dataResponse.estimatedCount;
-
-    // Update with data + estimated count immediately
+    // The rows show at once; the total follows from one exact count (fc9xbd).
     set(searchResultAtom, (prev) => ({
       ...prev,
       data,
-      total: estimatedCount,
       loading: false,
-      countIsEstimate: true,
-      // countLoading stays true - exact count still pending
     }));
 
-    // Step 2: Fetch exact count in background (skip if we already fetched it for tail-page)
+    // Count once: skipped when the tail-page decision already counted.
     if (fetchedExactCount !== null) {
       set(searchResultAtom, (prev) => ({
         ...prev,
         total: fetchedExactCount,
         countLoading: false,
-        countIsEstimate: false,
       }));
     } else {
       try {
@@ -526,18 +510,17 @@ export const performSearchAtom = atom(null, async (get, set) => {
           ...prev,
           total: exactCount,
           countLoading: false,
-          countIsEstimate: false,
         }));
       } catch (countError) {
         if (countError instanceof DOMException && countError.name === 'AbortError') {
           return;
         }
         console.warn("Failed to fetch exact count:", countError);
-        // Keep estimated count as fallback
+        // The total is unknown: the count shows as not available.
         set(searchResultAtom, (prev) => ({
           ...prev,
+          total: null,
           countLoading: false,
-          // Keep countIsEstimate: true and existing estimated total
         }));
       }
     }
@@ -551,7 +534,6 @@ export const performSearchAtom = atom(null, async (get, set) => {
       ...prev,
       loading: false,
       countLoading: false,
-      countIsEstimate: false,
       error: error instanceof Error ? error.message : "Search operation failed",
     }));
     throw error;

@@ -18,7 +18,6 @@ jest.mock("./base-data", () => {
 });
 jest.mock("../app/search/search-requests", () => ({
   getStatisticalUnitsData: jest.fn(),
-  getStatisticalUnitsEstimatedCount: jest.fn(),
   getStatisticalUnitsExactCount: jest.fn(),
 }));
 

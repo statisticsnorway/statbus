@@ -1,16 +1,10 @@
 "use client";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
-import {
-  EstimatedCount,
-  useShownCount,
-  useDataVersion,
-} from "@/components/estimated-count";
+import { ExactCount, useExactCount } from "@/components/exact-count";
 import { AlertTriangle } from "lucide-react";
 import { useTimeFrame } from "@/atoms/app-derived";
-import { useState, useCallback } from "react";
-import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { PostgrestError } from "@supabase/postgrest-js";
+import { useCallback } from "react";
 import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
 import {
   QUALITY_CARD_UNIT_TYPES,
@@ -23,77 +17,36 @@ export const MISSING_ACTIVITY_CATEGORY_HREF = `/search?${QUALITY_CARD_UNIT_TYPE_
 // STATBUS-460: counts legal units and establishments that EXIST at the selected
 // instant (canonical rule, lib/unit-existence.ts) and lack a primary activity
 // category, so the number matches what the Statistical Units list shows when clicked.
+const countMissingActivityCategory = async (validOn: string) => {
+  const client = await getBrowserRestClient();
+  return client
+    .from("statistical_unit")
+    .select("", { count: "exact" })
+    .is("primary_activity_category_path", null)
+    .in("unit_type", [...QUALITY_CARD_UNIT_TYPES])
+    .lte(EXISTENCE_FROM, validOn)
+    .gt(EXISTENCE_UNTIL, validOn)
+    .limit(0);
+};
+
 export const MissingActivityCategoryCard = () => {
   const { selectedTimeFrame } = useTimeFrame();
-  // A new data version refetches the estimate (see useDataVersion).
-  const dataVersion = useDataVersion();
-
-  const [data, setData] = useState<{
-    count: number | null;
-    error: PostgrestError | null;
-  }>({ count: null, error: null });
-
-  useGuardedEffect(
-    () => {
-      const fetchData = async (validOn: string) => {
-        const client = await getBrowserRestClient();
-        // Use estimated count for fast loading
-        const { count, error } = await client
-          .from("statistical_unit")
-          .select("", { count: "estimated" })
-          .is("primary_activity_category_path", null)
-          .in("unit_type", [...QUALITY_CARD_UNIT_TYPES])
-          .lte(EXISTENCE_FROM, validOn)
-          .gt(EXISTENCE_UNTIL, validOn)
-          .limit(0);
-
-        return { count, error };
-      };
-
-      const fetchDataAsync = async () => {
-        if (selectedTimeFrame?.valid_on) {
-          const result = await fetchData(selectedTimeFrame.valid_on);
-          setData(result);
-        }
-      };
-
-      fetchDataAsync();
-    },
-    [selectedTimeFrame, dataVersion],
-    "MissingActivityCategoryCard:fetchData"
+  const validOn = selectedTimeFrame?.valid_on ?? null;
+  const countUnits = useCallback(
+    () => countMissingActivityCategory(validOn!),
+    [validOn]
   );
-
-  const { count, error } = data;
-
-  // Callback to fetch exact count when user requests it
-  const handleGetExact = useCallback(async (): Promise<number | null> => {
-    if (!selectedTimeFrame?.valid_on) return null;
-    const client = await getBrowserRestClient();
-    const { count: exactCount } = await client
-      .from("statistical_unit")
-      .select("", { count: "exact" })
-      .is("primary_activity_category_path", null)
-      .in("unit_type", [...QUALITY_CARD_UNIT_TYPES])
-      .lte(EXISTENCE_FROM, selectedTimeFrame.valid_on)
-      .gt(EXISTENCE_UNTIL, selectedTimeFrame.valid_on)
-      .limit(0);
-    return exactCount;
-  }, [selectedTimeFrame]);
-
-  const cacheKey = `missing-activity-${selectedTimeFrame?.valid_on ?? "default"}`;
-  const shownCount = useShownCount(cacheKey, count);
-
+  const { count, failed } = useExactCount(
+    validOn ? `missing-activity-${validOn}` : null,
+    countUnits
+  );
   return (
     <DashboardCard
       title="Units Missing Activity Category"
       icon={<AlertTriangle className="h-4" />}
-      failed={!!error || (shownCount ?? 0) > 0}
+      failed={failed || (count ?? 0) > 0}
     >
-      <EstimatedCount
-        estimatedCount={count}
-        onGetExact={handleGetExact}
-        cacheKey={cacheKey}
-      />
+      <ExactCount count={count} failed={failed} />
     </DashboardCard>
   );
 };

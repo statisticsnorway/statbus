@@ -29,6 +29,7 @@ import {
 import {
   setupRedirectCheckAtom,
   redirectRelevantStateAtom,
+  timeFrameAutoSelectEffectAtom,
   useAppReady,
 } from "./app-derived";
 import { restClientAtom } from "./rest-client";
@@ -104,6 +105,9 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   useAtomValue(logoutEffectAtom);
   // Activate cache invalidation after dormant session resumes
   useAtomValue(postRefreshCacheInvalidationEffectAtom);
+  // Keep a valid time frame selected on every page, so a page opened directly
+  // (a fresh browser on /dashboard or /search) has one to count and search at.
+  useAtomValue(timeFrameAutoSelectEffectAtom);
 
   const authStatusDetails = useAtomValue(authStatusDetailsAtom);
   const isAuthenticated = useAtomValue(isUserConsideredAuthenticatedForUIAtom);

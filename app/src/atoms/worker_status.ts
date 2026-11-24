@@ -10,7 +10,7 @@
 import { atom } from 'jotai';
 import { useAtomValue } from 'jotai';
 import { refreshBaseDataAtom, invalidateHasStatisticalUnitsCache } from './base-data';
-import { invalidateExactCountsCache, refreshDataVersion } from '@/components/estimated-count';
+import { invalidateExactCountsCache, refreshDataVersion } from '@/components/exact-count';
 import { searchPageDataReadyAtom } from './search';
 import { restClientAtom } from './rest-client';
 import { isAuthenticatedStrictAtom } from './auth';

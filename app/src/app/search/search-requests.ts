@@ -3,14 +3,6 @@ import { Database } from '@/lib/database.types';
 import { SearchResult } from './search';
 import { fetchWithAuth, fetchWithAuthRefresh, getServerRestClient } from '@/context/RestClientStore';
 
-/**
- * Result type for data fetch with estimated count.
- */
-export interface SearchDataResult {
-  statisticalUnits: SearchResult['statisticalUnits'];
-  estimatedCount: number | null;
-}
-
 function parseContentRangeCount(response: Response): number | null {
   const count_str = response.headers.get("content-range")?.split("/")[1];
   if (!count_str || count_str === "*") return null;
@@ -22,14 +14,16 @@ async function getRestClient(client: PostgrestClient<Database> | null): Promise<
 }
 
 /**
- * Fetch statistical units data with estimated count (fast).
- * Returns rows + planner estimate in a single request.
+ * Fetch one page of statistical units, without a count: the total comes from
+ * getStatisticalUnitsExactCount, so the page shows while the count runs.
+ * (PostgREST's count=estimated runs the exact count when db-max-rows is unset,
+ * fc9xbd, so asking for it here would count twice.)
  */
 export async function getStatisticalUnitsData(
   client: PostgrestClient<Database> | null = null,
   searchParams: URLSearchParams,
   signal?: AbortSignal
-): Promise<SearchDataResult> {
+): Promise<SearchResult['statisticalUnits']> {
   const isServer = typeof window === 'undefined';
   client = await getRestClient(client);
 
@@ -42,8 +36,6 @@ export async function getStatisticalUnitsData(
     method: "GET",
     signal,
     headers: {
-      Prefer: "count=estimated",
-      "Range-Unit": "items",
       "Content-Type": "application/json",
       "Accept": "application/json",
     },
@@ -53,57 +45,12 @@ export async function getStatisticalUnitsData(
     throw new Error(`Error: ${response.statusText} (Status: ${response.status})`);
   }
 
-  const data = await response.json();
-
-  return {
-    statisticalUnits: data,
-    estimatedCount: parseContentRangeCount(response),
-  };
+  return response.json();
 }
 
 /**
- * Fetch estimated count for statistical units (fast, uses planner estimate).
- * Used to decide pagination strategy before fetching data.
- */
-export async function getStatisticalUnitsEstimatedCount(
-  client: PostgrestClient<Database> | null = null,
-  searchParams: URLSearchParams,
-  signal?: AbortSignal
-): Promise<number | null> {
-  const isServer = typeof window === 'undefined';
-  client = await getRestClient(client);
-
-  const baseUrl = client.url.endsWith('/') ? client.url : `${client.url}/`;
-
-  const countParams = new URLSearchParams(searchParams);
-  countParams.set('limit', '0');
-  countParams.set('offset', '0');
-
-  const url = new URL(`statistical_unit?${countParams}`, baseUrl);
-
-  const fetcher = isServer ? fetchWithAuth : fetchWithAuthRefresh;
-
-  const response = await fetcher(url.toString(), {
-    method: "HEAD",
-    signal,
-    headers: {
-      Prefer: "count=estimated",
-      "Range-Unit": "items",
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Error: ${response.statusText} (Status: ${response.status})`);
-  }
-
-  return parseContentRangeCount(response);
-}
-
-/**
- * Fetch exact count for statistical units (slow on large datasets).
- * Use in background after table has rendered with estimated count.
+ * Fetch the exact count for statistical units: one count per search, run
+ * after the page of rows has shown.
  */
 export async function getStatisticalUnitsExactCount(
   client: PostgrestClient<Database> | null = null,
@@ -139,42 +86,4 @@ export async function getStatisticalUnitsExactCount(
   }
 
   return parseContentRangeCount(response) ?? 0;
-}
-
-/**
- * Fetch statistical units with exact count (used by CSV export).
- * This is intentionally slow (count=exact) since the export fetches up to 100k rows anyway.
- */
-export async function getStatisticalUnits(
-  client: PostgrestClient<Database> | null = null,
-  searchParams: URLSearchParams
-): Promise<SearchDataResult> {
-  const isServer = typeof window === 'undefined';
-  client = await getRestClient(client);
-
-  const baseUrl = client.url.endsWith('/') ? client.url : `${client.url}/`;
-  const url = new URL(`statistical_unit?${searchParams}`, baseUrl);
-
-  const fetcher = isServer ? fetchWithAuth : fetchWithAuthRefresh;
-
-  const response = await fetcher(url.toString(), {
-    method: "GET",
-    headers: {
-      Prefer: "count=exact",
-      "Range-Unit": "items",
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Error: ${response.statusText} (Status: ${response.status})`);
-  }
-
-  const data = await response.json();
-
-  return {
-    statisticalUnits: data,
-    estimatedCount: parseContentRangeCount(response),
-  };
 }

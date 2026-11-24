@@ -1,16 +1,10 @@
 "use client";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
-import {
-  EstimatedCount,
-  useShownCount,
-  useDataVersion,
-} from "@/components/estimated-count";
+import { ExactCount, useExactCount } from "@/components/exact-count";
 import { AlertTriangle } from "lucide-react";
 import { useTimeFrame } from "@/atoms/app-derived";
-import { useState, useCallback } from "react";
-import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { PostgrestError } from "@supabase/postgrest-js";
+import { useCallback } from "react";
 import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
 import {
   QUALITY_CARD_UNIT_TYPES,
@@ -23,14 +17,11 @@ import {
 // location has no region either but is counted on the Units Missing Physical
 // Location card, so each problem shows on one card (pkne34). The number
 // matches the Statistical Units list the card links to (MISSING_REGION_HREF).
-const countMissingRegion = async (
-  validOn: string,
-  count: "estimated" | "exact"
-) => {
+const countMissingRegion = async (validOn: string) => {
   const client = await getBrowserRestClient();
   return client
     .from("statistical_unit")
-    .select("", { count })
+    .select("", { count: "exact" })
     .is("physical_region_path", null)
     .is("domestic", true)
     .not("physical_country_id", "is", null)
@@ -45,48 +36,19 @@ export const MISSING_REGION_HREF = `/search?${QUALITY_CARD_UNIT_TYPE_PARAM}&phys
 
 export const MissingRegionCard = () => {
   const { selectedTimeFrame } = useTimeFrame();
-  // A new data version refetches the estimate (see useDataVersion).
-  const dataVersion = useDataVersion();
-  const [data, setData] = useState<{
-    count: number | null;
-    error: PostgrestError | null;
-  }>({ count: null, error: null });
-
-  useGuardedEffect(
-    () => {
-      const validOn = selectedTimeFrame?.valid_on;
-      if (!validOn) return;
-      countMissingRegion(validOn, "estimated").then(({ count, error }) =>
-        setData({ count, error })
-      );
-    },
-    [selectedTimeFrame, dataVersion],
-    "MissingRegionCard:fetchData"
+  const validOn = selectedTimeFrame?.valid_on ?? null;
+  const countUnits = useCallback(() => countMissingRegion(validOn!), [validOn]);
+  const { count, failed } = useExactCount(
+    validOn ? `missing-region-${validOn}` : null,
+    countUnits
   );
-
-  const handleGetExact = useCallback(async (): Promise<number | null> => {
-    if (!selectedTimeFrame?.valid_on) return null;
-    const { count } = await countMissingRegion(
-      selectedTimeFrame.valid_on,
-      "exact"
-    );
-    return count;
-  }, [selectedTimeFrame]);
-
-  const { count, error } = data;
-  const cacheKey = `missing-region-${selectedTimeFrame?.valid_on ?? "default"}`;
-  const shownCount = useShownCount(cacheKey, count);
   return (
     <DashboardCard
       title="Units Missing Region"
       icon={<AlertTriangle className="h-4" />}
-      failed={!!error || (shownCount ?? 0) > 0}
+      failed={failed || (count ?? 0) > 0}
     >
-      <EstimatedCount
-        estimatedCount={count}
-        onGetExact={handleGetExact}
-        cacheKey={cacheKey}
-      />
+      <ExactCount count={count} failed={failed} />
     </DashboardCard>
   );
 };

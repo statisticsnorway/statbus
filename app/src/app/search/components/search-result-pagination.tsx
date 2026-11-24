@@ -61,7 +61,7 @@ export default function SearchResultPagination() {
               <Loader2 className="h-3 w-3 animate-spin" />
             </span>
           ) : (
-            `${searchResult.countIsEstimate ? '~' : ''}${totalPages.toLocaleString()}`
+            totalPages.toLocaleString()
           )}
         </li>
         <PaginationItem>

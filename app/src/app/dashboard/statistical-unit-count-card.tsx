@@ -2,11 +2,9 @@
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
-import { EstimatedCount, useDataVersion } from "@/components/estimated-count";
-import { useTimeFrame } from '@/atoms/app-derived';
-import { useState, useCallback } from "react";
-import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { PostgrestError } from "@supabase/postgrest-js";
+import { ExactCount, useExactCount } from "@/components/exact-count";
+import { useTimeFrame } from "@/atoms/app-derived";
+import { useCallback } from "react";
 import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
 
 export const StatisticalUnitCountCard = ({
@@ -17,72 +15,37 @@ export const StatisticalUnitCountCard = ({
   readonly title: string;
 }) => {
   const { selectedTimeFrame } = useTimeFrame();
-  // A new data version refetches the estimate (see useDataVersion).
-  const dataVersion = useDataVersion();
+  const validOn = selectedTimeFrame?.valid_on ?? null;
 
-  const [data, setData] = useState<{ count: number | null; error: PostgrestError | null }>({ count: null, error: null });
-
-  // The card asks the count itself; an empty register answers 0. It does not
-  // take "no units" from hasStatisticalUnitsAtom, which is false until base
-  // data has loaded and would show (and save) an exact 0 for a full register.
-  useGuardedEffect(() => {
-    // STATBUS-460: the card counts units that EXIST at valid_on by the canonical
-    // rule (existence_from/existence_until, see lib/unit-existence.ts) and are
-    // used for counting (status), which is exactly the Reports Units-over-time
-    // chart's countable_count, so card and chart agree bar for bar.
-    const fetchData = async (validOn: string) => {
-      const client = await getBrowserRestClient();
-      // Use estimated count for fast loading
-      const { count, error } = await client
-        .from("statistical_unit")
-        .select("", { count: "estimated" })
-        .eq("unit_type", unitType)
-        .lte(EXISTENCE_FROM, validOn)
-        .gt(EXISTENCE_UNTIL, validOn)
-        .eq("used_for_counting", true)
-        .limit(0);
-
-      return { count, error };
-    };
-
-    const fetchDataAsync = async () => {
-      if (selectedTimeFrame?.valid_on){
-      const result = await fetchData(selectedTimeFrame.valid_on);
-      setData(result);
-      }
-    };
-
-    fetchDataAsync();
-  }, [selectedTimeFrame, unitType, dataVersion], `StatisticalUnitCountCard:${unitType}:fetchData`);
-
-  const { count, error } = data;
-
-  // Callback to fetch exact count when user requests it
-  const handleGetExact = useCallback(async (): Promise<number | null> => {
-    if (!selectedTimeFrame?.valid_on) return null;
+  // STATBUS-460: the card counts units that EXIST at valid_on by the canonical
+  // rule (existence_from/existence_until, see lib/unit-existence.ts) and are
+  // used for counting (status), which is exactly the Reports Units-over-time
+  // chart's countable_count, so card and chart agree bar for bar. The card
+  // counts for itself: an empty register answers 0.
+  const countUnits = useCallback(async () => {
     const client = await getBrowserRestClient();
-    const { count: exactCount } = await client
+    return client
       .from("statistical_unit")
       .select("", { count: "exact" })
       .eq("unit_type", unitType)
-      .lte(EXISTENCE_FROM, selectedTimeFrame.valid_on)
-      .gt(EXISTENCE_UNTIL, selectedTimeFrame.valid_on)
+      .lte(EXISTENCE_FROM, validOn!)
+      .gt(EXISTENCE_UNTIL, validOn!)
       .eq("used_for_counting", true)
       .limit(0);
-    return exactCount;
-  }, [selectedTimeFrame, unitType]);
+  }, [unitType, validOn]);
+
+  const { count, failed } = useExactCount(
+    validOn ? `${unitType}-${validOn}` : null,
+    countUnits
+  );
 
   return (
     <DashboardCard
       title={title}
       icon={<StatisticalUnitIcon type={unitType} className="h-4" />}
-      failed={!!error}
+      failed={failed}
     >
-      <EstimatedCount
-        estimatedCount={count}
-        onGetExact={handleGetExact}
-        cacheKey={`${unitType}-${selectedTimeFrame?.valid_on ?? 'default'}`}
-      />
+      <ExactCount count={count} failed={failed} />
     </DashboardCard>
   );
 };
