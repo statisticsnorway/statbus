@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CircleHelp, Maximize2, Minimize2 } from "lucide-react";
+import { CircleHelp, Maximize2, Minimize2, SquareArrowOutUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent } from "maplibre-gl";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
@@ -31,6 +31,8 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
   const [spider, setSpider] = useState<SpiderStack | null>(null);
   const [spiderKey, setSpiderKey] = useState<string | null>(null);
   const closeSpider = useCallback(() => setSpider(null), [setSpider]);
+  // The unit picked in the list, shown on the map: the map centres on it and marks it.
+  const [focused, setFocused] = useState<string | null>(null);
   // Expand fills the window with the map; Escape or the button brings it back to the page.
   const [expanded, setExpanded] = useState(false);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -252,6 +254,20 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
       }
+      // The unit picked in the list: a dark halo round its place, under nothing, so it shows
+      // whether the unit is a dot of its own or inside a group there.
+      map.addSource("focused-unit", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({
+        id: "focused-unit-halo",
+        type: "circle",
+        source: "focused-unit",
+        paint: {
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-radius": 16,
+          "circle-stroke-color": "#111827",
+          "circle-stroke-width": 2.5,
+        },
+      });
       map.on("click", "current-unit-point", (e: MapLayerMouseEvent) => {
         const f = e.features?.[0];
         if (f) setPicked([f.properties as UnitPointProperties, ...alsoHereRef.current]);
@@ -282,14 +298,17 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         setSpiderKey(null);
         setSpider({ coordinates: (leaves[0].geometry as GeoJSON.Point).coordinates as [number, number], units });
       });
-      // A click on the map away from every unit closes the spider.
+      // A click on the map away from every unit closes the spider and clears the picked unit's halo.
       map.on("click", (e) => {
         const hit = map.queryRenderedFeatures(e.point, { layers: ["unit-groups", "unit-points", "current-unit-point"] });
-        if (hit.length === 0) setSpider(null);
+        if (hit.length > 0) return;
+        setSpider(null);
+        setFocused(null);
+        (map.getSource("focused-unit") as GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: [] });
       });
       setReadyMap(map);
     },
-    [fit, setPicked, setSpider, setSpiderKey, setReadyMap]
+    [fit, setPicked, setSpider, setSpiderKey, setReadyMap, setFocused]
   );
 
   useGuardedEffect(
@@ -356,6 +375,46 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
     "UnitsMap:expanded"
   );
 
+  // A click on a listed unit shows it on the map, the list kept (owner 2026-11-24). A unit at
+  // its address: the map centres on it at street level at least, and a halo marks it. A unit
+  // somewhere in its region: the map centres on the region at region level, since street level
+  // would claim a place it does not have; if it shares that place with others, their stack opens
+  // as a spider with the unit's node marked. The list stays as it was.
+  const showOnMap = useCallback(
+    (u: UnitPointProperties) => {
+      const map = mapRef.current;
+      const key = `${u.unit_type}:${u.id}`;
+      setFocused(key);
+      const f = shownRef.current.find((s) => s.properties.unit_type === u.unit_type && s.properties.id === u.id);
+      if (!map || !f) return;
+      const at = f.geometry.coordinates as [number, number];
+      const halo = (on: boolean) =>
+        (map.getSource("focused-unit") as GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: on ? [f] : [] });
+      if (u.placed === "point") {
+        setSpider(null);
+        halo(true);
+        map.easeTo({ center: at, zoom: Math.max(map.getZoom(), 14) });
+        return;
+      }
+      halo(false);
+      map.easeTo({ center: at, zoom: 10 });
+      map.once("moveend", async () => {
+        const source = map.getSource("units") as GeoJSONSource;
+        for (const g of map.queryRenderedFeatures(map.project(at), { layers: ["unit-groups"] })) {
+          const leaves = await source.getClusterLeaves(g.properties.cluster_id as number, 10000, 0);
+          if (!leaves.some((l) => l.properties?.unit_type === u.unit_type && l.properties?.id === u.id)) continue;
+          if (new Set(leaves.map((l) => (l.geometry as GeoJSON.Point).coordinates.join(","))).size > 1) break;
+          setSpiderKey(null);
+          setSpider({ coordinates: at, units: leaves.map((l) => l.properties as UnitPointProperties) });
+          return;
+        }
+        // Not in a stack: its own ring at the region's centre, marked.
+        halo(true);
+      });
+    },
+    [setFocused, setSpider, setSpiderKey]
+  );
+
   if (!points) return null;
   const unplaced = points.total - points.atPoint - points.atRegion;
   // A list from one circle is headed by its region when all its units share one.
@@ -390,6 +449,7 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
               map={readyMap}
               stack={spider}
               selectedKey={spiderKey}
+              focusedUnit={focused}
               onPick={(key, units) => {
                 setSpiderKey(key);
                 setPicked(units);
@@ -407,33 +467,55 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
                     {regionName ? `${picked.length} in ${regionName}` : `${picked.length} units`}
                   </p>
                 )}
-                <ul className="space-y-1">
-                  {picked.map((u) => (
-                    <li key={`${u.unit_type}:${u.id}`} className="flex items-start gap-2">
-                      {/* The unit type's marker: a legal unit and its establishment often share a name. */}
-                      <span
-                        className={`mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full ${
-                          u.placed === "point"
-                            ? u.unit_type === "legal_unit" ? "bg-legal_unit-500" : "bg-establishment-500"
-                            : `border-2 bg-white ${u.unit_type === "legal_unit" ? "border-legal_unit-500" : "border-establishment-500"}`
-                        }`}
-                        title={u.unit_type === "legal_unit" ? "Legal unit" : "Establishment"}
-                        aria-hidden
-                      />
-                      <span>
-                        <Link className="underline underline-offset-2" href={u.href}>
-                          {u.name}
+                <ul className="space-y-0.5">
+                  {picked.map((u) => {
+                    const key = `${u.unit_type}:${u.id}`;
+                    return (
+                      <li
+                        key={key}
+                        className={`group flex items-start gap-1 rounded hover:bg-gray-100 ${focused === key ? "bg-gray-100" : ""}`}
+                        data-picked-unit={key}
+                      >
+                        {/* A click on the row shows the unit on the map; the arrow opens its page (owner 2026-11-24).
+                            The row's background covers both, so they read as one row with two actions. */}
+                        <button
+                          type="button"
+                          className="flex min-w-0 flex-1 items-start gap-2 rounded px-1 py-0.5 text-left"
+                          onClick={() => showOnMap(u)}
+                          title="Show on the map"
+                        >
+                          {/* The unit type's marker: a legal unit and its establishment often share a name. */}
+                          <span
+                            className={`mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full ${
+                              u.placed === "point"
+                                ? u.unit_type === "legal_unit" ? "bg-legal_unit-500" : "bg-establishment-500"
+                                : `border-2 bg-white ${u.unit_type === "legal_unit" ? "border-legal_unit-500" : "border-establishment-500"}`
+                            }`}
+                            title={u.unit_type === "legal_unit" ? "Legal unit" : "Establishment"}
+                            aria-hidden
+                          />
+                          <span className="min-w-0">
+                            <span className="break-words">{u.name}</span>
+                            <span className="ml-1 text-xs text-gray-500">
+                              {u.unit_type === "legal_unit" ? "legal unit" : "establishment"}
+                              {u.current ? ", this unit" : ""}
+                            </span>
+                            {u.placed === "region" && picked.length === 1 && (
+                              <span className="block text-xs text-gray-500">Somewhere in {u.region_name}</span>
+                            )}
+                          </span>
+                        </button>
+                        <Link
+                          href={u.href}
+                          className="mt-0.5 shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
+                          title={`Open ${u.name}`}
+                          aria-label={`Open ${u.name}`}
+                        >
+                          <SquareArrowOutUpRight className="h-3.5 w-3.5" />
                         </Link>
-                        <span className="ml-1 text-xs text-gray-500">
-                          {u.unit_type === "legal_unit" ? "legal unit" : "establishment"}
-                          {u.current ? ", this unit" : ""}
-                        </span>
-                        {u.placed === "region" && picked.length === 1 && (
-                          <span className="block text-xs text-gray-500">Somewhere in {u.region_name}</span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
               </>
             ) : (

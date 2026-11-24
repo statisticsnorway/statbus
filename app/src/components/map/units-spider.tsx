@@ -34,6 +34,7 @@ export function UnitsSpider({
   map,
   stack,
   selectedKey,
+  focusedUnit = null,
   onPick,
   onClose,
 }: {
@@ -41,6 +42,8 @@ export function UnitsSpider({
   stack: SpiderStack;
   /** The node whose units are listed, or null for the hub (all of them). */
   selectedKey: string | null;
+  /** The unit picked in the list ("legal_unit:20"): its node is marked. */
+  focusedUnit?: string | null;
   onPick: (key: string | null, units: UnitPointProperties[]) => void;
   onClose: () => void;
 }) {
@@ -113,8 +116,9 @@ export function UnitsSpider({
             data-spider-node={n.key}
           >
             <title>{label}</title>
-            {/* The listed node gets a dark ring outside its own, so its type colour stays. */}
-            {selectedKey === n.key && (
+            {/* The listed node, or the node holding the unit picked in the list, gets a dark ring
+                outside its own, so its type colour stays. */}
+            {(selectedKey === n.key || n.units.some((u) => `${u.unit_type}:${u.id}` === focusedUnit)) && (
               <circle cx={c + n.x} cy={c + n.y} r={(single ? 8 : NODE_RADIUS) + 4} fill="none" stroke="#111827" strokeWidth={2} />
             )}
             <circle
