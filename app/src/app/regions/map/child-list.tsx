@@ -1,11 +1,10 @@
 "use client";
 
 import { useRef } from "react";
-import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { UNIT_TYPE_LABEL, UNIT_TYPE_SWATCH, selectedTotal, type MapUnitType } from "@/components/map/map-data";
+import { OpenInSearch } from "./open-in-search";
 
 /** One child of the selection as the list shows it: a region, or a country at the World level. */
 export interface ChildRow {
@@ -22,9 +21,10 @@ export interface ChildRow {
 /**
  * The children of the Regions map's selection, as a list beside the map (owner 2026-11-24, as on a
  * unit's Map page): each row its name and the units of the picked types, largest first. A click on
- * a row picks it, as a click on its circle does: the row opens with its units per type and View and
- * download, and the circle is ringed. The arrow at the end of a row goes in, as a double click on
- * its circle does. The picked row scrolls into view when it is picked on the map.
+ * a row picks it, as a click on its circle does: the row opens with its units per type, the square
+ * arrow opens them in the search, and the circle is ringed. The chevron at the end of a row goes
+ * in, as a double click on its circle does. The picked row scrolls into view when it is picked on
+ * the map.
  */
 export function ChildList({
   heading,
@@ -74,6 +74,7 @@ export function ChildList({
                   </span>
                   <span className="tabular-nums text-gray-600">{selectedTotal(r.counts, unitTypes).toLocaleString()}</span>
                 </button>
+                {isPicked && <OpenInSearch href={searchFor(r.path)} name={r.name} data-child-search={r.path} />}
                 {r.canEnter ? (
                   <button
                     type="button"
@@ -98,9 +99,6 @@ export function ChildList({
                       <span className="tabular-nums">{r.counts[t].toLocaleString()}</span>
                     </p>
                   ))}
-                  <Button asChild size="sm" variant="outline" className="mt-1 h-7 w-full">
-                    <Link href={searchFor(r.path)}>View and download</Link>
-                  </Button>
                 </div>
               )}
             </li>

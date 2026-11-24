@@ -17,6 +17,7 @@ import { UnitTypeLegend } from "@/components/map/unit-type-legend";
 import { BASEMAP_FONT } from "@/components/map/basemap";
 import { ViewControl } from "@/components/map/view-control";
 import { RegionSpiders } from "./region-spiders";
+import { OpenInSearch } from "./open-in-search";
 import { ChildList, type ChildRow } from "./child-list";
 import {
   MAP_UNIT_TYPES,
@@ -46,8 +47,9 @@ import {
  * the world, the installation's own country (where the page opens), a foreign country, or a
  * region. The map shows the selection's children, one circle each, sized by its units, and the
  * panel lists the same children (owner 2026-11-24, as on a unit's Map page). A click on a circle
- * or a row picks that child: its row opens with its units per type and View and download, and its
- * circle is ringed. A double click on a circle, or the row's arrow, goes in; the breadcrumb, the
+ * or a row picks that child: its row opens with its units per type, and its circle is ringed.
+ * The square arrow beside a name opens its units in the search. A double click on a circle, or
+ * the row's chevron, goes in; the breadcrumb, the
  * panel's X (one level up) and the fit button act on the selection.
  * Zooming and panning only move the view; they do not change what is shown.
  *
@@ -422,7 +424,8 @@ export default function RegionsMapPage() {
         </div>
         <aside className="flex w-72 shrink-0 flex-col border-l text-sm" data-regions-map-side="">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-          <section className="relative rounded border-2 border-gray-900 bg-gray-50 p-3" data-regions-map-selection="">
+          {/* The selection stays put at the top while the list below it scrolls (owner 2026-11-24). */}
+          <section className="sticky top-0 z-10 rounded border-2 border-gray-900 bg-gray-50 p-3 shadow-[0_-16px_0_0_white]" data-regions-map-selection="">
             {selection !== null && (
               <button
                 type="button"
@@ -437,9 +440,16 @@ export default function RegionsMapPage() {
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
               {selection === null ? "Everywhere" : depth === 0 ? "Selected country" : "Selected region"}
             </p>
-            <h2 className="font-medium">
-              {nameOf(selection)}
-              {depth > 0 && <span className="ml-1.5 text-xs font-normal text-gray-500">{selection}</span>}
+            <h2 className="flex items-center gap-1 pr-6 font-medium">
+              <span>
+                {nameOf(selection)}
+                {depth > 0 && <span className="ml-1.5 text-xs font-normal text-gray-500">{selection}</span>}
+              </span>
+              {selectionSearch && (
+                // Opens the selection's units in the search, as the square arrow opens a unit on a
+                // unit's Map page (owner 2026-11-24: one icon for leaving the map).
+                <OpenInSearch href={selectionSearch} name={nameOf(selection)} data-regions-map-view-units="" />
+              )}
             </h2>
             {selectedCounts ? (
               // One list of unit types: tick to show a type on the map and in the list the button
@@ -455,15 +465,6 @@ export default function RegionsMapPage() {
               <div className="mt-3 border-t pt-3">
                 <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} />
               </div>
-            )}
-            {selectionSearch && (
-              // The drilldown report's button (reports/drilldown/search-link.tsx), under the types it
-              // opens, so the two ways into the list read alike (owner 2026-11-23).
-              <Button asChild size="sm" className="mt-3 w-full">
-                <Link href={selectionSearch} data-regions-map-view-units="">
-                  View and download
-                </Link>
-              </Button>
             )}
             <p className="mt-2 text-xs text-gray-500" data-regions-map-level="">
               {selectedCountry
