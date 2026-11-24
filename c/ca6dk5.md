@@ -39,5 +39,6 @@ How it adds up today (doc/db, 2026-11-21): timeline_legal_unit stats_summary = t
 ## Notes
 
 
+Reproduced on the local Norway copy (BRREG, statbus slot, read-only; scripts and logs tmp/ca6dk5/). Reports 2026 (statistical_history): employees sum establishments 3,426,406, legal units 7,317,939, enterprises 7,317,939 (report-totals.log) = Erik's ~7.3 M. Registered values: 72,480 legal units carry an employee count (sum 3,891,533), 116,147 establishments (sum 3,426,406). Per legal unit (where-reported.log): LU only 412 (438,024); establishments only 28 (356); both and equal 68,384 (1,984,713 each, so counted twice); both, LU more 3,667 (LU 1,463,269 vs est 1,435,472); both, LU less 17. Added together 7,317,939; taking the larger of LU and its establishments 3,892,227. LU-more cases almost all have establishments without a value (3,662 of 3,667, difference 27,408), so the LU number covers establishments the register gives no count. LU-less 17 cases (338 people). Examples in examples.log (ISS 7,397 vs 6,878 over 117 establishments; Posten 10,413 = 10,413 over 124).
 ## History
 - 2026-11-24T11:13 todo -> doing/active (take with pkne34)
