@@ -61,5 +61,6 @@ landed 0651e55 on master 2026-11-24: quality: legal unit vs establishments check
 landed a04b30c on master 2026-11-24: db, app: the covers migration recalculates stored totals; quality link helper is…
 landed a39ff97 on master 2026-11-24: quality: one pass for both legal unit checks; review fixes (ca6dk5)
 landed e97e86f on master 2026-11-24: app: a failed "are there units" check no longer shows unit cards as an exact 0…
+Pushed 6561172b7..e97e86f58 to master. CI green at e97e86f58 (Fast Tests, Go Test, app build & lint, Images, Harness Selftest, Push on master). ./sb release check: all preflight checks pass at e97e86f58 (local fast/types/tsc/build/doc stamps at e97e86f58). Waiting for the owner's look on the Norway copy before ./sb release prerelease (check 6).
 ## History
 - 2026-11-24T11:13 todo -> doing/active (take with pkne34)
