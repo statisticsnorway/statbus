@@ -15,6 +15,10 @@ import {
   MISSING_ACTIVITY_CATEGORY_HREF,
 } from "@/app/dashboard/missing-activity-category-card";
 import { QualityEstablishmentActivityDiffersCard } from "@/app/dashboard/quality-establishment-activity-differs-card";
+import {
+  LegalUnitQualityCheckCard,
+  qualityCheckHref,
+} from "@/app/dashboard/legal-unit-quality-check-card";
 import { CustomActivityCategoryCard } from "@/app/dashboard/custom-activity-category-card";
 import { ActivityCategoryCard } from "@/app/dashboard/activity-category-card";
 import { StatisticalVariableCountCard } from "@/app/dashboard/statistical-variable-count-card";
@@ -121,6 +125,28 @@ export default function Dashboard() {
             fallback={<FallBackCard title="Establishment Activity Differs" />}
           >
             <QualityEstablishmentActivityDiffersCard />
+          </Suspense>
+        </Link>
+
+        <Link href={qualityCheckHref("establishments_above_legal_unit")}>
+          <Suspense
+            fallback={<FallBackCard title="Establishments Above Legal Unit" />}
+          >
+            <LegalUnitQualityCheckCard
+              check="establishments_above_legal_unit"
+              title="Establishments Above Legal Unit"
+            />
+          </Suspense>
+        </Link>
+
+        <Link href={qualityCheckHref("legal_unit_above_establishments")}>
+          <Suspense
+            fallback={<FallBackCard title="Legal Unit Above Establishments" />}
+          >
+            <LegalUnitQualityCheckCard
+              check="legal_unit_above_establishments"
+              title="Legal Unit Above Establishments"
+            />
           </Suspense>
         </Link>
 

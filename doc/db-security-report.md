@@ -113,6 +113,10 @@ each role can see and modify.
   - Policies: `power_root_admin_user_manage` (ALL → admin_user), `power_root_authenticated_read` (SELECT → authenticated), `power_root_regular_user_manage` (ALL → regular_user)
 - **`quality_establishment_activity_differs`** — RLS ON
   - Policies: `quality_establishment_activity_differs_admin_user_manage` (ALL → admin_user), `quality_establishment_activity_differs_authenticated_read` (SELECT → authenticated), `quality_establishment_activity_differs_regular_user_read` (SELECT → regular_user)
+- **`quality_establishments_above_legal_unit`** — RLS ON
+  - Policies: `quality_establishments_above_legal_unit_admin_user_manage` (ALL → admin_user), `quality_establishments_above_legal_unit_authenticated_read` (SELECT → authenticated), `quality_establishments_above_legal_unit_regular_user_read` (SELECT → regular_user)
+- **`quality_legal_unit_above_establishments`** — RLS ON
+  - Policies: `quality_legal_unit_above_establishments_admin_user_manage` (ALL → admin_user), `quality_legal_unit_above_establishments_authenticated_read` (SELECT → authenticated), `quality_legal_unit_above_establishments_regular_user_read` (SELECT → regular_user)
 - **`region`** — RLS ON
   - Policies: `region_admin_user_manage` (ALL → admin_user), `region_authenticated_read` (SELECT → authenticated), `region_regular_user_read` (SELECT → regular_user)
 - **`region_access`** — RLS ON
@@ -246,6 +250,7 @@ auto-updatable) also require INSERT.
 - **`legal_reorg_type_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_reorg_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_reorg_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_unit_establishment_stat_comparison`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`person_role_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`person_role_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`person_role_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -262,6 +267,8 @@ auto-updatable) also require INSERT.
 - **`power_group_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`power_group_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`quality_establishment_activity_differs_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`quality_establishments_above_legal_unit_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`quality_legal_unit_above_establishments_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`region_upload`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_version_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT

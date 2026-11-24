@@ -9,6 +9,7 @@ import {
 import React, { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { InfoBox } from "@/components/info-box";
+import { StatisticalVariableCounting } from "@/components/statistical-variable-counting";
 import { useImportManager, usePendingJobsByMode } from "@/atoms/import";
 import { ImportTimeFrameSelector } from "../components/time-frame-selector";
 import { ImportJobCreator } from "../components/import-job-creator";
@@ -177,6 +178,14 @@ export default function UploadEstablishmentsPage() {
               on the &quot;Time frame&quot; chosen above.
             </p>
             <ImportDemoFiles demoFile="formal_establishments_units_demo.csv" sourceDatesDemoFile="formal_establishments_units_with_source_dates_demo.csv" />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="Statistical variables">
+          <AccordionTrigger>
+            How do statistical variables on legal units and establishments add up?
+          </AccordionTrigger>
+          <AccordionContent>
+            <StatisticalVariableCounting />
           </AccordionContent>
         </AccordionItem>
       </Accordion>

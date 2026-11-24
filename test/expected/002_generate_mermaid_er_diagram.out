@@ -610,6 +610,22 @@ erDiagram
 		integer primary_establishment_id
 		integer primary_establishment_activity_category_id
 	}
+	quality_establishments_above_legal_unit["quality_establishments_above_legal_unit"] {
+		statistical_unit_type unit_type
+		integer unit_id
+		date valid_from
+		date valid_until
+		daterange valid_range
+		jsonb stats
+	}
+	quality_legal_unit_above_establishments["quality_legal_unit_above_establishments"] {
+		statistical_unit_type unit_type
+		integer unit_id
+		date valid_from
+		date valid_until
+		daterange valid_range
+		jsonb stats
+	}
 	region["region"] {
 		integer id
 		ltree path
@@ -1793,6 +1809,12 @@ erDiagram
 	quality_establishment_activity_differs }o--|| statistical_unit : quality_establishment_activity_differs_statistical_unit_fkey
 	quality_establishment_activity_differs }o--|| statistical_unit : quality_establishment_activity_differs_statistical_unit_fkey
 	quality_establishment_activity_differs }o--|| statistical_unit : quality_establishment_activity_differs_statistical_unit_fkey
+	quality_establishments_above_legal_unit }o--|| statistical_unit : quality_establishments_above_legal_unit_statistical_unit_fkey
+	quality_establishments_above_legal_unit }o--|| statistical_unit : quality_establishments_above_legal_unit_statistical_unit_fkey
+	quality_establishments_above_legal_unit }o--|| statistical_unit : quality_establishments_above_legal_unit_statistical_unit_fkey
+	quality_legal_unit_above_establishments }o--|| statistical_unit : quality_legal_unit_above_establishments_statistical_unit_fkey
+	quality_legal_unit_above_establishments }o--|| statistical_unit : quality_legal_unit_above_establishments_statistical_unit_fkey
+	quality_legal_unit_above_establishments }o--|| statistical_unit : quality_legal_unit_above_establishments_statistical_unit_fkey
 	region }o--o| region : region_parent_id_fkey
 	region }o--|| region_version : region_version_id_fkey
 	region_access }|--|| auth_user : region_access_user_id_fkey

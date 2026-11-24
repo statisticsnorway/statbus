@@ -86,6 +86,51 @@ The system as a whole either uses NACE (EU) or ISIC (UN) for economic activity c
 - Institutional sector
 - Legal form
 
+### 3.2.3 How Statistical Variables Add Up Between Legal Units and Establishments
+
+A legal unit's establishments are parts of it. The UN Guidelines on
+Statistical Business Registers [1] attach employment to every local unit and
+attribute each local unit to one enterprise; the Eurostat Business Registers
+Recommendations Manual [2] says that, as an enterprise consists of its local
+units, its labour force should equal the sum of theirs. A value such as the
+number of employees may be reported on the legal unit, on its establishments,
+or on both, and when it is on both it describes the same people.
+
+StatBus therefore counts a summed statistical variable (int, float) once per
+legal unit: **the legal unit's total is the larger of its own value and its
+establishments' sum**.
+
+| Reported on | Legal unit total |
+|---|---|
+| The legal unit only | its own value |
+| Its establishments only | their sum |
+| Both, equal | that value, once |
+| Both, the legal unit larger (the rest on the legal unit) | its own value, which covers the establishments |
+| Both, the establishments larger | their sum |
+
+An enterprise adds its legal units, and a power group adds its enterprises:
+those units do not overlap. A value that is not summed (text, yes/no) keeps
+the legal unit's own value. The database implements the rule once, as
+`public.jsonb_stats_covers` (see its comment), used when a legal unit's
+timeline is built.
+
+Two Data quality checks list where the levels disagree (dashboard cards and
+the search's Quality filter):
+
+- **Establishments Above Legal Unit**: the establishments add up to more
+  than the legal unit's own value. The parts exceed the whole, so one of the
+  levels is reported wrongly.
+- **Legal Unit Above Establishments**: the legal unit's own value is larger
+  while every one of its establishments has a value, so nothing explains the
+  rest. Often an establishment, such as the head office, is missing.
+
+A legal unit that is larger while some establishments have no value is not
+listed: its own value covers them.
+
+Example (Norway, BRREG, 2026): adding both levels gave 7,317,939 employees;
+counting each legal unit once gives 3,892,227. The checks list 17 and 5
+legal units.
+
 ### 3.3 Demographic Events
 - Births and deaths of units
 - Mergers and splits
@@ -202,7 +247,7 @@ The system as a whole either uses NACE (EU) or ISIC (UN) for economic activity c
 
 ## References
 
-1. UN Guidelines on Statistical Business Registers
-2. Eurostat Business Registers Recommendations Manual
+1. United Nations, *Guidelines on Statistical Business Registers* (UNECE, 2015), chapter 4, Statistical units: https://unstats.un.org/unsd/business-stat/SBR/Documents/UN_Guidelines_on_SBR.pdf
+2. Eurostat, *Business Registers Recommendations Manual* (2010 edition), chapter 5, the enterprise and local unit characteristics: https://ec.europa.eu/eurostat/web/products-manuals-and-guidelines/-/ks-32-10-216
 3. National statistical legislation and regulations
 4. International statistical standards and classifications

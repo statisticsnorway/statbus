@@ -49,6 +49,27 @@ describe("quality search filter", () => {
     });
   });
 
+  it.each([
+    "establishments_above_legal_unit",
+    "legal_unit_above_establishments",
+  ])(
+    "reads the legal unit and establishment check %s as its table's inner embed (ca6dk5)",
+    (check) => {
+      const action = qualityDeriveStateUpdateFromSearchParams(
+        new URLSearchParams(`unit_type=legal_unit&quality=${check}`)
+      );
+      expect(action).toEqual({
+        type: "set_query",
+        payload: {
+          app_param_name: QUALITY,
+          api_param_name: "select",
+          api_param_value: `*,quality_${check}!inner()`,
+          app_param_values: [check],
+        },
+      });
+    }
+  );
+
   it("ignores a check it does not know", () => {
     const action = qualityDeriveStateUpdateFromSearchParams(
       new URLSearchParams("quality=no_such_check")

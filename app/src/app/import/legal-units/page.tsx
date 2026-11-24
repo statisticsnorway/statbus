@@ -14,6 +14,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { InfoBox } from "@/components/info-box";
+import { StatisticalVariableCounting } from "@/components/statistical-variable-counting";
 import { PendingJobsList } from "../components/pending-jobs-list";
 import { ImportDemoFiles } from "../components/import-demo-files";
 import { statbusConfig } from '@/lib/statbus-config';
@@ -159,6 +160,14 @@ export default function LegalUnitsPage() {
               frame&quot; chosen above.
             </p>
             <ImportDemoFiles demoFile="legal_units_demo.csv" sourceDatesDemoFile="legal_units_with_source_dates_demo.csv" />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="Statistical variables">
+          <AccordionTrigger>
+            How do statistical variables on legal units and establishments add up?
+          </AccordionTrigger>
+          <AccordionContent>
+            <StatisticalVariableCounting />
           </AccordionContent>
         </AccordionItem>
       </Accordion>

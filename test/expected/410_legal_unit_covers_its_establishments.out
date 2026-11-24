@@ -1,0 +1,175 @@
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+-- ca6dk5: a legal unit's total covers its establishments.
+--
+-- A legal unit's establishments are parts of it, so a value held on both levels
+-- counts the people once: the legal unit's total is the larger of its own value
+-- and its establishments' sum (UN Guidelines on Statistical Business Registers;
+-- Eurostat Business Registers Recommendations Manual; doc/METHODOLOGICAL_GUIDELINE.md).
+-- An enterprise adds its legal units, which do not overlap.
+--
+-- The fixture: one enterprise per legal unit, one legal unit per reporting pattern.
+--   LU-OWN    own 10, no establishments                         -> 10
+--   LU-EST    no own value, establishments 4 + 3                 -> 7
+--   LU-EQUAL  own 9, establishments 5 + 4 (same people)          -> 9
+--   LU-MORE   own 20, establishments 6 + no value (rest on LU)   -> 20
+--   LU-LESS   own 5, establishments 4 + 3                        -> 7
+--   LU-GAP    own 12, establishments 4 + 3, both valued          -> 12
+--
+-- The quality checks list what breaks the covers picture:
+--   quality_establishments_above_legal_unit: LU-LESS (5 < 7);
+--   quality_legal_unit_above_establishments: LU-GAP (12 > 7, every establishment valued).
+-- LU-MORE is larger too, but one establishment has no value, which its own value covers.
+CALL test.set_user_from_email('test.admin@statbus.org');
+\o /dev/null
+\set ECHO none
+"User selected the Activity Category Standard"
+"User uploads the demo activity categories"
+"User uploads the demo regions"
+"User uploads the demo sectors"
+"User uploads the demo legal forms"
+SELECT id AS user_id FROM auth.user LIMIT 1 \gset
+SELECT id AS active_id FROM public.status WHERE code = 'active' LIMIT 1 \gset
+SELECT id AS employees_id FROM public.stat_definition WHERE code = 'employees' \gset
+CREATE TEMP TABLE pattern (lu text, own int, est_values int[], covers int) ON COMMIT DROP;
+INSERT INTO pattern VALUES
+    ('LU-OWN',   10,   ARRAY[]::int[],      10),
+    ('LU-EST',   NULL, ARRAY[4, 3],          7),
+    ('LU-EQUAL', 9,    ARRAY[5, 4],          9),
+    ('LU-MORE',  20,   ARRAY[6, NULL],      20),
+    ('LU-LESS',  5,    ARRAY[4, 3],          7),
+    ('LU-GAP',   12,   ARRAY[4, 3],         12);
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
+SELECT 'EN-' || p.lu, :user_id, 'ca6dk5 test enterprise' FROM pattern AS p;
+INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, p.lu, en.id, true, :active_id, :user_id, 'ca6dk5 test legal unit'
+FROM pattern AS p JOIN public.enterprise AS en ON en.short_name = 'EN-' || p.lu;
+INSERT INTO public.establishment (valid_from, name, legal_unit_id, primary_for_legal_unit, status_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, p.lu || '-es' || e.n, lu.id, e.n = 1, :active_id, :user_id, 'ca6dk5 test establishment'
+FROM pattern AS p
+JOIN public.legal_unit AS lu ON lu.name = p.lu
+CROSS JOIN LATERAL generate_subscripts(p.est_values, 1) AS e(n);
+INSERT INTO public.stat_for_unit (stat_definition_id, valid_from, legal_unit_id, value_int, edit_by_user_id, edit_comment)
+SELECT :employees_id, '2020-01-01'::date, lu.id, p.own, :user_id, 'ca6dk5 own value'
+FROM pattern AS p JOIN public.legal_unit AS lu ON lu.name = p.lu
+WHERE p.own IS NOT NULL;
+INSERT INTO public.stat_for_unit (stat_definition_id, valid_from, establishment_id, value_int, edit_by_user_id, edit_comment)
+SELECT :employees_id, '2020-01-01'::date, es.id, p.est_values[e.n], :user_id, 'ca6dk5 establishment value'
+FROM pattern AS p
+CROSS JOIN LATERAL generate_subscripts(p.est_values, 1) AS e(n)
+JOIN public.establishment AS es ON es.name = p.lu || '-es' || e.n
+WHERE p.est_values[e.n] IS NOT NULL;
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo
+
+\echo "410.1 each legal unit's employee total covers its establishments: the larger of its own value and their sum"
+"410.1 each legal unit's employee total covers its establishments: the larger of its own value and their sum"
+SELECT p.lu,
+       p.own,
+       (SELECT sum(v) FROM unnest(p.est_values) AS v) AS establishments_sum,
+       (su.stats_summary->'employees'->>'sum')::int AS legal_unit_total,
+       p.covers AS expected
+FROM pattern AS p
+JOIN public.legal_unit AS lu ON lu.name = p.lu
+JOIN public.statistical_unit AS su ON su.unit_type = 'legal_unit' AND su.unit_id = lu.id
+ORDER BY p.lu;
+    lu    | own | establishments_sum | legal_unit_total | expected 
+----------+-----+--------------------+------------------+----------
+ LU-EQUAL |   9 |                  9 |                9 |        9
+ LU-EST   |     |                  7 |                7 |        7
+ LU-GAP   |  12 |                  7 |               12 |       12
+ LU-LESS  |   5 |                  7 |                7 |        7
+ LU-MORE  |  20 |                  6 |               20 |       20
+ LU-OWN   |  10 |                    |               10 |       10
+(6 rows)
+
+\echo
+
+\echo "410.2 each enterprise's total is the sum of its legal units' totals"
+"410.2 each enterprise's total is the sum of its legal units' totals"
+SELECT p.lu,
+       (su.stats_summary->'employees'->>'sum')::int AS enterprise_total,
+       p.covers AS expected
+FROM pattern AS p
+JOIN public.enterprise AS en ON en.short_name = 'EN-' || p.lu
+JOIN public.statistical_unit AS su ON su.unit_type = 'enterprise' AND su.unit_id = en.id
+ORDER BY p.lu;
+    lu    | enterprise_total | expected 
+----------+------------------+----------
+ LU-EQUAL |                9 |        9
+ LU-EST   |                7 |        7
+ LU-GAP   |               12 |       12
+ LU-LESS  |                7 |        7
+ LU-MORE  |               20 |       20
+ LU-OWN   |               10 |       10
+(6 rows)
+
+\echo
+
+\echo "410.3 the fixture's legal units and enterprises each total 65 (10 + 7 + 9 + 20 + 7 + 12)"
+"410.3 the fixture's legal units and enterprises each total 65 (10 + 7 + 9 + 20 + 7 + 12)"
+SELECT su.unit_type, sum((su.stats_summary->'employees'->>'sum')::int) AS employees
+FROM public.statistical_unit AS su
+WHERE (su.unit_type = 'legal_unit' AND su.unit_id IN (SELECT lu.id FROM public.legal_unit AS lu JOIN pattern AS p ON p.lu = lu.name))
+   OR (su.unit_type = 'enterprise' AND su.unit_id IN (SELECT en.id FROM public.enterprise AS en JOIN pattern AS p ON 'EN-' || p.lu = en.short_name))
+GROUP BY su.unit_type ORDER BY su.unit_type;
+ unit_type  | employees 
+------------+-----------
+ legal_unit |        65
+ enterprise |        65
+(2 rows)
+
+\echo
+
+\echo "410.4 quality check: establishments above their legal unit lists exactly LU-LESS, with the values compared"
+"410.4 quality check: establishments above their legal unit lists exactly LU-LESS, with the values compared"
+SELECT lu.name, q.stats
+FROM public.quality_establishments_above_legal_unit AS q
+JOIN public.legal_unit AS lu ON lu.id = q.unit_id
+WHERE q.unit_type = 'legal_unit' AND lu.name LIKE 'LU-%'
+ORDER BY lu.name;
+  name   |                                     stats                                      
+---------+--------------------------------------------------------------------------------
+ LU-LESS | {"employees": {"legal_unit": 5, "establishments": 2, "establishments_sum": 7}}
+(1 row)
+
+\echo
+
+\echo "410.5 quality check: legal unit above its establishments, every one valued, lists exactly LU-GAP"
+"410.5 quality check: legal unit above its establishments, every one valued, lists exactly LU-GAP"
+SELECT lu.name, q.stats
+FROM public.quality_legal_unit_above_establishments AS q
+JOIN public.legal_unit AS lu ON lu.id = q.unit_id
+WHERE q.unit_type = 'legal_unit' AND lu.name LIKE 'LU-%'
+ORDER BY lu.name;
+  name  |                                      stats                                      
+--------+---------------------------------------------------------------------------------
+ LU-GAP | {"employees": {"legal_unit": 12, "establishments": 2, "establishments_sum": 7}}
+(1 row)
+
+\echo
+
+\echo "410.6 search embeds each check as a one-to-one join: the legal unit rows each check lists"
+"410.6 search embeds each check as a one-to-one join: the legal unit rows each check lists"
+SELECT 'establishments_above_legal_unit' AS check, su.name
+FROM public.statistical_unit AS su
+JOIN public.quality_establishments_above_legal_unit AS q USING (unit_type, unit_id, valid_range)
+WHERE su.name LIKE 'LU-%'
+UNION ALL
+SELECT 'legal_unit_above_establishments', su.name
+FROM public.statistical_unit AS su
+JOIN public.quality_legal_unit_above_establishments AS q USING (unit_type, unit_id, valid_range)
+WHERE su.name LIKE 'LU-%'
+ORDER BY 1, 2;
+              check              |  name   
+---------------------------------+---------
+ establishments_above_legal_unit | LU-LESS
+ legal_unit_above_establishments | LU-GAP
+(2 rows)
+
+ROLLBACK;

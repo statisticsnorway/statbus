@@ -3143,6 +3143,160 @@ export type Database = {
           }
         ]
       },
+      quality_establishments_above_legal_unit: {
+        Row: {
+          stats: Json
+          unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_from: string
+          valid_range: string
+          valid_until: string
+        },
+        Insert: {
+          stats: Json
+          unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_from: string
+          valid_range: string
+          valid_until: string
+        },
+        Update: {
+          stats?: Json
+          unit_id?: number
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_from?: string
+          valid_range?: string
+          valid_until?: string
+        },
+        Relationships: [
+          {
+            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "statistical_unit"
+            referencedColumns: ["unit_id", "unit_type", "valid_range"]
+          },
+          {
+            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "activity_category_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "country_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "data_source_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "legal_form_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "region_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "sector_used_def"
+            referencedColumns: ["id"]
+          }
+        ]
+      },
+      quality_legal_unit_above_establishments: {
+        Row: {
+          stats: Json
+          unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_from: string
+          valid_range: string
+          valid_until: string
+        },
+        Insert: {
+          stats: Json
+          unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_from: string
+          valid_range: string
+          valid_until: string
+        },
+        Update: {
+          stats?: Json
+          unit_id?: number
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_from?: string
+          valid_range?: string
+          valid_until?: string
+        },
+        Relationships: [
+          {
+            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "statistical_unit"
+            referencedColumns: ["unit_id", "unit_type", "valid_range"]
+          },
+          {
+            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "activity_category_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "country_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "data_source_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "legal_form_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "region_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
+            columns: ["unit_id", "unit_type", "valid_range"]
+            isOneToOne: true
+            referencedRelation: "sector_used_def"
+            referencedColumns: ["id"]
+          }
+        ]
+      },
       region: {
         Row: {
           center_altitude: number | null
@@ -8375,6 +8529,42 @@ export type Database = {
           }
         ]
       },
+      legal_unit_establishment_stat_comparison: {
+        Row: {
+          establishment_count: number | null
+          establishments_sum: number | null
+          establishments_with_value: number | null
+          legal_unit_value: number | null
+          stat_code: string | null
+          unit_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from: string | null
+          valid_until: string | null
+        },
+        Insert: {
+          establishment_count?: number | null
+          establishments_sum?: number | null
+          establishments_with_value?: number | null
+          legal_unit_value?: number | null
+          stat_code?: string | null
+          unit_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_until?: string | null
+        },
+        Update: {
+          establishment_count?: number | null
+          establishments_sum?: number | null
+          establishments_with_value?: number | null
+          legal_unit_value?: number | null
+          stat_code?: string | null
+          unit_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_until?: string | null
+        },
+        Relationships: []
+      },
       location__for_portion_of_valid: {
         Row: {
           address_part1: string | null
@@ -9196,6 +9386,54 @@ export type Database = {
           legal_unit_activity_category_id?: number | null
           primary_establishment_activity_category_id?: number | null
           primary_establishment_id?: number | null
+          unit_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_until?: string | null
+        },
+        Relationships: []
+      },
+      quality_establishments_above_legal_unit_def: {
+        Row: {
+          stats: Json | null
+          unit_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from: string | null
+          valid_until: string | null
+        },
+        Insert: {
+          stats?: Json | null
+          unit_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_until?: string | null
+        },
+        Update: {
+          stats?: Json | null
+          unit_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_until?: string | null
+        },
+        Relationships: []
+      },
+      quality_legal_unit_above_establishments_def: {
+        Row: {
+          stats: Json | null
+          unit_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from: string | null
+          valid_until: string | null
+        },
+        Insert: {
+          stats?: Json | null
+          unit_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_until?: string | null
+        },
+        Update: {
+          stats?: Json | null
           unit_id?: number | null
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_from?: string | null
@@ -14446,6 +14684,13 @@ export type Database = {
         }
         Returns: unknown
       },
+      jsonb_stats_covers: {
+        Args: {
+          own?: Json
+          parts?: Json
+        }
+        Returns: Json
+      },
       jsonb_stats_delta_combine: {
         Args: {
           state1?: unknown
@@ -15116,6 +15361,14 @@ export type Database = {
         }
       },
       quality_establishment_activity_differs_derive: {
+        Args: Record<string, never>
+        Returns: unknown
+      },
+      quality_establishments_above_legal_unit_derive: {
+        Args: Record<string, never>
+        Returns: unknown
+      },
+      quality_legal_unit_above_establishments_derive: {
         Args: Record<string, never>
         Returns: unknown
       },

@@ -76,10 +76,11 @@ BEGIN
             EXECUTE format('INSERT INTO statistical_unit_new (%s) SELECT %s FROM public.statistical_unit_def WHERE unit_type = %L AND unit_id BETWEEN %s AND %s', v_col_list, v_col_list, 'power_group', v_start_id, v_end_id);
         END LOOP; END IF;
 
-        -- quality_establishment_activity_differs points at the rows replaced here and is refilled by
+        -- The quality checks (public.quality_*) point at the rows replaced here and are refilled by
         -- the next worker.derive_quality. It references statistical_unit by a NOT ENFORCED foreign
         -- key, which TRUNCATE refuses without CASCADE even with both tables listed.
-        TRUNCATE public.statistical_unit, public.quality_establishment_activity_differs CASCADE;
+        TRUNCATE public.statistical_unit, public.quality_establishment_activity_differs,
+                 public.quality_establishments_above_legal_unit, public.quality_legal_unit_above_establishments CASCADE;
         EXECUTE format('INSERT INTO public.statistical_unit (%s) SELECT %s FROM statistical_unit_new', v_col_list, v_col_list);
         ANALYZE public.statistical_unit;
     ELSE

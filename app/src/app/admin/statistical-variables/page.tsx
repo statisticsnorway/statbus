@@ -9,6 +9,7 @@ import { useStatDefinitions } from "./use-statistical-variables";
 import { StatDefinitionForm } from "./statistical-variables-form";
 import AdminPageLayout from "../page-layout";
 import BooleanBadge from "../boolean-badge";
+import { StatisticalVariableCounting } from "@/components/statistical-variable-counting";
 
 const columns: ColumnDefinition<Tables<"stat_definition">>[] = [
   { key: "name", header: "Name" },
@@ -71,6 +72,10 @@ export default function StatisticalVariablesPage() {
           onEdit={handleEdit}
           isLoading={isLoading}
         />
+      </div>
+      <div className="rounded-md border p-4">
+        <h2 className="mb-2 font-medium">How statistical variables add up</h2>
+        <StatisticalVariableCounting />
       </div>
     </AdminPageLayout>
   );

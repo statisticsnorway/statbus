@@ -305,6 +305,16 @@ export const QUALITY_CHECKS = {
     label: "Primary establishment has another activity",
     shortLabel: "Activity differs",
   },
+  // ca6dk5: a legal unit's values cover its establishments (public.jsonb_stats_covers); these two
+  // list where the levels disagree (see each table's COMMENT).
+  establishments_above_legal_unit: {
+    label: "Establishments add up to more than their legal unit",
+    shortLabel: "Establishments above legal unit",
+  },
+  legal_unit_above_establishments: {
+    label: "Legal unit above its establishments, all with values",
+    shortLabel: "Legal unit above establishments",
+  },
 } as const;
 
 export type QualityCheck = keyof typeof QUALITY_CHECKS;

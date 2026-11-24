@@ -212,6 +212,14 @@ Quality is the area of checks that list units to look at, as reports count them.
 - `quality_establishment_activity_differs(unit_type, unit_id, legal_unit_activity_category_id, primary_establishment_id, primary_establishment_activity_category_id, valid_from, valid_until, valid_range)` (temporal) — **derived**
   - Key FKs: unit_id, unit_type, valid_range.
   - Enums: `unit_type` (`public.statistical_unit_type`).
+- `quality_establishments_above_legal_unit(unit_type, unit_id, valid_from, valid_until, valid_range, stats)` (temporal) — **derived**
+  - Key FKs: unit_id, unit_type, valid_range.
+  - Enums: `unit_type` (`public.statistical_unit_type`).
+- `quality_legal_unit_above_establishments(unit_type, unit_id, valid_from, valid_until, valid_range, stats)` (temporal) — **derived**
+  - Key FKs: unit_id, unit_type, valid_range.
+  - Enums: `unit_type` (`public.statistical_unit_type`).
+- `legal_unit_establishment_stat_comparison(unit_type, stat_code, legal_unit_value, establishments_with_value, unit_id, valid_from, valid_until, establishment_count, establishments_sum)` (temporal)
+  - Enums: `unit_type` (`public.statistical_unit_type`).
 
 ### Pipeline Weights
 Configuration for pipeline step ordering and progress tracking.
