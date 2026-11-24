@@ -533,13 +533,13 @@ function UnitsLegend({
       {LEGEND_TYPES.map(({ unitType, label }) => (
         <div key={unitType}>
           <div className="flex items-center gap-2">
-            <label className="flex flex-1 cursor-pointer items-center gap-2">
+            <label className="flex cursor-pointer items-center gap-2">
               <input type="checkbox" checked={selected.includes(unitType)} onChange={() => toggle(unitType)} data-unit-type={unitType} />
               <PlacementMarker kind={unitType} placed="point" />
               <span>{label}</span>
             </label>
             {help(unitType, label)}
-            <span className="w-12 text-right tabular-nums text-gray-600">{(counts[unitType].point + counts[unitType].region).toLocaleString()}</span>
+            <span className="flex-1 text-right tabular-nums text-gray-600">{(counts[unitType].point + counts[unitType].region).toLocaleString()}</span>
           </div>
           {open === unitType && (
             <div className="mt-0.5 space-y-0.5 pl-6 text-xs text-gray-600" data-legend-detail={unitType}>
@@ -555,9 +555,8 @@ function UnitsLegend({
           {/* No checkbox: the grey groups follow from the types picked above. The space keeps the columns. */}
           <span className="inline-block w-[14px] shrink-0" aria-hidden />
           <PlacementMarker kind="mixed" placed="point" />
-          <span className="flex-1">Mixed unit types</span>
+          <span className="whitespace-nowrap">Mixed unit types</span>
           {help("mixed", "Mixed unit types")}
-          <span className="w-12" aria-hidden />
         </div>
         {open === "mixed" && (
           <div className="mt-0.5 space-y-0.5 pl-6 text-xs text-gray-600" data-legend-detail="mixed">
