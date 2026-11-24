@@ -16,8 +16,8 @@ import { UnitMap, cssColour } from "@/components/map/unit-map";
 import { UnitTypeLegend } from "@/components/map/unit-type-legend";
 import { BASEMAP_FONT } from "@/components/map/basemap";
 import { ViewControl } from "@/components/map/view-control";
-import { RegionPreview, type PreviewTarget } from "./region-preview";
 import { RegionSpiders } from "./region-spiders";
+import { ChildList, type ChildRow } from "./child-list";
 import {
   MAP_UNIT_TYPES,
   UNIT_TYPE_SWATCH,
@@ -44,9 +44,11 @@ import {
 /**
  * The Regions map is a drill-down (owner 2026-11-23, z2qt08). One selection decides everything:
  * the world, the installation's own country (where the page opens), a foreign country, or a
- * region. The map shows the selection's children, one circle each, sized by its units. A click on
- * a circle opens a readable box with its name and units (RegionPreview) and a double click goes
- * in; the breadcrumb, the panel's X (one level up) and the fit button act on the selection.
+ * region. The map shows the selection's children, one circle each, sized by its units, and the
+ * panel lists the same children (owner 2026-11-24, as on a unit's Map page). A click on a circle
+ * or a row picks that child: its row opens with its units per type and View and download, and its
+ * circle is ringed. A double click on a circle, or the row's arrow, goes in; the breadcrumb, the
+ * panel's X (one level up) and the fit button act on the selection.
  * Zooming and panning only move the view; they do not change what is shown.
  *
  * Counts come from statistical_unit_facet, the pre-aggregated counts the reports' drilldown
@@ -64,15 +66,14 @@ export default function RegionsMapPage() {
   const searchParams = useSearchParams();
   const requested = parseSelection(searchParams?.get("at") ?? null);
   const unitTypes = parseUnitTypes(searchParams?.get("types") ?? null);
-  // The map once its style has loaded: the preview box renders over it.
+  // The map once its style has loaded: the type legs render over it.
   const [readyMap, setReadyMap] = useState<MapLibreMap | null>(null);
   const mapReady = readyMap !== null;
   const mapRef = useRef<MapLibreMap | null>(null);
   const featuresRef = useRef<GeoJSON.Feature<GeoJSON.Point, { total: number }>[]>([]);
-  // The circle a single click previews, with the selection it was clicked in: a new selection
-  // (going in, Back, the trail) leaves it behind, so it shows only where it was opened.
-  const [preview, setPreview] = useState<{ at: MapSelection; target: PreviewTarget } | null>(null);
-  const closePreview = useCallback(() => setPreview(null), [setPreview]);
+  // The child picked by a click on its circle or row, with the selection it was picked in: a new
+  // selection (going in, Back, the trail) leaves it behind, so it shows only where it was picked.
+  const [pickedChild, setPickedChild] = useState<{ at: MapSelection; path: string } | null>(null);
 
   // The map's own handlers (click, fit) run outside React's render, so they read the
   // current selection and unit types from the URL at the moment they run.
@@ -105,24 +106,24 @@ export default function RegionsMapPage() {
     const view = map.getBounds();
     const top = Math.max(maxTotal(featuresRef.current.filter((f) => view.contains(f.geometry.coordinates as [number, number]))), 1);
     map.setPaintProperty("region-circles", "circle-radius", ["interpolate", ["linear"], ["sqrt", ["get", "total"]], 0, 4, Math.sqrt(top), 28]);
+    // The picked circle's ring sits just outside it, at the same scale.
+    map.setPaintProperty("picked-region-ring", "circle-radius", ["interpolate", ["linear"], ["sqrt", ["get", "total"]], 0, 8, Math.sqrt(top), 32]);
   }, []);
 
-  // Opens the readable box for one circle, from a click on it or on one of its type legs.
-  const openPreview = useCallback(
-    (feature: GeoJSON.Feature<GeoJSON.Point, RegionFeatureProperties>) => {
-      const p = feature.properties;
-      setPreview({
-        at: current().at,
-        target: {
-          path: p.path,
-          name: p.name,
-          code: p.path === "" || p.path.startsWith("country:") ? null : p.path,
-          coordinates: feature.geometry.coordinates as [number, number],
-          counts: { enterprise: p.enterprise, legal_unit: p.legal_unit, establishment: p.establishment },
-        },
-      });
+  // Picks one child of the selection, from a click on its circle, one of its type legs or its row
+  // (null: none). Its circle is ringed on the map; a row picked in the list also brings its
+  // circle into view.
+  const pickChild = useCallback(
+    (path: string | null, from: "map" | "list" = "map") => {
+      setPickedChild(path === null ? null : { at: current().at, path });
+      const map = mapRef.current;
+      const f = featuresRef.current.find((x) => (x.properties as unknown as RegionFeatureProperties).path === path);
+      (map?.getSource("picked-region") as GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: f ? [f] : [] });
+      if (map && f && from === "list" && !map.getBounds().contains(f.geometry.coordinates as [number, number])) {
+        map.easeTo({ center: f.geometry.coordinates as [number, number] });
+      }
     },
-    [current, setPreview]
+    [current, setPickedChild]
   );
 
   // Frames what the selection shows. The world frames every country with units, so the
@@ -269,6 +270,19 @@ export default function RegionsMapPage() {
           "circle-radius": 6,
         },
       });
+      // The picked child's circle: a dark ring round it (owner 2026-11-24, as on a unit's Map page).
+      map.addSource("picked-region", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({
+        id: "picked-region-ring",
+        type: "circle",
+        source: "picked-region",
+        paint: {
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-radius": ["interpolate", ["linear"], ["sqrt", ["get", "total"]], 0, 8, 1000, 32],
+          "circle-stroke-color": "#111827",
+          "circle-stroke-width": 3,
+        },
+      });
       map.addLayer({
         id: "region-labels",
         type: "symbol",
@@ -298,17 +312,19 @@ export default function RegionsMapPage() {
         const feature = map.queryRenderedFeatures(e.point, { layers: ["region-circles"] })[0] as unknown as
           | GeoJSON.Feature<GeoJSON.Point, RegionFeatureProperties>
           | undefined;
-        if (!feature) return setPreview(null);
-        openPreview(feature);
+        if (!feature) return pickChild(null);
+        pickChild(feature.properties.path);
       });
       setReadyMap(map);
     },
-    [scaleToView, fitSelection, select, setPreview, setReadyMap, openPreview]
+    [scaleToView, fitSelection, select, setReadyMap, pickChild]
   );
 
   // New data for the map; a new selection is also framed. Unit-type or time-frame changes keep
   // the view where it is.
+  // The framed selection, and the picked child (only where it was picked: a new selection leaves it behind).
   const framedSelection = useRef<MapSelection | undefined>(undefined);
+  const picked = pickedChild && pickedChild.at === selection ? pickedChild.path : null;
   useGuardedEffect(
     () => {
       const map = mapRef.current;
@@ -317,12 +333,15 @@ export default function RegionsMapPage() {
       featuresRef.current = features.features;
       map.setPaintProperty("region-circles", "circle-color", cssColour(circleColour));
       scaleToView(map);
+      // The ring follows the picked child's circle; at another selection there is none.
+      const ringed = picked ? features.features.filter((f) => f.properties.path === picked) : [];
+      (map.getSource("picked-region") as GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: ringed });
       if (features.features.length > 0 && framedSelection.current !== selection) {
         framedSelection.current = selection;
         fitSelection();
       }
     },
-    [features, mapReady, circleColour, selection],
+    [features, mapReady, circleColour, selection, picked],
     "RegionsMapPage:setData"
   );
 
@@ -330,7 +349,6 @@ export default function RegionsMapPage() {
   // A region with no regions below it (a municipality) shows itself as its one circle.
   const isLeaf = depth > 0 && features.features.length === 1 && features.features[0].properties.path === selection;
   const childNoun = selection === null ? "countries" : depth === 0 ? "regions" : "subregions";
-  const shown = features.features.reduce((s, f) => s + f.properties.total, 0);
   const typesParam = `unit_type=${unitTypes.join(",")}`;
   // The search list for a selection: the country's own units, a foreign country's units, or a region's.
   const searchFor = (s: MapSelection) => {
@@ -341,8 +359,23 @@ export default function RegionsMapPage() {
     return `/search?${typesParam}&physical_region_path=${encodeURIComponent(s)}`;
   };
   const selectionSearch = searchFor(selection);
-  const shownPreview = preview && preview.at === selection ? preview.target : null;
   const abroadTotal = world.abroad.reduce((s, a) => s + a.count, 0);
+  // The panel's list: the children the map draws. A region with regions below it can be entered;
+  // a foreign country has none here, but going in shows it alone with its counts.
+  const parentPaths = useMemo(() => new Set((regions ?? []).map((r) => r.path.split(".").slice(0, -1).join("."))), [regions]);
+  const childRows: ChildRow[] = isLeaf
+    ? []
+    : features.features.map((f) => {
+        const p = f.properties;
+        const country = p.path === "" || p.path.startsWith("country:");
+        return {
+          path: p.path,
+          name: p.name,
+          code: country ? null : p.path,
+          counts: { enterprise: p.enterprise, legal_unit: p.legal_unit, establishment: p.establishment },
+          canEnter: country || parentPaths.has(p.path),
+        };
+      });
 
   return (
     <main className="flex w-full flex-col" style={{ height: "calc(100vh - 56px)" }} data-regions-map-page="">
@@ -377,20 +410,8 @@ export default function RegionsMapPage() {
               map={readyMap}
               features={features.features}
               unitTypes={unitTypes}
-              focus={shownPreview?.path ?? null}
-              onPick={openPreview}
-            />
-          )}
-          {shownPreview && readyMap && (
-            <RegionPreview
-              key={shownPreview.path}
-              map={readyMap}
-              target={shownPreview}
-              unitTypes={unitTypes}
-              canEnter={shownPreview.path !== selection}
-              searchHref={searchFor(shownPreview.path)}
-              onEnter={() => select(shownPreview.path)}
-              onClose={closePreview}
+              focus={picked}
+              onPick={(f) => pickChild(f.properties.path)}
             />
           )}
           {countError && (
@@ -428,7 +449,7 @@ export default function RegionsMapPage() {
                 <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} totals={selectedCounts} />
               </div>
             ) : (
-              <WorldSplit world={world} homeName={nameOf("")} countries={countries} typesParam={typesParam} onSelect={select} />
+              <WorldSplit world={world} homeName={nameOf("")} typesParam={typesParam} />
             )}
             {selection === null && (
               <div className="mt-3 border-t pt-3">
@@ -445,17 +466,26 @@ export default function RegionsMapPage() {
               </Button>
             )}
             <p className="mt-2 text-xs text-gray-500" data-regions-map-level="">
-              {selection === null
-                ? `The map shows ${features.features.length.toLocaleString()} ${childNoun} with units. Click a circle to see its units, double-click to go in.`
-                : selectedCountry
-                  ? `This registry has no regions of ${selectedCountry.name}. X or the trail above goes back up.`
-                  : isLeaf
-                    ? "The lowest level: no regions below this one. X or the trail above goes back up."
-                    : features.features.length > 0
-                      ? `The map shows ${shown.toLocaleString()} units in ${features.features.length.toLocaleString()} ${childNoun}. Click a circle to see its units, double-click to go in.`
-                      : "No units of the picked types here."}
+              {selectedCountry
+                ? `This registry has no regions of ${selectedCountry.name}. X or the trail above goes back up.`
+                : isLeaf
+                  ? "The lowest level: no regions below this one. X or the trail above goes back up."
+                  : features.features.length === 0
+                    ? "No units of the picked types here."
+                    : null}
             </p>
           </section>
+          {childRows.length > 0 && (
+            <ChildList
+              heading={`${features.features.length.toLocaleString()} ${childNoun}`}
+              rows={childRows}
+              unitTypes={unitTypes}
+              picked={picked}
+              searchFor={searchFor}
+              onPick={(path) => pickChild(path, "list")}
+              onEnter={select}
+            />
+          )}
           {selection !== null && !selectedCountry && ((selection === "" && world.domesticWithoutRegion > 0) || withoutCentre.length > 0) && (
             <section className="space-y-2" data-regions-not-on-map="">
               <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">Not on the map</h2>
@@ -533,66 +563,32 @@ function parseUnitTypes(types: string | null): MapUnitType[] {
 }
 
 /**
- * The world selection's panel: the units in the installation's own country, abroad by country,
- * and without a location. Each country is a button that selects it on the map, as a click on
- * its circle does (owner 2026-11-23: "In Norway" should select Norway, not open the search,
- * and every country abroad should be reachable). The list scrolls inside the panel.
+ * The world selection's summary: the units in the installation's own country, abroad, and without
+ * a location. The countries themselves, each pickable and enterable, are the list below it
+ * (ChildList), as the regions are at the other levels.
  */
 function WorldSplit({
   world,
   homeName,
-  countries,
   typesParam,
-  onSelect,
 }: {
   world: ReturnType<typeof worldCounts>;
   homeName: string;
-  countries: Map<number, { iso_2: string; name: string }> | undefined;
   typesParam: string;
-  onSelect: (selection: MapSelection) => void;
 }) {
   const abroadTotal = world.abroad.reduce((s, a) => s + a.count, 0);
   return (
-    <div className="mt-2 space-y-1.5" data-regions-map-world="">
-      <CountButton label={`In ${homeName}`} value={world.domestic} onClick={() => onSelect("")} data="domestic" />
-      <div>
-        <p className="flex justify-between gap-2" data-count="abroad">
-          <span>Abroad, in {world.abroad.length.toLocaleString()} countries</span>
-          <span className="tabular-nums text-gray-600">{abroadTotal.toLocaleString()}</span>
-        </p>
-        <ul className="mt-0.5 max-h-64 overflow-y-auto pl-3 text-xs text-gray-700" data-regions-map-abroad="">
-          {world.abroad.map((a) => {
-            const c = countries?.get(a.countryId);
-            return (
-              <li key={a.countryId}>
-                <CountButton
-                  label={c?.name ?? "…"}
-                  value={a.count}
-                  onClick={() => c && onSelect(`country:${c.iso_2}`)}
-                  data={c?.iso_2 ?? String(a.countryId)}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+    <div className="mt-2 space-y-1" data-regions-map-world="">
+      <p className="flex justify-between gap-2" data-count="domestic">
+        <span>In {homeName}</span>
+        <span className="tabular-nums text-gray-600">{world.domestic.toLocaleString()}</span>
+      </p>
+      <p className="flex justify-between gap-2" data-count="abroad">
+        <span>Abroad, in {world.abroad.length.toLocaleString()} countries</span>
+        <span className="tabular-nums text-gray-600">{abroadTotal.toLocaleString()}</span>
+      </p>
       <CountLink href={`/search?${typesParam}&physical_location=missing`} label="No location" value={world.noLocation} data="no-location" />
     </div>
-  );
-}
-
-/** A count that selects a place on the map, styled as the panel's count links. */
-function CountButton({ label, value, onClick, data }: { label: string; value: number; onClick: () => void; data: string }) {
-  return (
-    <button
-      type="button"
-      className="flex w-full justify-between gap-2 rounded px-0.5 text-left underline-offset-2 hover:bg-gray-200 hover:underline"
-      onClick={onClick}
-      data-count-select={data}
-    >
-      <span className="truncate">{label}</span>
-      <span className="tabular-nums text-gray-600">{value.toLocaleString()}</span>
-    </button>
   );
 }
 
