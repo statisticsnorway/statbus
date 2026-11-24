@@ -6,6 +6,7 @@ import SearchResultTable from "@/app/search/components/search-result-table";
 import { SearchResultCount } from "@/app/search/components/search-result-count";
 import SearchResultPagination from "@/app/search/components/search-result-pagination";
 import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
+import { SearchMapLink } from "@/app/search/components/search-map-link";
 import { Selection } from "@/app/search/components/selection";
 import type { Tables } from "@/lib/database.types";
 import { useBaseData } from "@/atoms/base-data";
@@ -114,6 +115,7 @@ export default function SearchPageClient({
               <SearchResultCount className="flex-1 hidden lg:inline-block" />
               <SearchResultPagination />
               <div className="hidden flex-1 space-x-3 justify-end flex-wrap lg:flex">
+                <SearchMapLink />
                 <ExportCSVLink />
               </div>
             </div>

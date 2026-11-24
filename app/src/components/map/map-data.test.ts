@@ -1,4 +1,4 @@
-import { childCounts, countryCounts, countsByRegion, countsUnder, selectedCountryCode, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, locationView, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, spiderNodes, type RegionCountRow } from "./map-data";
+import { childCounts, countryCounts, countsByRegion, countsUnder, selectedCountryCode, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, locationView, facetParams, liveCountSelect, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, spiderNodes, type RegionCountRow } from "./map-data";
 
 // z2qt08: the Regions map counts units per region path prefix from statistical_unit_facet and
 // draws each region with a centre; regions without one are listed beside the map.
@@ -135,6 +135,31 @@ describe("linksUnitPoints", () => {
     // Six units: three at their point, one at its region, the Nowhere office has neither, and
     // Postal only AS has only a postal location.
     expect([total, atPoint, atRegion]).toEqual([6, 3, 1]);
+  });
+});
+
+describe("facetParams and liveCountSelect (5nq78t)", () => {
+  const frame = "existence_from=lte.2026-11-24&existence_until=gt.2026-11-24";
+  it("rewrites a facet-only search for statistical_unit_facet", () => {
+    const api = new URLSearchParams(`unit_type=in.(legal_unit)&primary_activity_category_path=cd.C&domestic=is.true&${frame}`);
+    expect(facetParams(api, 161)?.toString()).toBe(
+      "unit_type=in.%28legal_unit%29&primary_activity_category_path=cd.C&physical_country_id=eq.161&valid_from=lte.2026-11-24&valid_until=gt.2026-11-24"
+    );
+    expect(facetParams(new URLSearchParams("domestic=is.false"), 161)?.toString()).toBe("physical_country_id=neq.161");
+  });
+  it("leaves to statistical_unit what the facet has no column for", () => {
+    expect([
+      facetParams(new URLSearchParams(`search=fts(simple).bygg:*&${frame}`), 161),
+      facetParams(new URLSearchParams("select=*,quality_missing_region!inner()"), 161),
+      facetParams(new URLSearchParams("status_code=in.(A)"), 161),
+      facetParams(new URLSearchParams("domestic=is.true"), null),
+    ]).toEqual([null, null, null, null]);
+  });
+  it("counts live by region, keeping a filter's embedding", () => {
+    expect([liveCountSelect(new URLSearchParams("search=x")), liveCountSelect(new URLSearchParams("select=*,quality_x!inner()"))]).toEqual([
+      "unit_type,physical_region_path,physical_country_id,count()",
+      "unit_type,physical_region_path,physical_country_id,count(),quality_x!inner()",
+    ]);
   });
 });
 

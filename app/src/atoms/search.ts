@@ -908,15 +908,26 @@ export const setTableColumnProfileAtom = atom(
   }
 );
 
-// Unstable atom that derives API search parameters. Kept private.
-const derivedApiSearchParamsAtomUnstable = atom((get) => {
-  const query = get(queryAtom);
-  const filters = get(filtersAtom);
-  const selectedTimeFrame = get(selectedTimeFrameAtom);
-  const externalIdentTypes = get(externalIdentTypesAtom); // from baseDataAtom
-  const statDefinitions = get(statDefinitionsAtom); // from baseDataAtom
-  const { allDataSources } = get(searchPageDataAtom); // for dataSourceDeriveStateUpdateFromValues
-
+/**
+ * The PostgREST filter of a search: its text query, every filter, and the time frame's existence
+ * rule, without the list's sorting or page. The list adds those (derivedApiSearchParamsAtom); the
+ * Reports map groups the same filter by region (5nq78t), so both count the same units.
+ */
+export function searchFilterApiParams({
+  query,
+  filters,
+  validOn,
+  externalIdentTypes,
+  statDefinitions,
+  allDataSources,
+}: {
+  query: string;
+  filters: Record<string, unknown>;
+  validOn: string | null;
+  externalIdentTypes: Tables<'external_ident_type_enabled'>[];
+  statDefinitions: Tables<'stat_definition_enabled'>[];
+  allDataSources: SearchPageData['allDataSources'];
+}): URLSearchParams {
   const params = new URLSearchParams();
 
   // 1. Full-text search query
@@ -1172,9 +1183,25 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
 
   // 3. Time frame: list the units that EXIST at valid_on by the canonical
   // rule (STATBUS-460, lib/unit-existence.ts), not every record that covers it.
-  if (selectedTimeFrame && selectedTimeFrame.valid_on) {
-    setExistenceSearchParams(params, selectedTimeFrame.valid_on);
+  if (validOn) {
+    setExistenceSearchParams(params, validOn);
   }
+  return params;
+}
+
+// Unstable atom that derives the list's API search parameters: the search's filter, then the
+// list's own sorting and page. Kept private.
+const derivedApiSearchParamsAtomUnstable = atom((get) => {
+  const externalIdentTypes = get(externalIdentTypesAtom);
+  const statDefinitions = get(statDefinitionsAtom);
+  const params = searchFilterApiParams({
+    query: get(queryAtom),
+    filters: get(filtersAtom),
+    validOn: get(selectedTimeFrameAtom)?.valid_on ?? null,
+    externalIdentTypes,
+    statDefinitions,
+    allDataSources: get(searchPageDataAtom).allDataSources,
+  });
 
   // 4. Sorting. Every order sent here, and its reversal for pages from the end, is read from a
   // statistical_unit index in that exact order: one per sortable column and direction, ending in

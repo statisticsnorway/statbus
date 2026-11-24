@@ -13,6 +13,7 @@ const reportLinks = [
     label: "Changes Over Time",
   },
   { href: "/reports/drilldown", label: "Drilldown" },
+  { href: "/reports/map", label: "Map" },
   { href: "/reports/statistical-variables", label: "Variables Over Time" },
 ];
 
@@ -22,6 +23,8 @@ export default function ReportsLayout({
   readonly children: ReactNode;
 }) {
   const pathname = usePathname();
+  // The map fills the width beside the menu, as the Regions map fills the page (5nq78t).
+  const fullWidth = pathname === "/reports/map";
 
   return (
     <main className="flex w-full overflow-x-hidden">
@@ -52,7 +55,7 @@ export default function ReportsLayout({
         </nav>
       </aside>
 
-      <section className="mx-auto max-w-5xl p-8 md:py-12 flex-1 min-w-0">
+      <section className={fullWidth ? "flex-1 min-w-0" : "mx-auto max-w-5xl p-8 md:py-12 flex-1 min-w-0"}>
         {children}
       </section>
     </main>

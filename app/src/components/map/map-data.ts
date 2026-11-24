@@ -362,6 +362,59 @@ export function locationView(
   return { center: start.center, zoom: start.zoom, bounds: null, point, region };
 }
 
+/**
+ * The search filters statistical_unit_facet can answer, by their PostgREST parameter: the facet
+ * has these columns, counted per unit in the frame. Any other filter (text, quality, data source,
+ * size, legal form or status codes, identifiers, statistics) is answered live from statistical_unit.
+ */
+const FACET_PARAMS = new Set([
+  "unit_type",
+  "physical_region_path",
+  "primary_activity_category_path",
+  "sector_path",
+  "physical_country_id",
+  "domestic",
+  "existence_from",
+  "existence_until",
+]);
+
+/**
+ * A search's PostgREST filter rewritten for statistical_unit_facet, or null when the facet cannot
+ * answer it (5nq78t). The facet holds the same units in the frame (its rows follow the existence
+ * rule), so its sums equal the list's counts: the time frame's existence_from/until become the
+ * facet's valid_from/until, and domestic becomes the installation's country, which is what
+ * statistical_unit.domestic is (tmp/z2qt08/domestic-vs-country.log). Reading the facet takes a
+ * tenth of a second where grouping statistical_unit takes seconds (map-counts-postgrest.log).
+ */
+export function facetParams(api: URLSearchParams, homeCountryId: number | null): URLSearchParams | null {
+  const out = new URLSearchParams();
+  for (const [key, value] of api) {
+    if (!FACET_PARAMS.has(key)) return null;
+    if (key === "existence_from") out.append("valid_from", value);
+    else if (key === "existence_until") out.append("valid_until", value);
+    else if (key === "domestic") {
+      if (homeCountryId === null) return null;
+      if (value === "is.true") out.append("physical_country_id", `eq.${homeCountryId}`);
+      // A null country is neither: SQL's <> leaves those out, as domestic = false does.
+      else if (value === "is.false") out.append("physical_country_id", `neq.${homeCountryId}`);
+      else return null;
+    } else out.append(key, value);
+  }
+  return out;
+}
+
+/**
+ * The select of a live count by region over statistical_unit with a search's filter: the grouped
+ * columns and count(), keeping any embedding the filter selects through (a quality check's
+ * `*,quality_x!inner()` joins its findings), without the `*`.
+ */
+export function liveCountSelect(api: URLSearchParams): string {
+  const own = "unit_type,physical_region_path,physical_country_id,count()";
+  const filterSelect = api.get("select");
+  const embeds = filterSelect ? filterSelect.split(",").filter((part) => part !== "*") : [];
+  return [own, ...embeds].join(",");
+}
+
 /** A unit of the hierarchy as the Links map needs it: its kind, name, link and physical locations. */
 type HierarchyRegion = { name: string; path: string; center_latitude: number | null; center_longitude: number | null };
 type HierarchyLocation = { type: string; latitude: number | null; longitude: number | null; region?: HierarchyRegion | null };
