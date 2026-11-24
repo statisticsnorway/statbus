@@ -17,4 +17,4 @@ email = ["hhz@ssb.no"]
 "claude-opus-5-5" = ["low", "medium", "high", "xhigh", "max"]
 
 [board]
-coordinator = "hibiscus"
+coordinator = "rabbit"
