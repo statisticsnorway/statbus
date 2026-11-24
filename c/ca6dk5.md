@@ -1,15 +1,21 @@
 ---
 id: ca6dk5
 title: "Employee totals count legal units and their establishments twice?"
-state: todo
+state: "doing"
 type: spike
 priority: "medium"
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzz"
 created: 2026-11-21
 updated: 2026-11-21
+doing_since: "2026-11-24T11:13"
+doing_with: "pkne34"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -31,3 +37,7 @@ How it adds up today (doc/db, 2026-11-21): timeline_legal_unit stats_summary = t
 - [ ] On a copy of the Norway data, the enterprise employee total for 2026-11 is measured before and after the rule and recorded here
 
 ## Notes
+
+
+## History
+- 2026-11-24T11:13 todo -> doing/active (take with pkne34)
