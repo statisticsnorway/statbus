@@ -412,20 +412,26 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         return;
       }
       halo(false);
-      map.easeTo({ center: at, zoom: 10 });
-      map.once("moveend", async () => {
-        const source = map.getSource("units") as GeoJSONSource;
-        for (const g of map.queryRenderedFeatures(map.project(at), { layers: ["unit-groups"] })) {
-          const leaves = await source.getClusterLeaves(g.properties.cluster_id as number, 10000, 0);
-          if (!leaves.some((l) => l.properties?.unit_type === u.unit_type && l.properties?.id === u.id)) continue;
-          if (new Set(leaves.map((l) => (l.geometry as GeoJSON.Point).coordinates.join(","))).size > 1) break;
+      // The units at exactly its place are its stack, whatever the zoom: found from the data, not
+      // from what the map has drawn, so one click opens the spider (owner 2026-11-24: the first
+      // click only zoomed, the spider needed a second).
+      const stack = shownRef.current.filter((s) => s.geometry.coordinates[0] === at[0] && s.geometry.coordinates[1] === at[1]);
+      const openStack = () => {
+        if (stack.length > 1) {
           setSpiderKey(null);
-          setSpider({ coordinates: at, units: leaves.map((l) => l.properties as UnitPointProperties) });
-          return;
-        }
-        // Not in a stack: its own ring at the region's centre, marked.
-        halo(true);
-      });
+          setSpider({ coordinates: at, units: stack.map((s) => s.properties) });
+        } else halo(true);
+      };
+      setSpider(null);
+      // At region level. The spider opens once the map has arrived, since a zoom closes it.
+      const here = map.project(at);
+      const centre = map.project(map.getCenter());
+      if (Math.abs(map.getZoom() - 10) < 0.01 && Math.hypot(here.x - centre.x, here.y - centre.y) < 1) {
+        openStack();
+        return;
+      }
+      map.once("moveend", openStack);
+      map.easeTo({ center: at, zoom: 10 });
     },
     [setFocused, setSpider, setSpiderKey]
   );
@@ -484,9 +490,9 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
                   <button
                     type="button"
                     className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-                    title="Clear the list"
-                    aria-label="Clear the list"
-                    onClick={() => clearPicked()}
+                    title="Clear the list and show all units"
+                    aria-label="Clear the list and show all units"
+                    onClick={() => resetView()}
                     data-units-map-clear=""
                   >
                     <X className="h-4 w-4" />
