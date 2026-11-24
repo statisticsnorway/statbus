@@ -49,6 +49,8 @@ import {
 export interface RegionsMapSource {
   /** The SWR key part that changes when the counted units change (the search's filter). */
   key: string;
+  /** False while what the counting needs is still loading; the map waits rather than count wrong. */
+  ready?: boolean;
   /** One row per unit type, region path and country, for the units this map counts in the frame. */
   fetchRows: (validOn: string) => Promise<RegionCountRow[]>;
   /** The search filter the map's links to /search add to their own (a place, unit types). */
@@ -220,7 +222,7 @@ export function RegionsMap({
   const selectedCountry = countryByCode.get(selectedCountryCode(selection) ?? "") ?? null;
 
   const { data: rows, error: countError, isLoading: counting } = useSWR(
-    client && validOn ? ["regions-map:counts", source.key, validOn] : null,
+    client && validOn && source.ready !== false ? ["regions-map:counts", source.key, validOn] : null,
     () => source.fetchRows(validOn!)
   );
 
@@ -499,7 +501,13 @@ export function RegionsMap({
                 </span>
               </SearchRow>
             </h2>
-            {selectedCounts ? (
+            {!rows ? (
+              // No counts yet, or counting failed (its message stands over the map): no numbers, rather
+              // than zeros that read as an answer.
+              <p className="mt-2 text-xs text-gray-500" data-regions-map-no-counts="">
+                {countError ? "The counts could not be read." : "Counting…"}
+              </p>
+            ) : selectedCounts ? (
               // One list of unit types: tick to show a type on the map and in the list the button
               // opens; the count is the selection's (owner 2026-11-23: the types were listed twice,
               // as counts here and as a legend at the bottom).
@@ -515,7 +523,9 @@ export function RegionsMap({
               </div>
             )}
             <p className="mt-2 text-xs text-gray-500" data-regions-map-level="">
-              {selectedCountry
+              {!rows
+                ? null
+                : selectedCountry
                 ? `This registry has no regions of ${selectedCountry.name}. X or the trail above goes back up.`
                 : isLeaf
                   ? "The lowest level: no regions below this one. X or the trail above goes back up."

@@ -406,12 +406,20 @@ export function facetParams(api: URLSearchParams, homeCountryId: number | null):
 /**
  * The select of a live count by region over statistical_unit with a search's filter: the grouped
  * columns and count(), keeping any embedding the filter selects through (a quality check's
- * `*,quality_x!inner()` joins its findings), without the `*`.
+ * `*,quality_x!inner()` joins its findings), without the `*`. PostgREST cannot put an empty embed
+ * beside an aggregate (400: column does not exist), so each empty one names a column it has,
+ * unit_type; the inner join still keeps only the units it finds, and groups stay as they are
+ * (tmp/journal.md, 2026-11-24 21:15).
  */
 export function liveCountSelect(api: URLSearchParams): string {
   const own = "unit_type,physical_region_path,physical_country_id,count()";
   const filterSelect = api.get("select");
-  const embeds = filterSelect ? filterSelect.split(",").filter((part) => part !== "*") : [];
+  const embeds = filterSelect
+    ? filterSelect
+        .split(",")
+        .filter((part) => part !== "*")
+        .map((part) => part.replace(/\(\)$/, "(unit_type)"))
+    : [];
   return [own, ...embeds].join(",");
 }
 

@@ -13,7 +13,9 @@ import {
   fetchSearchPageDataAtom,
   searchFilterApiParams,
   searchPageDataAtom,
+  searchPageDataReadyAtom,
 } from "@/atoms/search";
+import { useBaseData } from "@/atoms/base-data";
 import { fetchWithAuthRefresh } from "@/context/RestClientStore";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { deriveStateFromUrl } from "@/app/search/derive-state-from-url";
@@ -47,6 +49,12 @@ export default function ReportsMapPage() {
   const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
   const statDefinitions = useAtomValue(statDefinitionsAtom);
   const { allDataSources } = useAtomValue(searchPageDataAtom);
+  const searchPageDataReady = useAtomValue(searchPageDataReadyAtom);
+  const { loading: baseDataLoading } = useBaseData();
+  // The filter's codes become ids through these: external identifier types and statistics (base
+  // data) and data sources (the search's lookups). Counting before they arrive would count a
+  // different filter.
+  const lookupsReady = !baseDataLoading && searchPageDataReady;
   const fetchSearchPageData = useSetAtom(fetchSearchPageDataAtom);
   // A data-source filter names sources by code; the list of sources turns them into ids.
   useGuardedEffect(
@@ -101,7 +109,12 @@ export default function ReportsMapPage() {
     const linkFilter = new URLSearchParams(searchUrlString);
     linkFilter.delete("unit_type");
     return {
-      key: `${searchUrlString}|${homeId ?? ""}`,
+      // The API filter itself, with the home country it may be rewritten with: it changes when the
+      // lookups a filter needs (data sources by code) arrive, so a count made before them is not
+      // reused after.
+      key: `${filterOnly(null).toString()}|${homeId ?? ""}`,
+      // Counting waits for the installation's country (domestic) and the lookups the filter reads.
+      ready: homeId !== undefined && lookupsReady,
       searchFilter: linkFilter,
       fetchRows: async (validOn: string): Promise<RegionCountRow[]> => {
         const api = filterOnly(validOn);
@@ -125,13 +138,20 @@ export default function ReportsMapPage() {
           throw new Error(
             `Counting the units by region failed (${response.status}): ${await response.text()}`
           );
-        const rows = (await response.json()) as (Omit<
-          RegionCountRow,
-          "count"
-        > & { sum?: number; count?: number })[];
-        return rows.map(({ sum, count, ...r }) => ({
-          ...r,
-          count: Number(sum ?? count ?? 0),
+        const rows = (await response.json()) as {
+          unit_type: RegionCountRow["unit_type"];
+          physical_region_path: string | null;
+          physical_country_id: number | null;
+          sum?: number;
+          count?: number;
+        }[];
+        // Only the grouped columns and the count: an embedded filter (a quality check) comes back as
+        // its own field and is left out here.
+        return rows.map((r) => ({
+          unit_type: r.unit_type,
+          physical_region_path: r.physical_region_path,
+          physical_country_id: r.physical_country_id,
+          count: Number(r.sum ?? r.count ?? 0),
         }));
       },
     };
@@ -142,6 +162,7 @@ export default function ReportsMapPage() {
     statDefinitions,
     allDataSources,
     homeId,
+    lookupsReady,
   ]);
 
   const listHref = `/search?${searchUrlString}`;

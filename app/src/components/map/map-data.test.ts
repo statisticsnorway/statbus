@@ -156,9 +156,11 @@ describe("facetParams and liveCountSelect (5nq78t)", () => {
     ]).toEqual([null, null, null, null]);
   });
   it("counts live by region, keeping a filter's embedding", () => {
+    // An empty embed cannot stand beside an aggregate in PostgREST (400: column does not exist), so
+    // the count names one column inside it; the inner join still filters the units.
     expect([liveCountSelect(new URLSearchParams("search=x")), liveCountSelect(new URLSearchParams("select=*,quality_x!inner()"))]).toEqual([
       "unit_type,physical_region_path,physical_country_id,count()",
-      "unit_type,physical_region_path,physical_country_id,count(),quality_x!inner()",
+      "unit_type,physical_region_path,physical_country_id,count(),quality_x!inner(unit_type)",
     ]);
   });
 });
