@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { CircleHelp, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent } from "maplibre-gl";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
@@ -496,10 +496,10 @@ function PlacementRow({ kind, placed, label, count }: { kind: keyof typeof MARKE
 }
 
 /**
- * The Map page's legend (owner 2026-11-24): one grid. Each unit type, and the grey group of
- * mixed unit types, has the same three markers: at the address, somewhere in the region, and
- * a group with some of each. A unit type has a checkbox (at least one stays picked) and its
- * counts; one line says every circle is a group that expands on a click.
+ * The Map page's legend (owner 2026-11-24): the unit types, each with its checkbox (at least
+ * one stays picked), count and colour, and the grey group of mixed unit types. A ? after each
+ * opens its markers in place: at the address (solid), somewhere in the region (ring), and a
+ * group with some of each (ring with a pale core), the unit types with their counts.
  */
 function UnitsLegend({
   selected,
@@ -510,40 +510,63 @@ function UnitsLegend({
   onChange: (next: MapUnitType[]) => void;
   counts: Record<"legal_unit" | "establishment", { point: number; region: number }>;
 }) {
+  const [open, setOpen] = useState<keyof typeof MARKER_SWATCH | null>(null);
   const toggle = (t: MapUnitType) => {
     const next = selected.includes(t) ? selected.filter((s) => s !== t) : [...selected, t];
     if (next.length > 0) onChange(LEGEND_TYPES.map((l) => l.unitType).filter((u) => next.includes(u)));
   };
+  const help = (kind: keyof typeof MARKER_SWATCH, label: string) => (
+    <button
+      type="button"
+      className={`rounded-full p-0.5 hover:bg-gray-100 hover:text-gray-900 ${open === kind ? "text-gray-900" : "text-gray-400"}`}
+      aria-label={`What the markers for ${label.toLowerCase()} mean`}
+      aria-expanded={open === kind}
+      onClick={() => setOpen(open === kind ? null : kind)}
+      data-legend-help={kind}
+    >
+      <CircleHelp className="h-3.5 w-3.5" />
+    </button>
+  );
   return (
-    <fieldset className="space-y-2 text-sm" data-units-legend="">
+    <fieldset className="space-y-1.5 text-sm" data-units-legend="">
       <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">Units</legend>
       {LEGEND_TYPES.map(({ unitType, label }) => (
         <div key={unitType}>
-          <label className="flex cursor-pointer items-center gap-2">
-            <input type="checkbox" checked={selected.includes(unitType)} onChange={() => toggle(unitType)} data-unit-type={unitType} />
-            <span className="flex-1">{label}</span>
-            <span className="tabular-nums text-gray-600">
-              {(counts[unitType].point + counts[unitType].region).toLocaleString()}
-            </span>
-          </label>
-          <div className="mt-0.5 space-y-0.5 pl-6 text-xs text-gray-600">
-            <PlacementRow kind={unitType} placed="point" label="At its address" count={counts[unitType].point} />
-            <PlacementRow kind={unitType} placed="region" label="Somewhere in its region" count={counts[unitType].region} />
-            <PlacementRow kind={unitType} placed="both" label="Some of each" />
+          <div className="flex items-center gap-2">
+            <label className="flex flex-1 cursor-pointer items-center gap-2">
+              <input type="checkbox" checked={selected.includes(unitType)} onChange={() => toggle(unitType)} data-unit-type={unitType} />
+              <PlacementMarker kind={unitType} placed="point" />
+              <span>{label}</span>
+            </label>
+            {help(unitType, label)}
+            <span className="w-12 text-right tabular-nums text-gray-600">{(counts[unitType].point + counts[unitType].region).toLocaleString()}</span>
           </div>
+          {open === unitType && (
+            <div className="mt-0.5 space-y-0.5 pl-6 text-xs text-gray-600" data-legend-detail={unitType}>
+              <PlacementRow kind={unitType} placed="point" label="At its address" count={counts[unitType].point} />
+              <PlacementRow kind={unitType} placed="region" label="Somewhere in its region" count={counts[unitType].region} />
+              <PlacementRow kind={unitType} placed="both" label="Some of each" />
+            </div>
+          )}
         </div>
       ))}
       <div data-legend-mixed="">
-        <p className="pl-6">Mixed unit types</p>
-        <div className="mt-0.5 space-y-0.5 pl-6 text-xs text-gray-600">
-          <PlacementRow kind="mixed" placed="point" label="At their address" />
-          <PlacementRow kind="mixed" placed="region" label="Somewhere in their region" />
-          <PlacementRow kind="mixed" placed="both" label="Some of each" />
+        <div className="flex items-center gap-2">
+          {/* No checkbox: the grey groups follow from the types picked above. The space keeps the columns. */}
+          <span className="inline-block w-[14px] shrink-0" aria-hidden />
+          <PlacementMarker kind="mixed" placed="point" />
+          <span className="flex-1">Mixed unit types</span>
+          {help("mixed", "Mixed unit types")}
+          <span className="w-12" aria-hidden />
         </div>
+        {open === "mixed" && (
+          <div className="mt-0.5 space-y-0.5 pl-6 text-xs text-gray-600" data-legend-detail="mixed">
+            <PlacementRow kind="mixed" placed="point" label="At their address" />
+            <PlacementRow kind="mixed" placed="region" label="Somewhere in their region" />
+            <PlacementRow kind="mixed" placed="both" label="Some of each" />
+          </div>
+        )}
       </div>
-      <p className="text-xs text-gray-500" data-legend-group="">
-        A circle with a number is a group: click to expand it.
-      </p>
     </fieldset>
   );
 }
