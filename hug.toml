@@ -15,6 +15,7 @@ email = ["hhz@ssb.no"]
 
 [models]
 "claude-opus-5-5" = ["low", "medium", "high", "xhigh", "max"]
+"gpt-5" = ["high"]
 
 [board]
 coordinator = "rabbit"
