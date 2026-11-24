@@ -1,7 +1,7 @@
 ---
 id: dwt9kd
 title: "Every dashboard card's count equals its list, for the selected time frame"
-state: "doing"
+state: "done"
 type: bug
 priority: "high"
 assignee: ["rabbit"]
@@ -10,12 +10,10 @@ group: ""
 rank: "00000000000f"
 created: 2026-11-22
 updated: 2026-11-22
-doing_since: "2026-11-23T22:27"
-doing_with: "pkne34"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+done_at: "2026-11-24T01:52"
 ---
 
 ## Goal
@@ -56,5 +54,7 @@ landed dc8dd7b on master 2026-11-24: app: quality cards count the unit types the
 check 4: Dev (read-only, deployed 016928a38): dev's data now starts in 2025 (no unit exists on 2024-12-31) and dev has no 2024 frame (time frames: live, prev 2025-12-31, y_2025), so the 2024 mismatch can no longer be shown there; the dev data was reloaded since the report. For the 2025 frame the cards' rule (exists at the date, used_for_counting) equals the Reports yearly countable_count: establishments 1516/1516, legal units 7593/7593, enterprises 7593/7593 (tmp/dwt9kd/dev-cards-vs-reports.sql, .log). Cause of the mismatches the owner saw: saved counts shown for another frame (fixed adb5b7d2e) and after data changes (d5d29f4c4); unit cards linking to all statuses (2dd83934d); quality cards counting power groups (dc8dd7b4c). On dev's data before those fixes (restored locally): Legal Units card 7593 vs list 7961.
 Norway (BRREG data, hibiscus's local slot, feat/units-on-map 9ffdca9d0 with dc8dd7b4c merged), Live frame (2026): all 7 cards equal their lists (statbus/tmp/z2qt08/cards-vs-lists-after-dc8dd7b4c.log): Enterprises 1,134,475; Legal Units 1,134,475; Establishments 823,767; Missing Region 2; Missing Activity Category 161,571; Missing Physical Location 22,446; Establishment Activity Differs 11,010. Before dc8dd7b4c on the same slot: 186,347 vs 161,571 and 22,502 vs 22,446 (tmp/z2qt08/cards-vs-lists.log).
 CI green for dc8dd7b4c (Fast Tests, Go Test, app build & lint, Images, Harness Selftest, Push on master).
+Reflection (open, 2026-11-24, rabbit): The ticket's 2024-on-dev check named an environment whose data was later reloaded without a 2024 frame; a check tied to a specific data state needs the data captured (a dump) when the problem is reported. Also hug task set --accept appends rather than replaces, so sharpening a check wording created duplicates I had to remove via hug task edit.
 ## History
 - 2026-11-23T22:27 todo -> doing/active (take with pkne34)
+- 2026-11-24T01:52 doing/active -> done (done); was doing_since: 2026-11-23T22:27; doing_with: pkne34
