@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { UNIT_TYPE_LABEL, UNIT_TYPE_SWATCH, selectedTotal, type MapUnitType } from "@/components/map/map-data";
-import { OpenInSearch } from "./open-in-search";
+import { OpenInSearch, unitsIn } from "./open-in-search";
 
 /** One child of the selection as the list shows it: a region, or a country at the World level. */
 export interface ChildRow {
@@ -78,7 +78,7 @@ export function ChildList({
                   </span>
                   <span className="tabular-nums text-gray-600">{selectedTotal(r.counts, unitTypes).toLocaleString()}</span>
                 </button>
-                {isPicked && <OpenInSearch href={searchFor(r.path)} name={r.name} data-child-search={r.path} />}
+                {isPicked && <OpenInSearch href={searchFor(r.path)} title={unitsIn(r.name)} data-child-search={r.path} />}
                 {r.canEnter ? (
                   <button
                     type="button"

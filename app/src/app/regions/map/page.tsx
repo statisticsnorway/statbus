@@ -17,7 +17,7 @@ import { UnitTypeLegend } from "@/components/map/unit-type-legend";
 import { BASEMAP_FONT, BASEMAP_FONT_BOLD } from "@/components/map/basemap";
 import { ViewControl } from "@/components/map/view-control";
 import { RegionSpiders } from "./region-spiders";
-import { OpenInSearch } from "./open-in-search";
+import { OpenInSearch, unitsIn } from "./open-in-search";
 import { ChildList, type ChildRow } from "./child-list";
 import {
   MAP_UNIT_TYPES,
@@ -447,9 +447,11 @@ export default function RegionsMapPage() {
                 <X className="h-4 w-4" />
               </button>
             )}
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              {selection === null ? "Everywhere" : depth === 0 ? "Selected country" : "Selected region"}
-            </p>
+            {selection !== null && (
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                {depth === 0 ? "Selected country" : "Selected region"}
+              </p>
+            )}
             <h2 className="flex items-center gap-1 pr-6 font-medium">
               <span>
                 {nameOf(selection)}
@@ -458,7 +460,7 @@ export default function RegionsMapPage() {
               {selectionSearch && (
                 // Opens the selection's units in the search, as the square arrow opens a unit on a
                 // unit's Map page (owner 2026-11-24: one icon for leaving the map).
-                <OpenInSearch href={selectionSearch} name={nameOf(selection)} data-regions-map-view-units="" />
+                <OpenInSearch href={selectionSearch} title={unitsIn(nameOf(selection))} data-regions-map-view-units="" />
               )}
             </h2>
             {selectedCounts ? (
@@ -501,12 +503,15 @@ export default function RegionsMapPage() {
             <section className="space-y-2" data-regions-not-on-map="">
               <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">Not on the map</h2>
               {selection === "" && world.domesticWithoutRegion > 0 && (
-                <CountLink
-                  href={`/search?${typesParam}&domestic=true&physical_region_path=null`}
-                  label={`Units in ${nameOf("")} without a region`}
-                  value={world.domesticWithoutRegion}
-                  data="units-without-region"
-                />
+                <p className="flex items-center gap-1" data-count="units-without-region">
+                  <span className="flex-1">Units in {nameOf("")} without a region</span>
+                  <span className="tabular-nums text-gray-600">{world.domesticWithoutRegion.toLocaleString()}</span>
+                  <OpenInSearch
+                    href={`/search?${typesParam}&quality=domestic_without_region`}
+                    title={`View and download the units in ${nameOf("")} without a region`}
+                    data-count-link="units-without-region"
+                  />
+                </p>
               )}
               {withoutCentre.length > 0 && (
                 <div data-regions-without-coordinates="">
@@ -575,8 +580,9 @@ function parseUnitTypes(types: string | null): MapUnitType[] {
 
 /**
  * The world selection's summary: the units in the installation's own country, abroad, and without
- * a location. The countries themselves, each pickable and enterable, are the list below it
- * (ChildList), as the regions are at the other levels.
+ * a location, each with the square arrow that opens them in the search (owner 2026-11-24: every
+ * count that leads out says so on hover). The countries themselves, each pickable and enterable,
+ * are the list below it (ChildList), as the regions are at the other levels.
  */
 function WorldSplit({
   world,
@@ -588,26 +594,32 @@ function WorldSplit({
   typesParam: string;
 }) {
   const abroadTotal = world.abroad.reduce((s, a) => s + a.count, 0);
+  const rows = [
+    { key: "domestic", label: `In ${homeName}`, value: world.domestic, href: `/search?${typesParam}&domestic=true`, title: unitsIn(homeName) },
+    {
+      key: "abroad",
+      label: `Abroad, in ${world.abroad.length.toLocaleString()} countries`,
+      value: abroadTotal,
+      href: `/search?${typesParam}&domestic=false`,
+      title: `View and download the units abroad`,
+    },
+    {
+      key: "no-location",
+      label: "No location",
+      value: world.noLocation,
+      href: `/search?${typesParam}&physical_location=missing`,
+      title: "View and download the units with no location",
+    },
+  ];
   return (
     <div className="mt-2 space-y-1" data-regions-map-world="">
-      <p className="flex justify-between gap-2" data-count="domestic">
-        <span>In {homeName}</span>
-        <span className="tabular-nums text-gray-600">{world.domestic.toLocaleString()}</span>
-      </p>
-      <p className="flex justify-between gap-2" data-count="abroad">
-        <span>Abroad, in {world.abroad.length.toLocaleString()} countries</span>
-        <span className="tabular-nums text-gray-600">{abroadTotal.toLocaleString()}</span>
-      </p>
-      <CountLink href={`/search?${typesParam}&physical_location=missing`} label="No location" value={world.noLocation} data="no-location" />
+      {rows.map((r) => (
+        <p key={r.key} className="flex items-center gap-1" data-count={r.key}>
+          <span className="flex-1">{r.label}</span>
+          <span className="tabular-nums text-gray-600">{r.value.toLocaleString()}</span>
+          <OpenInSearch href={r.href} title={r.title} data-count-link={r.key} />
+        </p>
+      ))}
     </div>
-  );
-}
-
-function CountLink({ href, label, value, data }: { href: string; label: string; value: number; data: string }) {
-  return (
-    <Link className="flex justify-between gap-2 underline-offset-2 hover:underline" href={href} data-count-link={data}>
-      <span>{label}</span>
-      <span className="tabular-nums text-gray-600">{value.toLocaleString()}</span>
-    </Link>
   );
 }
