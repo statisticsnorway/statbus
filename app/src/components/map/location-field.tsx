@@ -62,8 +62,9 @@ export function LocationField({
       <input type="hidden" name="latitude" value={values.latitude} />
       <input type="hidden" name="longitude" value={values.longitude} />
       <input type="hidden" name="altitude" value={values.altitude} />
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="relative h-40 w-full max-w-md overflow-hidden rounded border">
+      {/* Map left; coordinates and Edit on map in a column at its right (owner 2026-11-24). */}
+      <div className="flex items-start gap-4">
+        <div className="relative h-40 w-full max-w-md min-w-0 overflow-hidden rounded border">
           <PreviewMap
             key={`${values.latitude},${values.longitude}:${view.region?.join(",")}`}
             view={view}
@@ -78,7 +79,7 @@ export function LocationField({
             Larger map
           </button>
         </div>
-        <div className="space-y-3">
+        <div className="shrink-0 space-y-3">
           <Coordinates
             latitude={values.latitude}
             longitude={values.longitude}

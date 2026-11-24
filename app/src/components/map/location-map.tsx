@@ -92,31 +92,22 @@ export function Coordinates({
   altitude: string;
   view: View;
 }) {
-  if (!view.point) {
-    return (
-      <p className="text-sm text-gray-600" data-location-coordinates="">
-        No coordinates
-      </p>
-    );
-  }
   const shown = (v: string) => Number(v).toFixed(6);
-  // One line, each number named (owner 2026-11-24).
+  const unset = <span className="text-gray-400">not set</span>;
+  // Each number named on its own line, a narrow column beside the map; altitude is always listed,
+  // "not set" when missing, so its absence reads as a fact rather than an omission (owner
+  // 2026-11-24).
   return (
-    <p
-      className="flex flex-wrap gap-x-4 text-sm tabular-nums"
+    <dl
+      className="grid grid-cols-[auto_auto] justify-start gap-x-3 text-sm tabular-nums"
       data-location-coordinates=""
     >
-      <span>
-        <span className="text-gray-500">Latitude</span> {shown(latitude)}
-      </span>
-      <span>
-        <span className="text-gray-500">Longitude</span> {shown(longitude)}
-      </span>
-      {altitude && (
-        <span>
-          <span className="text-gray-500">Altitude</span> {altitude} m
-        </span>
-      )}
-    </p>
+      <dt className="text-gray-500">Latitude</dt>
+      <dd>{view.point ? shown(latitude) : unset}</dd>
+      <dt className="text-gray-500">Longitude</dt>
+      <dd>{view.point ? shown(longitude) : unset}</dd>
+      <dt className="text-gray-500">Altitude</dt>
+      <dd>{altitude ? `${altitude} m` : unset}</dd>
+    </dl>
   );
 }

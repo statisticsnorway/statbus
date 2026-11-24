@@ -2,13 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
-import {
-  ChevronDown,
-  ChevronRight,
-  LocateFixed,
-  Search,
-  X,
-} from "lucide-react";
+import { LocateFixed, MapPin, Pencil, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -261,6 +255,64 @@ function PickerBody({
             )}
           </p>
         </div>
+        {/* The point between address and region: its coordinates, typed here when known from
+            elsewhere (owner 2026-11-24). The pin mark ties it to the pin on the map. */}
+        <div
+          className={`rounded border-2 px-3 py-2 ${numbersOpen ? "border-gray-800 bg-white" : "border-gray-200 bg-gray-50"}`}
+          data-location-picker-point=""
+        >
+          <span className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+            <MapPin
+              className="h-3.5 w-3.5"
+              style={{ color: "var(--color-legal_unit-600)" }}
+              aria-hidden
+            />
+            Point
+            {isEditing && !numbersOpen && (
+              <button
+                type="button"
+                className="ml-auto rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
+                onClick={() => setNumbersOpen(true)}
+                title="Edit the coordinates"
+                aria-label="Edit the coordinates"
+                data-location-picker-edit-coordinates=""
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </span>
+          {numbersOpen ? (
+            <div className="mt-1 grid grid-cols-[auto_8rem] items-center gap-x-2 gap-y-1">
+              {(["latitude", "longitude", "altitude"] as const).map((f) => (
+                <Label key={f} className="contents">
+                  <span className="text-xs capitalize text-gray-600">{f}</span>
+                  <Input
+                    value={draft[f]}
+                    onChange={(e) => typeCoordinate(f, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        setNumbersOpen(false);
+                      }
+                    }}
+                    placeholder={f === "altitude" ? "metres" : undefined}
+                    inputMode="decimal"
+                    autoComplete="off"
+                    autoFocus={f === "latitude"}
+                    className="h-7 px-2 text-sm tabular-nums"
+                  />
+                </Label>
+              ))}
+            </div>
+          ) : (
+            <Coordinates
+              latitude={draft.latitude}
+              longitude={draft.longitude}
+              altitude={draft.altitude}
+              view={locationView(draft.latitude, draft.longitude, regionCentre)}
+            />
+          )}
+        </div>
         {shownAddress.regionName && (
           <button
             type="button"
@@ -286,13 +338,6 @@ function PickerBody({
           </button>
         )}
       </div>
-      {/* Address, then the coordinates, then the map (owner 2026-11-24). */}
-      <Coordinates
-        latitude={draft.latitude}
-        longitude={draft.longitude}
-        altitude={draft.altitude}
-        view={locationView(draft.latitude, draft.longitude, regionCentre)}
-      />
       {isEditing && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -386,38 +431,6 @@ function PickerBody({
           <LocateFixed className="h-4 w-4" />
         </button>
       </div>
-      {isEditing && (
-        <div data-location-picker-numbers="">
-          <button
-            type="button"
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-            onClick={() => setNumbersOpen((o) => !o)}
-            aria-expanded={numbersOpen}
-          >
-            {numbersOpen ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-            Edit coordinates
-          </button>
-          {numbersOpen && (
-            <div className="mt-2 grid grid-cols-3 gap-3">
-              {(["latitude", "longitude", "altitude"] as const).map((f) => (
-                <Label key={f} className="flex flex-col space-y-1">
-                  <span className="text-xs uppercase text-gray-600">{f}</span>
-                  <Input
-                    value={draft[f]}
-                    onChange={(e) => typeCoordinate(f, e.target.value)}
-                    inputMode="decimal"
-                    autoComplete="off"
-                  />
-                </Label>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
       <DialogFooter className="items-center gap-3">
         <div className="flex gap-2">
           {isEditing ? (
