@@ -485,11 +485,15 @@ function UnitsLegend({
           </div>
         </div>
       ))}
-      <p className="flex items-center gap-2 text-xs text-gray-600">
-        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-gray-500 bg-white text-[9px] font-medium" aria-hidden>
+      <p className="flex items-center gap-2 text-xs text-gray-600" data-legend-group="">
+        {/* Drawn as the map draws a group: a white circle, its rim in the units' colour, the count inside. */}
+        <span
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-gray-500 bg-white text-[10px] font-medium leading-none"
+          aria-hidden
+        >
           n
         </span>
-        Units close together; click to zoom in and list them. Units at one place open out on legs, one per type.
+        A group of units; click to expand
       </p>
     </fieldset>
   );
