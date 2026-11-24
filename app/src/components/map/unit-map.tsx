@@ -47,6 +47,16 @@ export function UnitMap({
           });
           map.addControl(new NavigationControl({ showCompass: false }), "top-left");
           map.addControl(new AttributionControl({ compact: true }), "bottom-right");
+          // The compact attribution opens itself on maps wider than 640 px, at load and on every
+          // resize; it starts as the ⓘ on every map, opened by a click (owner 2026-11-24: it
+          // covered the smaller unit map). A click on the ⓘ still toggles it.
+          const collapseAttribution = () => {
+            const attribution = containerRef.current?.querySelector(".maplibregl-ctrl-attrib");
+            attribution?.classList.remove("maplibregl-compact-show");
+            attribution?.removeAttribute("open");
+          };
+          map.once("load", collapseAttribution);
+          map.on("resize", collapseAttribution);
           map.on("error", (e) => setError(e.error?.message ?? "The map could not load."));
           map.once("load", () => {
             if (cancelled || !map) return;
