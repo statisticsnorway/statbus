@@ -11,10 +11,13 @@ rank: "zzzzzzx"
 created: 2026-11-22
 updated: 2026-11-22
 doing_since: "2026-11-23T16:23"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+waiting_on: "check 2: rc.02 reaching no.statbus.org"
+waiting_since: "2026-11-24T20:14"
+waiting_asked_by: "rabbit"
 ---
 
 ## Goal
@@ -47,3 +50,4 @@ landed 7636c75 on master 2026-11-23: app: Missing Region card counts what its li
 Owner checked in Firefox on the test slot (62e05147c): the Establishment Activity Differs card opens the list with the Quality: Activity differs chip after a client-side return to the dashboard, and Physical Location: Missing and Quality chips show orange.
 ## History
 - 2026-11-23T16:23 todo -> doing/active (take)
+- 2026-11-24T20:14 doing/active -> doing/waiting (wait)
