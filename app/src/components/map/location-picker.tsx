@@ -2,119 +2,374 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
-import { MapPin } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { UnitMap, cssColour } from "./unit-map";
 import { pickerStart, roundCoordinate } from "./map-data";
+import { searchPlaces, type PlaceMatch } from "./region-placer";
+
+/** The physical address the form holds, read when the map opens. */
+export interface AddressForLookup {
+  /** One line, as a person writes it ("Eivensstuen 2, 2022 Gjerdrum"). */
+  line: string;
+  /** The country's ISO 3166 alpha-2 code, to keep OpenStreetMap's matches in that country. */
+  countryCode: string | null;
+  /** The region's name, shown beside the address. */
+  regionName: string | null;
+}
+
+/** A location's coordinates as the form keeps them: text, empty when not set. */
+export interface PointValues {
+  latitude: string;
+  longitude: string;
+  altitude: string;
+}
 
 /**
- * "Pick on map" beside a physical location's latitude and longitude (z2qt08, owner
- * 2026-11-18): a map opens at the location's point, else its region's centre, else the
- * country; a click or a drag puts the pin, and "Use this point" writes latitude and
- * longitude into the form's inputs, where Save stores them as before. Altitude stays as it
- * is. Finding a place from the address is a geocoding workflow (nq8zqt), not done here.
+ * A physical location on a large map (z2qt08, owner 2026-11-24), opened from the location field's
+ * preview. Shown: the stored point, or the region's centre when there is none, read only. Edited:
+ * the unit's address stands above the map so the point can be judged against it; "Look up the
+ * address" asks OpenStreetMap for it and puts the pin on the first match, the others listed; a
+ * search field finds any place by name. A click or a drag moves the pin. "Enter coordinates" opens
+ * the latitude, longitude and altitude as numbers, for a point known from elsewhere (a GPS, another
+ * register); typing there moves the pin. "Use this point" hands the values back to the field. Each
+ * lookup is one person's search (OpenStreetMap's usage policy); geocoding many units at once is
+ * its own workflow (nq8zqt).
  */
 export function LocationPicker({
-  formRef,
+  open,
+  editing,
+  values,
   regionCentre,
+  address,
+  onClose,
+  onUse,
 }: {
-  /** The form holding the inputs named latitude and longitude. */
-  formRef: React.RefObject<HTMLElement | null>;
+  open: boolean;
+  /** Whether the point can be moved; else the map only shows it. */
+  editing: boolean;
+  values: PointValues;
   regionCentre: { latitude: number | null; longitude: number | null } | null;
+  /** The address the form holds now, read when the map opens. */
+  address: () => AddressForLookup;
+  onClose: () => void;
+  onUse: (values: PointValues) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [point, setPoint] = useState<[number, number] | null>(null);
-  // The point the pin starts on, set when the dialog opens.
-  const pointRef = useRef<[number, number] | null>(null);
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-4xl">
+        {/* Mounted per opening, so each starts from the field's values and the form's address then. */}
+        {open && (
+          <PickerBody
+            editing={editing}
+            values={values}
+            regionCentre={regionCentre}
+            address={address}
+            onClose={onClose}
+            onUse={onUse}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PickerBody({
+  editing: isEditing,
+  values,
+  regionCentre,
+  address,
+  onClose,
+  onUse,
+}: {
+  editing: boolean;
+  values: PointValues;
+  regionCentre: { latitude: number | null; longitude: number | null } | null;
+  address: () => AddressForLookup;
+  onClose: () => void;
+  onUse: (values: PointValues) => void;
+}) {
+  const [draft, setDraft] = useState<PointValues>(values);
+  const [shownAddress] = useState<AddressForLookup>(address);
+  const [start] = useState(() =>
+    pickerStart(values.latitude, values.longitude, regionCentre)
+  );
+  const [query, setQuery] = useState("");
+  const [matches, setMatches] = useState<PlaceMatch[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [numbersOpen, setNumbersOpen] = useState(false);
   const markerRef = useRef<Marker | null>(null);
-  const startRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
 
-  const input = (name: string) => formRef.current?.querySelector<HTMLInputElement>(`input[name="${name}"]`) ?? null;
+  const hasPoint = pickerStart(
+    draft.latitude,
+    draft.longitude,
+    null
+  ).fromLocation;
 
-  const begin = () => {
-    const start = pickerStart(input("latitude")?.value, input("longitude")?.value, regionCentre);
-    startRef.current = { center: start.center, zoom: start.zoom };
-    pointRef.current = start.fromLocation ? start.center : null;
-    setPoint(pointRef.current);
-    setOpen(true);
-  };
-
-  const onReady = useCallback((map: MapLibreMap) => {
-    const start = startRef.current;
-    // The dialog opens with a zoom animation, so the map measured its box mid-way; measure
-    // again once it has settled, or markers are placed against the wrong size.
-    const settle = () => {
-      map.resize();
-      if (start) map.jumpTo(start);
-    };
-    settle();
-    window.setTimeout(settle, 250);
-    import("maplibre-gl").then(({ Marker }) => {
-      const marker = new Marker({ draggable: true, color: cssColour("--color-legal_unit-600") || undefined });
-      markerRef.current = marker;
-      const place = (lngLat: [number, number]) => {
-        marker.setLngLat(lngLat).addTo(map);
-        setPoint([roundCoordinate(lngLat[0]), roundCoordinate(lngLat[1])]);
-      };
-      // The stored point, if any, is where the map opened.
-      if (start && pointRef.current) marker.setLngLat(pointRef.current).addTo(map);
-      map.on("click", (e) => place([e.lngLat.lng, e.lngLat.lat]));
-      marker.on("dragend", () => {
-        const { lng, lat } = marker.getLngLat();
-        place([lng, lat]);
-      });
-    });
+  // Puts the pin at a place and the place into the draft; a looked-up place also moves the map.
+  const place = useCallback((lngLat: [number, number], fly: boolean) => {
+    const map = mapRef.current;
+    const marker = markerRef.current;
+    const lng = roundCoordinate(lngLat[0]);
+    const lat = roundCoordinate(lngLat[1]);
+    setDraft((d) => ({ ...d, latitude: String(lat), longitude: String(lng) }));
+    if (!map || !marker) return;
+    marker.setLngLat([lng, lat]).addTo(map);
+    if (fly)
+      map.easeTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15) });
   }, []);
 
-  const use = () => {
-    if (!point) return;
-    setValue(input("longitude"), String(point[0]));
-    setValue(input("latitude"), String(point[1]));
-    setOpen(false);
+  const onReady = useCallback(
+    (map: MapLibreMap) => {
+      mapRef.current = map;
+      // The dialog opens with a zoom animation, so the map measured its box mid-way; measure
+      // again once it has settled, or markers are placed against the wrong size.
+      const settle = () => {
+        map.resize();
+        map.jumpTo({ center: start.center, zoom: start.zoom });
+      };
+      settle();
+      window.setTimeout(settle, 250);
+      import("maplibre-gl").then(({ Marker }) => {
+        const canEdit = isEditing;
+        const marker = new Marker({
+          draggable: canEdit,
+          color: cssColour("--color-legal_unit-600") || undefined,
+        });
+        markerRef.current = marker;
+        // The stored point, if any, is where the map opened.
+        if (start.fromLocation) marker.setLngLat(start.center).addTo(map);
+        if (!canEdit) return;
+        map.on("click", (e) => place([e.lngLat.lng, e.lngLat.lat], false));
+        marker.on("dragend", () => {
+          const { lng, lat } = marker.getLngLat();
+          place([lng, lat], false);
+        });
+      });
+    },
+    [place, start, isEditing]
+  );
+
+  // A coordinate typed by hand moves the pin once it is a valid point.
+  const typeCoordinate = (field: keyof PointValues, text: string) => {
+    const next = { ...draft, [field]: text };
+    setDraft(next);
+    const at = pickerStart(next.latitude, next.longitude, null);
+    if (at.fromLocation && field !== "altitude") {
+      const map = mapRef.current;
+      markerRef.current?.setLngLat(at.center).addTo(map!);
+      map?.easeTo({ center: at.center });
+    }
+  };
+
+  // One search of OpenStreetMap; the first match takes the pin when it is the address lookup.
+  const lookUp = async (text: string, pinFirst: boolean) => {
+    if (!text.trim()) return;
+    setSearching(true);
+    setError(null);
+    try {
+      const found = await searchPlaces(text, shownAddress?.countryCode ?? null);
+      setMatches(found);
+      if (pinFirst && found[0])
+        place([found[0].longitude, found[0].latitude], true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSearching(false);
+    }
   };
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={begin} data-location-picker="">
-        <MapPin className="mr-1.5 h-4 w-4" />
-        Pick on map
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Pick the location</DialogTitle>
-            <DialogDescription>Click the map or drag the pin to the unit&apos;s place.</DialogDescription>
-          </DialogHeader>
-          <div className="relative h-[28rem] overflow-hidden rounded border">
-            {open && <UnitMap onReady={onReady} className="absolute inset-0" />}
-          </div>
-          <DialogFooter className="items-center gap-3 sm:justify-between">
-            <span className="text-sm tabular-nums text-gray-600" data-location-picker-point="">
-              {point ? `Latitude ${point[1]}, longitude ${point[0]}` : "No point yet"}
+      <DialogHeader>
+        <DialogTitle>
+          {isEditing
+            ? "Edit the location on the map"
+            : "The location on the map"}
+        </DialogTitle>
+        <DialogDescription>
+          {isEditing
+            ? "Look up the address, or find a place, then click the map or drag the pin to the unit's place."
+            : hasPoint
+              ? "The stored point."
+              : "No point is stored; the map shows the region's centre."}
+        </DialogDescription>
+      </DialogHeader>
+      {/* The address stays in view while the point is judged (owner 2026-11-24). */}
+      <div
+        className="rounded border bg-gray-50 px-3 py-2 text-sm"
+        data-location-picker-address=""
+      >
+        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          Address
+        </span>
+        <p>
+          {shownAddress?.line || (
+            <span className="text-gray-500">No address</span>
+          )}
+          {shownAddress?.regionName && (
+            <span className="ml-2 text-xs text-gray-500">
+              Region: {shownAddress.regionName}
             </span>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+          )}
+        </p>
+      </div>
+      {isEditing && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => lookUp(shownAddress?.line ?? "", true)}
+              disabled={searching || !shownAddress?.line}
+              data-location-picker-lookup=""
+            >
+              <Search className="mr-1.5 h-4 w-4" />
+              Look up the address
+            </Button>
+            <form
+              className="relative min-w-60 flex-1"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void lookUp(query, false);
+              }}
+            >
+              <Search
+                className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
+                aria-hidden
+              />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Find a place, e.g. Gjerdrum, and press Enter"
+                aria-label="Find a place on OpenStreetMap"
+                className="h-9 pl-7 pr-7"
+                data-location-picker-find=""
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-900"
+                  aria-label="Clear the place search"
+                  onClick={() => {
+                    setQuery("");
+                    setMatches(null);
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </form>
+          </div>
+          {searching && (
+            <p className="text-sm text-gray-500">Asking OpenStreetMap…</p>
+          )}
+          {error && <p className="text-sm text-red-700">{error}</p>}
+          {matches && (
+            <ul
+              className="max-h-32 space-y-0.5 overflow-y-auto text-sm"
+              data-location-picker-matches=""
+            >
+              {matches.length === 0 && (
+                <li className="text-gray-500">
+                  OpenStreetMap found nothing; try fewer words or a place name.
+                </li>
+              )}
+              {matches.map((m) => (
+                <li key={`${m.latitude},${m.longitude},${m.label}`}>
+                  <button
+                    type="button"
+                    className="w-full rounded px-1.5 py-0.5 text-left hover:bg-gray-100"
+                    onClick={() => place([m.longitude, m.latitude], true)}
+                  >
+                    <span>{m.label}</span>
+                    <span className="ml-1.5 text-xs text-gray-500">
+                      {m.kind}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      <div className="relative h-[24rem] overflow-hidden rounded border">
+        <UnitMap onReady={onReady} className="absolute inset-0" />
+      </div>
+      {isEditing && (
+        <div data-location-picker-numbers="">
+          <button
+            type="button"
+            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+            onClick={() => setNumbersOpen((o) => !o)}
+            aria-expanded={numbersOpen}
+          >
+            {numbersOpen ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+            Enter coordinates
+          </button>
+          {numbersOpen && (
+            <div className="mt-2 grid grid-cols-3 gap-3">
+              {(["latitude", "longitude", "altitude"] as const).map((f) => (
+                <Label key={f} className="flex flex-col space-y-1">
+                  <span className="text-xs uppercase text-gray-600">{f}</span>
+                  <Input
+                    value={draft[f]}
+                    onChange={(e) => typeCoordinate(f, e.target.value)}
+                    inputMode="decimal"
+                    autoComplete="off"
+                  />
+                </Label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <DialogFooter className="items-center gap-3 sm:justify-between">
+        <span
+          className="text-sm tabular-nums text-gray-600"
+          data-location-picker-point=""
+        >
+          {hasPoint
+            ? `Latitude ${draft.latitude}, longitude ${draft.longitude}`
+            : "No point yet"}
+        </span>
+        <div className="flex gap-2">
+          {isEditing ? (
+            <>
+              <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="button" onClick={use} disabled={!point} data-location-picker-use="">
+              <Button
+                type="button"
+                onClick={() => onUse(draft)}
+                data-location-picker-use=""
+              >
                 Use this point
               </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </>
+          ) : (
+            <Button type="button" variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          )}
+        </div>
+      </DialogFooter>
     </>
   );
-}
-
-/**
- * Sets an input's value so React sees it as typed: the native setter, then an input event,
- * so the field's own state (FormField keeps one) and the form's Save both get the value.
- */
-function setValue(el: HTMLInputElement | null, value: string) {
-  if (!el) return;
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-  setter?.call(el, value);
-  el.dispatchEvent(new Event("input", { bubbles: true }));
 }

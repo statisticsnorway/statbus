@@ -74,11 +74,6 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     (loc) => loc.type === "physical"
   );
   const regionOptions = codeListOptions(regions, { optional: true });
-  // The picker opens at the region chosen in the form, when the location has no point yet.
-  const regionCentre = (regionId: unknown) => {
-    const region = regions.find((r) => String(r.id) === String(regionId ?? ""));
-    return region ? { latitude: region.center_latitude, longitude: region.center_longitude } : null;
-  };
   const countriesOptions = countryOptions(countries, domesticCountryId);
 
   return (
@@ -208,30 +203,15 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
             </div>
             <CoordinateRow
               isEditing={isEditing}
-              regionCentre={regionCentre(valueOf("region_id", physicalLocation?.region?.id))}
-            >
-              <FormField
-                readonly={!isEditing}
-                label="Latitude"
-                name="latitude"
-                value={valueOf("latitude", physicalLocation?.latitude)}
-                response={null}
-              />
-              <FormField
-                readonly={!isEditing}
-                label="Longitude"
-                name="longitude"
-                value={valueOf("longitude", physicalLocation?.longitude)}
-                response={null}
-              />
-              <FormField
-                readonly={!isEditing}
-                label="Altitude"
-                name="altitude"
-                value={valueOf("altitude", physicalLocation?.altitude)}
-                response={null}
-              />
-            </CoordinateRow>
+              stored={{
+                latitude: valueOf("latitude", physicalLocation?.latitude),
+                longitude: valueOf("longitude", physicalLocation?.longitude),
+                altitude: valueOf("altitude", physicalLocation?.altitude),
+              }}
+              regions={regions}
+              countries={countries}
+              regionId={valueOf("region_id", physicalLocation?.region?.id)}
+            />
           </div>
         )}
       </EditableFieldGroup>
