@@ -1541,163 +1541,163 @@ FROM public.statistical_unit_stats(
         (SELECT unit_id FROM selected_legal_unit),
         '2024-01-01'::DATE
     );
--[ RECORD 1 ]+-----------------------------------------------
+-[ RECORD 1 ]+----------------------------------------------
 unit_type    | establishment
-jsonb_pretty | {                                             +
-             |     "type": "stats",                          +
-             |     "turnover": {                             +
-             |         "type": "float",                      +
-             |         "value": 5000000                      +
-             |     },                                        +
-             |     "employees": {                            +
-             |         "type": "int",                        +
-             |         "value": 5                            +
-             |     }                                         +
+jsonb_pretty | {                                            +
+             |     "type": "stats",                         +
+             |     "turnover": {                            +
+             |         "type": "float",                     +
+             |         "value": 5000000                     +
+             |     },                                       +
+             |     "employees": {                           +
+             |         "type": "int",                       +
+             |         "value": 5                           +
+             |     }                                        +
              | }
-jsonb_pretty | {                                             +
-             |     "type": "stats_agg",                      +
-             |     "turnover": {                             +
-             |         "max": 5000000,                       +
-             |         "min": 5000000,                       +
-             |         "sum": 5000000,                       +
-             |         "mean": 5000000.00,                   +
-             |         "type": "float_agg",                  +
-             |         "count": 1,                           +
-             |         "stddev": null,                       +
-             |         "sum_sq": 25000000000000,             +
-             |         "variance": null,                     +
-             |         "sum_sq_diff": 0.00,                  +
-             |         "coefficient_of_variation_pct": null  +
-             |     },                                        +
-             |     "employees": {                            +
-             |         "max": 5,                             +
-             |         "min": 5,                             +
-             |         "sum": 5,                             +
-             |         "mean": 5.00,                         +
-             |         "type": "int_agg",                    +
-             |         "count": 1,                           +
-             |         "stddev": null,                       +
-             |         "sum_sq": 25,                         +
-             |         "variance": null,                     +
-             |         "sum_sq_diff": 0.00,                  +
-             |         "coefficient_of_variation_pct": null  +
-             |     }                                         +
+jsonb_pretty | {                                            +
+             |     "type": "stats_agg",                     +
+             |     "turnover": {                            +
+             |         "max": 5000000,                      +
+             |         "min": 5000000,                      +
+             |         "sum": 5000000,                      +
+             |         "mean": 5000000.00,                  +
+             |         "type": "float_agg",                 +
+             |         "count": 1,                          +
+             |         "stddev": null,                      +
+             |         "sum_sq": 25000000000000,            +
+             |         "variance": null,                    +
+             |         "sum_sq_diff": 0.00,                 +
+             |         "coefficient_of_variation_pct": null +
+             |     },                                       +
+             |     "employees": {                           +
+             |         "max": 5,                            +
+             |         "min": 5,                            +
+             |         "sum": 5,                            +
+             |         "mean": 5.00,                        +
+             |         "type": "int_agg",                   +
+             |         "count": 1,                          +
+             |         "stddev": null,                      +
+             |         "sum_sq": 25,                        +
+             |         "variance": null,                    +
+             |         "sum_sq_diff": 0.00,                 +
+             |         "coefficient_of_variation_pct": null +
+             |     }                                        +
              | }
--[ RECORD 2 ]+-----------------------------------------------
+-[ RECORD 2 ]+----------------------------------------------
 unit_type    | establishment
-jsonb_pretty | {                                             +
-             |     "type": "stats",                          +
-             |     "turnover": {                             +
-             |         "type": "float",                      +
-             |         "value": 10000000                     +
-             |     },                                        +
-             |     "employees": {                            +
-             |         "type": "int",                        +
-             |         "value": 10                           +
-             |     }                                         +
+jsonb_pretty | {                                            +
+             |     "type": "stats",                         +
+             |     "turnover": {                            +
+             |         "type": "float",                     +
+             |         "value": 10000000                    +
+             |     },                                       +
+             |     "employees": {                           +
+             |         "type": "int",                       +
+             |         "value": 10                          +
+             |     }                                        +
              | }
-jsonb_pretty | {                                             +
-             |     "type": "stats_agg",                      +
-             |     "turnover": {                             +
-             |         "max": 10000000,                      +
-             |         "min": 10000000,                      +
-             |         "sum": 10000000,                      +
-             |         "mean": 10000000.00,                  +
-             |         "type": "float_agg",                  +
-             |         "count": 1,                           +
-             |         "stddev": null,                       +
-             |         "sum_sq": 100000000000000,            +
-             |         "variance": null,                     +
-             |         "sum_sq_diff": 0.00,                  +
-             |         "coefficient_of_variation_pct": null  +
-             |     },                                        +
-             |     "employees": {                            +
-             |         "max": 10,                            +
-             |         "min": 10,                            +
-             |         "sum": 10,                            +
-             |         "mean": 10.00,                        +
-             |         "type": "int_agg",                    +
-             |         "count": 1,                           +
-             |         "stddev": null,                       +
-             |         "sum_sq": 100,                        +
-             |         "variance": null,                     +
-             |         "sum_sq_diff": 0.00,                  +
-             |         "coefficient_of_variation_pct": null  +
-             |     }                                         +
+jsonb_pretty | {                                            +
+             |     "type": "stats_agg",                     +
+             |     "turnover": {                            +
+             |         "max": 10000000,                     +
+             |         "min": 10000000,                     +
+             |         "sum": 10000000,                     +
+             |         "mean": 10000000.00,                 +
+             |         "type": "float_agg",                 +
+             |         "count": 1,                          +
+             |         "stddev": null,                      +
+             |         "sum_sq": 100000000000000,           +
+             |         "variance": null,                    +
+             |         "sum_sq_diff": 0.00,                 +
+             |         "coefficient_of_variation_pct": null +
+             |     },                                       +
+             |     "employees": {                           +
+             |         "max": 10,                           +
+             |         "min": 10,                           +
+             |         "sum": 10,                           +
+             |         "mean": 10.00,                       +
+             |         "type": "int_agg",                   +
+             |         "count": 1,                          +
+             |         "stddev": null,                      +
+             |         "sum_sq": 100,                       +
+             |         "variance": null,                    +
+             |         "sum_sq_diff": 0.00,                 +
+             |         "coefficient_of_variation_pct": null +
+             |     }                                        +
              | }
--[ RECORD 3 ]+-----------------------------------------------
+-[ RECORD 3 ]+----------------------------------------------
 unit_type    | legal_unit
-jsonb_pretty | {                                             +
-             |     "type": "stats",                          +
-             |     "turnover": {                             +
-             |         "type": "float",                      +
-             |         "value": 0                            +
-             |     },                                        +
-             |     "employees": {                            +
-             |         "type": "int",                        +
-             |         "value": 0                            +
-             |     }                                         +
+jsonb_pretty | {                                            +
+             |     "type": "stats",                         +
+             |     "turnover": {                            +
+             |         "type": "float",                     +
+             |         "value": 0                           +
+             |     },                                       +
+             |     "employees": {                           +
+             |         "type": "int",                       +
+             |         "value": 0                           +
+             |     }                                        +
              | }
-jsonb_pretty | {                                             +
-             |     "type": "stats_agg",                      +
-             |     "turnover": {                             +
-             |         "max": 10000000,                      +
-             |         "min": 0,                             +
-             |         "sum": 15000000,                      +
-             |         "mean": 5000000.00,                   +
-             |         "type": "float_agg",                  +
-             |         "count": 3,                           +
-             |         "stddev": 5000000.00,                 +
-             |         "sum_sq": 125000000000000,            +
-             |         "variance": 25000000000000.00,        +
-             |         "sum_sq_diff": 50000000000000.00,     +
-             |         "coefficient_of_variation_pct": 100.00+
-             |     },                                        +
-             |     "employees": {                            +
-             |         "max": 10,                            +
-             |         "min": 0,                             +
-             |         "sum": 15,                            +
-             |         "mean": 5.00,                         +
-             |         "type": "int_agg",                    +
-             |         "count": 3,                           +
-             |         "stddev": 5.00,                       +
-             |         "sum_sq": 125,                        +
-             |         "variance": 25.00,                    +
-             |         "sum_sq_diff": 50.00,                 +
-             |         "coefficient_of_variation_pct": 100.00+
-             |     }                                         +
+jsonb_pretty | {                                            +
+             |     "type": "stats_agg",                     +
+             |     "turnover": {                            +
+             |         "max": 10000000,                     +
+             |         "min": 5000000,                      +
+             |         "sum": 15000000,                     +
+             |         "mean": 7500000.00,                  +
+             |         "type": "float_agg",                 +
+             |         "count": 2,                          +
+             |         "stddev": 3535533.91,                +
+             |         "sum_sq": 125000000000000,           +
+             |         "variance": 12500000000000.00,       +
+             |         "sum_sq_diff": 12500000000000.00,    +
+             |         "coefficient_of_variation_pct": 47.14+
+             |     },                                       +
+             |     "employees": {                           +
+             |         "max": 10,                           +
+             |         "min": 5,                            +
+             |         "sum": 15,                           +
+             |         "mean": 7.50,                        +
+             |         "type": "int_agg",                   +
+             |         "count": 2,                          +
+             |         "stddev": 3.54,                      +
+             |         "sum_sq": 125,                       +
+             |         "variance": 12.50,                   +
+             |         "sum_sq_diff": 12.50,                +
+             |         "coefficient_of_variation_pct": 47.14+
+             |     }                                        +
              | }
--[ RECORD 4 ]+-----------------------------------------------
+-[ RECORD 4 ]+----------------------------------------------
 unit_type    | enterprise
 jsonb_pretty | 
-jsonb_pretty | {                                             +
-             |     "type": "stats_agg",                      +
-             |     "turnover": {                             +
-             |         "max": 10000000,                      +
-             |         "min": 0,                             +
-             |         "sum": 15000000,                      +
-             |         "mean": 5000000.00,                   +
-             |         "type": "float_agg",                  +
-             |         "count": 3,                           +
-             |         "stddev": 5000000.00,                 +
-             |         "sum_sq": 125000000000000,            +
-             |         "variance": 25000000000000.00,        +
-             |         "sum_sq_diff": 50000000000000.00,     +
-             |         "coefficient_of_variation_pct": 100.00+
-             |     },                                        +
-             |     "employees": {                            +
-             |         "max": 10,                            +
-             |         "min": 0,                             +
-             |         "sum": 15,                            +
-             |         "mean": 5.00,                         +
-             |         "type": "int_agg",                    +
-             |         "count": 3,                           +
-             |         "stddev": 5.00,                       +
-             |         "sum_sq": 125,                        +
-             |         "variance": 25.00,                    +
-             |         "sum_sq_diff": 50.00,                 +
-             |         "coefficient_of_variation_pct": 100.00+
-             |     }                                         +
+jsonb_pretty | {                                            +
+             |     "type": "stats_agg",                     +
+             |     "turnover": {                            +
+             |         "max": 10000000,                     +
+             |         "min": 5000000,                      +
+             |         "sum": 15000000,                     +
+             |         "mean": 7500000.00,                  +
+             |         "type": "float_agg",                 +
+             |         "count": 2,                          +
+             |         "stddev": 3535533.91,                +
+             |         "sum_sq": 125000000000000,           +
+             |         "variance": 12500000000000.00,       +
+             |         "sum_sq_diff": 12500000000000.00,    +
+             |         "coefficient_of_variation_pct": 47.14+
+             |     },                                       +
+             |     "employees": {                           +
+             |         "max": 10,                           +
+             |         "min": 5,                            +
+             |         "sum": 15,                           +
+             |         "mean": 7.50,                        +
+             |         "type": "int_agg",                   +
+             |         "count": 2,                          +
+             |         "stddev": 3.54,                      +
+             |         "sum_sq": 125,                       +
+             |         "variance": 12.50,                   +
+             |         "sum_sq_diff": 12.50,                +
+             |         "coefficient_of_variation_pct": 47.14+
+             |     }                                        +
              | }
 
 \echo "Test statistical_unit_stats - for THE MARINE SERVICES"

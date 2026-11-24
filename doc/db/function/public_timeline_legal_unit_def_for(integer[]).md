@@ -360,7 +360,7 @@ AS $function$
     basis.primary_for_enterprise,
     basis.stats,
         CASE
-            WHEN basis.used_for_counting THEN COALESCE(public.jsonb_stats_merge(esa.stats_summary, basis.stats_summary), basis.stats_summary, esa.stats_summary, '{}'::jsonb)
+            WHEN basis.used_for_counting THEN COALESCE(public.jsonb_stats_covers(own => basis.stats_summary, parts => esa.stats_summary), '{}'::jsonb)
             ELSE '{}'::jsonb
         END AS stats_summary
    FROM basis
