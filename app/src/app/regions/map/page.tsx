@@ -293,14 +293,15 @@ export default function RegionsMapPage() {
         type: "symbol",
         source: "regions",
         // The label stands beside its circle, not on it, where the circle's fill and outline made
-        // the text hard to read (owner 2026-11-24): below by default, else right, left or above,
-        // whichever is free. The offset clears the largest circle (28 px); the name is bold and
-        // the count plain, so the two lines read apart.
+        // the text hard to read (owner 2026-11-24): below by default, else to the left, whichever is
+        // free. The offset clears the circle as scaleToView sizes it; the name is bold and the
+        // count plain, so the two lines read apart.
         layout: {
           "text-field": ["format", ["get", "name"], { "text-font": ["literal", BASEMAP_FONT_BOLD] }, "\n", {}, ["number-format", ["get", "total"], { locale: "en" }], {}],
           "text-font": BASEMAP_FONT,
           "text-size": 13,
-          "text-variable-anchor": ["top", "left", "right", "bottom"],
+          // Below the circle, else to its left: the right of a circle is where its type pills stand.
+          "text-variable-anchor": ["top", "right"],
           "text-radial-offset": 1.2,
           "text-justify": "auto",
           "text-allow-overlap": false,

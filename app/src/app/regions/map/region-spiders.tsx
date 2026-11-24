@@ -64,22 +64,24 @@ export function RegionSpiders({
   const top = inView.reduce((m, f) => Math.max(m, f.properties.total), 1);
   const candidates = inView;
   const gap = 2 * NODE_RADIUS + 3;
-  // Every circle in view, with its label below it (as the label layer places it by default): a
-  // column of pills must not cover another region's circle or its name and count.
+  // Every circle in view, with its label below it (as the label layer places it by default).
   const circleBoxes = inView.map((f) => {
     const p = map.project(f.geometry.coordinates as [number, number]);
     const r = circleRadius(f.properties.total, top);
     const labelHalf = Math.max(30, f.properties.name.length * 3.8);
-    return { path: f.properties.path, box: [Math.min(p.x - r, p.x - labelHalf), p.y - r, Math.max(p.x + r, p.x + labelHalf), p.y + r + 34] as [number, number, number, number] };
+    return { path: f.properties.path, total: f.properties.total, box: [Math.min(p.x - r, p.x - labelHalf), p.y - r, Math.max(p.x + r, p.x + labelHalf), p.y + r + 34] as [number, number, number, number] };
   });
   const overlaps = (a: [number, number, number, number], b: [number, number, number, number]) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
-  // Where each region's column of pills would stand. Columns are placed the way the map places its
-  // labels: the picked region first, then the largest; a column that would cover another column,
-  // or another region's circle or label, is left out (its counts are in the list).
+  // Which regions show their pills, by one rule (owner 2026-11-24: Trondheim showed none while
+  // Malvik beside it did): the picked region first, then by size, largest first. A region's column
+  // is left out when it would cover a column already placed or the circle or label of a larger
+  // region; a smaller neighbour gives way to it rather than the other way round. Left-out counts
+  // are in the list.
   const placed: { f: (typeof features)[number]; x: number; y: number; r: number; box: [number, number, number, number] }[] = [];
   const order = [...candidates].sort(
     (a, b) => Number(b.properties.path === focus) - Number(a.properties.path === focus) || b.properties.total - a.properties.total
   );
+  const placedPaths = new Set<string>();
   for (const f of order) {
     const p = map.project(f.geometry.coordinates as [number, number]);
     const r = circleRadius(f.properties.total, top);
@@ -88,16 +90,26 @@ export function RegionSpiders({
     // The column stands to the circle's upper right, its last pill level with the circle's
     // centre, so it clears the region's own name and count below the circle.
     const box: [number, number, number, number] = [p.x + r, p.y - 2 * half + gap / 2, p.x + r + width, p.y + gap / 2];
-    // The picked region always shows its pills (it was asked for); the others give way to it.
-    const clashes =
-      f.properties.path !== focus &&
-      (placed.some((o) => overlaps(box, o.box)) || circleBoxes.some((c) => c.path !== f.properties.path && overlaps(box, c.box)));
-    if (!clashes) placed.push({ f, x: p.x, y: p.y, r, box });
+    const isPicked = f.properties.path === focus;
+    const coversColumn = placed.some((o) => overlaps(box, o.box));
+    // A larger region's circle and label, and those of regions already showing pills, stay clear.
+    const coversLarger = circleBoxes.some(
+      (c) => c.path !== f.properties.path && (c.total > f.properties.total || placedPaths.has(c.path)) && overlaps(box, c.box)
+    );
+    if (isPicked || (!coversColumn && !coversLarger)) {
+      placed.push({ f, x: p.x, y: p.y, r, box });
+      placedPaths.add(f.properties.path);
+    }
   }
+  // A smaller region whose circle or label a placed column covers loses its own column, so a
+  // number never sits on top of another region.
+  const shownColumns = placed.filter(
+    (s) => !placed.some((o) => o !== s && o.f.properties.total > s.f.properties.total && overlaps(o.box, circleBoxes.find((c) => c.path === s.f.properties.path)!.box))
+  );
 
   return (
-    <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden={placed.length === 0} data-region-spiders="">
-      {placed.map(({ f, x: px, y: py, r }) => {
+    <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden" aria-hidden={shownColumns.length === 0} data-region-spiders="">
+      {shownColumns.map(({ f, x: px, y: py, r }) => {
         const p = { x: px, y: py };
         // The pills stand in a column to the circle's right, centred on it, each led to by a short
         // leg from the circle's rim.

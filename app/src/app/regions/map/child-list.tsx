@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight, Search, X } from "lucide-react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { UNIT_TYPE_LABEL, UNIT_TYPE_SWATCH, selectedTotal, type MapUnitType } from "@/components/map/map-data";
 import { OpenInSearch, unitsIn } from "./open-in-search";
@@ -48,7 +48,14 @@ export function ChildList({
   // Narrows the list to the regions whose name or code contains the text (owner 2026-11-24: the
   // list is by size, so one region among many is hard to find). Shown when the list is long.
   const [query, setQuery] = useState("");
+  // The field opens from a search icon by the heading and folds away again with its X (owner
+  // 2026-11-24), so a short list or a list not being searched shows no empty field.
+  const [finding, setFinding] = useState(false);
   const searchable = rows.length > 8;
+  const closeFind = () => {
+    setQuery("");
+    setFinding(false);
+  };
   useGuardedEffect(
     () => {
       if (picked === null) return;
@@ -67,25 +74,52 @@ export function ChildList({
     <section data-regions-map-children="">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">{heading}</h2>
-        {needle && <span className="text-xs text-gray-500">{found.length.toLocaleString()} found</span>}
+        {needle ? (
+          <span className="text-xs text-gray-500">{found.length.toLocaleString()} found</span>
+        ) : (
+          searchable &&
+          !finding && (
+            <button
+              type="button"
+              className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+              title="Find a region by name or code"
+              aria-label="Find a region by name or code"
+              onClick={() => setFinding(true)}
+              data-regions-map-find-open=""
+            >
+              <Search className="h-3.5 w-3.5" />
+            </button>
+          )
+        )}
       </div>
-      {searchable && (
+      {searchable && finding && (
         <div className="relative mt-1">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" aria-hidden />
           <input
-            type="search"
+            type="text"
+            autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              // Enter picks the first match, as a click on its row would.
+              // Enter picks the first match, as a click on its row would; Escape folds it away.
               if (e.key === "Enter" && needle && found[0]) onPick(found[0].path);
-              if (e.key === "Escape") setQuery("");
+              if (e.key === "Escape") closeFind();
             }}
             placeholder="Find by name or code"
             aria-label="Find a region by name or code"
-            className="w-full rounded border bg-white py-1 pl-7 pr-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+            className="w-full rounded border bg-white py-1 pl-7 pr-7 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
             data-regions-map-find=""
           />
+          <button
+            type="button"
+            className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-900"
+            title="Clear and close"
+            aria-label="Clear and close the find field"
+            onClick={closeFind}
+            data-regions-map-find-close=""
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
       <ul ref={listRef} className="mt-1 space-y-0.5">
