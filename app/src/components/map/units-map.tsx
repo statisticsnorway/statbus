@@ -462,6 +462,12 @@ const LEGEND_TYPES = [
   { unitType: "establishment", label: "Establishments", fill: "bg-establishment-500", ring: "border-establishment-500" },
 ] as const;
 
+/** A group's rim and pale core per unit type, as the map paints them (unit-groups, unit-group-cores at 0.35). */
+const GROUP_SWATCH = {
+  legal_unit: { ring: "border-legal_unit-500", core: "bg-legal_unit-500/35" },
+  establishment: { ring: "border-establishment-500", core: "bg-establishment-500/35" },
+} as const;
+
 /**
  * The Map page's legend: per unit type a checkbox, and under it the two markers the map
  * draws with their counts: solid at the unit's address, a ring at its region's centre
@@ -480,6 +486,9 @@ function UnitsLegend({
     const next = selected.includes(t) ? selected.filter((s) => s !== t) : [...selected, t];
     if (next.length > 0) onChange(LEGEND_TYPES.map((l) => l.unitType).filter((u) => next.includes(u)));
   };
+  // The type the map shows most of: its colour is the one a reader meets on the map's groups.
+  const total = (t: "legal_unit" | "establishment") => (selected.includes(t) ? counts[t].point + counts[t].region : -1);
+  const mainType = total("establishment") >= total("legal_unit") ? "establishment" : "legal_unit";
   return (
     <fieldset className="space-y-2 text-sm" data-units-legend="">
       <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">Units</legend>
@@ -517,12 +526,14 @@ function UnitsLegend({
         A group of mixed unit types; click to expand
       </p>
       <p className="flex items-center gap-2 text-xs text-gray-600" data-legend-group-placed="">
-        {/* A ring with a pale core, as the map draws a group with units both at their address and in their region. */}
+        {/* As the map draws a group with units both at their address and in their region: the
+            group's rim, white, then a pale core, in the colour of the type the map mostly shows. */}
         <span
-          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-gray-500 bg-gray-500/35 text-[10px] font-medium leading-none"
+          className={`relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 bg-white text-[10px] font-medium leading-none ${GROUP_SWATCH[mainType].ring}`}
           aria-hidden
         >
-          n
+          <span className={`absolute inset-[2px] rounded-full ${GROUP_SWATCH[mainType].core}`} />
+          <span className="relative">n</span>
         </span>
         Some at their address, some in their region
       </p>
