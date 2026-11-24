@@ -1,4 +1,4 @@
-import { childCounts, countryCounts, countsByRegion, countsUnder, selectedCountryCode, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, type RegionCountRow } from "./map-data";
+import { childCounts, countryCounts, countsByRegion, countsUnder, selectedCountryCode, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, spiderNodes, type RegionCountRow } from "./map-data";
 
 // z2qt08: the Regions map counts units per region path prefix from statistical_unit_facet and
 // draws each region with a centre; regions without one are listed beside the map.
@@ -226,5 +226,36 @@ describe("the map selection", () => {
       noLocation: 7,
     });
     expect(worldCounts(worldRows, NO, ["establishment"]).abroad).toEqual([{ countryId: SE, count: 4 }]);
+  });
+});
+
+describe("spiderNodes", () => {
+  // A stack at Oslo's centre as on Vinmonopolet's map: units placed at their region, which no zoom splits.
+  const unit = (unit_type: "legal_unit" | "establishment", id: number, placed: "point" | "region" = "region") => ({
+    unit_type,
+    id,
+    name: `${unit_type === "legal_unit" ? "Vinmonopolet" : "Butikk"} ${id}`,
+    href: `/${unit_type}/${id}`,
+    current: false,
+    placed,
+    region_name: "Oslo",
+  });
+
+  it("gives a large stack one node per unit type and placement, with every unit in one node", () => {
+    const stack = [unit("legal_unit", 1), ...Array.from({ length: 33 }, (_, i) => unit("establishment", 100 + i)), unit("establishment", 200, "point"), unit("establishment", 201, "point")];
+    const nodes = spiderNodes(stack);
+    expect(nodes.map((n) => [n.key, n.units.length, n.x, n.y])).toEqual([
+      ["legal_unit:region", 1, 0, -56],
+      ["establishment:point", 2, 48, 28],
+      ["establishment:region", 33, -48, 28],
+    ]);
+  });
+
+  it("gives a small stack one node per unit, so each can be picked", () => {
+    const nodes = spiderNodes([unit("establishment", 7), unit("legal_unit", 3)]);
+    expect(nodes.map((n) => [n.key, n.units.map((u) => u.id), n.x, n.y])).toEqual([
+      ["legal_unit:3", [3], 0, -56],
+      ["establishment:7", [7], 0, 56],
+    ]);
   });
 });

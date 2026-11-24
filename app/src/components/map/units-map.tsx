@@ -11,6 +11,7 @@ import { UnitMap, cssColour } from "./unit-map";
 import { BASEMAP_FONT } from "./basemap";
 import { ViewControl } from "./view-control";
 import { featureBounds, linksUnitPoints, type LinksHierarchy, type MapUnitType, type UnitPointProperties } from "./map-data";
+import { UnitsSpider, type SpiderStack } from "./units-spider";
 
 /**
  * A unit's Map page (z2qt08, owner 2026-11-23): every legal unit and establishment of its
@@ -23,7 +24,13 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
   const { hierarchy } = useStatisticalUnitHierarchy(unitId, unitType);
   const [unitTypes, setUnitTypes] = useState<MapUnitType[]>(["legal_unit", "establishment"]);
   const [picked, setPicked] = useState<UnitPointProperties[] | null>(null);
-  const [mapReady, setMapReady] = useState(false);
+  // The map once its style has loaded: the spider renders over it.
+  const [readyMap, setReadyMap] = useState<MapLibreMap | null>(null);
+  const mapReady = readyMap !== null;
+  // The stack a click opened as a spider, and which of its nodes is listed (null: all of it).
+  const [spider, setSpider] = useState<SpiderStack | null>(null);
+  const [spiderKey, setSpiderKey] = useState<string | null>(null);
+  const closeSpider = useCallback(() => setSpider(null), [setSpider]);
   // Expand fills the window with the map; Escape or the button brings it back to the page.
   const [expanded, setExpanded] = useState(false);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -232,24 +239,36 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         const f = e.features?.[0];
         if (f) setPicked([f.properties as UnitPointProperties]);
       });
-      // A click on a circle lists its units and zooms in until it splits; a circle whose units
-      // all share one place (a region's centre) does not split, so it only lists them.
+      // A click on a circle lists its units. Units spread over several places zoom in until the
+      // circle splits; units that all share one place (a region's centre) never split, so the
+      // circle opens as a spider instead: one leg per unit type and placement, each with its
+      // count in its type's colour (owner 2026-11-24).
       map.on("click", "unit-groups", async (e: MapLayerMouseEvent) => {
         const f = e.features?.[0];
         if (!f) return;
         const source = map.getSource("units") as GeoJSONSource;
         const id = f.properties.cluster_id as number;
-        const leaves = await source.getClusterLeaves(id, 1000, 0);
-        setPicked(leaves.map((l) => l.properties as UnitPointProperties).sort((a, b) => Number(b.current) - Number(a.current) || a.name.localeCompare(b.name)));
+        const leaves = await source.getClusterLeaves(id, 10000, 0);
+        const units = leaves.map((l) => l.properties as UnitPointProperties).sort((a, b) => Number(b.current) - Number(a.current) || a.name.localeCompare(b.name));
+        setPicked(units);
         const places = new Set(leaves.map((l) => (l.geometry as GeoJSON.Point).coordinates.join(",")));
         if (places.size > 1) {
+          setSpider(null);
           const zoom = await source.getClusterExpansionZoom(id);
           map.easeTo({ center: (f.geometry as GeoJSON.Point).coordinates as [number, number], zoom });
+          return;
         }
+        setSpiderKey(null);
+        setSpider({ coordinates: (leaves[0].geometry as GeoJSON.Point).coordinates as [number, number], units });
       });
-      setMapReady(true);
+      // A click on the map away from every unit closes the spider.
+      map.on("click", (e) => {
+        const hit = map.queryRenderedFeatures(e.point, { layers: ["unit-groups", "unit-points", "current-unit-point"] });
+        if (hit.length === 0) setSpider(null);
+      });
+      setReadyMap(map);
     },
-    [fit]
+    [fit, setPicked, setSpider, setSpiderKey, setReadyMap]
   );
 
   useGuardedEffect(
@@ -344,6 +363,19 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
       >
         <div className="relative min-w-0 flex-1">
           <UnitMap onReady={onReady} className="absolute inset-0" />
+          {spider && readyMap && (
+            <UnitsSpider
+              key={spider.coordinates.join(",")}
+              map={readyMap}
+              stack={spider}
+              selectedKey={spiderKey}
+              onPick={(key, units) => {
+                setSpiderKey(key);
+                setPicked(units);
+              }}
+              onClose={closeSpider}
+            />
+          )}
         </div>
         <aside className="flex w-64 shrink-0 flex-col border-l text-sm">
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3" data-units-map-picked="">
@@ -388,7 +420,15 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
             )}
           </div>
           <div className="border-t p-3">
-            <UnitsLegend selected={unitTypes} onChange={setUnitTypes} counts={counts} />
+            <UnitsLegend
+              selected={unitTypes}
+              onChange={(next) => {
+                // The stacks are regrouped for the new types, so an open spider is closed.
+                setSpider(null);
+                setUnitTypes(next);
+              }}
+              counts={counts}
+            />
           </div>
         </aside>
       </div>
@@ -449,7 +489,7 @@ function UnitsLegend({
         <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-gray-500 bg-white text-[9px] font-medium" aria-hidden>
           n
         </span>
-        Units close together; click to zoom in and list them
+        Units close together; click to zoom in and list them. Units at one place open out on legs, one per type.
       </p>
     </fieldset>
   );

@@ -358,6 +358,56 @@ export interface UnitPointProperties {
   region_name?: string;
 }
 
+/** One leg of a spider: a group of units of one type and placement, or a single unit. */
+export interface SpiderNode {
+  key: string;
+  unit_type: "legal_unit" | "establishment";
+  placed: "point" | "region";
+  units: UnitPointProperties[];
+  /** The node's centre, in pixels from the hub's centre (y grows downwards, as on screen). */
+  x: number;
+  y: number;
+}
+
+/**
+ * The spider a click on a stack opens (owner 2026-11-24, z2qt08): units that share one place
+ * (a region's centre) cannot be told apart by zooming in, so they are pulled out round it on
+ * legs, each node in its unit type's colour and marker. A small stack, `perUnitUpTo` units or
+ * fewer, gets one node per unit so each can be clicked; a larger one gets one node per unit
+ * type and placement with its count, which keeps a stack of hundreds to at most four legs.
+ * Nodes sit evenly on a circle of `radius` pixels, the first straight up, in a fixed order
+ * (legal units before establishments, at an address before somewhere in the region), so the
+ * same stack always opens the same way.
+ */
+export function spiderNodes(units: UnitPointProperties[], { perUnitUpTo = 8, radius = 56 } = {}): SpiderNode[] {
+  const typed = units.filter((u): u is UnitPointProperties & { unit_type: "legal_unit" | "establishment" } =>
+    u.unit_type === "legal_unit" || u.unit_type === "establishment"
+  );
+  const order = (u: { unit_type: string; placed: string }) =>
+    (u.unit_type === "legal_unit" ? 0 : 2) + (u.placed === "point" ? 0 : 1);
+  let groups: Omit<SpiderNode, "x" | "y">[];
+  if (typed.length <= perUnitUpTo) {
+    groups = [...typed]
+      .sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name))
+      .map((u) => ({ key: `${u.unit_type}:${u.id}`, unit_type: u.unit_type, placed: u.placed, units: [u] }));
+  } else {
+    const byKind = new Map<string, Omit<SpiderNode, "x" | "y">>();
+    for (const u of typed) {
+      const key = `${u.unit_type}:${u.placed}`;
+      const g = byKind.get(key) ?? { key, unit_type: u.unit_type, placed: u.placed, units: [] };
+      g.units.push(u);
+      byKind.set(key, g);
+    }
+    groups = [...byKind.values()]
+      .sort((a, b) => order(a) - order(b))
+      .map((g) => ({ ...g, units: [...g.units].sort((a, b) => a.name.localeCompare(b.name)) }));
+  }
+  return groups.map((g, i) => {
+    const angle = (2 * Math.PI * i) / groups.length - Math.PI / 2;
+    return { ...g, x: Math.round(radius * Math.cos(angle)), y: Math.round(radius * Math.sin(angle)) };
+  });
+}
+
 const UNIT_PATH: Record<MapUnitType, string> = {
   enterprise: "enterprises",
   legal_unit: "legal-units",
