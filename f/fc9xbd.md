@@ -19,7 +19,7 @@ worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
-On a 2 M-unit register the dashboard shows every card's number within seconds, and its count requests never make other API requests fail.
+On a 2 M-unit register the dashboard shows every card's number within 10 s, and its count requests never make other API requests fail.
 
 ## Purpose
 On a register the size of Norway's, the dashboard's count requests fill PostgREST's connection pool, so every other request fails and the cards stay empty for minutes.
