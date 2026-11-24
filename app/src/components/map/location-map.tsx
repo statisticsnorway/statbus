@@ -1,6 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
+import { MapPin, Pencil } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cssColour } from "./unit-map";
 import { type locationView } from "./map-data";
 
@@ -75,6 +79,110 @@ export function frame(map: MapLibreMap, view: View, withRegion: boolean) {
   } else {
     map.jumpTo({ center: view.center, zoom: view.zoom });
   }
+}
+
+/** A location's coordinates as the form keeps them: text, empty when not set. */
+export interface PointValues {
+  latitude: string;
+  longitude: string;
+  altitude: string;
+}
+
+/**
+ * The Point card (owner 2026-11-24, "I really like" it): the coordinates under a pin mark in the
+ * pin's colour, the same card beside the form's small map and in the map dialog. With `onType`
+ * it has a pencil that turns the numbers into inputs; each keystroke goes to `onType`, so a map
+ * can move its pin as the number is typed. Enter folds the inputs back.
+ */
+export function PointCard({
+  values,
+  view,
+  onType,
+  onRestore,
+}: {
+  values: PointValues;
+  view: View;
+  onType?: (field: keyof PointValues, text: string) => void;
+  onRestore?: (values: PointValues) => void;
+}) {
+  const [typing, setTyping] = useState(false);
+  const [original, setOriginal] = useState(values);
+  const editable = onType !== undefined;
+  const open = editable && typing;
+  return (
+    <div
+      className={`rounded border-2 px-3 py-2 ${open ? "border-gray-800 bg-white" : "border-gray-200 bg-gray-50"}`}
+      data-location-point=""
+    >
+      <span className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+        <MapPin
+          className="h-3.5 w-3.5"
+          style={{ color: "var(--color-legal_unit-600)" }}
+          aria-hidden
+        />
+        Point
+        {editable && open && (
+          <button
+            type="button"
+            className="ml-auto rounded px-1 text-xs normal-case text-gray-600 hover:bg-gray-200"
+            onClick={() => {
+              onRestore?.(original);
+              setTyping(false);
+            }}
+            aria-label="Cancel coordinate changes"
+          >
+            Cancel
+          </button>
+        )}
+        {editable && !open && (
+          <button
+            type="button"
+            className="ml-auto rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
+            onClick={() => {
+              setOriginal({ ...values });
+              setTyping(true);
+            }}
+            title="Edit the coordinates"
+            aria-label="Edit the coordinates"
+            data-location-edit-coordinates=""
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </span>
+      {open ? (
+        <div className="mt-1 grid grid-cols-[auto_8rem] items-center gap-x-2 gap-y-1">
+          {(["latitude", "longitude", "altitude"] as const).map((f) => (
+            <Label key={f} className="contents">
+              <span className="text-xs capitalize text-gray-600">{f}</span>
+              <Input
+                value={values[f]}
+                onChange={(e) => onType(f, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    setTyping(false);
+                  }
+                }}
+                placeholder={f === "altitude" ? "metres" : undefined}
+                inputMode="decimal"
+                autoComplete="off"
+                autoFocus={f === "latitude"}
+                className="h-7 bg-white px-2 text-sm tabular-nums"
+              />
+            </Label>
+          ))}
+        </div>
+      ) : (
+        <Coordinates
+          latitude={values.latitude}
+          longitude={values.longitude}
+          altitude={values.altitude}
+          view={view}
+        />
+      )}
+    </div>
+  );
 }
 
 /**

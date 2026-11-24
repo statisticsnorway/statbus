@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { UnitMap } from "./unit-map";
 import { locationView } from "./map-data";
-import { Coordinates, drawLocation } from "./location-map";
+import { drawLocation, PointCard } from "./location-map";
 import {
   LocationPicker,
   type AddressForLookup,
@@ -80,11 +80,17 @@ export function LocationField({
           </button>
         </div>
         <div className="shrink-0 space-y-3">
-          <Coordinates
-            latitude={values.latitude}
-            longitude={values.longitude}
-            altitude={values.altitude}
+          {/* The same Point card as in the map dialog (owner 2026-11-24); while editing its pencil
+              types the numbers straight into the values Save reads. */}
+          <PointCard
+            values={values}
+            onRestore={setValues}
             view={view}
+            onType={
+              isEditing
+                ? (field, text) => setValues((v) => ({ ...v, [field]: text }))
+                : undefined
+            }
           />
           {isEditing && (
             <Button

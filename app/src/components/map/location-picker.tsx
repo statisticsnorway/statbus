@@ -2,10 +2,9 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
-import { LocateFixed, MapPin, Pencil, Search, X } from "lucide-react";
+import { LocateFixed, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -17,9 +16,10 @@ import {
 import { UnitMap, cssColour } from "./unit-map";
 import { locationView, pickerStart, roundCoordinate } from "./map-data";
 import {
-  Coordinates,
   drawLocation,
   frame,
+  PointCard,
+  type PointValues,
   REGION_DOT,
   REGION_SHOWN_BOX,
   showRegion,
@@ -36,12 +36,7 @@ export interface AddressForLookup {
   regionName: string | null;
 }
 
-/** A location's coordinates as the form keeps them: text, empty when not set. */
-export interface PointValues {
-  latitude: string;
-  longitude: string;
-  altitude: string;
-}
+export type { PointValues };
 
 /**
  * A physical location on a large map (z2qt08, owner 2026-11-24), opened from the location field's
@@ -116,7 +111,6 @@ function PickerBody({
   const [matches, setMatches] = useState<PlaceMatch[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [numbersOpen, setNumbersOpen] = useState(false);
   const [regionShown, setRegionShown] = useState(false);
   const hideRegionRef = useRef<(() => void) | null>(null);
   const markerRef = useRef<Marker | null>(null);
@@ -255,64 +249,25 @@ function PickerBody({
             )}
           </p>
         </div>
-        {/* The point between address and region: its coordinates, typed here when known from
-            elsewhere (owner 2026-11-24). The pin mark ties it to the pin on the map. */}
-        <div
-          className={`rounded border-2 px-3 py-2 ${numbersOpen ? "border-gray-800 bg-white" : "border-gray-200 bg-gray-50"}`}
-          data-location-picker-point=""
-        >
-          <span className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-            <MapPin
-              className="h-3.5 w-3.5"
-              style={{ color: "var(--color-legal_unit-600)" }}
-              aria-hidden
-            />
-            Point
-            {isEditing && !numbersOpen && (
-              <button
-                type="button"
-                className="ml-auto rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
-                onClick={() => setNumbersOpen(true)}
-                title="Edit the coordinates"
-                aria-label="Edit the coordinates"
-                data-location-picker-edit-coordinates=""
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </span>
-          {numbersOpen ? (
-            <div className="mt-1 grid grid-cols-[auto_8rem] items-center gap-x-2 gap-y-1">
-              {(["latitude", "longitude", "altitude"] as const).map((f) => (
-                <Label key={f} className="contents">
-                  <span className="text-xs capitalize text-gray-600">{f}</span>
-                  <Input
-                    value={draft[f]}
-                    onChange={(e) => typeCoordinate(f, e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        setNumbersOpen(false);
-                      }
-                    }}
-                    placeholder={f === "altitude" ? "metres" : undefined}
-                    inputMode="decimal"
-                    autoComplete="off"
-                    autoFocus={f === "latitude"}
-                    className="h-7 px-2 text-sm tabular-nums"
-                  />
-                </Label>
-              ))}
-            </div>
-          ) : (
-            <Coordinates
-              latitude={draft.latitude}
-              longitude={draft.longitude}
-              altitude={draft.altitude}
-              view={locationView(draft.latitude, draft.longitude, regionCentre)}
-            />
-          )}
-        </div>
+        {/* The point between address and region (owner 2026-11-24). */}
+        <PointCard
+          values={draft}
+          view={locationView(draft.latitude, draft.longitude, regionCentre)}
+          onType={isEditing ? typeCoordinate : undefined}
+          onRestore={(previous) => {
+            setDraft(previous);
+            const map = mapRef.current;
+            const at = locationView(
+              previous.latitude,
+              previous.longitude,
+              regionCentre
+            );
+            if (!map) return;
+            if (at.point) markerRef.current?.setLngLat(at.point).addTo(map);
+            else markerRef.current?.remove();
+            frame(map, at, regionShown);
+          }}
+        />
         {shownAddress.regionName && (
           <button
             type="button"
