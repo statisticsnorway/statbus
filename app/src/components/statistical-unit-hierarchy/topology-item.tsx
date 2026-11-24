@@ -15,6 +15,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+import { Badge } from "../ui/badge";
+import { usePermission } from "@/atoms/auth";
+import { SetPrimaryUnit } from "./set-primary-unit";
 
 interface TopologyItemProps {
   readonly active?: boolean;
@@ -26,6 +29,8 @@ interface TopologyItemProps {
     | "power_group";
   readonly id: number;
   readonly primary?: boolean;
+  readonly parentName?: string | null;
+  readonly currentPrimaryName?: string | null;
   readonly unit: LegalUnit | Establishment;
   readonly stats?: StatisticalUnitStats;
 }
@@ -36,9 +41,12 @@ export function TopologyItem({
   unit,
   active,
   primary,
+  parentName,
+  currentPrimaryName,
   children,
   stats,
 }: TopologyItemProps) {
+  const { canEdit } = usePermission();
   const { statDefinitions } = useBaseData();
   const primaryActivity = unit.activity?.find(
     (act) => act.type === "primary"
@@ -47,6 +55,11 @@ export function TopologyItem({
   const isInformal =
     (type === "establishment" && !(unit as Establishment).legal_unit_id) ||
     (type === "enterprise" && "legal_unit_id" in unit);
+  const canSetPrimary =
+    canEdit &&
+    active &&
+    !!parentName &&
+    (type === "establishment" || type === "legal_unit");
   return (
     <>
       <StatisticalUnitDetailsLinkWithSubPath
@@ -83,10 +96,24 @@ export function TopologyItem({
               )}
             </div>
             <div className="flex items-center space-x-1">
-              {primary && (
-                <div title="This is a primary unit">
-                  <Asterisk className="h-4" />
-                </div>
+              {primary ? (
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-amber-300 bg-amber-50 text-xs text-amber-800"
+                  title="This is a primary unit"
+                >
+                  Primary
+                </Badge>
+              ) : (
+                canSetPrimary && (
+                  <SetPrimaryUnit
+                    type={type}
+                    id={id}
+                    name={unit.name}
+                    parentName={parentName}
+                    currentPrimaryName={currentPrimaryName}
+                  />
+                )
               )}
 
               <StatisticalUnitIcon

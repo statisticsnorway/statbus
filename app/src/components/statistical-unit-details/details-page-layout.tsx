@@ -6,7 +6,7 @@ export interface DetailsPageLayoutProps {
   readonly children: ReactNode;
   readonly header: ReactNode;
   readonly nav: ReactNode;
-  readonly primaryUnitInfo: ReactNode;
+  readonly primaryUnitInfo?: ReactNode;
 }
 
 export const DetailsPageLayout = ({

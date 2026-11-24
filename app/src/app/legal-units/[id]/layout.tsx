@@ -12,14 +12,9 @@ export default function Layout({
   children,
   header,
   nav,
-  primaryUnitInfo,
 }: DetailsPageLayoutProps) {
   return (
-    <DetailsPageLayout
-      header={header}
-      nav={nav}
-      primaryUnitInfo={primaryUnitInfo}
-    >
+    <DetailsPageLayout header={header} nav={nav}>
       {children}
     </DetailsPageLayout>
   );

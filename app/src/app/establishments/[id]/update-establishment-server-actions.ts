@@ -94,8 +94,7 @@ export async function setPrimaryEstablishment(id: number) {
 
   if (error) {
     logger.error(error, "failed to set primary establishment");
-    return;
+    return { status: "error" as const, message: error.message };
   }
-
-  revalidatePath("/establishments/[id]", "page");
+  return { status: "success" as const };
 }

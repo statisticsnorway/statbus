@@ -101,6 +101,8 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
                   unitType === "legal_unit"
                 }
                 primary={legalUnit.primary_for_enterprise}
+                parentName={primaryUnit.name}
+                currentPrimaryName={primaryLegalUnit.name}
                 stats={data?.find(
                   (stat) =>
                     stat.unit_id === legalUnit.id &&
@@ -118,6 +120,12 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
                       unitType === "establishment"
                     }
                     primary={establishment.primary_for_legal_unit}
+                    parentName={legalUnit.name}
+                    currentPrimaryName={
+                      legalUnit.establishment?.find(
+                        (e) => e.primary_for_legal_unit
+                      )?.name
+                    }
                   />
                 ))}
               </TopologyItem>
