@@ -22,7 +22,14 @@ import {
 } from "@/components/ui/dialog";
 import { UnitMap, cssColour } from "./unit-map";
 import { locationView, pickerStart, roundCoordinate } from "./map-data";
-import { Coordinates, drawLocation, frame, showRegion } from "./location-map";
+import {
+  Coordinates,
+  drawLocation,
+  frame,
+  REGION_DOT,
+  REGION_SHOWN_BOX,
+  showRegion,
+} from "./location-map";
 import { searchPlaces, type PlaceMatch } from "./region-placer";
 
 /** The physical address the form holds, read when the map opens. */
@@ -257,7 +264,7 @@ function PickerBody({
         {shownAddress.regionName && (
           <button
             type="button"
-            className={`rounded border px-3 py-2 text-left ${regionShown ? "border-gray-800 bg-gray-800 text-white" : "bg-gray-50 hover:bg-gray-100"} disabled:cursor-default disabled:hover:bg-gray-50`}
+            className={`rounded px-3 py-2 text-left ${regionShown ? REGION_SHOWN_BOX : "border-2 border-gray-200 bg-gray-50 hover:bg-gray-100"} disabled:cursor-default disabled:hover:bg-gray-50`}
             onClick={() => void toggleRegion()}
             disabled={regionCentre?.latitude == null}
             aria-pressed={regionShown}
@@ -266,12 +273,16 @@ function PickerBody({
             }
             data-location-picker-region=""
           >
-            <span
-              className={`block text-xs font-medium uppercase tracking-wide ${regionShown ? "text-gray-300" : "text-gray-500"}`}
-            >
+            <span className="block text-xs font-medium uppercase tracking-wide text-gray-500">
               Region
             </span>
-            <span className="block">{shownAddress.regionName}</span>
+            <span className="flex items-center gap-1.5">
+              {/* The same dot as the region's mark on the map, so the two read as one. */}
+              <span className={REGION_DOT} aria-hidden />
+              <span className={regionShown ? "font-semibold" : undefined}>
+                {shownAddress.regionName}
+              </span>
+            </span>
           </button>
         )}
       </div>

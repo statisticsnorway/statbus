@@ -7,6 +7,16 @@ import { type locationView } from "./map-data";
 type View = ReturnType<typeof locationView>;
 
 /**
+ * The region's look, shared by its box above the map and its mark on the map so the two read as
+ * one (owner 2026-11-24): a dark-ringed dot, and when shown a dark outline round a white box with
+ * the name in bold.
+ */
+export const REGION_DOT =
+  "block h-3 w-3 shrink-0 rounded-full border-2 border-gray-800 bg-white";
+export const REGION_SHOWN_BOX =
+  "border-2 border-gray-800 bg-white text-gray-900";
+
+/**
  * Draws a location's point on a map as a pin and frames it (z2qt08). Returns the pin, placed only
  * when there is a point, for the editor to move. With no point the map stands at the region's
  * centre, else over the country.
@@ -39,14 +49,12 @@ export async function showRegion(
   if (!view.region) return () => {};
   const { Marker } = await import("maplibre-gl");
   const mark = document.createElement("div");
-  mark.className = "pointer-events-none flex items-center gap-1";
+  mark.className = "pointer-events-none flex items-center gap-1.5";
   mark.dataset.regionCentre = "";
   const dot = document.createElement("span");
-  dot.className =
-    "block h-3 w-3 rounded-full border-2 border-gray-800 bg-white/70";
+  dot.className = REGION_DOT;
   const label = document.createElement("span");
-  label.className =
-    "whitespace-nowrap rounded bg-white/90 px-1 text-xs font-semibold text-gray-900 shadow-sm";
+  label.className = `whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-semibold shadow-sm ${REGION_SHOWN_BOX}`;
   label.textContent = regionName;
   mark.append(dot, label);
   // Anchored on the dot, the name reading to its right.
