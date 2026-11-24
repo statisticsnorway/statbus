@@ -11,3 +11,5 @@ export const BASEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
  * there and stops the layer from drawing, so every text layer names this one.
  */
 export const BASEMAP_FONT = ["Noto Sans Regular"];
+/** The bold face of the same family (Noto Sans Bold), on the same glyph server. */
+export const BASEMAP_FONT_BOLD = ["Noto Sans Bold"];

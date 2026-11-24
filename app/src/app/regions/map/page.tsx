@@ -14,7 +14,7 @@ import { useTimeFrame } from "@/atoms/app-derived";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { UnitMap, cssColour } from "@/components/map/unit-map";
 import { UnitTypeLegend } from "@/components/map/unit-type-legend";
-import { BASEMAP_FONT } from "@/components/map/basemap";
+import { BASEMAP_FONT, BASEMAP_FONT_BOLD } from "@/components/map/basemap";
 import { ViewControl } from "@/components/map/view-control";
 import { RegionSpiders } from "./region-spiders";
 import { OpenInSearch } from "./open-in-search";
@@ -110,6 +110,9 @@ export default function RegionsMapPage() {
     map.setPaintProperty("region-circles", "circle-radius", ["interpolate", ["linear"], ["sqrt", ["get", "total"]], 0, 4, Math.sqrt(top), 28]);
     // The picked circle's ring sits just outside it, at the same scale.
     map.setPaintProperty("picked-region-ring", "circle-radius", ["interpolate", ["linear"], ["sqrt", ["get", "total"]], 0, 8, Math.sqrt(top), 32]);
+    // Each label stands just outside its circle: the offset is in ems of the 13 px text, the
+    // circle's radius plus a few pixels.
+    map.setLayoutProperty("region-labels", "text-radial-offset", ["interpolate", ["linear"], ["sqrt", ["get", "total"]], 0, (4 + 4) / 13, Math.sqrt(top), (28 + 4) / 13]);
   }, []);
 
   // Picks one child of the selection, from a click on its circle, one of its type legs or its row
@@ -289,13 +292,20 @@ export default function RegionsMapPage() {
         id: "region-labels",
         type: "symbol",
         source: "regions",
+        // The label stands beside its circle, not on it, where the circle's fill and outline made
+        // the text hard to read (owner 2026-11-24): below by default, else right, left or above,
+        // whichever is free. The offset clears the largest circle (28 px); the name is bold and
+        // the count plain, so the two lines read apart.
         layout: {
-          "text-field": ["concat", ["get", "name"], "\n", ["number-format", ["get", "total"], { locale: "en" }]],
+          "text-field": ["format", ["get", "name"], { "text-font": ["literal", BASEMAP_FONT_BOLD] }, "\n", {}, ["number-format", ["get", "total"], { locale: "en" }], {}],
           "text-font": BASEMAP_FONT,
           "text-size": 13,
+          "text-variable-anchor": ["top", "left", "right", "bottom"],
+          "text-radial-offset": 1.2,
+          "text-justify": "auto",
           "text-allow-overlap": false,
         },
-        paint: { "text-color": "#1f2937", "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+        paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 2.5, "text-halo-blur": 0.5 },
       });
       map.addControl(new ViewControl([{ title: "Fit the selection in view", icon: "⤢", onClick: () => fitSelection() }]), "top-left");
       map.on("moveend", () => scaleToView(map));
