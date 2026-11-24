@@ -169,20 +169,77 @@ whether tiles or region depths drive the first zooms (regions are what users
 know; tiles are uniform), and whether the time dimension (a delta facet, as
 statistical history has) is needed or the map shows only the current frame.
 
+#### Decided 2026-11-24 (design session with the owner; task 5nq78t)
+
+**Regions are the zoom steps.** The map of a search or report draws its units
+per region: counties at country level, a county's municipalities when you go
+into it, as the Regions map does, with the same list beside it, drill-down,
+legend and type pills. Regions are the cheapest view and the one users know.
+Norway's copy has every region's centre (loaded early, by accident); units get
+points in bulk later. Points per region give the circle placement at once;
+exact unit positions fill in later, and the spider shows them at the detailed
+level.
+
+**One page, both ways.** The map is a page under Reports. The search page's
+Map button opens it with the same query string; its "View and download" row
+opens `/search` with that query string. A filter set on one side holds on the
+other.
+
+**Time.** The page's selected time frame, as the drilldown report reads it.
+No map over time (that would be an animation, a separate thing), so no history
+table for the map.
+
+**Where the counts come from.**
+- Filters that are facet dimensions (unit type, region, activity category,
+  sector, legal form, status, country) read `statistical_unit_facet`, the table
+  the reports already pay for: the whole register by county 0.09 s, all
+  municipalities 0.10 s, one county 0.16 s, activity C 0.04-0.19 s
+  (`tmp/z2qt08/regions-read-speed.log`, load average 20-30).
+- Any other filter (a name search, a quality check, a data source) counts
+  `statistical_unit` grouped by region with the same filter as the list:
+  name ILIKE `%bygg%` 1.8-2.4 s; the search itself costs 2.4 s, so the map
+  adds no more than the list does. Text search stays on the search page; the
+  map takes the filter as given.
+- No new table now. A region by unit type table with sorted unit id arrays
+  (as `statistical_unit`'s `related_*_ids`) was prototyped and rolled back
+  (`tmp/z2qt08/region-ids-proto.log`): 1,252 rows, 12 MB (tiles: 112 MB), read
+  in 1.5-3 ms; placing 62,956 ids by array intersection 0.11 s against 2.25 s
+  joining to `statistical_unit`. It pays off for id sets that already exist (a
+  report cell's `statistical_history_facet_delta.unit_ids`, a quality
+  finding's units, a saved selection), not for an ad hoc search, whose own
+  query grouped by region costs no more. It is the next step if such a map
+  is wanted.
+
+**Placement.** A unit is placed at its own point, else its region's centre,
+else the nearest ancestor region with a centre (drawn as "somewhere in
+here"). Units with none of these are listed beside the map by reason, with
+counts, each a whole-row link to search: no region (161,829 of 3,118,352 on
+Norway today), region without a centre (0 on Norway; Morocco has 287 regions
+at depth 3, 213 with a centre), abroad without a country centre. The map and
+the list add up to the selection's total. A register with no region centres
+and no points shows an empty map that says so, with the way to add centres
+(5yxn4w). The list is a work queue: each reason names what to fix; region
+kinds (5necw2) let a region that is not a place say so.
+
+**Tiles** add detail inside a region only when units have their own
+coordinates (10 of 3.1M today). They wait for that.
+
+**Quality checks** move to one findings table, `public.quality_finding`
+(05pe0x, rabbit, owner-approved 2026-11-24). A quality filter is a search
+parameter like any other, so the map reads it through `statistical_unit` with
+no special case.
+
 ## 5. Each place in detail
 
-- **B Search** (`SearchPageClient.tsx:117`, beside `ExportCSVLink`): a "Map"
-  button to `/search/map?<same query string>`. The page reads the same Jotai
-  search atoms, so filters and time frame carry over; back returns to the list.
-  Its data comes from the quad-key table of section 4, designed in its own
-  session.
+- **B Search** (`SearchPageClient.tsx`, beside `ExportCSVLink`): a "Map"
+  button to the Reports map page with the same query string (section 4a,
+  decided 2026-11-24); the map's "View and download" row returns to the list.
 - **A Links**: a "Map" section on the links page (`TopologySlot` neighbour),
   the unit highlighted, related units (`relevant_statistical_units`) around it,
   at most a few hundred points, so always points.
-- **C Reports**: the general report map (counts for the whole register,
-  finer as you zoom) reads the statistical geography table of section 4a, so
-  it is built with the search map in phase 4. Colour by
-  count or by a statistical variable sum (`stats_summary`).
+- **C Reports**: the same Reports map page, opened with no filter, is the
+  general report map: counts for the whole register per region from
+  `statistical_unit_facet` (section 4a, decided 2026-11-24).
 - **D Regions**: lat/lon columns in the regions table (they exist in the data
   but are not shown) and a "Map" button: every region at its centre, label and
   count of units; regions without a centre listed beside the map (on Norway:
