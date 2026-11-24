@@ -33,8 +33,6 @@ Rule, declared per statistical variable (setting next to stock/flow/ratio, see x
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] Decides the counting rule (for example: an LU with establishments counts only the establishments' headcount) and whether a quality report flags LUs whose own count differs from the sum of their establishments; the answer is recorded here
-- [ ] On a copy of the Norway data, the enterprise employee total for 2026-11 is measured before and after the rule and recorded here
 - [ ] [Owner] Erik confirms that Norway's employee counts mean COVERS (the legal unit's count includes its establishments): yes -> employees is declared COVERS; no -> it stays ADDS and the double counting is fixed in the data instead; the answer is recorded here
 - [ ] [Owner] Decides which quality checks ship: (a) establishments sum above their legal unit, (b) legal unit larger while every establishment has a value; each chosen check becomes a Quality option and dashboard card, a dropped one is noted here
 - [ ] A statistical variable carries the declaration (covers or adds), editable by an administrator, defaulting to adds so existing installations count as before
