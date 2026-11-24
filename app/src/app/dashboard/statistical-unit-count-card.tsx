@@ -4,9 +4,7 @@ import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { EstimatedCount, useDataVersion } from "@/components/estimated-count";
 import { useTimeFrame } from '@/atoms/app-derived';
-import { hasStatisticalUnitsAtom } from '@/atoms/base-data';
 import { useState, useCallback } from "react";
-import { useAtomValue } from "jotai";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { PostgrestError } from "@supabase/postgrest-js";
 import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
@@ -21,16 +19,13 @@ export const StatisticalUnitCountCard = ({
   const { selectedTimeFrame } = useTimeFrame();
   // A new data version refetches the estimate (see useDataVersion).
   const dataVersion = useDataVersion();
-  const hasStatisticalUnits = useAtomValue(hasStatisticalUnitsAtom);
 
   const [data, setData] = useState<{ count: number | null; error: PostgrestError | null }>({ count: null, error: null });
 
+  // The card asks the count itself; an empty register answers 0. It does not
+  // take "no units" from hasStatisticalUnitsAtom, which is false until base
+  // data has loaded and would show (and save) an exact 0 for a full register.
   useGuardedEffect(() => {
-    if (!hasStatisticalUnits) {
-      setData({ count: 0, error: null });
-      return;
-    }
-
     // STATBUS-460: the card counts units that EXIST at valid_on by the canonical
     // rule (existence_from/existence_until, see lib/unit-existence.ts) and are
     // used for counting (status), which is exactly the Reports Units-over-time
@@ -58,13 +53,12 @@ export const StatisticalUnitCountCard = ({
     };
 
     fetchDataAsync();
-  }, [selectedTimeFrame, unitType, hasStatisticalUnits, dataVersion], `StatisticalUnitCountCard:${unitType}:fetchData`);
+  }, [selectedTimeFrame, unitType, dataVersion], `StatisticalUnitCountCard:${unitType}:fetchData`);
 
   const { count, error } = data;
 
   // Callback to fetch exact count when user requests it
   const handleGetExact = useCallback(async (): Promise<number | null> => {
-    if (!hasStatisticalUnits) return 0;
     if (!selectedTimeFrame?.valid_on) return null;
     const client = await getBrowserRestClient();
     const { count: exactCount } = await client
@@ -76,7 +70,7 @@ export const StatisticalUnitCountCard = ({
       .eq("used_for_counting", true)
       .limit(0);
     return exactCount;
-  }, [selectedTimeFrame, unitType, hasStatisticalUnits]);
+  }, [selectedTimeFrame, unitType]);
 
   return (
     <DashboardCard

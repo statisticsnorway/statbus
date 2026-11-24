@@ -182,12 +182,17 @@ export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(
       const defaultTimeFrame: Tables<"time_frame"> | null =
         timeFramesResult.data?.[0] ?? null;
 
-      const hasStatisticalUnits = !!(
-        statisticalUnitResult.data && statisticalUnitResult.data.length > 0
-      );
+      // A failed check answers nothing about the data (e.g. PGRST003 when the
+      // connection pool is busy): it keeps the last known answer instead of
+      // reporting "no units", which would show every unit card as an exact 0
+      // and remember it. Only a successful answer is cached.
+      const hasStatisticalUnits = statisticalUnitResult.error
+        ? (getCachedHasStatisticalUnits() ?? true)
+        : !!(statisticalUnitResult.data && statisticalUnitResult.data.length > 0);
 
-      // Cache the result in localStorage for faster subsequent page loads
-      setCachedHasStatisticalUnits(hasStatisticalUnits);
+      if (!statisticalUnitResult.error) {
+        setCachedHasStatisticalUnits(hasStatisticalUnits);
+      }
 
       return {
         statDefinitions: statDefinitionsResult.data || [],
