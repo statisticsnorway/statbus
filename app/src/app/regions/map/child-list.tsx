@@ -14,7 +14,7 @@ export interface ChildRow {
   /** The region's code beside its name; none for a country. */
   code: string | null;
   counts: Record<MapUnitType, number>;
-  /** Whether going in shows anything more (a municipality, the lowest level, has nothing below). */
+  /** Whether going in shows anything more; a region at the lowest level is then shown alone. */
   canEnter: boolean;
 }
 
@@ -22,9 +22,10 @@ export interface ChildRow {
  * The children of the Regions map's selection, as a list beside the map (owner 2026-11-24, as on a
  * unit's Map page): each row its name and the units of the picked types, largest first. A click on
  * a row picks it, as a click on its circle does: the row opens with its units per type, the square
- * arrow opens them in the search, and the circle is ringed. A double click on a row, or the
- * chevron at its end, goes in, as a double click on its circle does. The picked row scrolls into
- * view when it is picked on the map.
+ * arrow opens them in the search, and the circle is ringed. The picked row's button, or the
+ * chevron at a row's end, goes in (a region at the lowest level is then shown alone); on the map a
+ * double click on its circle does the same. The picked row scrolls into view when it is picked on
+ * the map.
  */
 export function ChildList({
   heading,
@@ -65,11 +66,10 @@ export function ChildList({
                 <button
                   type="button"
                   className="flex min-w-0 flex-1 items-baseline justify-between gap-2 rounded px-1.5 py-1 text-left"
-                  // A click picks the row (or unpicks it); a double click goes in, as on its circle
-                  // (owner 2026-11-24). The double click's first click has picked it already, and
-                  // its second would unpick it, so the second click only picks.
-                  onClick={(e) => onPick(e.detail > 1 ? r.path : isPicked ? null : r.path)}
-                  onDoubleClick={() => r.canEnter && onEnter(r.path)}
+                  // A click picks the row (or unpicks it). Going in is the chevron, or the button
+                  // in the picked row, not a double click: a list does not suggest one (owner
+                  // 2026-11-24); on the map a double click on the circle still goes in.
+                  onClick={() => onPick(isPicked ? null : r.path)}
                   aria-expanded={isPicked}
                 >
                   <span className="truncate">
@@ -79,20 +79,16 @@ export function ChildList({
                   <span className="tabular-nums text-gray-600">{selectedTotal(r.counts, unitTypes).toLocaleString()}</span>
                 </button>
                 {isPicked && <OpenInSearch href={searchFor(r.path)} title={unitsIn(r.name)} data-child-search={r.path} />}
-                {r.canEnter ? (
-                  <button
-                    type="button"
-                    className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
-                    title={`Go into ${r.name}`}
-                    aria-label={`Go into ${r.name}`}
-                    onClick={() => onEnter(r.path)}
-                    data-child-enter={r.path}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <span className="w-6 shrink-0" aria-hidden />
-                )}
+                <button
+                  type="button"
+                  className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
+                  title={r.canEnter ? `Go into ${r.name}` : `Show only ${r.name}`}
+                  aria-label={r.canEnter ? `Go into ${r.name}` : `Show only ${r.name}`}
+                  onClick={() => onEnter(r.path)}
+                  data-child-enter={r.path}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
               {isPicked && (
                 <div className="space-y-1 px-1.5 pb-2 pt-0.5 text-xs text-gray-600" data-child-detail={r.path}>
@@ -103,6 +99,17 @@ export function ChildList({
                       <span className="tabular-nums">{r.counts[t].toLocaleString()}</span>
                     </p>
                   ))}
+                  {/* Going in, said in words where the row is picked, so it is found without
+                      knowing the chevron or the map's double click (owner 2026-11-24). */}
+                  <button
+                    type="button"
+                    className="mt-1 flex w-full items-center justify-center gap-1 rounded border bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50"
+                    onClick={() => onEnter(r.path)}
+                    data-child-enter-button={r.path}
+                  >
+                    {r.canEnter ? `Go into ${r.name}` : `Show only ${r.name}`}
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               )}
             </li>
