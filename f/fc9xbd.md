@@ -1,15 +1,21 @@
 ---
 id: fc9xbd
 title: "Dashboard count requests exhaust the API pool on large registers"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzv"
 created: 2026-11-24
 updated: 2026-11-24
+doing_since: "2026-11-24T20:14"
+doing_with: "ca6dk5"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -31,3 +37,7 @@ Observed 2026-11-24 14:56 on the test slot with the BRREG copy (2.19 M statistic
 - [ ] The number of concurrent long count queries a dashboard load starts is bounded and recorded here with the measured load
 
 ## Notes
+
+
+## History
+- 2026-11-24T20:14 todo -> doing/active (take with ca6dk5)
