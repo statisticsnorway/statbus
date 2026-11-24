@@ -91,8 +91,9 @@ The system as a whole either uses NACE (EU) or ISIC (UN) for economic activity c
 A legal unit's establishments are parts of it. The UN Guidelines on
 Statistical Business Registers [1] attach employment to every local unit and
 attribute each local unit to one enterprise; the Eurostat Business Registers
-Recommendations Manual [2] says that, as an enterprise consists of its local
-units, its labour force should equal the sum of theirs. A value such as the
+Recommendations Manual [2] (chapter 5, variable 3.8 Number of persons
+employed) notes that, as the enterprise consists of one or more local units,
+the size of its labour force should equal the sum of theirs. A value such as the
 number of employees may be reported on the legal unit, on its establishments,
 or on both, and when it is on both it describes the same people.
 
@@ -127,9 +128,9 @@ the search's Quality filter):
 A legal unit that is larger while some establishments have no value is not
 listed: its own value covers them.
 
-Example (Norway, BRREG, 2026): adding both levels gave 7,317,939 employees;
-counting each legal unit once gives 3,892,227. The checks list 17 and 5
-legal units.
+Example (Norway, BRREG register as loaded on 2026-11-23, year 2026): adding
+both levels gave 7,317,939 employees; counting each legal unit once gives
+3,892,227. On that data the checks listed 17 and 5 legal units.
 
 ### 3.3 Demographic Events
 - Births and deaths of units
@@ -248,6 +249,6 @@ legal units.
 ## References
 
 1. United Nations, *Guidelines on Statistical Business Registers* (UNECE, 2015), chapter 4, Statistical units: https://unstats.un.org/unsd/business-stat/SBR/Documents/UN_Guidelines_on_SBR.pdf
-2. Eurostat, *Business Registers Recommendations Manual* (2010 edition), chapter 5, the enterprise and local unit characteristics: https://ec.europa.eu/eurostat/web/products-manuals-and-guidelines/-/ks-32-10-216
+2. Eurostat, *Business Registers Recommendations Manual* (2010 edition), chapter 5, Contents of the register, variable 3.8 Number of persons employed: https://ec.europa.eu/eurostat/web/products-manuals-and-guidelines/-/ks-32-10-216
 3. National statistical legislation and regulations
 4. International statistical standards and classifications

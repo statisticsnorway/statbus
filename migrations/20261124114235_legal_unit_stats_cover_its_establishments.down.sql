@@ -372,4 +372,7 @@ $function$;
 
 DROP FUNCTION public.jsonb_stats_covers(jsonb, jsonb);
 
+-- Stored totals were built by the covers rule: rebuild them by the restored rule after this commits.
+SELECT worker.enqueue_derive_statistical_unit_all();
+
 END;

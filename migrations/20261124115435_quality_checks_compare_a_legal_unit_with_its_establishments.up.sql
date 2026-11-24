@@ -8,12 +8,14 @@
 --     as the head office).
 -- A legal unit that is larger while some establishments have no value is not listed: its own value
 -- covers them. Both checks follow quality_establishment_activity_differs (migration 20261118134950):
--- a table per check keyed by the statistical_unit row, filled by its _derive() from its _def view in
--- worker.derive_quality, embedded by search as select=*,quality_<check>!inner().
+-- a table per check keyed by the statistical_unit row with a _def view as its rule, embedded by search as
+-- select=*,quality_<check>!inner(). One derive, quality_legal_unit_establishments_derive(), fills both from
+-- the shared comparison view read once (worker.derive_quality).
 BEGIN;
 
--- Per legal_unit row of statistical_unit and summed stat (int, float): the legal unit's own value and
--- its counted establishments' values at the row's valid_from. Shared by both checks' rules.
+-- Per legal_unit row of statistical_unit and enabled summed stat (int, float) that both the legal unit and
+-- at least one counted establishment hold: the two levels' values at the row's valid_from. Both checks
+-- compare a legal unit with its establishments, so a stat held on one level only is not a candidate.
 CREATE VIEW public.legal_unit_establishment_stat_comparison
 WITH (security_invoker = on) AS
 WITH establishment_values AS (
@@ -28,8 +30,9 @@ WITH establishment_values AS (
       ON te.legal_unit_id = su.unit_id
      AND te.used_for_counting
      AND te.valid_from <= su.valid_from AND su.valid_from < te.valid_until
-    JOIN public.stat_definition AS sd ON sd.type IN ('int', 'float')
+    JOIN public.stat_definition AS sd ON sd.enabled AND sd.type IN ('int', 'float')
     WHERE su.unit_type = 'legal_unit'
+      AND su.stats ? sd.code
     GROUP BY su.unit_id, su.valid_from, sd.code
 )
 SELECT su.unit_type,
@@ -43,10 +46,11 @@ SELECT su.unit_type,
        ev.establishments_sum
 FROM public.statistical_unit AS su
 JOIN establishment_values AS ev ON ev.unit_id = su.unit_id AND ev.valid_from = su.valid_from
-WHERE su.unit_type = 'legal_unit';
+WHERE su.unit_type = 'legal_unit'
+  AND ev.establishments_with_value > 0;
 
 COMMENT ON VIEW public.legal_unit_establishment_stat_comparison IS
-  'Per legal_unit row of statistical_unit and summed stat (int, float): the legal unit''s own value (statistical_unit.stats) and its counted establishments'' count, count with a value, and sum at the row''s valid_from. The rules of quality_establishments_above_legal_unit and quality_legal_unit_above_establishments read it; a legal unit''s total takes the larger level (public.jsonb_stats_covers).';
+  'Per legal_unit row of statistical_unit and enabled summed stat (int, float) held both by the legal unit and by at least one counted establishment: the legal unit''s own value (statistical_unit.stats) and its counted establishments'' count, count with a value, and sum at the row''s valid_from. The rules of quality_establishments_above_legal_unit and quality_legal_unit_above_establishments read it; a legal unit''s total takes the larger level (public.jsonb_stats_covers).';
 GRANT SELECT ON public.legal_unit_establishment_stat_comparison TO authenticated, regular_user, admin_user;
 
 -- ######## quality_establishments_above_legal_unit ########
@@ -65,7 +69,7 @@ CREATE TABLE public.quality_establishments_above_legal_unit (
 );
 
 COMMENT ON TABLE public.quality_establishments_above_legal_unit IS
-  'Quality check (ca6dk5): one row per legal_unit row of statistical_unit where, for at least one summed stat, the legal unit has its own value and its counted establishments'' values add up to more. Establishments are parts of their legal unit (UN Guidelines on Statistical Business Registers; Eurostat Business Registers Recommendations Manual), so the parts exceeding the whole is a reporting error on one level; the legal unit''s total takes the establishments'' sum (public.jsonb_stats_covers). Filled from quality_establishments_above_legal_unit_def by quality_establishments_above_legal_unit_derive() in worker.derive_quality. Search lists it as select=*,quality_establishments_above_legal_unit!inner().';
+  'Quality check (ca6dk5): one row per legal_unit row of statistical_unit where, for at least one summed stat, the legal unit has its own value and its counted establishments'' values add up to more. Establishments are parts of their legal unit (UN Guidelines on Statistical Business Registers; Eurostat Business Registers Recommendations Manual), so the parts exceeding the whole is a reporting error on one level; the legal unit''s total takes the establishments'' sum (public.jsonb_stats_covers). Filled from quality_establishments_above_legal_unit_def by quality_legal_unit_establishments_derive() in worker.derive_quality. Search lists it as select=*,quality_establishments_above_legal_unit!inner().';
 COMMENT ON COLUMN public.quality_establishments_above_legal_unit.valid_range IS
   'The statistical_unit row''s period. With unit_type and unit_id it is both the primary key and the foreign key to statistical_unit, so PostgREST embeds it as a one-to-one relationship.';
 COMMENT ON CONSTRAINT quality_establishments_above_legal_unit_statistical_unit_fkey ON public.quality_establishments_above_legal_unit IS
@@ -91,28 +95,6 @@ COMMENT ON VIEW public.quality_establishments_above_legal_unit_def IS
   'The rule of the quality check public.quality_establishments_above_legal_unit: a summed stat where the legal unit''s own value is below its counted establishments'' sum.';
 GRANT SELECT ON public.quality_establishments_above_legal_unit_def TO authenticated, regular_user, admin_user;
 
-CREATE FUNCTION public.quality_establishments_above_legal_unit_derive()
-RETURNS void
-LANGUAGE plpgsql
-AS $quality_establishments_above_legal_unit_derive$
-BEGIN
-    RAISE DEBUG 'Running quality_establishments_above_legal_unit_derive()';
-    MERGE INTO public.quality_establishments_above_legal_unit AS target
-    USING public.quality_establishments_above_legal_unit_def AS source
-    ON target.unit_type = source.unit_type
-   AND target.unit_id = source.unit_id
-   AND target.valid_range = daterange(source.valid_from, source.valid_until)
-    WHEN MATCHED AND target.stats IS DISTINCT FROM source.stats THEN UPDATE SET stats = source.stats
-    WHEN NOT MATCHED BY TARGET THEN INSERT (unit_type, unit_id, valid_from, valid_until, stats)
-        VALUES (source.unit_type, source.unit_id, source.valid_from, source.valid_until, source.stats)
-    WHEN NOT MATCHED BY SOURCE THEN DELETE;
-    ANALYZE public.quality_establishments_above_legal_unit;
-END;
-$quality_establishments_above_legal_unit_derive$;
-
-COMMENT ON FUNCTION public.quality_establishments_above_legal_unit_derive() IS
-  'Makes the quality check public.quality_establishments_above_legal_unit equal to its _def view (insert, update, delete); called by worker.derive_quality.';
-
 SELECT admin.add_rls_regular_user_can_read('public.quality_establishments_above_legal_unit'::regclass);
 
 -- ######## quality_legal_unit_above_establishments ########
@@ -131,7 +113,7 @@ CREATE TABLE public.quality_legal_unit_above_establishments (
 );
 
 COMMENT ON TABLE public.quality_legal_unit_above_establishments IS
-  'Quality check (ca6dk5): one row per legal_unit row of statistical_unit where, for at least one summed stat, the legal unit''s own value is larger than its counted establishments'' sum while every one of those establishments has a value. The legal unit''s value covers its establishments (UN Guidelines on Statistical Business Registers; Eurostat Business Registers Recommendations Manual), so the rest belongs to an establishment, yet none lacks a value: often an establishment, such as the head office, is missing. A legal unit that is larger while some establishments have no value is not listed, as its own value covers them. Filled from quality_legal_unit_above_establishments_def by quality_legal_unit_above_establishments_derive() in worker.derive_quality. Search lists it as select=*,quality_legal_unit_above_establishments!inner().';
+  'Quality check (ca6dk5): one row per legal_unit row of statistical_unit where, for at least one summed stat, the legal unit''s own value is larger than its counted establishments'' sum while every one of those establishments has a value. The legal unit''s value covers its establishments (UN Guidelines on Statistical Business Registers; Eurostat Business Registers Recommendations Manual), so the rest belongs to an establishment, yet none lacks a value: often an establishment, such as the head office, is missing. A legal unit that is larger while some establishments have no value is not listed, as its own value covers them. Filled from quality_legal_unit_above_establishments_def by quality_legal_unit_establishments_derive() in worker.derive_quality. Search lists it as select=*,quality_legal_unit_above_establishments!inner().';
 COMMENT ON COLUMN public.quality_legal_unit_above_establishments.valid_range IS
   'The statistical_unit row''s period. With unit_type and unit_id it is both the primary key and the foreign key to statistical_unit, so PostgREST embeds it as a one-to-one relationship.';
 COMMENT ON CONSTRAINT quality_legal_unit_above_establishments_statistical_unit_fkey ON public.quality_legal_unit_above_establishments IS
@@ -158,14 +140,53 @@ COMMENT ON VIEW public.quality_legal_unit_above_establishments_def IS
   'The rule of the quality check public.quality_legal_unit_above_establishments: a summed stat where the legal unit''s own value is above its counted establishments'' sum and every one of them has a value.';
 GRANT SELECT ON public.quality_legal_unit_above_establishments_def TO authenticated, regular_user, admin_user;
 
-CREATE FUNCTION public.quality_legal_unit_above_establishments_derive()
+SELECT admin.add_rls_regular_user_can_read('public.quality_legal_unit_above_establishments'::regclass);
+
+-- ######## one derive for both checks: the comparison is read once ########
+CREATE FUNCTION public.quality_legal_unit_establishments_derive()
 RETURNS void
 LANGUAGE plpgsql
-AS $quality_legal_unit_above_establishments_derive$
+AS $quality_legal_unit_establishments_derive$
 BEGIN
-    RAISE DEBUG 'Running quality_legal_unit_above_establishments_derive()';
+    RAISE DEBUG 'Running quality_legal_unit_establishments_derive()';
+    IF to_regclass('pg_temp.legal_unit_establishment_stat_comparison_now') IS NOT NULL THEN
+        DROP TABLE legal_unit_establishment_stat_comparison_now;
+    END IF;
+    CREATE TEMP TABLE legal_unit_establishment_stat_comparison_now ON COMMIT DROP AS
+    SELECT * FROM public.legal_unit_establishment_stat_comparison;
+
+    MERGE INTO public.quality_establishments_above_legal_unit AS target
+    USING (
+        SELECT c.unit_type, c.unit_id, c.valid_from, c.valid_until,
+               jsonb_object_agg(c.stat_code, jsonb_build_object(
+                   'legal_unit', c.legal_unit_value,
+                   'establishments_sum', c.establishments_sum,
+                   'establishments', c.establishment_count)) AS stats
+        FROM legal_unit_establishment_stat_comparison_now AS c
+        WHERE c.legal_unit_value < c.establishments_sum
+        GROUP BY c.unit_type, c.unit_id, c.valid_from, c.valid_until
+    ) AS source
+    ON target.unit_type = source.unit_type
+   AND target.unit_id = source.unit_id
+   AND target.valid_range = daterange(source.valid_from, source.valid_until)
+    WHEN MATCHED AND target.stats IS DISTINCT FROM source.stats THEN UPDATE SET stats = source.stats
+    WHEN NOT MATCHED BY TARGET THEN INSERT (unit_type, unit_id, valid_from, valid_until, stats)
+        VALUES (source.unit_type, source.unit_id, source.valid_from, source.valid_until, source.stats)
+    WHEN NOT MATCHED BY SOURCE THEN DELETE;
+    ANALYZE public.quality_establishments_above_legal_unit;
+
     MERGE INTO public.quality_legal_unit_above_establishments AS target
-    USING public.quality_legal_unit_above_establishments_def AS source
+    USING (
+        SELECT c.unit_type, c.unit_id, c.valid_from, c.valid_until,
+               jsonb_object_agg(c.stat_code, jsonb_build_object(
+                   'legal_unit', c.legal_unit_value,
+                   'establishments_sum', c.establishments_sum,
+                   'establishments', c.establishment_count)) AS stats
+        FROM legal_unit_establishment_stat_comparison_now AS c
+        WHERE c.establishments_sum < c.legal_unit_value
+          AND c.establishments_with_value = c.establishment_count
+        GROUP BY c.unit_type, c.unit_id, c.valid_from, c.valid_until
+    ) AS source
     ON target.unit_type = source.unit_type
    AND target.unit_id = source.unit_id
    AND target.valid_range = daterange(source.valid_from, source.valid_until)
@@ -175,14 +196,15 @@ BEGIN
     WHEN NOT MATCHED BY SOURCE THEN DELETE;
     ANALYZE public.quality_legal_unit_above_establishments;
 END;
-$quality_legal_unit_above_establishments_derive$;
+$quality_legal_unit_establishments_derive$;
 
-COMMENT ON FUNCTION public.quality_legal_unit_above_establishments_derive() IS
-  'Makes the quality check public.quality_legal_unit_above_establishments equal to its _def view (insert, update, delete); called by worker.derive_quality.';
-
-SELECT admin.add_rls_regular_user_can_read('public.quality_legal_unit_above_establishments'::regclass);
+COMMENT ON FUNCTION public.quality_legal_unit_establishments_derive() IS
+  'Makes public.quality_establishments_above_legal_unit and public.quality_legal_unit_above_establishments equal to their _def views (insert, update, delete), reading public.legal_unit_establishment_stat_comparison once for both (Norway register, 2026-11-24: 14 s for both); called by worker.derive_quality.';
 
 -- ######## the reports phase's quality step runs all three checks ########
+-- Weight is seconds / 10 on the Norway register: the three checks take about 27 s (local 2026-11-24:
+-- activity differs 13 s, the two legal unit / establishment checks 14 s together).
+UPDATE worker.pipeline_step_weight SET weight = 3 WHERE step = 'derive_quality';
 CREATE OR REPLACE PROCEDURE worker.derive_quality(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -190,8 +212,7 @@ CREATE OR REPLACE PROCEDURE worker.derive_quality(IN payload jsonb, INOUT p_info
 AS $procedure$
 BEGIN
     PERFORM public.quality_establishment_activity_differs_derive();
-    PERFORM public.quality_establishments_above_legal_unit_derive();
-    PERFORM public.quality_legal_unit_above_establishments_derive();
+    PERFORM public.quality_legal_unit_establishments_derive();
 
     p_info := jsonb_build_object('checks', jsonb_build_array(
         'quality_establishment_activity_differs',
@@ -956,8 +977,7 @@ END;
 $function$;
 
 -- Fill both checks from the statistical_unit already derived on this database.
-SELECT public.quality_establishments_above_legal_unit_derive();
-SELECT public.quality_legal_unit_above_establishments_derive();
+SELECT public.quality_legal_unit_establishments_derive();
 
 NOTIFY pgrst, 'reload schema';
 

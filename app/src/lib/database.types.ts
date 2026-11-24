@@ -15364,11 +15364,7 @@ export type Database = {
         Args: Record<string, never>
         Returns: unknown
       },
-      quality_establishments_above_legal_unit_derive: {
-        Args: Record<string, never>
-        Returns: unknown
-      },
-      quality_legal_unit_above_establishments_derive: {
+      quality_legal_unit_establishments_derive: {
         Args: Record<string, never>
         Returns: unknown
       },

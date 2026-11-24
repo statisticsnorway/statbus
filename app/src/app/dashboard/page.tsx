@@ -14,7 +14,6 @@ import {
   MissingActivityCategoryCard,
   MISSING_ACTIVITY_CATEGORY_HREF,
 } from "@/app/dashboard/missing-activity-category-card";
-import { QualityEstablishmentActivityDiffersCard } from "@/app/dashboard/quality-establishment-activity-differs-card";
 import { LegalUnitQualityCheckCard } from "@/app/dashboard/legal-unit-quality-check-card";
 import { qualityCheckHref } from "@/app/search/filters/url-search-params";
 import { CustomActivityCategoryCard } from "@/app/dashboard/custom-activity-category-card";
@@ -118,11 +117,15 @@ export default function Dashboard() {
           </Suspense>
         </Link>
 
-        <Link href="/search?unit_type=legal_unit&quality=establishment_activity_differs">
+        <Link href={qualityCheckHref("establishment_activity_differs")}>
           <Suspense
             fallback={<FallBackCard title="Establishment Activity Differs" />}
           >
-            <QualityEstablishmentActivityDiffersCard />
+            <LegalUnitQualityCheckCard
+              check="establishment_activity_differs"
+              title="Establishment Activity Differs"
+              description="Legal units whose primary establishment has another primary activity"
+            />
           </Suspense>
         </Link>
 

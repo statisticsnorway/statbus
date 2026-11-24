@@ -21,8 +21,8 @@ View definition:
             sum(((te.stats -> sd.code::text) ->> 'value'::text)::numeric) AS establishments_sum
            FROM statistical_unit su_1
              JOIN timeline_establishment te ON te.legal_unit_id = su_1.unit_id AND te.used_for_counting AND te.valid_from <= su_1.valid_from AND su_1.valid_from < te.valid_until
-             JOIN stat_definition sd ON sd.type = ANY (ARRAY['int'::stat_type, 'float'::stat_type])
-          WHERE su_1.unit_type = 'legal_unit'::statistical_unit_type
+             JOIN stat_definition sd ON sd.enabled AND (sd.type = ANY (ARRAY['int'::stat_type, 'float'::stat_type]))
+          WHERE su_1.unit_type = 'legal_unit'::statistical_unit_type AND su_1.stats ? sd.code::text
           GROUP BY su_1.unit_id, su_1.valid_from, sd.code
         )
  SELECT su.unit_type,
@@ -36,9 +36,9 @@ View definition:
     ev.establishments_sum
    FROM statistical_unit su
      JOIN establishment_values ev ON ev.unit_id = su.unit_id AND ev.valid_from = su.valid_from
-  WHERE su.unit_type = 'legal_unit'::statistical_unit_type;
+  WHERE su.unit_type = 'legal_unit'::statistical_unit_type AND ev.establishments_with_value > 0;
 Options: security_invoker=on
 
 ```
 
-**Comment:** Per legal_unit row of statistical_unit and summed stat (int, float): the legal unit's own value (statistical_unit.stats) and its counted establishments' count, count with a value, and sum at the row's valid_from. The rules of quality_establishments_above_legal_unit and quality_legal_unit_above_establishments read it; a legal unit's total takes the larger level (public.jsonb_stats_covers).
+**Comment:** Per legal_unit row of statistical_unit and enabled summed stat (int, float) held both by the legal unit and by at least one counted establishment: the legal unit's own value (statistical_unit.stats) and its counted establishments' count, count with a value, and sum at the row's valid_from. The rules of quality_establishments_above_legal_unit and quality_legal_unit_above_establishments read it; a legal unit's total takes the larger level (public.jsonb_stats_covers).

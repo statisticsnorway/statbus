@@ -26,9 +26,12 @@ import {
 export const LegalUnitQualityCheckCard = ({
   check,
   title,
+  description,
 }: {
   readonly check: QualityCheck;
   readonly title: string;
+  /** The full rule, shown when the pointer rests on the title; the check's label when omitted. */
+  readonly description?: string;
 }) => {
   const { selectedTimeFrame } = useTimeFrame();
   const dataVersion = useDataVersion();
@@ -80,7 +83,7 @@ export const LegalUnitQualityCheckCard = ({
   return (
     <DashboardCard
       title={title}
-      description={QUALITY_CHECKS[check].label}
+      description={description ?? QUALITY_CHECKS[check].label}
       icon={<AlertTriangle className="h-4" />}
       failed={!!error || (shownCount ?? 0) > 0}
     >

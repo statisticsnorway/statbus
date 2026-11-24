@@ -763,10 +763,10 @@ BEGIN
 END;
 $function$;
 
-DROP FUNCTION public.quality_establishments_above_legal_unit_derive();
+UPDATE worker.pipeline_step_weight SET weight = 1 WHERE step = 'derive_quality';
+DROP FUNCTION public.quality_legal_unit_establishments_derive();
 DROP VIEW public.quality_establishments_above_legal_unit_def;
 DROP TABLE public.quality_establishments_above_legal_unit;
-DROP FUNCTION public.quality_legal_unit_above_establishments_derive();
 DROP VIEW public.quality_legal_unit_above_establishments_def;
 DROP TABLE public.quality_legal_unit_above_establishments;
 DROP VIEW public.legal_unit_establishment_stat_comparison;
