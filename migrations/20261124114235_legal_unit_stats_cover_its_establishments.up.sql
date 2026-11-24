@@ -404,4 +404,8 @@ AS $function$
   ORDER BY basis.unit_type, basis.unit_id, basis.valid_from
 $function$;
 
+-- Every legal unit's stored totals were built by the old rule: rebuild timelines, statistical_unit
+-- and the reports from them after this migration commits; no-op on an empty database.
+SELECT worker.enqueue_derive_statistical_unit_all();
+
 END;

@@ -15,10 +15,8 @@ import {
   MISSING_ACTIVITY_CATEGORY_HREF,
 } from "@/app/dashboard/missing-activity-category-card";
 import { QualityEstablishmentActivityDiffersCard } from "@/app/dashboard/quality-establishment-activity-differs-card";
-import {
-  LegalUnitQualityCheckCard,
-  qualityCheckHref,
-} from "@/app/dashboard/legal-unit-quality-check-card";
+import { LegalUnitQualityCheckCard } from "@/app/dashboard/legal-unit-quality-check-card";
+import { qualityCheckHref } from "@/app/search/filters/url-search-params";
 import { CustomActivityCategoryCard } from "@/app/dashboard/custom-activity-category-card";
 import { ActivityCategoryCard } from "@/app/dashboard/activity-category-card";
 import { StatisticalVariableCountCard } from "@/app/dashboard/statistical-variable-count-card";

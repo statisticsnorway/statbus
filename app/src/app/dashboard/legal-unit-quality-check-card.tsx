@@ -21,12 +21,8 @@ import {
  * A Data quality card for a quality check on legal units (public.quality_<check>): it counts the
  * legal units that EXIST at the selected instant (lib/unit-existence.ts) and that the check lists,
  * through the inner embed the search adds for ?quality=<check>, so the number equals the list the
- * card opens (qualityCheckHref).
+ * card opens (qualityCheckHref in url-search-params.ts).
  */
-export function qualityCheckHref(check: QualityCheck): string {
-  return `/search?unit_type=legal_unit&quality=${check}`;
-}
-
 export const LegalUnitQualityCheckCard = ({
   check,
   title,

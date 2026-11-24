@@ -327,6 +327,14 @@ export function qualitySelect(check: QualityCheck): string {
   return `*,quality_${check}!inner()`;
 }
 
+/**
+ * The Statistical Units list a Data quality card for a check on legal units opens: the legal units
+ * the check lists, the same set the card counts (LegalUnitQualityCheckCard).
+ */
+export function qualityCheckHref(check: QualityCheck): string {
+  return `/search?unit_type=legal_unit&${QUALITY}=${check}`;
+}
+
 export function qualityDeriveStateUpdateFromSearchParams(
   urlSearchParams: URLSearchParams
 ): SearchAction {
