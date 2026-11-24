@@ -88,9 +88,10 @@ export function RegionSpiders({
     // The column stands to the circle's upper right, its last pill level with the circle's
     // centre, so it clears the region's own name and count below the circle.
     const box: [number, number, number, number] = [p.x + r, p.y - 2 * half + gap / 2, p.x + r + width, p.y + gap / 2];
+    // The picked region always shows its pills (it was asked for); the others give way to it.
     const clashes =
-      placed.some((o) => overlaps(box, o.box)) ||
-      circleBoxes.some((c) => c.path !== f.properties.path && overlaps(box, c.box));
+      f.properties.path !== focus &&
+      (placed.some((o) => overlaps(box, o.box)) || circleBoxes.some((c) => c.path !== f.properties.path && overlaps(box, c.box)));
     if (!clashes) placed.push({ f, x: p.x, y: p.y, r, box });
   }
 

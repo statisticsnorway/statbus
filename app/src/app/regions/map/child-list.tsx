@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef } from "react";
-import { ChevronRight } from "lucide-react";
+import { useRef, useState } from "react";
+import { ChevronRight, Search } from "lucide-react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { UNIT_TYPE_LABEL, UNIT_TYPE_SWATCH, selectedTotal, type MapUnitType } from "@/components/map/map-data";
 import { OpenInSearch, unitsIn } from "./open-in-search";
@@ -45,6 +45,10 @@ export function ChildList({
   onEnter: (path: string) => void;
 }) {
   const listRef = useRef<HTMLUListElement>(null);
+  // Narrows the list to the regions whose name or code contains the text (owner 2026-11-24: the
+  // list is by size, so one region among many is hard to find). Shown when the list is long.
+  const [query, setQuery] = useState("");
+  const searchable = rows.length > 8;
   useGuardedEffect(
     () => {
       if (picked === null) return;
@@ -54,11 +58,38 @@ export function ChildList({
     "ChildList:scrollToPicked"
   );
   const sorted = [...rows].sort((a, b) => selectedTotal(b.counts, unitTypes) - selectedTotal(a.counts, unitTypes) || a.name.localeCompare(b.name));
+  const needle = query.trim().toLocaleLowerCase();
+  const matches = (r: ChildRow) => r.name.toLocaleLowerCase().includes(needle) || (r.code ?? "").includes(needle);
+  const found = needle ? sorted.filter(matches) : sorted;
+  // The picked region stays in the list while finding another, so it can still be unpicked.
+  const shown = needle ? sorted.filter((r) => matches(r) || r.path === picked) : sorted;
   return (
     <section data-regions-map-children="">
-      <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">{heading}</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">{heading}</h2>
+        {needle && <span className="text-xs text-gray-500">{found.length.toLocaleString()} found</span>}
+      </div>
+      {searchable && (
+        <div className="relative mt-1">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" aria-hidden />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter picks the first match, as a click on its row would.
+              if (e.key === "Enter" && needle && found[0]) onPick(found[0].path);
+              if (e.key === "Escape") setQuery("");
+            }}
+            placeholder="Find by name or code"
+            aria-label="Find a region by name or code"
+            className="w-full rounded border bg-white py-1 pl-7 pr-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+            data-regions-map-find=""
+          />
+        </div>
+      )}
       <ul ref={listRef} className="mt-1 space-y-0.5">
-        {sorted.map((r) => {
+        {shown.map((r) => {
           const isPicked = r.path === picked;
           return (
             <li key={r.path} className={`rounded ${isPicked ? "bg-gray-100" : "hover:bg-gray-100"}`} data-child-row={r.path}>
