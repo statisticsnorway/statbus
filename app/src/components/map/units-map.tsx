@@ -486,14 +486,14 @@ function UnitsLegend({
         </div>
       ))}
       <p className="flex items-center gap-2 text-xs text-gray-600" data-legend-group="">
-        {/* Drawn as the map draws a group: a white circle, its rim in the units' colour, the count inside. */}
+        {/* The grey group only: a group of one type is drawn in that type's colour. */}
         <span
           className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-gray-500 bg-white text-[10px] font-medium leading-none"
           aria-hidden
         >
           n
         </span>
-        A group of units; click to expand
+        A group of mixed unit types; click to expand
       </p>
     </fieldset>
   );
