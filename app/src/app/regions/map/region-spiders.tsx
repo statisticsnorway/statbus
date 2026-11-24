@@ -6,8 +6,6 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { UNIT_TYPE_LABEL, type MapUnitType, type RegionFeatureProperties } from "@/components/map/map-data";
 import { cssColour } from "@/components/map/unit-map";
 
-/** Above this many circles in view, only the clicked region shows its legs, so the map stays readable. */
-const ALL_LEGS_UP_TO = 25;
 const NODE_RADIUS = 10;
 const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 
@@ -25,10 +23,10 @@ function circleRadius(total: number, top: number): number {
  * The type counts of each region, drawn as legs from its circle (owner 2026-11-24, z2qt08): with
  * several unit types picked a circle is grey and its number the sum, so each circle gets one
  * short leg per picked type to a pill in that type's colour with its count, the pills in a column
- * to the circle's right. With up to 25 circles in view every circle can have its pills; with more,
- * only the picked one (`focus`). Pills that would overlap other pills are left out, the picked and
- * the largest regions first, as the map leaves out labels that collide. A click on a pill picks
- * that region, as a click on its circle does.
+ * to the circle's right. Every circle in view can have its pills (owner 2026-11-24: Trøndelag's 38
+ * municipalities showed none under a cap of 25); pills that would overlap other pills are left
+ * out, the picked and the largest regions first, as the map leaves out labels that collide. A
+ * click on a pill picks that region, as a click on its circle does.
  */
 export function RegionSpiders({
   map,
@@ -64,11 +62,20 @@ export function RegionSpiders({
   const bounds = map.getBounds();
   const inView = features.filter((f) => bounds.contains(f.geometry.coordinates as [number, number]));
   const top = inView.reduce((m, f) => Math.max(m, f.properties.total), 1);
-  const candidates = inView.length <= ALL_LEGS_UP_TO ? inView : inView.filter((f) => f.properties.path === focus);
+  const candidates = inView;
   const gap = 2 * NODE_RADIUS + 3;
+  // Every circle in view, with its label below it (as the label layer places it by default): a
+  // column of pills must not cover another region's circle or its name and count.
+  const circleBoxes = inView.map((f) => {
+    const p = map.project(f.geometry.coordinates as [number, number]);
+    const r = circleRadius(f.properties.total, top);
+    const labelHalf = Math.max(30, f.properties.name.length * 3.8);
+    return { path: f.properties.path, box: [Math.min(p.x - r, p.x - labelHalf), p.y - r, Math.max(p.x + r, p.x + labelHalf), p.y + r + 34] as [number, number, number, number] };
+  });
+  const overlaps = (a: [number, number, number, number], b: [number, number, number, number]) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
   // Where each region's column of pills would stand. Columns are placed the way the map places its
-  // labels: the picked region first, then the largest, and a column that would overlap one already
-  // placed is left out (its counts are in the list), so no two columns cover each other.
+  // labels: the picked region first, then the largest; a column that would cover another column,
+  // or another region's circle or label, is left out (its counts are in the list).
   const placed: { f: (typeof features)[number]; x: number; y: number; r: number; box: [number, number, number, number] }[] = [];
   const order = [...candidates].sort(
     (a, b) => Number(b.properties.path === focus) - Number(a.properties.path === focus) || b.properties.total - a.properties.total
@@ -78,8 +85,12 @@ export function RegionSpiders({
     const r = circleRadius(f.properties.total, top);
     const width = 14 + Math.max(...unitTypes.map((t) => pillWidth(compact.format(f.properties[t]))));
     const half = (unitTypes.length * gap) / 2;
-    const box: [number, number, number, number] = [p.x + r, p.y - half, p.x + r + width, p.y + half];
-    const clashes = placed.some((o) => box[0] < o.box[2] && o.box[0] < box[2] && box[1] < o.box[3] && o.box[1] < box[3]);
+    // The column stands to the circle's upper right, its last pill level with the circle's
+    // centre, so it clears the region's own name and count below the circle.
+    const box: [number, number, number, number] = [p.x + r, p.y - 2 * half + gap / 2, p.x + r + width, p.y + gap / 2];
+    const clashes =
+      placed.some((o) => overlaps(box, o.box)) ||
+      circleBoxes.some((c) => c.path !== f.properties.path && overlaps(box, c.box));
     if (!clashes) placed.push({ f, x: p.x, y: p.y, r, box });
   }
 
@@ -93,7 +104,7 @@ export function RegionSpiders({
         return (
           <g key={f.properties.path} data-region-spider={f.properties.path}>
             {unitTypes.map((t, i) => {
-              const y = p.y + (i - (unitTypes.length - 1) / 2) * gap;
+              const y = p.y - (unitTypes.length - 1 - i) * gap;
               const count = f.properties[t];
               const text = compact.format(count);
               const w = pillWidth(text);
