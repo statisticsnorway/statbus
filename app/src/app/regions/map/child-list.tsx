@@ -22,9 +22,9 @@ export interface ChildRow {
  * The children of the Regions map's selection, as a list beside the map (owner 2026-11-24, as on a
  * unit's Map page): each row its name and the units of the picked types, largest first. A click on
  * a row picks it, as a click on its circle does: the row opens with its units per type, the square
- * arrow opens them in the search, and the circle is ringed. The chevron at the end of a row goes
- * in, as a double click on its circle does. The picked row scrolls into view when it is picked on
- * the map.
+ * arrow opens them in the search, and the circle is ringed. A double click on a row, or the
+ * chevron at its end, goes in, as a double click on its circle does. The picked row scrolls into
+ * view when it is picked on the map.
  */
 export function ChildList({
   heading,
@@ -65,7 +65,11 @@ export function ChildList({
                 <button
                   type="button"
                   className="flex min-w-0 flex-1 items-baseline justify-between gap-2 rounded px-1.5 py-1 text-left"
-                  onClick={() => onPick(isPicked ? null : r.path)}
+                  // A click picks the row (or unpicks it); a double click goes in, as on its circle
+                  // (owner 2026-11-24). The double click's first click has picked it already, and
+                  // its second would unpick it, so the second click only picks.
+                  onClick={(e) => onPick(e.detail > 1 ? r.path : isPicked ? null : r.path)}
+                  onDoubleClick={() => r.canEnter && onEnter(r.path)}
                   aria-expanded={isPicked}
                 >
                   <span className="truncate">
