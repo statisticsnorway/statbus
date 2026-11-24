@@ -33,7 +33,7 @@ Observed 2026-11-24 14:56 on the test slot with the BRREG copy (2.19 M statistic
 ## Depends on
 
 ## Acceptance
-- [ ] On the Norway copy, a cold dashboard load shows every card's number within 10 s, measured with a Playwright test, and no API request returns 504 during it
+- [x] On the Norway copy, a cold dashboard load shows every card's number within 10 s, measured with a Playwright test, and no API request returns 504 during it
 - [ ] The number of concurrent long count queries a dashboard load starts is bounded and recorded here with the measured load
 
 ## Notes
@@ -43,5 +43,6 @@ Observed 2026-11-24 14:56 on the test slot with the BRREG copy (2.19 M statistic
 landed 6071cb5 on master 2026-11-24: app: count cards show a spinner, then one exact count (fc9xbd)
 2026-11-24 20:26 owner approved spinner then exact number, and accepted 16.5 s on this busy laptop (load 37-54). Committed 6071cb54f, pushed to master. Next: 05pe0x moves six of the nine dashboard counts into one quality_finding request (45 ms in the prototype), leaving the three unit cards on statistical_unit; re-measure the cold load after it lands.
 CI green at 6071cb54f: Fast Tests, Go Test, app build & lint, Images, Harness Selftest, Push on master (gh run list, 2026-11-24 21:17).
+check 1: Norway copy, cold dashboard (no saved counts), driven by tmp/fc9xbd/cold-dashboard.mjs with 05pe0x in the slot: every card's number in 2.7 s, 2.1 s, 2.0 s (three runs at load 29-32, cold-after-05pe0x*.log), 0 responses 5xx, no estimate shown, each count query sent once. Before: RED 53 count requests, 20 x 504, Legal Units never shown in 120 s (red.log).
 ## History
 - 2026-11-24T20:14 todo -> doing/active (take with ca6dk5)
