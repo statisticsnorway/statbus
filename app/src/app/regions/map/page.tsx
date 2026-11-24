@@ -17,7 +17,7 @@ import { UnitTypeLegend } from "@/components/map/unit-type-legend";
 import { BASEMAP_FONT, BASEMAP_FONT_BOLD } from "@/components/map/basemap";
 import { ViewControl } from "@/components/map/view-control";
 import { RegionSpiders } from "./region-spiders";
-import { OpenInSearch, unitsIn } from "./open-in-search";
+import { SearchRow, unitsIn } from "./open-in-search";
 import { ChildList, type ChildRow } from "./child-list";
 import {
   MAP_UNIT_TYPES,
@@ -452,16 +452,20 @@ export default function RegionsMapPage() {
                 {depth === 0 ? "Selected country" : "Selected region"}
               </p>
             )}
-            <h2 className="flex items-center gap-1 pr-6 font-medium">
-              <span>
-                {nameOf(selection)}
-                {depth > 0 && <span className="ml-1.5 text-xs font-normal text-gray-500">{selection}</span>}
-              </span>
-              {selectionSearch && (
-                // Opens the selection's units in the search, as the square arrow opens a unit on a
-                // unit's Map page (owner 2026-11-24: one icon for leaving the map).
-                <OpenInSearch href={selectionSearch} title={unitsIn(nameOf(selection))} data-regions-map-view-units="" />
-              )}
+            {/* The selected place's name: a row whose only action is opening its units in the
+                search, so the whole row is that link, its arrow at the right edge in the same column
+                as the count rows' arrows (owner 2026-11-24). The X beside it goes up a level. */}
+            <h2 className={`font-medium ${selection !== null ? "mr-6" : ""}`}>
+              <SearchRow
+                href={selectionSearch}
+                title={selection === null ? "View and download all units" : unitsIn(nameOf(selection))}
+                data-regions-map-view-units=""
+              >
+                <span className="flex-1">
+                  {nameOf(selection)}
+                  {depth > 0 && <span className="ml-1.5 text-xs font-normal text-gray-500">{selection}</span>}
+                </span>
+              </SearchRow>
             </h2>
             {selectedCounts ? (
               // One list of unit types: tick to show a type on the map and in the list the button
@@ -503,15 +507,14 @@ export default function RegionsMapPage() {
             <section className="space-y-2" data-regions-not-on-map="">
               <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">Not on the map</h2>
               {selection === "" && world.domesticWithoutRegion > 0 && (
-                <p className="flex items-center gap-1" data-count="units-without-region">
+                <SearchRow
+                  href={`/search?${typesParam}&quality=domestic_without_region`}
+                  title={`View and download the units in ${nameOf("")} without a region`}
+                  data-count="units-without-region"
+                >
                   <span className="flex-1">Units in {nameOf("")} without a region</span>
                   <span className="tabular-nums text-gray-600">{world.domesticWithoutRegion.toLocaleString()}</span>
-                  <OpenInSearch
-                    href={`/search?${typesParam}&quality=domestic_without_region`}
-                    title={`View and download the units in ${nameOf("")} without a region`}
-                    data-count-link="units-without-region"
-                  />
-                </p>
+                </SearchRow>
               )}
               {withoutCentre.length > 0 && (
                 <div data-regions-without-coordinates="">
@@ -614,11 +617,10 @@ function WorldSplit({
   return (
     <div className="mt-2 space-y-1" data-regions-map-world="">
       {rows.map((r) => (
-        <p key={r.key} className="flex items-center gap-1" data-count={r.key}>
+        <SearchRow key={r.key} href={r.href} title={r.title} data-count={r.key}>
           <span className="flex-1">{r.label}</span>
           <span className="tabular-nums text-gray-600">{r.value.toLocaleString()}</span>
-          <OpenInSearch href={r.href} title={r.title} data-count-link={r.key} />
-        </p>
+        </SearchRow>
       ))}
     </div>
   );
