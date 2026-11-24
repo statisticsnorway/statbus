@@ -237,6 +237,7 @@ export function StatisticalUnitTableHeader({
                   key={`h-cell-${headerCellSuffix(column)}`}
                   name="last_edit_at"
                   label="Last Edit"
+                  defaultDirection="desc.nullslast"
                 />
               );
           }
