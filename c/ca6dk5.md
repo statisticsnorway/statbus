@@ -33,11 +33,6 @@ Rule, declared per statistical variable (setting next to stock/flow/ratio, see x
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] Erik confirms that Norway's employee counts mean COVERS (the legal unit's count includes its establishments): yes -> employees is declared COVERS; no -> it stays ADDS and the double counting is fixed in the data instead; the answer is recorded here
-- [ ] [Owner] Decides which quality checks ship: (a) establishments sum above their legal unit, (b) legal unit larger while every establishment has a value; each chosen check becomes a Quality option and dashboard card, a dropped one is noted here
-- [ ] A statistical variable carries the declaration (covers or adds), editable by an administrator, defaulting to adds so existing installations count as before
-- [ ] On the local Norway copy with employees declared covers, the Reports' legal unit and enterprise employee total for 2026 is 3,892,227 (from 7,317,939); recorded here with the query
-- [ ] Each chosen quality check lists exactly the legal units the rule flags on the Norway copy (17 for a, 5 for b at 2026-11-24), and its dashboard card's count equals its list
 
 ## Notes
 
