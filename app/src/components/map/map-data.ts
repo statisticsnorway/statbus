@@ -354,7 +354,7 @@ export interface UnitPointProperties {
   current: boolean;
   /** "point": the unit's own coordinates; "region": its region's centre, the unit is somewhere there. */
   placed: "point" | "region";
-  /** The region of a unit placed at its region's centre. */
+  /** The unit's region: where it is somewhere, for a unit at its region's centre; where its address is, for one at its own point. */
   region_name?: string;
 }
 
@@ -454,7 +454,7 @@ export function linksUnitPoints(
       features.push({
         type: "Feature",
         geometry: { type: "Point", coordinates: [Number(physical.longitude), Number(physical.latitude)] },
-        properties: { ...base, placed: "point" },
+        properties: { ...base, placed: "point", ...(physical.region?.name ? { region_name: physical.region.name } : {}) },
       });
       continue;
     }

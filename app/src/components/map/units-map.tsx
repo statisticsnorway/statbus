@@ -1,17 +1,17 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { CircleHelp, Maximize2, Minimize2, SquareArrowOutUpRight, X } from "lucide-react";
+import { CircleHelp, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent } from "maplibre-gl";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { UnitMap, cssColour } from "./unit-map";
-import { BASEMAP_FONT } from "./basemap";
+import { BASEMAP_FONT, BASEMAP_FONT_BOLD } from "./basemap";
 import { ViewControl } from "./view-control";
 import { featureBounds, linksUnitPoints, type LinksHierarchy, type MapUnitType, type UnitPointProperties } from "./map-data";
 import { UnitsSpider, type SpiderStack } from "./units-spider";
+import { UnitsList } from "./units-list";
 
 /**
  * A unit's Map page (z2qt08, owner 2026-11-23): every legal unit and establishment of its
@@ -165,7 +165,7 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         layout: {
           "text-field": ["get", "point_count_abbreviated"],
           "text-font": BASEMAP_FONT,
-          "text-size": 12,
+          "text-size": 13,
           "text-allow-overlap": true,
           "text-ignore-placement": true,
         },
@@ -189,15 +189,18 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         type: "symbol",
         source: "units",
         filter: ["!", ["has", "point_count"]],
+        // A unit's name stands beside its dot, below it where there is room, else to the right or
+        // left, with a wide white outline, as the Regions map's labels (owner 2026-11-24).
         layout: {
           "text-field": ["get", "name"],
           "text-font": BASEMAP_FONT,
-          "text-size": 11,
-          "text-offset": [0, 1.1],
-          "text-anchor": "top",
+          "text-size": 12,
+          "text-variable-anchor": ["top", "left", "right"],
+          "text-radial-offset": 0.9,
+          "text-justify": "auto",
           "text-optional": true,
         },
-        paint: { "text-color": "#1f2937", "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+        paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 2.5, "text-halo-blur": 0.5 },
       });
       // The fit button goes back to the start: every unit in view, nothing picked (owner
       // 2026-11-24: after drilling in, the map showed all units while the list still held one group).
@@ -221,15 +224,16 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         id: "current-unit-label",
         type: "symbol",
         source: "current-unit",
+        // The page's own unit, named in bold so it reads first.
         layout: {
           "text-field": ["get", "name"],
-          "text-font": BASEMAP_FONT,
-          "text-size": 12,
+          "text-font": BASEMAP_FONT_BOLD,
+          "text-size": 13,
           "text-offset": [0, 1.2],
           "text-anchor": "top",
           "text-allow-overlap": true,
         },
-        paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 2 },
+        paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 2.5, "text-halo-blur": 0.5 },
       });
       // The units at exactly this unit's place, as small dots in their own colour inside its
       // ring, spread round its centre when there are several (owner 2026-11-23). Drawn as icons,
@@ -438,21 +442,29 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
 
   if (!points) return null;
   const unplaced = points.total - points.atPoint - points.atRegion;
+  // The list holds every unit until a click on the map picks a group: the page's own unit first,
+  // then by name (owner 2026-11-24, as the Regions map lists what is inside from the start).
+  const allUnits = shown.features
+    .map((f) => f.properties)
+    .sort((a, b) => Number(b.current) - Number(a.current) || a.name.localeCompare(b.name));
+  const listed = picked ?? allUnits;
   // A list from one circle is headed by its region when all its units share one.
   const regions = new Set((picked ?? []).map((u) => u.region_name ?? ""));
   const regionName = picked && picked.length > 1 && regions.size === 1 ? picked[0].region_name : undefined;
+  const atAddress = listed.filter((u) => u.placed === "point").length;
+  const placedLine = [
+    `${atAddress.toLocaleString()} at their address`,
+    `${(listed.length - atAddress).toLocaleString()} somewhere in their region`,
+    ...(!picked && unplaced > 0 ? [`${unplaced.toLocaleString()} with no place`] : []),
+  ].join(", ");
+  const heading = !picked ? "All units of this enterprise" : picked.length === 1 ? picked[0].name : regionName ? `Units in ${regionName}` : "Units here";
   return (
     <section
       className={expanded ? "fixed inset-0 z-50 flex flex-col gap-2 bg-white p-4" : "space-y-2"}
       data-units-map=""
       data-expanded={expanded ? "" : undefined}
     >
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm text-gray-600" data-units-map-placed="">
-          {points.total.toLocaleString()} units of this enterprise: {points.atPoint.toLocaleString()} at their address,{" "}
-          {points.atRegion.toLocaleString()} at their region&apos;s centre
-          {unplaced > 0 ? `, ${unplaced.toLocaleString()} with no place` : ""}.
-        </p>
+      <div className="flex justify-end">
         <Button type="button" variant="outline" size="sm" onClick={() => setExpanded((e) => !e)} data-units-map-expand="">
           {expanded ? <Minimize2 className="mr-1.5 h-4 w-4" /> : <Maximize2 className="mr-1.5 h-4 w-4" />}
           {expanded ? "Back to the page" : "Expand"}
@@ -480,79 +492,15 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
           )}
         </div>
         <aside className="flex w-64 shrink-0 flex-col border-l text-sm">
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3" data-units-map-picked="">
-            {picked ? (
-              <>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                    {picked.length === 1 ? "1 unit" : regionName ? `${picked.length} in ${regionName}` : `${picked.length} units`}
-                  </p>
-                  <button
-                    type="button"
-                    className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-                    title="Clear the list and show all units"
-                    aria-label="Clear the list and show all units"
-                    onClick={() => resetView()}
-                    data-units-map-clear=""
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <ul className="space-y-0.5">
-                  {picked.map((u) => {
-                    const key = `${u.unit_type}:${u.id}`;
-                    return (
-                      <li
-                        key={key}
-                        className={`group flex items-start gap-1 rounded hover:bg-gray-100 ${focused === key ? "bg-gray-100" : ""}`}
-                        data-picked-unit={key}
-                      >
-                        {/* A click on the row shows the unit on the map; the arrow opens its page (owner 2026-11-24).
-                            The row's background covers both, so they read as one row with two actions. */}
-                        <button
-                          type="button"
-                          className="flex min-w-0 flex-1 items-start gap-2 rounded px-1 py-0.5 text-left"
-                          onClick={() => showOnMap(u)}
-                          title="Show on the map"
-                        >
-                          {/* The unit type's marker: a legal unit and its establishment often share a name. */}
-                          <span
-                            className={`mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full ${
-                              u.placed === "point"
-                                ? u.unit_type === "legal_unit" ? "bg-legal_unit-500" : "bg-establishment-500"
-                                : `border-2 bg-white ${u.unit_type === "legal_unit" ? "border-legal_unit-500" : "border-establishment-500"}`
-                            }`}
-                            title={u.unit_type === "legal_unit" ? "Legal unit" : "Establishment"}
-                            aria-hidden
-                          />
-                          <span className="min-w-0">
-                            <span className="break-words">{u.name}</span>
-                            <span className="ml-1 text-xs text-gray-500">
-                              {u.unit_type === "legal_unit" ? "legal unit" : "establishment"}
-                              {u.current ? ", this unit" : ""}
-                            </span>
-                            {u.placed === "region" && picked.length === 1 && (
-                              <span className="block text-xs text-gray-500">Somewhere in {u.region_name}</span>
-                            )}
-                          </span>
-                        </button>
-                        <Link
-                          href={u.href}
-                          className="mt-0.5 shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
-                          title={`Open ${u.name}`}
-                          aria-label={`Open ${u.name}`}
-                        >
-                          <SquareArrowOutUpRight className="h-3.5 w-3.5" />
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            ) : (
-              <p className="text-xs text-gray-500">Click a dot or a circle for its units.</p>
-            )}
-          </div>
+          <UnitsList
+            units={listed}
+            heading={heading}
+            subheading={placedLine}
+            isAll={!picked}
+            focused={focused}
+            onShow={showOnMap}
+            onAll={resetView}
+          />
           <div className="border-t p-3">
             <UnitsLegend
               selected={unitTypes}
