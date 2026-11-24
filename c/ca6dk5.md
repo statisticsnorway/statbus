@@ -33,7 +33,7 @@ Rule (covers): legal unit total = greatest(own value, sum of its establishments'
 ## Depends on
 
 ## Acceptance
-- [ ] A SQL regression test builds legal units for each pattern (LU only, establishments only, both equal, LU larger, establishments larger) and asserts each legal unit's and its enterprise's employee total is the covers value
+- [ ] A SQL regression test builds legal units for each pattern (LU only, establishments only, both equal, LU larger, establishments larger) and asserts each legal unit's employee total is the covers value (the larger of its own value and its establishments' sum) and its enterprise's total is the sum of its legal units' totals
 - [ ] On the local Norway copy the Reports' legal unit and enterprise employee total for 2026 is 3,892,227 (from 7,317,939); recorded here with the query
 - [ ] Quality check 'establishments above their legal unit' lists exactly the legal units where the establishments' sum exceeds the legal unit's value (17 on the Norway copy at 2026-11-24), and its dashboard card's count equals its list
 - [ ] Quality check 'legal unit above its establishments' lists exactly the legal units larger than their establishments' sum while every establishment has a value (5 on the Norway copy at 2026-11-24), and its dashboard card's count equals its list
