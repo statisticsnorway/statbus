@@ -1,13 +1,24 @@
 "use client";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
-import { EstimatedCount, useShownCount, useDataVersion } from "@/components/estimated-count";
+import {
+  EstimatedCount,
+  useShownCount,
+  useDataVersion,
+} from "@/components/estimated-count";
 import { AlertTriangle } from "lucide-react";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { useState, useCallback } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { PostgrestError } from "@supabase/postgrest-js";
 import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
+import {
+  QUALITY_CARD_UNIT_TYPES,
+  QUALITY_CARD_UNIT_TYPE_PARAM,
+} from "@/app/dashboard/quality-card-unit-types";
+
+/** The Statistical Units list with the same filters as the card's count. */
+export const MISSING_ACTIVITY_CATEGORY_HREF = `/search?${QUALITY_CARD_UNIT_TYPE_PARAM}&primary_activity_category_path=null`;
 
 // STATBUS-460: counts legal units and establishments that EXIST at the selected
 // instant (canonical rule, lib/unit-existence.ts) and lack a primary activity
@@ -31,7 +42,7 @@ export const MissingActivityCategoryCard = () => {
           .from("statistical_unit")
           .select("", { count: "estimated" })
           .is("primary_activity_category_path", null)
-          .neq("unit_type", "enterprise")
+          .in("unit_type", [...QUALITY_CARD_UNIT_TYPES])
           .lte(EXISTENCE_FROM, validOn)
           .gt(EXISTENCE_UNTIL, validOn)
           .limit(0);
@@ -62,7 +73,7 @@ export const MissingActivityCategoryCard = () => {
       .from("statistical_unit")
       .select("", { count: "exact" })
       .is("primary_activity_category_path", null)
-      .neq("unit_type", "enterprise")
+      .in("unit_type", [...QUALITY_CARD_UNIT_TYPES])
       .lte(EXISTENCE_FROM, selectedTimeFrame.valid_on)
       .gt(EXISTENCE_UNTIL, selectedTimeFrame.valid_on)
       .limit(0);

@@ -6,8 +6,14 @@ import { StatisticalUnitCountCard } from "@/app/dashboard/statistical-unit-count
 import { FallBackCard } from "@/app/dashboard/fallBack-card";
 import { RegionCard } from "@/app/dashboard/region-card";
 import { MissingRegionCard, MISSING_REGION_HREF } from "@/app/dashboard/missing-region-card";
-import { MissingPhysicalLocationCard } from "@/app/dashboard/missing-physical-location-card";
-import { MissingActivityCategoryCard } from "@/app/dashboard/missing-activity-category-card";
+import {
+  MissingPhysicalLocationCard,
+  MISSING_PHYSICAL_LOCATION_HREF,
+} from "@/app/dashboard/missing-physical-location-card";
+import {
+  MissingActivityCategoryCard,
+  MISSING_ACTIVITY_CATEGORY_HREF,
+} from "@/app/dashboard/missing-activity-category-card";
 import { QualityEstablishmentActivityDiffersCard } from "@/app/dashboard/quality-establishment-activity-differs-card";
 import { CustomActivityCategoryCard } from "@/app/dashboard/custom-activity-category-card";
 import { ActivityCategoryCard } from "@/app/dashboard/activity-category-card";
@@ -94,7 +100,7 @@ export default function Dashboard() {
           </Suspense>
         </Link>
 
-        <Link href="/search?unit_type=legal_unit,establishment&primary_activity_category_path=null">
+        <Link href={MISSING_ACTIVITY_CATEGORY_HREF}>
           <Suspense
             fallback={<FallBackCard title="Units Missing Activity Category" />}
           >
@@ -102,7 +108,7 @@ export default function Dashboard() {
           </Suspense>
         </Link>
 
-        <Link href="/search?unit_type=legal_unit,establishment&physical_location=missing">
+        <Link href={MISSING_PHYSICAL_LOCATION_HREF}>
           <Suspense
             fallback={<FallBackCard title="Units Missing Physical Location" />}
           >

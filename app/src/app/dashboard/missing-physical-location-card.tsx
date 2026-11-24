@@ -1,13 +1,24 @@
 "use client";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
-import { EstimatedCount, useShownCount, useDataVersion } from "@/components/estimated-count";
+import {
+  EstimatedCount,
+  useShownCount,
+  useDataVersion,
+} from "@/components/estimated-count";
 import { AlertTriangle } from "lucide-react";
 import { useTimeFrame } from "@/atoms/app-derived";
 import { useState, useCallback } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { PostgrestError } from "@supabase/postgrest-js";
 import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
+import {
+  QUALITY_CARD_UNIT_TYPES,
+  QUALITY_CARD_UNIT_TYPE_PARAM,
+} from "@/app/dashboard/quality-card-unit-types";
+
+/** The Statistical Units list with the same filters as the card's count. */
+export const MISSING_PHYSICAL_LOCATION_HREF = `/search?${QUALITY_CARD_UNIT_TYPE_PARAM}&physical_location=missing`;
 
 // STATBUS-625: counts legal units and establishments that EXIST at the selected
 // instant (lib/unit-existence.ts) and have no physical location then, e.g. after
@@ -23,7 +34,7 @@ const countMissingPhysicalLocation = async (
     .from("statistical_unit")
     .select("", { count })
     .is("physical_country_id", null)
-    .neq("unit_type", "enterprise")
+    .in("unit_type", [...QUALITY_CARD_UNIT_TYPES])
     .lte(EXISTENCE_FROM, validOn)
     .gt(EXISTENCE_UNTIL, validOn)
     .limit(0);
