@@ -55,7 +55,7 @@ export function UnitTypeLegend({
           data-unit-type-mixed=""
         >
           <span className={`inline-block h-3 w-3 rounded-full border border-black/20 ${UNIT_TYPE_SWATCH.mixed}`} aria-hidden />
-          Several types together
+          Mixed unit types
         </p>
       )}
     </fieldset>

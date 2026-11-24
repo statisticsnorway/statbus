@@ -17,6 +17,7 @@ import { UnitTypeLegend } from "@/components/map/unit-type-legend";
 import { BASEMAP_FONT } from "@/components/map/basemap";
 import { ViewControl } from "@/components/map/view-control";
 import { RegionPreview, type PreviewTarget } from "./region-preview";
+import { RegionSpiders } from "./region-spiders";
 import {
   MAP_UNIT_TYPES,
   UNIT_TYPE_SWATCH,
@@ -105,6 +106,24 @@ export default function RegionsMapPage() {
     const top = Math.max(maxTotal(featuresRef.current.filter((f) => view.contains(f.geometry.coordinates as [number, number]))), 1);
     map.setPaintProperty("region-circles", "circle-radius", ["interpolate", ["linear"], ["sqrt", ["get", "total"]], 0, 4, Math.sqrt(top), 28]);
   }, []);
+
+  // Opens the readable box for one circle, from a click on it or on one of its type legs.
+  const openPreview = useCallback(
+    (feature: GeoJSON.Feature<GeoJSON.Point, RegionFeatureProperties>) => {
+      const p = feature.properties;
+      setPreview({
+        at: current().at,
+        target: {
+          path: p.path,
+          name: p.name,
+          code: p.path === "" || p.path.startsWith("country:") ? null : p.path,
+          coordinates: feature.geometry.coordinates as [number, number],
+          counts: { enterprise: p.enterprise, legal_unit: p.legal_unit, establishment: p.establishment },
+        },
+      });
+    },
+    [current, setPreview]
+  );
 
   // Frames what the selection shows. The world frames every country with units, so the
   // countries abroad are in view; the country frames its regions with at least 1% of the
@@ -280,21 +299,11 @@ export default function RegionsMapPage() {
           | GeoJSON.Feature<GeoJSON.Point, RegionFeatureProperties>
           | undefined;
         if (!feature) return setPreview(null);
-        const p = feature.properties;
-        setPreview({
-          at: current().at,
-          target: {
-            path: p.path,
-            name: p.name,
-            code: p.path === "" || p.path.startsWith("country:") ? null : p.path,
-            coordinates: feature.geometry.coordinates as [number, number],
-            counts: { enterprise: p.enterprise, legal_unit: p.legal_unit, establishment: p.establishment },
-          },
-        });
+        openPreview(feature);
       });
       setReadyMap(map);
     },
-    [scaleToView, fitSelection, select, current, setPreview, setReadyMap]
+    [scaleToView, fitSelection, select, setPreview, setReadyMap, openPreview]
   );
 
   // New data for the map; a new selection is also framed. Unit-type or time-frame changes keep
@@ -363,6 +372,15 @@ export default function RegionsMapPage() {
       <div className="flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
           <UnitMap onReady={onReady} className="absolute inset-0" />
+          {readyMap && (
+            <RegionSpiders
+              map={readyMap}
+              features={features.features}
+              unitTypes={unitTypes}
+              focus={shownPreview?.path ?? null}
+              onPick={openPreview}
+            />
+          )}
           {shownPreview && readyMap && (
             <RegionPreview
               key={shownPreview.path}
