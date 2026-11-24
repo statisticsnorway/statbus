@@ -37,6 +37,8 @@ Rule (covers): legal unit total = greatest(own value, sum of its establishments'
 - [ ] On the local Norway copy the Reports' legal unit and enterprise employee total for 2026 is 3,892,227 (from 7,317,939); recorded here with the query
 - [ ] Quality check 'establishments above their legal unit' lists exactly the legal units where the establishments' sum exceeds the legal unit's value (17 on the Norway copy at 2026-11-24), and its dashboard card's count equals its list
 - [ ] Quality check 'legal unit above its establishments' lists exactly the legal units larger than their establishments' sum while every establishment has a value (5 on the Norway copy at 2026-11-24), and its dashboard card's count equals its list
+- [ ] doc/METHODOLOGICAL_GUIDELINE.md explains how a legal unit's values relate to its establishments (covers), with references to the UN Guidelines on Statistical Business Registers and the Eurostat Business Registers Recommendations Manual, and the statistical variables admin page and the import of statistical variables link to that explanation
+- [ ] The next release candidate after v2026.11.7-rc.01 contains the covers rule and both quality checks; its tag and commit are recorded here
 
 ## Notes
 
