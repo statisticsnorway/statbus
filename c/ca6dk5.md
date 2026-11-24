@@ -1,6 +1,6 @@
 ---
 id: ca6dk5
-title: "A statistical variable declares how a legal unit's value relates to its establishments"
+title: "A legal unit's total covers its establishments, as UN and EU registers count"
 state: "doing"
 type: spike
 priority: "medium"
@@ -19,20 +19,24 @@ worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
-Each statistical variable declares covers or adds, so totals count each person once and quality checks flag what the rule finds suspicious.
+A legal unit counts the larger of its own value and its establishments' sum, so totals count each person once; two quality checks flag gaps.
 
 ## Purpose
-Norway's Reports show 7.3 M employees for 2026, about twice the register's own figures (Erik, 2026-11-18): reporters put headcounts on the legal unit, on its establishments or on both, and StatBus always adds the two levels. Numbers users cannot trust undo the register's purpose.
+Norway's Reports show 7.3 M employees for 2026, about twice the register's figures (Erik, 2026-11-18), because StatBus adds a legal unit's own value to its establishments'. Under the UN Guidelines on Statistical Business Registers and the Eurostat Business Registers Recommendations Manual an enterprise consists of its local units and its employment equals their sum; Norway's data has the same shape (68,384 of 72,453 legal units with values on both levels report the same total).
 
 ## Principle
-One declaration per statistical variable decides both the counting and the quality checks; nothing is specific to a country. Enterprises and power groups keep adding their legal units, which do not overlap. A unit shows where its counted value comes from.
+One rule for every installation, no per-variable setting: a legal unit's value covers its establishments. Enterprises and power groups keep adding their legal units, which do not overlap. Mismatches between the levels are quality findings, not counting variants. A unit shows where its counted value comes from.
 
 ## Relevant details
-Rule, declared per statistical variable (setting next to stock/flow/ratio, see xc0qyq). COVERS: the legal unit's own value is the whole unit and the establishments are parts of it; the legal unit's total is the larger of its own value and its establishments' sum. ADDS: the legal unit's own value is the rest beyond its establishments; the total is own + establishments (today's behaviour for every variable). Under COVERS every reporting pattern counts once: LU only -> its value; establishments only -> their sum; both -> the larger; some establishments plus the rest on the LU -> the LU value. Quality checks under COVERS: (a) establishments sum to more than their legal unit; (b) the legal unit is larger while every establishment has a value (nothing explains the gap). Not flagged: LU larger while some establishments have no value. Under ADDS: LU value equal to its establishments' sum looks like a total reported twice. Display: own 7,397; establishments 6,878 from 117 of 120; counted 7,397. Today's aggregation: timeline_legal_unit stats_summary = jsonb_stats_merge(establishments' summaries, own stats). Norway (local copy, BRREG, 2026, tmp/ca6dk5/): added 7,317,939; COVERS 3,892,227; patterns LU only 412, establishments only 28, both equal 68,384, LU larger 3,667 (3,662 with establishments lacking a value), LU smaller 17. Literature on how statistical business registers treat this: see notes. Related: 217dx5 (configurable dashboard checks), xc0qyq.
+Rule (covers): legal unit total = greatest(own value, sum of its establishments' values); missing levels count as absent, so LU only -> own; establishments only -> their sum; both -> the larger. Applies to values that are summed; how stock, flow and ratio variables combine is xc0qyq. Today: timeline_legal_unit stats_summary = jsonb_stats_merge(establishments' summaries, own stats), i.e. added. Quality checks: (a) establishments sum to more than their legal unit (parts exceed the whole); (b) legal unit larger while every establishment has a value (nothing explains the gap; under the UN/EU model usually a missing establishment such as the head office). Not flagged: LU larger while some establishments have no value (the LU covers them). Display: own 7,397; establishments 6,878 from 117 of 120; counted 7,397. Norway local copy (BRREG, 2026-11-24, tmp/ca6dk5/): added 7,317,939; covers 3,892,227; LU only 412, establishments only 28, both equal 68,384, LU larger 3,667 (3,662 with establishments lacking a value, 5 with all valued), establishments larger 17. A per-variable 'adds' setting was considered and dropped: no UN/EU source describes it (only a UK reporting-unit residual), and check (a) would reveal data that means 'adds'. Related: 217dx5, xc0qyq.
 
 ## Depends on
 
 ## Acceptance
+- [ ] A SQL regression test builds legal units for each pattern (LU only, establishments only, both equal, LU larger, establishments larger) and asserts each legal unit's and its enterprise's employee total is the covers value
+- [ ] On the local Norway copy the Reports' legal unit and enterprise employee total for 2026 is 3,892,227 (from 7,317,939); recorded here with the query
+- [ ] Quality check 'establishments above their legal unit' lists exactly the legal units where the establishments' sum exceeds the legal unit's value (17 on the Norway copy at 2026-11-24), and its dashboard card's count equals its list
+- [ ] Quality check 'legal unit above its establishments' lists exactly the legal units larger than their establishments' sum while every establishment has a value (5 on the Norway copy at 2026-11-24), and its dashboard card's count equals its list
 
 ## Notes
 
