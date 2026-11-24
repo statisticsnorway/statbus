@@ -458,20 +458,48 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
 }
 
 const LEGEND_TYPES = [
-  { unitType: "legal_unit", label: "Legal units", fill: "bg-legal_unit-500", ring: "border-legal_unit-500" },
-  { unitType: "establishment", label: "Establishments", fill: "bg-establishment-500", ring: "border-establishment-500" },
+  { unitType: "legal_unit", label: "Legal units" },
+  { unitType: "establishment", label: "Establishments" },
 ] as const;
 
-/** A group's rim and pale core per unit type, as the map paints them (unit-groups, unit-group-cores at 0.35). */
-const GROUP_SWATCH = {
-  legal_unit: { ring: "border-legal_unit-500", core: "bg-legal_unit-500/35" },
-  establishment: { ring: "border-establishment-500", core: "bg-establishment-500/35" },
+/** The marker colours per kind of group: one unit type in its colour, mixed types in grey (unit-groups' groupColour). */
+const MARKER_SWATCH = {
+  legal_unit: { fill: "bg-legal_unit-500", ring: "border-legal_unit-500", core: "bg-legal_unit-500/35" },
+  establishment: { fill: "bg-establishment-500", ring: "border-establishment-500", core: "bg-establishment-500/35" },
+  mixed: { fill: "bg-informal-500", ring: "border-informal-500", core: "bg-informal-500/35" },
 } as const;
 
 /**
- * The Map page's legend: per unit type a checkbox, and under it the two markers the map
- * draws with their counts: solid at the unit's address, a ring at its region's centre
- * (owner 2026-11-23). At least one type stays picked.
+ * The three markers the map draws, by where the units are (owner 2026-11-24): solid at the
+ * unit's address, a ring somewhere in its region, and for a group with some of each a ring
+ * with a pale core (unit-group-cores at 0.35).
+ */
+function PlacementMarker({ kind, placed }: { kind: keyof typeof MARKER_SWATCH; placed: "point" | "region" | "both" }) {
+  const s = MARKER_SWATCH[kind];
+  if (placed === "point") return <span className={`inline-block h-3.5 w-3.5 shrink-0 rounded-full ${s.fill}`} aria-hidden />;
+  return (
+    <span className={`relative inline-block h-3.5 w-3.5 shrink-0 rounded-full border-2 bg-white ${s.ring}`} aria-hidden>
+      {placed === "both" && <span className={`absolute inset-[1.5px] rounded-full ${s.core}`} />}
+    </span>
+  );
+}
+
+/** One legend row: a marker, what it means, and how many units it stands for when that is one number. */
+function PlacementRow({ kind, placed, label, count }: { kind: keyof typeof MARKER_SWATCH; placed: "point" | "region" | "both"; label: string; count?: number }) {
+  return (
+    <p className="flex items-center gap-2" data-legend-kind={kind} data-legend-placed={placed}>
+      <PlacementMarker kind={kind} placed={placed} />
+      <span className="flex-1">{label}</span>
+      {count !== undefined && <span className="tabular-nums">{count.toLocaleString()}</span>}
+    </p>
+  );
+}
+
+/**
+ * The Map page's legend (owner 2026-11-24): one grid. Each unit type, and the grey group of
+ * mixed unit types, has the same three markers: at the address, somewhere in the region, and
+ * a group with some of each. A unit type has a checkbox (at least one stays picked) and its
+ * counts; one line says every circle is a group that expands on a click.
  */
 function UnitsLegend({
   selected,
@@ -486,13 +514,10 @@ function UnitsLegend({
     const next = selected.includes(t) ? selected.filter((s) => s !== t) : [...selected, t];
     if (next.length > 0) onChange(LEGEND_TYPES.map((l) => l.unitType).filter((u) => next.includes(u)));
   };
-  // The type the map shows most of: its colour is the one a reader meets on the map's groups.
-  const total = (t: "legal_unit" | "establishment") => (selected.includes(t) ? counts[t].point + counts[t].region : -1);
-  const mainType = total("establishment") >= total("legal_unit") ? "establishment" : "legal_unit";
   return (
     <fieldset className="space-y-2 text-sm" data-units-legend="">
       <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">Units</legend>
-      {LEGEND_TYPES.map(({ unitType, label, fill, ring }) => (
+      {LEGEND_TYPES.map(({ unitType, label }) => (
         <div key={unitType}>
           <label className="flex cursor-pointer items-center gap-2">
             <input type="checkbox" checked={selected.includes(unitType)} onChange={() => toggle(unitType)} data-unit-type={unitType} />
@@ -502,40 +527,22 @@ function UnitsLegend({
             </span>
           </label>
           <div className="mt-0.5 space-y-0.5 pl-6 text-xs text-gray-600">
-            <p className="flex items-center gap-2" data-legend-placed="point">
-              <span className={`inline-block h-3 w-3 rounded-full ${fill}`} aria-hidden />
-              <span className="flex-1">At its address</span>
-              <span className="tabular-nums">{counts[unitType].point.toLocaleString()}</span>
-            </p>
-            <p className="flex items-center gap-2" data-legend-placed="region">
-              <span className={`inline-block h-3 w-3 rounded-full border-2 bg-white ${ring}`} aria-hidden />
-              <span className="flex-1">Somewhere in its region</span>
-              <span className="tabular-nums">{counts[unitType].region.toLocaleString()}</span>
-            </p>
+            <PlacementRow kind={unitType} placed="point" label="At its address" count={counts[unitType].point} />
+            <PlacementRow kind={unitType} placed="region" label="Somewhere in its region" count={counts[unitType].region} />
+            <PlacementRow kind={unitType} placed="both" label="Some of each" />
           </div>
         </div>
       ))}
-      <p className="flex items-center gap-2 text-xs text-gray-600" data-legend-group="">
-        {/* The grey group only: a group of one type is drawn in that type's colour. */}
-        <span
-          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-gray-500 bg-white text-[10px] font-medium leading-none"
-          aria-hidden
-        >
-          n
-        </span>
-        A group of mixed unit types; click to expand
-      </p>
-      <p className="flex items-center gap-2 text-xs text-gray-600" data-legend-group-placed="">
-        {/* As the map draws a group with units both at their address and in their region: the
-            group's rim, white, then a pale core, in the colour of the type the map mostly shows. */}
-        <span
-          className={`relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 bg-white text-[10px] font-medium leading-none ${GROUP_SWATCH[mainType].ring}`}
-          aria-hidden
-        >
-          <span className={`absolute inset-[2px] rounded-full ${GROUP_SWATCH[mainType].core}`} />
-          <span className="relative">n</span>
-        </span>
-        Some at their address, some in their region
+      <div data-legend-mixed="">
+        <p className="pl-6">Mixed unit types</p>
+        <div className="mt-0.5 space-y-0.5 pl-6 text-xs text-gray-600">
+          <PlacementRow kind="mixed" placed="point" label="At their address" />
+          <PlacementRow kind="mixed" placed="region" label="Somewhere in their region" />
+          <PlacementRow kind="mixed" placed="both" label="Some of each" />
+        </div>
+      </div>
+      <p className="text-xs text-gray-500" data-legend-group="">
+        A circle with a number is a group: click to expand it.
       </p>
     </fieldset>
   );
