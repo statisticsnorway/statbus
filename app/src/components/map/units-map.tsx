@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CircleHelp, Maximize2, Minimize2, SquareArrowOutUpRight } from "lucide-react";
+import { CircleHelp, Maximize2, Minimize2, SquareArrowOutUpRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent } from "maplibre-gl";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
@@ -72,6 +72,19 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
     if (e - w < 0.001 && n - s < 0.001) map.easeTo({ center: [w, s], zoom: 11 });
     else map.fitBounds(bounds, { padding: 60, maxZoom: 14 });
   }, []);
+
+  // Nothing picked: the list empty, no spider, no halo.
+  const clearPicked = useCallback(() => {
+    setPicked(null);
+    setSpider(null);
+    setFocused(null);
+    (mapRef.current?.getSource("focused-unit") as GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: [] });
+  }, [setPicked, setSpider, setFocused]);
+  // Back to the start: nothing picked and every unit in view.
+  const resetView = useCallback(() => {
+    clearPicked();
+    fit();
+  }, [clearPicked, fit]);
 
   const onReady = useCallback(
     (map: MapLibreMap) => {
@@ -186,7 +199,9 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         },
         paint: { "text-color": "#1f2937", "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
       });
-      map.addControl(new ViewControl([{ title: "Fit all units in view", icon: "⤢", onClick: () => fit() }]), "top-left");
+      // The fit button goes back to the start: every unit in view, nothing picked (owner
+      // 2026-11-24: after drilling in, the map showed all units while the list still held one group).
+      map.addControl(new ViewControl([{ title: "Show all units", icon: "⤢", onClick: () => resetView() }]), "top-left");
       // The page's own unit is never merged into a circle: it is drawn by itself, ringed and
       // named, on top of the others (owner 2026-11-23: on a shop's page the shop was hidden in a
       // circle of 19).
@@ -308,7 +323,7 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
       });
       setReadyMap(map);
     },
-    [fit, setPicked, setSpider, setSpiderKey, setReadyMap, setFocused]
+    [resetView, setPicked, setSpider, setSpiderKey, setReadyMap, setFocused]
   );
 
   useGuardedEffect(
@@ -462,11 +477,21 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3" data-units-map-picked="">
             {picked ? (
               <>
-                {picked.length > 1 && (
+                <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                    {regionName ? `${picked.length} in ${regionName}` : `${picked.length} units`}
+                    {picked.length === 1 ? "1 unit" : regionName ? `${picked.length} in ${regionName}` : `${picked.length} units`}
                   </p>
-                )}
+                  <button
+                    type="button"
+                    className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                    title="Clear the list"
+                    aria-label="Clear the list"
+                    onClick={() => clearPicked()}
+                    data-units-map-clear=""
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
                 <ul className="space-y-0.5">
                   {picked.map((u) => {
                     const key = `${u.unit_type}:${u.id}`;
