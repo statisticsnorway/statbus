@@ -1,6 +1,6 @@
 ---
 id: ca6dk5
-title: "Employee totals count legal units and their establishments twice?"
+title: "A statistical variable declares how a legal unit's value relates to its establishments"
 state: "doing"
 type: spike
 priority: "medium"
@@ -19,22 +19,27 @@ worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
-We know whether no.statbus counts the same employees on a legal unit and on its establishments, and what the totals should show.
+Each statistical variable declares covers or adds, so totals count each person once and quality checks flag what the rule finds suspicious.
 
 ## Purpose
-Erik (Slack 2026-11-18): Norway's enterprise employee total for Nov 2026 is about 7.3 million, more than Norway's workforce; he suspects LU + establishment employees are both counted. Owner 2026-11-20: this is a quality report, suspicious numbers between LU and establishment counts.
+Norway's Reports show 7.3 M employees for 2026, about twice the register's own figures (Erik, 2026-11-18): reporters put headcounts on the legal unit, on its establishments or on both, and StatBus always adds the two levels. Numbers users cannot trust undo the register's purpose.
 
 ## Principle
-A total adds each person once; where the register holds the same headcount at two levels, the rule for which level counts is explicit and shown.
+One declaration per statistical variable decides both the counting and the quality checks; nothing is specific to a country. Enterprises and power groups keep adding their legal units, which do not overlap. A unit shows where its counted value comes from.
 
 ## Relevant details
-How it adds up today (doc/db, 2026-11-21): timeline_legal_unit stats_summary = the legal unit's own stats merged with its establishments' summaries (jsonb_stats_merge(esa.stats_summary, basis.stats_summary)); timeline_enterprise merges its legal units' summaries and its informal establishments'. In BRREG both the legal unit (enhet) and each establishment (underenhet) carry an employee count, usually the same people, so the LU total adds them twice. Erik suggested separate lu_employees and est_employees. Related: 217dx5 (configurable dashboard checks), xc0qyq (variable behaviour).
+Rule, declared per statistical variable (setting next to stock/flow/ratio, see xc0qyq). COVERS: the legal unit's own value is the whole unit and the establishments are parts of it; the legal unit's total is the larger of its own value and its establishments' sum. ADDS: the legal unit's own value is the rest beyond its establishments; the total is own + establishments (today's behaviour for every variable). Under COVERS every reporting pattern counts once: LU only -> its value; establishments only -> their sum; both -> the larger; some establishments plus the rest on the LU -> the LU value. Quality checks under COVERS: (a) establishments sum to more than their legal unit; (b) the legal unit is larger while every establishment has a value (nothing explains the gap). Not flagged: LU larger while some establishments have no value. Under ADDS: LU value equal to its establishments' sum looks like a total reported twice. Display: own 7,397; establishments 6,878 from 117 of 120; counted 7,397. Today's aggregation: timeline_legal_unit stats_summary = jsonb_stats_merge(establishments' summaries, own stats). Norway (local copy, BRREG, 2026, tmp/ca6dk5/): added 7,317,939; COVERS 3,892,227; patterns LU only 412, establishments only 28, both equal 68,384, LU larger 3,667 (3,662 with establishments lacking a value), LU smaller 17. Literature on how statistical business registers treat this: see notes. Related: 217dx5 (configurable dashboard checks), xc0qyq.
 
 ## Depends on
 
 ## Acceptance
 - [ ] [Owner] Decides the counting rule (for example: an LU with establishments counts only the establishments' headcount) and whether a quality report flags LUs whose own count differs from the sum of their establishments; the answer is recorded here
 - [ ] On a copy of the Norway data, the enterprise employee total for 2026-11 is measured before and after the rule and recorded here
+- [ ] [Owner] Erik confirms that Norway's employee counts mean COVERS (the legal unit's count includes its establishments): yes -> employees is declared COVERS; no -> it stays ADDS and the double counting is fixed in the data instead; the answer is recorded here
+- [ ] [Owner] Decides which quality checks ship: (a) establishments sum above their legal unit, (b) legal unit larger while every establishment has a value; each chosen check becomes a Quality option and dashboard card, a dropped one is noted here
+- [ ] A statistical variable carries the declaration (covers or adds), editable by an administrator, defaulting to adds so existing installations count as before
+- [ ] On the local Norway copy with employees declared covers, the Reports' legal unit and enterprise employee total for 2026 is 3,892,227 (from 7,317,939); recorded here with the query
+- [ ] Each chosen quality check lists exactly the legal units the rule flags on the Norway copy (17 for a, 5 for b at 2026-11-24), and its dashboard card's count equals its list
 
 ## Notes
 
