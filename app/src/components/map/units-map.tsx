@@ -88,6 +88,8 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
           has_current: ["any", ["get", "current"]],
           legal_units: ["+", ["case", ["==", ["get", "unit_type"], "legal_unit"], 1, 0]],
           establishments: ["+", ["case", ["==", ["get", "unit_type"], "establishment"], 1, 0]],
+          // How many are at their address: all of them, none or some decides the group's marker.
+          at_address: ["+", ["case", ["==", ["get", "placed"], "point"], 1, 0]],
         },
       });
       const colour = [
@@ -109,16 +111,35 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
         cssColour("--color-legal_unit-500"),
         cssColour("--color-informal-500"),
       ] as unknown as string;
+      // A group follows the single units' marker rule (owner 2026-11-24): solid with a white count
+      // when all its units are at their address, a ring when all are somewhere in their region,
+      // and a ring with a solid core when it holds some of each.
+      const groupRadius = ["interpolate", ["linear"], ["sqrt", ["get", "point_count"]], 1, 10, 20, 30] as unknown as number;
+      const allAtAddress = ["==", ["get", "at_address"], ["get", "point_count"]];
+      const someAtAddress = ["all", [">", ["get", "at_address"], 0], ["<", ["get", "at_address"], ["get", "point_count"]]];
       map.addLayer({
         id: "unit-groups",
         type: "circle",
         source: "units",
         filter: ["has", "point_count"],
         paint: {
-          "circle-color": "#ffffff",
-          "circle-stroke-color": ["case", ["get", "has_current"], "#111827", groupColour],
+          "circle-color": ["case", allAtAddress, groupColour, "#ffffff"] as unknown as string,
+          "circle-stroke-color": ["case", ["get", "has_current"], "#111827", allAtAddress, "#ffffff", groupColour] as unknown as string,
           "circle-stroke-width": 3,
-          "circle-radius": ["interpolate", ["linear"], ["sqrt", ["get", "point_count"]], 1, 10, 20, 30],
+          "circle-radius": groupRadius,
+        },
+      });
+      // The core of a group with units both at their address and in their region: a pale disc in
+      // the group's colour inside its ring, so its count stays readable on it.
+      map.addLayer({
+        id: "unit-group-cores",
+        type: "circle",
+        source: "units",
+        filter: ["all", ["has", "point_count"], someAtAddress] as unknown as boolean,
+        paint: {
+          "circle-color": groupColour,
+          "circle-opacity": 0.35,
+          "circle-radius": ["*", 0.75, groupRadius] as unknown as number,
         },
       });
       map.addLayer({
@@ -133,7 +154,7 @@ export function UnitsMap({ unitId, unitType }: { unitId: string; unitType: "ente
           "text-allow-overlap": true,
           "text-ignore-placement": true,
         },
-        paint: { "text-color": "#111827" },
+        paint: { "text-color": ["case", allAtAddress, "#ffffff", "#111827"] as unknown as string },
       });
       map.addLayer({
         id: "unit-points",
@@ -494,6 +515,16 @@ function UnitsLegend({
           n
         </span>
         A group of mixed unit types; click to expand
+      </p>
+      <p className="flex items-center gap-2 text-xs text-gray-600" data-legend-group-placed="">
+        {/* A ring with a pale core, as the map draws a group with units both at their address and in their region. */}
+        <span
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-gray-500 bg-gray-500/35 text-[10px] font-medium leading-none"
+          aria-hidden
+        >
+          n
+        </span>
+        Some at their address, some in their region
       </p>
     </fieldset>
   );
