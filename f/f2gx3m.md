@@ -28,7 +28,7 @@ Owner request 1 (2026-11-26 21:15). Image paste-1540.png (jo.statbus.org/establi
 
 ## Acceptance
 - [ ] ~~Verify Counting issue in jo.statbus.org~~ (not relevant: replaced by checks 2-5 from the owner's request 1, rabbit, 2026-11-26)
-- [ ] [Owner] plays the ticket back and approves the plan before work starts; answer recorded in Notes
+- [x] [Owner] plays the ticket back and approves the plan before work starts; answer recorded in Notes
 - [ ] A SQL test reproduces jo's case for both Employees and Turnover: it fails on master and passes after the fix
 - [ ] An import row whose birth_date is in a later year than its valid_from is refused with an error naming both dates; a birth_date later in the same year is accepted
 - [ ] On a copy of jo's data, Drill Down Norway AS's legal unit total equals its own value plus its existing establishments' values for Frame 2023
@@ -45,6 +45,7 @@ file:paste-1540.png (169473 bytes, sha256:f4f591fe) pasted from the clipboard in
 
 
 2026-11-26 21:05 investigated read-only on jo (tmp/f2gx3m/jo-unit.sql, .out). Legal unit 89 (Statistics Norway o, born 1924) in Frame 2023: own Employees 23, Turnover 20 023. Its establishments: 89 Drill Down Norway AS (born 2023-11-01) 0 / 23, and 86 Statbus Norway O (born 2024-11-01, but valid from 2023-01-01) 2 / 20. Σ 25 = 23 + 0 + 2 and Σ 20 066 = 20 023 + 23 + 20: jo's release adds the legal unit's own value and every establishment, including establishment 86 a year before its birth date. The owner's hypothesis holds. Also: the Links tree under the legal unit shows only establishment 89, not 86, so the visible numbers cannot add up. Next steps for the owner's play-back: (1) import validation refuses birth_date in a later year than valid_from; (2) counting includes a unit only from its birth date, decided together with s465ff (sum or max per variable); (3) the Links tree shows every establishment counted in a total.
+check 2: Owner 2026-11-26 21:21: go ahead now; import validation and the counting fix to the helper in statbus_a, the Links tree and the visuals to rabbit.
 ## History
 - 2026-11-26T21:15 request 1 by jhf
 - 2026-11-26T21:15 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
