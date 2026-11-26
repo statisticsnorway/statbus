@@ -49,6 +49,9 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 
 check 1: Owner 2026-11-26 20:41: refuse old headers (center_* in region files, physical_latitude/longitude/altitude in unit files) with a message naming the new ones; a clean cut, no one-release grace.
 Answer delivered to rabbit as board coordinator; Hibiscus asked it and does the work (map, z2qt08).
+
+
+Owner 2026-11-26 20:46: why the prefix goes: positions are recorded only for physical locations (location's coordinates apply to type physical; postal carries none), so physical_latitude names a distinction that does not exist, and postal_* coordinate columns go. Old headers refused (check 1). The result matches Erik's actual request in PR #327: one set of names in statistical_unit, location and the hierarchy RPC.
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
