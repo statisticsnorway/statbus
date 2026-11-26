@@ -1,8 +1,6 @@
 ---
 id: "y9jbvp"
-title: >-
-  rc03-finalize: revert defer-checkout arc + cut a clean config-drift-only RC (3
-  King decisions)
+title: "June 2026 release candidate: ship the upgrade crash fix without a buggy add-on"
 state: "todo"
 assignee: []
 labels:
@@ -25,13 +23,22 @@ stage: "design"
 ---
 
 ## Goal
+Decide whether this June 2026 release step still needs anything; everything it waited on was later done another way.
 
-THE IMMEDIATE NEXT ACTION after the overnight. Foreman drives once the King rules.
+## Purpose
+What it was about: in June 2026 an upgrade could crash when the box's configuration had drifted (the owner's charge). That fix was ready and tested (7cc6c1b48, 09ac1f7e4). But release candidate v2026.06.0-rc.03 also carried an unfinished change, 'defer the git checkout to the recovery boot' (2f52f3b7f, bb4848dd4), which had a real bug in recovering from a failed upgrade. The question then: take that change back out and ship only the fix, raise the Hetzner server quota for the full test suite, and allow an image-cleanup fix.
+
+## Principle
+Close it if nothing is open: the task exists only to decide those three things, and each was settled by later work.
+
+## Details
+What happened since (checked 2026-11-26): the defer-checkout change was not reverted; its recovery bug was fixed properly in gfvfwe (preswap recovery refinement, STATBUS-061, done) and has shipped in every release since v2026.06.0-rc.04. The full test suite's limit was solved in 8jv43w (STATBUS-025 line, done), and the image-cleanup fix in wpz2b6 (STATBUS-057, done). Releases are now at v2026.11.6 stable. Nothing in this task remains.
 
 ## Acceptance
 - [ ] King ruled on revert / quota / 057
 - [ ] Clean config-drift-only RC cut + 0-happy green on it
 - [ ] defer-checkout/preswap-recovery work tracked in STATBUS-061 (rc.04)
+- [ ] [Owner] confirms nothing remains and the task is dropped as superseded by gfvfwe, 8jv43w and wpz2b6; recorded in Notes
 
 ## State
 Config-drift upgrade-crash wedge (the King's charge) is SOLVED + validated GREEN on real VMs (0-happy run 27582053054 on the config-drift-only commit 658c34ebd; 27582686118 full stack). rc.03 was cut (tag v2026.06.0-rc.03 on d0992498a) BUT it carries the defer-checkout arc, which testing showed has real PreSwap recovery bugs (not the charge).
@@ -66,3 +73,4 @@ git revert 2f52f3b7f + bb4848dd4 (keep f29e03a60 unless King says otherwise) →
 - 2026-11-26T22:53 request 1 by jhf
 - 2026-11-26T22:53 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-26T22:53 request 1 acknowledged by rabbit
+- 2026-11-26T22:54 request 1 in progress by rabbit: hug task set y9jbvp
