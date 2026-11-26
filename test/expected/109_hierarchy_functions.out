@@ -307,7 +307,9 @@ SELECT jsonb_pretty(
                              "iso_3": "UNC",                                                                                      +
                              "custom": false,                                                                                     +
                              "enabled": true,                                                                                     +
-                             "iso_num": "000"                                                                                     +
+                             "iso_num": "000",                                                                                    +
+                             "latitude": 0.000000,                                                                                +
+                             "longitude": 0.000000                                                                                +
                          },                                                                                                       +
                          "altitude": 1144.0,                                                                                      +
                          "latitude": 0.333333,                                                                                    +
@@ -427,7 +429,9 @@ SELECT jsonb_pretty(
                                      "iso_3": "UNC",                                                                              +
                                      "custom": false,                                                                             +
                                      "enabled": true,                                                                             +
-                                     "iso_num": "000"                                                                             +
+                                     "iso_num": "000",                                                                            +
+                                     "latitude": 0.000000,                                                                        +
+                                     "longitude": 0.000000                                                                        +
                                  },                                                                                               +
                                  "altitude": 1144.0,                                                                              +
                                  "latitude": 0.333333,                                                                            +
@@ -597,7 +601,9 @@ SELECT jsonb_pretty(
                                      "iso_3": "UNC",                                                                              +
                                      "custom": false,                                                                             +
                                      "enabled": true,                                                                             +
-                                     "iso_num": "000"                                                                             +
+                                     "iso_num": "000",                                                                            +
+                                     "latitude": 0.000000,                                                                        +
+                                     "longitude": 0.000000                                                                        +
                                  },                                                                                               +
                                  "altitude": null,                                                                                +
                                  "latitude": null,                                                                                +
@@ -883,7 +889,9 @@ SELECT jsonb_pretty(
                              "iso_3": "UNC",                                                                              +
                              "custom": false,                                                                             +
                              "enabled": true,                                                                             +
-                             "iso_num": "000"                                                                             +
+                             "iso_num": "000",                                                                            +
+                             "latitude": 0.000000,                                                                        +
+                             "longitude": 0.000000                                                                        +
                          },                                                                                               +
                          "altitude": 1232.0,                                                                              +
                          "latitude": 0.338153,                                                                            +
@@ -1072,7 +1080,9 @@ SELECT jsonb_pretty(
                              "iso_3": "UNC",                                                                   +
                              "custom": false,                                                                  +
                              "enabled": true,                                                                  +
-                             "iso_num": "000"                                                                  +
+                             "iso_num": "000",                                                                 +
+                             "latitude": 0.000000,                                                             +
+                             "longitude": 0.000000                                                             +
                          },                                                                                    +
                          "altitude": 1144.0,                                                                   +
                          "latitude": 0.333333,                                                                 +
@@ -1158,7 +1168,9 @@ SELECT jsonb_pretty(
                                      "iso_3": "UNC",                                                           +
                                      "custom": false,                                                          +
                                      "enabled": true,                                                          +
-                                     "iso_num": "000"                                                          +
+                                     "iso_num": "000",                                                         +
+                                     "latitude": 0.000000,                                                     +
+                                     "longitude": 0.000000                                                     +
                                  },                                                                            +
                                  "altitude": 1144.0,                                                           +
                                  "latitude": 0.333333,                                                         +
@@ -1251,7 +1263,9 @@ SELECT jsonb_pretty(
                                      "iso_3": "UNC",                                                           +
                                      "custom": false,                                                          +
                                      "enabled": true,                                                          +
-                                     "iso_num": "000"                                                          +
+                                     "iso_num": "000",                                                         +
+                                     "latitude": 0.000000,                                                     +
+                                     "longitude": 0.000000                                                     +
                                  },                                                                            +
                                  "altitude": null,                                                             +
                                  "latitude": null,                                                             +
@@ -1411,7 +1425,9 @@ SELECT jsonb_pretty(
                          "iso_3": "UNC",                                                                              +
                          "custom": false,                                                                             +
                          "enabled": true,                                                                             +
-                         "iso_num": "000"                                                                             +
+                         "iso_num": "000",                                                                            +
+                         "latitude": 0.000000,                                                                        +
+                         "longitude": 0.000000                                                                        +
                      },                                                                                               +
                      "altitude": 1144.0,                                                                              +
                      "latitude": 0.333333,                                                                            +

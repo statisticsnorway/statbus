@@ -173,6 +173,8 @@ erDiagram
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+		numeric(9_6) latitude
+		numeric(9_6) longitude
 	}
 	country_used["country_used"] {
 		integer id

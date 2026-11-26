@@ -14251,7 +14251,9 @@ statistical_unit_hierarchy
                             "iso_3": "NOR",
                             "custom": false,
                             "enabled": true,
-                            "iso_num": "578"
+                            "iso_num": "578",
+                            "latitude": 60.472024,
+                            "longitude": 8.468946
                         },
                         "altitude": null,
                         "latitude": null,
@@ -14358,7 +14360,9 @@ statistical_unit_hierarchy
                                     "iso_3": "NOR",
                                     "custom": false,
                                     "enabled": true,
-                                    "iso_num": "578"
+                                    "iso_num": "578",
+                                    "latitude": 60.472024,
+                                    "longitude": 8.468946
                                 },
                                 "altitude": null,
                                 "latitude": null,
@@ -14571,7 +14575,9 @@ statistical_unit_hierarchy
                             "iso_3": "NOR",
                             "custom": false,
                             "enabled": true,
-                            "iso_num": "578"
+                            "iso_num": "578",
+                            "latitude": 60.472024,
+                            "longitude": 8.468946
                         },
                         "altitude": null,
                         "latitude": null,
@@ -14678,7 +14684,9 @@ statistical_unit_hierarchy
                                     "iso_3": "NOR",
                                     "custom": false,
                                     "enabled": true,
-                                    "iso_num": "578"
+                                    "iso_num": "578",
+                                    "latitude": 60.472024,
+                                    "longitude": 8.468946
                                 },
                                 "altitude": null,
                                 "latitude": null,
@@ -14890,7 +14898,9 @@ statistical_unit_hierarchy
                             "iso_3": "NOR",
                             "custom": false,
                             "enabled": true,
-                            "iso_num": "578"
+                            "iso_num": "578",
+                            "latitude": 60.472024,
+                            "longitude": 8.468946
                         },
                         "altitude": null,
                         "latitude": null,
@@ -14997,7 +15007,9 @@ statistical_unit_hierarchy
                                     "iso_3": "NOR",
                                     "custom": false,
                                     "enabled": true,
-                                    "iso_num": "578"
+                                    "iso_num": "578",
+                                    "latitude": 60.472024,
+                                    "longitude": 8.468946
                                 },
                                 "altitude": null,
                                 "latitude": null,
