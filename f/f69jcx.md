@@ -43,5 +43,6 @@ Search: app/src/app/search/components/search-export-csv-link.tsx and export/use-
 check 1: Owner approved in Firefox 2026-11-26 12:25 on the Norway copy (local slot): search Download shows '11 010 rows' once above CSV and Excel (.xlsx).
 check 2: Owner approved 12:25: CSV download ends with a toast 'Downloaded N rows in Ts' (download-menu-text.test.ts 6/6), the button carries no completion text.
 check 3: UnitHistoryExportButton and ProgressDownloadButton use the same DownloadMenuContent and toast (both hooks call downloadedMessage); tsc, lint, Jest 560/560.
+Pushed to master 2026-11-26 18:25 (1c49640e0 / 37a8812b4).
 ## History
 - 2026-11-26T11:50 todo -> doing/active (take with ca6dk5)
