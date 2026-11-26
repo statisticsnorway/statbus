@@ -28,8 +28,10 @@ Indexes:
     "contact_legal_unit_id_establishment_id_idx" btree (legal_unit_id, establishment_id)
     "contact_legal_unit_id_establishment_id_valid_range_idx" btree (legal_unit_id, establishment_id, valid_range)
     "contact_legal_unit_id_idx" btree (legal_unit_id) WHERE establishment_id IS NULL
+    "contact_natural_key_vali_establishment_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, establishment_id WITH <>)
     "contact_natural_key_vali_establishment_id_pk_consistency_excl" EXCLUDE USING gist (establishment_id WITH =, id WITH <>) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL)
     "contact_natural_key_valid" UNIQUE NULLS NOT DISTINCT (legal_unit_id, establishment_id, valid_range WITHOUT OVERLAPS)
+    "contact_natural_key_valid_legal_unit_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, legal_unit_id WITH <>)
     "contact_natural_key_valid_legal_unit_id_pk_consistency_excl" EXCLUDE USING gist (legal_unit_id WITH =, id WITH <>) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL)
     "contact_valid_range_gist_idx" gist (valid_range) WITH (fillfactor='90')
     "ix_contact_data_source_id" btree (data_source_id)
@@ -41,6 +43,7 @@ Indexes:
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id) = 1)
     "One information must be provided" CHECK (num_nonnulls(web_address, email_address, phone_number, landline, mobile_number, fax_number) >= 1)
+    "contact_natural_key_valid_xor_check" CHECK (num_nonnulls(legal_unit_id, establishment_id) <= 1)
     "contact_valid_check" CHECK (NOT isempty(valid_range))
 Foreign-key constraints:
     "contact_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id)

@@ -22,8 +22,11 @@ Indexes:
     "activity_id_idx" btree (id)
     "activity_id_valid_range_idx" btree (id, valid_range)
     "activity_legal_unit_id_type_idx" btree (legal_unit_id, type) WHERE establishment_id IS NULL
+    "activity_type_establishm_establishment_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, establishment_id WITH <>)
     "activity_type_establishm_establishment_id_pk_consistency_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, id WITH <>) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL)
     "activity_type_establishment_id_valid" UNIQUE NULLS NOT DISTINCT (type, legal_unit_id, establishment_id, valid_range WITHOUT OVERLAPS)
+    "activity_type_establishment_id_valid_type_nk_consistency_excl" EXCLUDE USING gist (id WITH =, type WITH <>)
+    "activity_type_establishment_legal_unit_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, legal_unit_id WITH <>)
     "activity_type_establishment_legal_unit_id_pk_consistency_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, id WITH <>) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL)
     "activity_type_legal_unit_id_establishment_id_idx" btree (type, legal_unit_id, establishment_id)
     "activity_type_legal_unit_id_establishment_id_valid_range_idx" btree (type, legal_unit_id, establishment_id, valid_range)
@@ -39,6 +42,7 @@ Indexes:
     "ix_activity_type" btree (type)
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id) = 1)
+    "activity_type_establishment_id_valid_xor_check" CHECK (num_nonnulls(legal_unit_id, establishment_id) <= 1)
     "activity_valid_check" CHECK (NOT isempty(valid_range))
 Foreign-key constraints:
     "activity_category_id_fkey" FOREIGN KEY (category_id) REFERENCES activity_category(id) ON DELETE CASCADE

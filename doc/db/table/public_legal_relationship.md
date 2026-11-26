@@ -30,6 +30,8 @@ Indexes:
     "legal_relat_influencing_influenced__type_id_valid_range_idx" btree (influencing_id, influenced_id, type_id, valid_range)
     "legal_relationship_id_idx" btree (id)
     "legal_relationship_id_valid_range_idx" btree (id, valid_range)
+    "legal_relationship_influen_influencing_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, influencing_id WITH <>)
+    "legal_relationship_influenc_influenced_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, influenced_id WITH <>)
     "legal_relationship_influenced_id_type_id_idx" btree (influenced_id, type_id)
     "legal_relationship_influenced_id_type_id_valid_range_idx" btree (influenced_id, type_id, valid_range)
     "legal_relationship_influenced_id_valid_gist_idx" gist (influenced_id, valid_range)
@@ -37,6 +39,7 @@ Indexes:
     "legal_relationship_influencing_id_influenced_id_type_id_idx" btree (influencing_id, influenced_id, type_id)
     "legal_relationship_influencing_id_influenced_id_type_id_valid_p" EXCLUDE USING gist (influencing_id WITH =, influenced_id WITH =, type_id WITH =, id WITH <>)
     "legal_relationship_influencing_id_influenced_id_type_id_valid_u" UNIQUE (influencing_id, influenced_id, type_id, valid_range WITHOUT OVERLAPS)
+    "legal_relationship_influencing_id_type_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, type_id WITH <>)
     "legal_relationship_influencing_id_valid_gist_idx" gist (influencing_id, valid_range)
     "legal_relationship_valid_range_gist_idx" gist (valid_range) WITH (fillfactor='90')
 Check constraints:

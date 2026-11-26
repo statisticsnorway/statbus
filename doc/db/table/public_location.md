@@ -42,10 +42,13 @@ Indexes:
     "location_id_idx" btree (id)
     "location_id_valid_range_idx" btree (id, valid_range)
     "location_legal_unit_id_type_idx" btree (legal_unit_id, type) WHERE establishment_id IS NULL
+    "location_type_establishm_establishment_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, establishment_id WITH <>)
     "location_type_establishm_establishment_id_pk_consistency_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, id WITH <>) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL)
     "location_type_establishment_id_legal_unit_id_idx" btree (type, establishment_id, legal_unit_id)
     "location_type_establishment_id_legal_unit_id_valid_range_idx" btree (type, establishment_id, legal_unit_id, valid_range)
     "location_type_establishment_id_valid" UNIQUE NULLS NOT DISTINCT (type, establishment_id, legal_unit_id, valid_range WITHOUT OVERLAPS)
+    "location_type_establishment_id_valid_type_nk_consistency_excl" EXCLUDE USING gist (id WITH =, type WITH <>)
+    "location_type_establishment_legal_unit_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, legal_unit_id WITH <>)
     "location_type_establishment_legal_unit_id_pk_consistency_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, id WITH <>) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL)
     "location_valid_range_gist_idx" gist (valid_range) WITH (fillfactor='90')
 Check constraints:
@@ -58,6 +61,7 @@ END)
     "coordinates require both latitude and longitude" CHECK (num_nonnulls(latitude, longitude) = ANY (ARRAY[0, 2]))
     "latitude_must_be_from_minus_90_to_90_degrees" CHECK (latitude >= '-90'::integer::numeric AND latitude <= 90::numeric)
     "location_region_version_consistency" CHECK ((region_id IS NULL) = (region_version_id IS NULL))
+    "location_type_establishment_id_valid_xor_check" CHECK (num_nonnulls(establishment_id, legal_unit_id) <= 1)
     "location_valid_check" CHECK (NOT isempty(valid_range))
     "longitude_must_be_from_minus_180_to_180_degrees" CHECK (longitude >= '-180'::integer::numeric AND longitude <= 180::numeric)
     "postal_locations_cannot_have_coordinates" CHECK (

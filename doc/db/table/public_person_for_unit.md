@@ -29,12 +29,17 @@ Indexes:
     "person_for__person_id_person_role_legal_unit__establishme_idx" btree (person_id, person_role_id, legal_unit_id, establishment_id)
     "person_for_unit_id_idx" btree (id)
     "person_for_unit_id_valid_range_idx" btree (id, valid_range)
+    "person_for_unit_natural__establishment_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, establishment_id WITH <>)
     "person_for_unit_natural__establishment_id_pk_consistency_excl" EXCLUDE USING gist (person_id WITH =, person_role_id WITH =, establishment_id WITH =, id WITH <>) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL)
+    "person_for_unit_natural_ke_person_role_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, person_role_id WITH <>)
+    "person_for_unit_natural_key_legal_unit_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, legal_unit_id WITH <>)
     "person_for_unit_natural_key_legal_unit_id_pk_consistency_excl" EXCLUDE USING gist (person_id WITH =, person_role_id WITH =, legal_unit_id WITH =, id WITH <>) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL)
+    "person_for_unit_natural_key_val_person_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, person_id WITH <>)
     "person_for_unit_natural_key_valid" UNIQUE NULLS NOT DISTINCT (person_id, person_role_id, legal_unit_id, establishment_id, valid_range WITHOUT OVERLAPS)
     "person_for_unit_valid_range_gist_idx" gist (valid_range) WITH (fillfactor='90')
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id) = 1)
+    "person_for_unit_natural_key_valid_xor_check" CHECK (num_nonnulls(legal_unit_id, establishment_id) <= 1)
     "person_for_unit_valid_check" CHECK (NOT isempty(valid_range))
 Foreign-key constraints:
     "person_for_unit_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE RESTRICT

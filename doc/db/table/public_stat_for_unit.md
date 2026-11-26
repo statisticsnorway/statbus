@@ -34,7 +34,10 @@ Indexes:
     "stat_for_unit_id_idx" btree (id)
     "stat_for_unit_id_valid_range_idx" btree (id, valid_range)
     "stat_for_unit_legal_unit_id_stat_definition_id_idx" btree (legal_unit_id, stat_definition_id) WHERE establishment_id IS NULL
+    "stat_for_unit_natural__stat_definition_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, stat_definition_id WITH <>)
+    "stat_for_unit_natural_ke_establishment_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, establishment_id WITH <>)
     "stat_for_unit_natural_ke_establishment_id_pk_consistency_excl" EXCLUDE USING gist (stat_definition_id WITH =, establishment_id WITH =, id WITH <>) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL)
+    "stat_for_unit_natural_key_v_legal_unit_id_nk_consistency_excl" EXCLUDE USING gist (id WITH =, legal_unit_id WITH <>)
     "stat_for_unit_natural_key_v_legal_unit_id_pk_consistency_excl" EXCLUDE USING gist (stat_definition_id WITH =, legal_unit_id WITH =, id WITH <>) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL)
     "stat_for_unit_natural_key_valid" UNIQUE NULLS NOT DISTINCT (stat_definition_id, legal_unit_id, establishment_id, valid_range WITHOUT OVERLAPS)
     "stat_for_unit_stat_definitio_legal_unit_id_establishment__idx" btree (stat_definition_id, legal_unit_id, establishment_id)
@@ -42,6 +45,7 @@ Indexes:
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id) = 1)
     "stat_for_unit_check" CHECK (num_nonnulls(value_int, value_float, value_string, value_bool) = 1)
+    "stat_for_unit_natural_key_valid_xor_check" CHECK (num_nonnulls(establishment_id, legal_unit_id) <= 1)
     "stat_for_unit_valid_check" CHECK (NOT isempty(valid_range))
 Foreign-key constraints:
     "stat_for_unit_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL

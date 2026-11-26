@@ -1537,10 +1537,9 @@ erDiagram
 		boolean trigger_applies_defaults
 		name sync_temporal_trg_name
 		name sync_temporal_trg_function_name
-		name audit_schema_name
-		name audit_table_name
 		name[] ephemeral_columns
 		text catalog_format
+		name[] provenance_columns
 	}
 	sql_saga_foreign_keys["sql_saga.foreign_keys"] {
 		name foreign_key_name

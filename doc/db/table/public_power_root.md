@@ -26,6 +26,7 @@ Indexes:
     "power_root_id_idx" btree (id)
     "power_root_id_valid_range_idx" btree (id, valid_range)
     "power_root_power_group_id_valid_range_idx" btree (power_group_id, valid_range)
+    "power_root_power_group_valid_nk_consistency_excl" EXCLUDE USING gist (id WITH =, power_group_id WITH <>)
     "power_root_power_group_valid_pk_consistency_excl" EXCLUDE USING gist (power_group_id WITH =, id WITH <>)
     "power_root_power_group_valid_uniq" UNIQUE (power_group_id, valid_range WITHOUT OVERLAPS)
     "power_root_valid_range_gist_idx" gist (valid_range) WITH (fillfactor='90')
