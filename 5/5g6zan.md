@@ -10,7 +10,7 @@ labels:
   - certificate
   - ubuntu
 group: ""
-rank: "zzzzzzzzzzzh"
+rank: "zzzzzzzzzzy3"
 dependencies:
   - STATBUS-389
 priority: high
