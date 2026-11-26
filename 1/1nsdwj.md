@@ -35,7 +35,7 @@ Today: postgres/Dockerfile ARG sql_saga_release=v1.6; every slot runs 1.6. Targe
 ## Acceptance
 - [ ] ~~The postgres image builds with sql_saga v1.12 and a migration runs ALTER EXTENSION sql_saga UPDATE; on a database upgraded from the last release extversion is 1.12 and SELECT sql_saga.check_integrity() reports no problem~~ (not relevant: superseded by the 1.15 checks 5-8 (owner chose 1.15, 2026-11-26), rabbit, 2026-11-26)
 - [ ] ~~The fast SQL suite passes on 1.12~~ (not relevant: superseded by the 1.15 checks 5-8 (owner chose 1.15, 2026-11-26), rabbit, 2026-11-26)
-- [ ] A real-guest upgrade from the last release to a build with 1.12 succeeds (install/upgrade testing guide)
+- [ ] ~~A real-guest upgrade from the last release to a build with 1.12 succeeds (install/upgrade testing guide)~~ (not relevant: superseded by the 1.15 checks 5-8 (owner chose 1.15, 2026-11-26), rabbit, 2026-11-26)
 - [x] [Owner] Confirms the target version (1.12 as the sql_saga agent said, or 1.13 tagged since); recorded here, and the other checks use that version
 - [ ] The postgres image builds with sql_saga v1.15; a database upgraded from the last release reports extversion 1.15 and SELECT sql_saga.check_integrity() reports no problem
 - [ ] A regular user's edit through a for_portion_of view stamps edit_by_user_id and edit_at on the changed pieces only (SQL test)
