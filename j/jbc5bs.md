@@ -4,7 +4,7 @@ title: "Coordinates are named latitude, longitude, altitude; no postal coordinat
 state: "doing"
 type: feature
 priority: ""
-assignee: ["slot-b-coords"]
+assignee: ["ox"]
 labels: ["maps"]
 group: ""
 rank: "zzzzzzzzh"
