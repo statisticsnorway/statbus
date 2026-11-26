@@ -39,7 +39,7 @@ import {
   RegionsMap,
   type RegionsMapControl,
   type RegionsMapSource,
-} from "@/app/regions/map/regions-map";
+} from "./regions-map";
 
 /** The filters that say where units are: the map's selection, applied over one count. */
 const PLACE_FILTERS = [
@@ -107,7 +107,12 @@ function SearchMap() {
   const lookupsReady = !baseDataLoading && searchPageDataReady;
   // A quality check names its variable by code; the findings hold its id (resolveQualityForCount).
   const statIds = useMemo(
-    () => new Map((statDefinitions ?? []).flatMap((d) => (d.code && d.id != null ? [[d.code, d.id] as const] : []))),
+    () =>
+      new Map(
+        (statDefinitions ?? []).flatMap((d) =>
+          d.code && d.id != null ? [[d.code, d.id] as const] : []
+        )
+      ),
     [statDefinitions]
   );
 
