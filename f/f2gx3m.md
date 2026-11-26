@@ -4,7 +4,7 @@ title: "Totals that do not add up on jo: a unit counted before its birth date"
 state: "doing"
 type: feature
 priority: ""
-assignee: ["rabbit"]
+assignee: ["lobster"]
 labels: []
 group: ""
 rank: "00000000000f"
