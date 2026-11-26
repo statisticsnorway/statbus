@@ -14,15 +14,13 @@ aliases: ["STATBUS-553"]
 backlog_type: "chore"
 created: "2026-10-30T23:21:00Z"
 updated: "2026-11-07T16:39:00Z"
-stage: "waiting"
+stage: "asked"
 doing_since: "2026-11-18T00:28"
-waiting_ask_what: "Has Albania confirmed its StatBus version? If it is v2026.11.0 or later, tick check 3 (then I delete origin/db-seed, the local branch and the statbus-db-seed worktree, check 4); if not yet, answer with when to ask again."
-waiting_ask_for: "jhf"
-waiting_asked_by: "hibiscus"
-waiting_ask_check: "3"
-waiting_on: "the date 2026-11-27, then ask jhf"
-waiting_since: "2026-11-20T13:22"
-waiting_until: "2026-11-27"
+asked_since: "2026-11-27T00:00"
+asked_what: "Has Albania confirmed its StatBus version? If it is v2026.11.0 or later, tick check 3 (then I delete origin/db-seed, the local branch and the statbus-db-seed worktree, check 4); if not yet, answer with when to ask again."
+asked_for: "jhf"
+asked_check: "3"
+asked_by: "hibiscus"
 ---
 
 ## Goal
@@ -85,3 +83,4 @@ rc.04 failed its gate (STATBUS-382, unrelated). 14ecf9e42 is in v2026.10.6-rc.05
 - 2026-11-20T13:22 request 1 in progress by hibiscus: hug task set yq5tr6
 - 2026-11-20T13:22 doing/active -> doing/waiting (ask jhf after 2026-11-27)
 - 2026-11-20T13:22 resolved request 1 by hibiscus
+- 2026-11-27T00:00 doing/waiting -> doing/asked (woke: the date 2026-11-27 has come, asked jhf); was waiting_ask_check: 3; waiting_ask_for: jhf; waiting_ask_what: Has Albania confirmed its StatBus version? If it is v2026.11.0 or later, tick check 3 (then I delete origin/db-seed, the local branch and the statbus-db-seed worktree, check 4); if not yet, answer with when to ask again.; waiting_asked_by: hibiscus; waiting_on: the date 2026-11-27, then ask jhf; waiting_since: 2026-11-20T13:22; waiting_until: 2026-11-27
