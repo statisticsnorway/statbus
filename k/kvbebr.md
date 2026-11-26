@@ -1,15 +1,21 @@
 ---
 id: kvbebr
 title: "Location coordinates have one name in the table and the API"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["ox"]
 labels: []
 group: ""
 rank: "zx"
 created: 2026-11-18
 updated: 2026-11-18
+doing_since: "2026-11-26T21:50"
+doing_with: "jbc5bs"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_b"
 ---
 
 ## Goal
@@ -47,3 +53,7 @@ check 1: Owner 2026-11-23 10:46 (his boss's decision, in chat with hibiscus): th
 Correction 2026-11-26 (owner): Erik's comment on PR #327 (2026-11-14) asked only that rpc/statistical_unit_hierarchy and statistical_unit return the SAME names for latitude/longitude, for one generic map. His agent turned that into renaming location to physical_latitude, the opposite of the owner's choice. Owner: physical_ was there only because postal locations were systematically given a position too; StatBus records no position for a postal address (location rows carry coordinates only for type physical), so physical_ says nothing and goes. jbc5bs delivers Erik's wish: statistical_unit becomes latitude/longitude/altitude, matching location and the hierarchy RPC. PR #327 to be closed with a reply saying so, the reply approved by the owner first.
 
 check 4: PR #327 closed 2026-11-26 with the owner-approved reply (tmp/pr327-reply.md): Erik's wish is met by jbc5bs, plain latitude/longitude/altitude everywhere.
+
+
+## History
+- 2026-11-26T21:50 todo -> doing/active (take with jbc5bs)
