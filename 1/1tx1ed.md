@@ -27,8 +27,10 @@ Today: public.quality_check_switched_off (05pe0x), reset's customisation scope e
 ## Depends on
 
 ## Acceptance
-- [ ] [Owner] approves the starting set, recorded on this task
+- [x] [Owner] approves the starting set, recorded on this task
 - [ ] On a fresh install the dashboard shows exactly the starting set; Admin > Data quality checks lists the rest switched off
 - [ ] An upgraded installation keeps the checks it showed before the upgrade
 
 ## Notes
+
+check 1: Owner agreed 2026-11-26 12:16: starting set on = missing region, missing activity category, secondary equals primary (qjy2eg); off = missing physical location, establishment has another activity, and the two per-variable LU/ES checks.
