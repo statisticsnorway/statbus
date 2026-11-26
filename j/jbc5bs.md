@@ -29,7 +29,7 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 - z2qt08
 
 ## Acceptance
-- [ ] [Owner] Decides whether region upload files with the old center_* headers are refused with a message naming the new headers, or accepted for one release; recorded here
+- [x] [Owner] Decides whether region upload files with the old center_* headers are refused with a message naming the new headers, or accepted for one release; recorded here
 - [ ] public.region, region_upload and the upload's upsert use latitude, longitude, altitude; the fast SQL suite passes with regenerated doc/db and app types
 - [ ] Uploading a region file with the new headers stores each region's point; a SQL test asserts the stored values
 - [ ] statistical_unit and the timeline views carry latitude, longitude and altitude (no physical_ prefix) and no postal coordinate columns; the fast SQL suite passes with regenerated doc/db and app types
@@ -47,6 +47,7 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 2026-11-23 10:47 widened from regions only to units too, on the owner's word: drop physical_ as well, and drop postal coordinates altogether (no coordinates for a postal address). kvbebr check 1 records the decision.
 
 
+check 1: Owner 2026-11-26 20:41: refuse old headers (center_* in region files, physical_latitude/longitude/altitude in unit files) with a message naming the new ones; a clean cut, no one-release grace.
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
