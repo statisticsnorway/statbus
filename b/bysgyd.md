@@ -33,11 +33,12 @@ Rows 15-16: physical_postplace 'GÃ¸te Kanal' (one round of UTF-8 read as Windo
 ## Depends on
 
 ## Acceptance
-- [ ] demo-files-upload.test.ts fails on the old file and passes on the repaired one
+- [x] demo-files-upload.test.ts fails on the old file and passes on the repaired one
 - [ ] SQL tests 309 and 310, which load this file, pass
 
 ## Notes
 
 
+check 1: Jest RED on the old file (line 15 GÃ¸te Kanal refused), GREEN 16/16 after repair: tmp/hedda-upload/test-red.log, test-green.log
 ## History
 - 2026-11-26T10:17 todo -> doing/active (take with ca6dk5)
