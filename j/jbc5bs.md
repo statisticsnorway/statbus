@@ -48,6 +48,7 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 
 
 check 1: Owner 2026-11-26 20:41: refuse old headers (center_* in region files, physical_latitude/longitude/altitude in unit files) with a message naming the new ones; a clean cut, no one-release grace.
+Answer delivered to rabbit as board coordinator; Hibiscus asked it and does the work (map, z2qt08).
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
