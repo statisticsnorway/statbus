@@ -105,6 +105,9 @@ BEGIN
             center_latitude = EXCLUDED.center_latitude,
             center_longitude = EXCLUDED.center_longitude,
             center_altitude = EXCLUDED.center_altitude
+        -- A row as stored writes nothing, so no change is logged for it.
+        WHERE (region.parent_id, region.name, region.center_latitude, region.center_longitude, region.center_altitude)
+              IS DISTINCT FROM (maybe_parent_id, EXCLUDED.name, EXCLUDED.center_latitude, EXCLUDED.center_longitude, EXCLUDED.center_altitude)
         RETURNING * INTO row;
       EXCEPTION WHEN OTHERS THEN
           RAISE EXCEPTION 'Failed to insert/update region: %', jsonb_pretty(

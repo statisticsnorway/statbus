@@ -14,5 +14,7 @@ legal_relationship|9|t
 power_root|9|t
 Region with no affected locations: no log, no publication
 t|t|t
-Affected region: exact unit and validity log, pending flag, one collector
+Affected region renamed and moved: no log, no publication, region_used has the new name
+t|t|t|t
+Affected region given a new path: exact unit and validity log, pending flag, one collector
 t|t|t|t

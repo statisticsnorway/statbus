@@ -128,8 +128,22 @@ WHERE id=(SELECT id FROM public.region WHERE id NOT IN(SELECT region_id FROM pub
 SELECT (SELECT count(*) FROM worker.base_change_log)=0,
        (SELECT has_pending FROM worker.base_change_log_has_pending)=false,
        (SELECT count(*) FROM worker.tasks WHERE command='collect_changes')=0;
-UPDATE public.region SET name=name WHERE id=(SELECT region_id FROM public.location WHERE legal_unit_id=(SELECT id FROM public.legal_unit WHERE name='T377 region unit'));
-\echo Affected region: exact unit and validity log, pending flag, one collector
+-- Units carry their region's path and code, not its name or centre (5yxn4w): renaming or
+-- moving the centre of a region with units logs no unit and sets the name in region_used.
+INSERT INTO public.region_used(id,path,level,label,code,name)
+SELECT id,path,level,label,code,name FROM public.region
+WHERE id=(SELECT region_id FROM public.location WHERE legal_unit_id=(SELECT id FROM public.legal_unit WHERE name='T377 region unit'));
+UPDATE public.region SET name=name||' renamed',center_latitude=59.9,center_longitude=10.7,center_altitude=12
+WHERE id=(SELECT region_id FROM public.location WHERE legal_unit_id=(SELECT id FROM public.legal_unit WHERE name='T377 region unit'));
+\echo Affected region renamed and moved: no log, no publication, region_used has the new name
+SELECT (SELECT count(*) FROM worker.base_change_log)=0,
+       (SELECT has_pending FROM worker.base_change_log_has_pending)=false,
+       (SELECT count(*) FROM worker.tasks WHERE command='collect_changes')=0,
+       (SELECT ru.name=r.name FROM public.region_used ru JOIN public.region r USING (id)
+         WHERE r.id=(SELECT region_id FROM public.location WHERE legal_unit_id=(SELECT id FROM public.legal_unit WHERE name='T377 region unit')));
+UPDATE public.region SET path=public.text2ltree('97')
+WHERE id=(SELECT region_id FROM public.location WHERE legal_unit_id=(SELECT id FROM public.legal_unit WHERE name='T377 region unit'));
+\echo Affected region given a new path: exact unit and validity log, pending flag, one collector
 SELECT (SELECT count(*) FROM worker.base_change_log)=1,
        (SELECT legal_unit_ids=int4multirange(int4range(lu.id,lu.id,'[]'))
            AND valid_ranges=datemultirange(lu.valid_range)

@@ -54,6 +54,35 @@ SELECT path, center_latitude, center_longitude, center_altitude
  11.03 |       58.970000 |         5.730000 |                
 (1 row)
 
+\echo "Storing the regions as they are writes no region, so no unit is re-derived; one change writes one"
+"Storing the regions as they are writes no region, so no unit is re-derived; one change writes one"
+CREATE TEMP TABLE regions_as_stored AS SELECT * FROM public.region_upload;
+CREATE TEMP TABLE updates_before AS SELECT pg_stat_get_xact_tuples_updated('public.region'::regclass) AS n;
+INSERT INTO public.region_upload SELECT * FROM regions_as_stored;
+SELECT pg_stat_get_xact_tuples_updated('public.region'::regclass) - n AS regions_written_by_unchanged_file
+  FROM updates_before;
+ regions_written_by_unchanged_file 
+-----------------------------------
+                                 0
+(1 row)
+
+UPDATE regions_as_stored SET center_altitude = '12' WHERE path = '11.03';
+UPDATE updates_before SET n = pg_stat_get_xact_tuples_updated('public.region'::regclass) WHERE true;
+INSERT INTO public.region_upload SELECT * FROM regions_as_stored;
+SELECT pg_stat_get_xact_tuples_updated('public.region'::regclass) - n AS regions_written_by_one_change
+  FROM updates_before;
+ regions_written_by_one_change 
+-------------------------------
+                             1
+(1 row)
+
+SELECT path, center_latitude, center_longitude, center_altitude
+  FROM public.region WHERE path = '11.03';
+ path  | center_latitude | center_longitude | center_altitude 
+-------+-----------------+------------------+-----------------
+ 11.03 |       58.970000 |         5.730000 |            12.0
+(1 row)
+
 \echo "A region not yet listed needs a name"
 "A region not yet listed needs a name"
 SAVEPOINT new_without_name;

@@ -9,11 +9,21 @@ DECLARE
     v_valid_ranges datemultirange;
     v_source TEXT;
 BEGIN
-    -- Build source query based on operation
+    -- Build source query based on operation. An UPDATE reaches the units only through a region
+    -- whose path changed: units carry the region's path and code (code is generated from path),
+    -- not its name or centre. A changed name is set in region_used here.
     CASE TG_OP
-        WHEN 'INSERT' THEN v_source := 'new_rows';
-        WHEN 'DELETE' THEN v_source := 'old_rows';
-        WHEN 'UPDATE' THEN v_source := 'old_rows UNION ALL SELECT * FROM new_rows';
+        WHEN 'INSERT' THEN v_source := 'SELECT * FROM new_rows';
+        WHEN 'DELETE' THEN v_source := 'SELECT * FROM old_rows';
+        WHEN 'UPDATE' THEN
+            v_source := 'SELECT o.* FROM old_rows AS o JOIN new_rows AS n ON n.id = o.id'
+                     || ' WHERE n.path OPERATOR(public.<>) o.path';
+            -- A renamed region's name in region_used, in place: only the renamed rows.
+            UPDATE public.region_used AS ru
+               SET name = n.name
+              FROM new_rows AS n
+             WHERE ru.id = n.id
+               AND ru.name IS DISTINCT FROM n.name;
         ELSE RAISE EXCEPTION 'log_region_change: unsupported operation %', TG_OP;
     END CASE;
 
@@ -27,7 +37,7 @@ BEGIN
         FROM (%s) AS affected_regions
         JOIN public.location AS l ON l.region_id = affected_regions.id
         $SQL$,
-        format('SELECT * FROM %s', v_source)
+        v_source
     ) INTO v_est_ids, v_lu_ids, v_valid_ranges;
 
     IF v_est_ids != '{}'::int4multirange

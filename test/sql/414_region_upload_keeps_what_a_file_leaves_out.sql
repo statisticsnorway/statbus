@@ -48,6 +48,20 @@ SELECT path, name, center_latitude, center_longitude, center_altitude
 SELECT path, center_latitude, center_longitude, center_altitude
   FROM public.region WHERE path = '11.03';
 
+\echo "Storing the regions as they are writes no region, so no unit is re-derived; one change writes one"
+CREATE TEMP TABLE regions_as_stored AS SELECT * FROM public.region_upload;
+CREATE TEMP TABLE updates_before AS SELECT pg_stat_get_xact_tuples_updated('public.region'::regclass) AS n;
+INSERT INTO public.region_upload SELECT * FROM regions_as_stored;
+SELECT pg_stat_get_xact_tuples_updated('public.region'::regclass) - n AS regions_written_by_unchanged_file
+  FROM updates_before;
+UPDATE regions_as_stored SET center_altitude = '12' WHERE path = '11.03';
+UPDATE updates_before SET n = pg_stat_get_xact_tuples_updated('public.region'::regclass) WHERE true;
+INSERT INTO public.region_upload SELECT * FROM regions_as_stored;
+SELECT pg_stat_get_xact_tuples_updated('public.region'::regclass) - n AS regions_written_by_one_change
+  FROM updates_before;
+SELECT path, center_latitude, center_longitude, center_altitude
+  FROM public.region WHERE path = '11.03';
+
 \echo "A region not yet listed needs a name"
 SAVEPOINT new_without_name;
 \copy public.region_upload(path,center_latitude,center_longitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
