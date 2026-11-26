@@ -481,6 +481,32 @@ export function liveCountSelect(api: URLSearchParams): string {
   return [own, ...embeds].join(",");
 }
 
+/**
+ * A search's API parameters with its quality check resolved for a count by region (05pe0x): the
+ * search carries `quality_check=<rule>[:<stat code>]` (QUALITY_CHECK_PARAM), which is no column of
+ * statistical_unit. The count joins the check's findings instead, as the list does for a large
+ * check (quality-search.ts): `quality_finding!inner()` with its rule and variable. `statIds` maps
+ * a variable's code to its stat_definition id; an unknown code fails clearly rather than
+ * counting the wrong check.
+ */
+export function resolveQualityForCount(api: URLSearchParams, statIds: ReadonlyMap<string, number>): URLSearchParams {
+  const value = api.get("quality_check");
+  if (value === null) return api;
+  const [rule, statCode] = value.split(":");
+  const out = new URLSearchParams(api);
+  out.delete("quality_check");
+  let statId: number | null = null;
+  if (statCode) {
+    const id = statIds.get(statCode);
+    if (id === undefined) throw new Error(`No statistical variable ${statCode} for the quality check ${rule}`);
+    statId = id;
+  }
+  out.set("select", "*,quality_finding!inner()");
+  out.set("quality_finding.rule", `eq.${rule}`);
+  out.set("quality_finding.stat_definition_id", statId === null ? "is.null" : `eq.${statId}`);
+  return out;
+}
+
 /** A unit of the hierarchy as the Links map needs it: its kind, name, link and physical locations. */
 type HierarchyRegion = { name: string; path: string; center_latitude: number | null; center_longitude: number | null };
 type HierarchyLocation = { type: string; latitude: number | null; longitude: number | null; region?: HierarchyRegion | null };

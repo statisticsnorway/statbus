@@ -478,29 +478,34 @@ export function RegionsMap({
         };
       });
 
+  // The trail: in the header on the Regions map; on the search's map, whose filter toolbar stands
+  // between header and map, right above the selected region in the side panel, so the place and its
+  // way up read together (owner 2026-11-26, 5nq78t).
+  const trailNav = (
+    <nav aria-label="Region trail" className="flex flex-wrap items-center gap-1 text-sm" data-regions-map-trail="">
+      {selectionTrail(selection).map((s, i, trail) => (
+        <span key={s ?? "world"} className="flex items-center gap-1">
+          {i > 0 && <span className="text-gray-400">›</span>}
+          {i === trail.length - 1 ? (
+            <span className="font-medium" aria-current="location">
+              {nameOf(s)}
+            </span>
+          ) : (
+            <button type="button" className="underline-offset-2 hover:underline" onClick={() => select(s)}>
+              {nameOf(s)}
+            </button>
+          )}
+        </span>
+      ))}
+    </nav>
+  );
+
   return (
     <main className="flex w-full flex-col" style={{ height: "calc(100vh - 56px)" }} data-regions-map-page="">
       {/* The search's map lays its header out as the search's list does (full width, the same
           padding), so the List/Map switch stands on the same spot in both views (owner 2026-11-26). */}
       <div className={control ? "w-full px-2 pt-8 md:pt-12 lg:px-8" : "mx-auto w-full max-w-5xl px-2 pt-8 md:pt-12"}>
-        {header(
-          <nav aria-label="Region trail" className="flex flex-wrap items-center gap-1 text-sm" data-regions-map-trail="">
-            {selectionTrail(selection).map((s, i, trail) => (
-              <span key={s ?? "world"} className="flex items-center gap-1">
-                {i > 0 && <span className="text-gray-400">›</span>}
-                {i === trail.length - 1 ? (
-                  <span className="font-medium" aria-current="location">
-                    {nameOf(s)}
-                  </span>
-                ) : (
-                  <button type="button" className="underline-offset-2 hover:underline" onClick={() => select(s)}>
-                    {nameOf(s)}
-                  </button>
-                )}
-              </span>
-            ))}
-          </nav>
-        )}
+        {header(control ? null : trailNav)}
       </div>
       <div className="flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
@@ -523,6 +528,7 @@ export function RegionsMap({
         <aside className="flex w-72 shrink-0 flex-col border-l text-sm" data-regions-map-side="">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           {summary}
+          {control && trailNav}
           {counting && (
             <p className="text-xs text-gray-500" role="status" data-regions-map-counting="">
               Counting the units by region…

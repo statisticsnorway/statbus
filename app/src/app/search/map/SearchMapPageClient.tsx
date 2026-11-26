@@ -29,6 +29,7 @@ import {
   MAP_UNIT_TYPES,
   facetParams,
   liveCountSelect,
+  resolveQualityForCount,
   selectedCountryCode,
   type MapSelection,
   type MapUnitType,
@@ -104,6 +105,11 @@ function SearchMap() {
     useAtomValue(searchPageDataAtom);
   const searchPageDataReady = useAtomValue(searchPageDataReadyAtom);
   const lookupsReady = !baseDataLoading && searchPageDataReady;
+  // A quality check names its variable by code; the findings hold its id (resolveQualityForCount).
+  const statIds = useMemo(
+    () => new Map((statDefinitions ?? []).flatMap((d) => (d.code && d.id != null ? [[d.code, d.id] as const] : []))),
+    [statDefinitions]
+  );
 
   const { data: homeId } = useSWR(
     client ? ["search-map:home"] : null,
@@ -232,7 +238,7 @@ function SearchMap() {
       searchFilter,
       rowFilter: placeKept ? rowFilter : undefined,
       fetchRows: async (validOn: string): Promise<RegionCountRow[]> => {
-        const api = filterOnly(validOn);
+        const api = resolveQualityForCount(filterOnly(validOn), statIds);
         const facet = facetParams(api, homeId ?? null, codeIds);
         const base = client!.url.endsWith("/")
           ? client!.url
@@ -276,6 +282,7 @@ function SearchMap() {
       homeId,
       codeIds,
       lookupsReady,
+      statIds,
       placeKept,
       rowFilter,
       searchFilter,

@@ -1,4 +1,4 @@
-import { childCounts, countryCounts, countsAll, countsByRegion, countsUnder, selectedCountryCode, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, locationView, facetParams, liveCountSelect, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, spiderNodes, type RegionCountRow } from "./map-data";
+import { childCounts, countryCounts, countsAll, countsByRegion, countsUnder, selectedCountryCode, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, locationView, facetParams, liveCountSelect, resolveQualityForCount, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, spiderNodes, type RegionCountRow } from "./map-data";
 
 // z2qt08: the Regions map counts units per region path prefix from statistical_unit_facet and
 // draws each region with a centre; regions without one are listed beside the map.
@@ -169,6 +169,27 @@ describe("facetParams and liveCountSelect (5nq78t)", () => {
       "unit_type,physical_region_path,physical_country_id,count()",
       "unit_type,physical_region_path,physical_country_id,count(),quality_x!inner(unit_type)",
     ]);
+  });
+  it("counts a quality check by joining its findings, with the variable's id for a per-variable rule", () => {
+    const statIds = new Map([["employees", 7]]);
+    const plain = resolveQualityForCount(new URLSearchParams("quality_check=missing_physical_location&unit_type=in.(enterprise)"), statIds);
+    const perStat = resolveQualityForCount(new URLSearchParams("quality_check=establishments_above_legal_unit:employees"), statIds);
+    expect([
+      plain.get("quality_check"),
+      liveCountSelect(plain),
+      plain.get("quality_finding.rule"),
+      plain.get("quality_finding.stat_definition_id"),
+      plain.get("unit_type"),
+      perStat.get("quality_finding.stat_definition_id"),
+    ]).toEqual([
+      null,
+      "unit_type,physical_region_path,physical_country_id,count(),quality_finding!inner(unit_type)",
+      "eq.missing_physical_location",
+      "is.null",
+      "in.(enterprise)",
+      "eq.7",
+    ]);
+    expect(() => resolveQualityForCount(new URLSearchParams("quality_check=x:nope"), statIds)).toThrow("No statistical variable nope");
   });
 });
 
