@@ -39,7 +39,7 @@ Today: postgres/Dockerfile ARG sql_saga_release=v1.6; every slot runs 1.6. Targe
 - [x] [Owner] Confirms the target version (1.12 as the sql_saga agent said, or 1.13 tagged since); recorded here, and the other checks use that version
 - [x] The postgres image builds with sql_saga v1.15; a database upgraded from the last release reports extversion 1.15 and SELECT sql_saga.check_integrity() reports no problem
 - [ ] ~~A regular user's edit through a for_portion_of view stamps edit_by_user_id and edit_at on the changed pieces only (SQL test)~~ (not relevant: moved to sxbm3b, which activates provenance together with imports running as the uploader, rabbit, 2026-11-26)
-- [ ] The fast SQL suite passes on 1.15
+- [x] The fast SQL suite passes on 1.15
 - [ ] A real-guest upgrade from the last release to a build with 1.15 succeeds (install/upgrade testing guide)
 
 ## Notes
@@ -53,5 +53,6 @@ check 4: Owner 2026-11-26 20:33: target is sql_saga v1.15 (7011af1, 2026-11-25),
 check 5: Image builds with sql_saga v1.15 (docker compose build db, 9 min). Local slot's Norway copy upgraded by ./sb migrate up: 'Extension sql_saga: 1.6 -> 1.15', extversion 1.15, db.extension_upgrade row 1.6->1.15, check_integrity clean, ~2 min (tmp/1nsdwj/migrate-up-norway.log). Pushed 7e99979ed.
 landed 7e99979 on master 2026-11-26: postgres: pin sql_saga v1.15 (1nsdwj)
 landed 182a7bf on master 2026-11-26: test: 002 and the security report list sql_saga 1.15's catalog (1nsdwj)
+check 7: Fast SQL suite passes on 1.15: CI run on 182a7bfb7, Fast Tests success (the first run on 7e99979ed failed only on 002 and the security report, which list sql_saga's catalog; regenerated in 182a7bfb7). All other workflows green.
 ## History
 - 2026-11-26T21:28 todo -> doing/active (take with ca6dk5)
