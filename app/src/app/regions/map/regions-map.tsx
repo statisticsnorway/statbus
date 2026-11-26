@@ -53,6 +53,11 @@ export interface RegionsMapSource {
   ready?: boolean;
   /** One row per unit type, region path and country, for the units this map counts in the frame. */
   fetchRows: (validOn: string) => Promise<RegionCountRow[]>;
+  /**
+   * Keeps the counted rows a page's own filters allow, applied in the browser over one count (the
+   * search's Country and Physical Location filters), so changing them does not count again.
+   */
+  rowFilter?: (row: RegionCountRow) => boolean;
   /** The search filter the map's links to /search add to their own (a place, unit types). */
   searchFilter: URLSearchParams;
 }
@@ -72,30 +77,58 @@ export interface RegionsMapSource {
  * reads: one row per unit type, region path and country in the time frame (1,793 rows, 0.18 s
  * on Norway, tmp/z2qt08-map-fetch2.sql), summed here per selection.
  */
+/**
+ * The selection and unit types when a page drives the map instead of the map's own URL (5nq78t: the
+ * search's map, whose place and unit-type filters are the selection). The map reads them as given and
+ * hands every change back; it keeps nothing of its own.
+ */
+export interface RegionsMapControl {
+  selection: MapSelection;
+  unitTypes: MapUnitType[];
+  /** Go to a place: the page writes it into its own state (the search's place filters). */
+  onSelect: (next: MapSelection) => void;
+  onUnitTypes: (types: MapUnitType[]) => void;
+  /** Countries the page narrows the world to (the search's Country filter), framed together. */
+  countryIds?: number[] | null;
+}
+
 export function RegionsMap({
   basePath,
   source,
   header,
   summary,
+  control,
 }: {
   /** The page's own path, which the selection and unit types extend (?at=, ?types=). */
   basePath: string;
   source: RegionsMapSource;
   /** The page header; it gets the region trail to place. */
   header: (breadcrumb: ReactNode) => ReactNode;
-  /** What the counted units are, shown above the selection (the search's filter on the Reports map). */
+  /** What the counted units are, shown above the selection. */
   summary?: ReactNode;
+  /** Set when a page drives the selection and unit types (the search's map). */
+  control?: RegionsMapControl;
 }) {
   const client = useAtomValue(restClientAtom);
   const { selectedTimeFrame } = useTimeFrame();
   const validOn = selectedTimeFrame?.valid_on ?? null;
   // The selection and the unit types live in the URL (?at=50&types=legal_unit,establishment), so Back,
   // a reload or a shared link land where the map was. Each step in or out is a history
-  // entry; a unit-type change replaces the current one.
+  // entry; a unit-type change replaces the current one. A page that drives the map (control) holds
+  // them in its own state instead.
   const router = useRouter();
   const searchParams = useSearchParams();
-  const requested = parseSelection(searchParams?.get("at") ?? null);
-  const unitTypes = parseUnitTypes(searchParams?.get("types") ?? searchParams?.get("unit_type") ?? null);
+  const requested = control ? control.selection : parseSelection(searchParams?.get("at") ?? null);
+  const unitTypes = control ? control.unitTypes : parseUnitTypes(searchParams?.get("types") ?? null);
+  const controlRef = useRef(control);
+  // The map's handlers read the driving page's latest state through this, set after each render.
+  useGuardedEffect(
+    () => {
+      controlRef.current = control;
+    },
+    [control],
+    "RegionsMap:control"
+  );
   // The map once its style has loaded: the type legs render over it.
   const [readyMap, setReadyMap] = useState<MapLibreMap | null>(null);
   const mapReady = readyMap !== null;
@@ -106,20 +139,20 @@ export function RegionsMap({
   const [pickedChild, setPickedChild] = useState<{ at: MapSelection; path: string } | null>(null);
 
   // The map's own handlers (click, fit) run outside React's render, so they read the
-  // current selection and unit types from the URL at the moment they run.
+  // current selection and unit types at the moment they run: from the URL, or from the driving page.
   const current = useCallback(() => {
+    const c = controlRef.current;
+    if (c) return { at: c.selection, types: c.unitTypes };
     const params = new URLSearchParams(window.location.search);
-    return { at: parseSelection(params.get("at")), types: parseUnitTypes(params.get("types") ?? params.get("unit_type")) };
+    return { at: parseSelection(params.get("at")), types: parseUnitTypes(params.get("types")) };
   }, []);
   const mapUrl = useCallback(
     (at: MapSelection, types: readonly MapUnitType[]) => {
-      // The page's own query (the Reports map's search filter) stays; the map's own two change. A
-      // search's unit_type opens the map on those types; once the map's legend picks, ?types= wins.
       const params = new URLSearchParams(window.location.search);
       params.delete("at");
       params.delete("types");
       if (at !== "") params.set("at", at === null ? "world" : at);
-      if (types.join(",") !== (params.get("unit_type") ?? DEFAULT_UNIT_TYPE)) params.set("types", types.join(","));
+      if (types.join(",") !== DEFAULT_UNIT_TYPE) params.set("types", types.join(","));
       const query = params.toString();
       return query ? `${basePath}?${query}` : basePath;
     },
@@ -128,12 +161,19 @@ export function RegionsMap({
   const select = useCallback(
     (next: MapSelection) => {
       const { at, types } = current();
-      if (next !== at) router.push(mapUrl(next, types), { scroll: false });
+      if (next === at) return;
+      const c = controlRef.current;
+      if (c) c.onSelect(next);
+      else router.push(mapUrl(next, types), { scroll: false });
     },
     [router, mapUrl, current]
   );
   const setUnitTypes = useCallback(
-    (types: MapUnitType[]) => router.replace(mapUrl(current().at, types), { scroll: false }),
+    (types: MapUnitType[]) => {
+      const c = controlRef.current;
+      if (c) c.onUnitTypes(types);
+      else router.replace(mapUrl(current().at, types), { scroll: false });
+    },
     [router, mapUrl, current]
   );
 
@@ -176,15 +216,18 @@ export function RegionsMap({
     const features = featuresRef.current;
     if (!map || features.length === 0) return;
     const { at } = current();
+    // The world frames its countries; narrowed to a few (the search's Country filter), it frames
+    // just those, zoomed out until all are in view.
+    const narrowed = at === null && (controlRef.current?.countryIds?.length ?? 0) > 0;
     const bounds = featureBounds(at === "" ? framingFeatures(features) : features);
     if (!bounds) return;
     const [west, south, east, north] = bounds;
     if (east - west < 0.01 && north - south < 0.01) {
       // A foreign country is its one circle, at its centre.
-      map.easeTo({ center: [west, south], zoom: at === null ? 2 : selectionDepth(at) === 0 ? 4 : 9 });
+      map.easeTo({ center: [west, south], zoom: at === null ? (narrowed ? 4 : 2) : selectionDepth(at) === 0 ? 4 : 9 });
       return;
     }
-    map.fitBounds(bounds, { padding: 60, maxZoom: at === null ? 4 : 11 });
+    map.fitBounds(bounds, { padding: 60, maxZoom: at === null ? (narrowed ? 6 : 4) : 11 });
   }, [current]);
 
   const { data: home } = useSWR(client ? ["regions-map:home"] : null, async () => {
@@ -221,10 +264,12 @@ export function RegionsMap({
         : requested;
   const selectedCountry = countryByCode.get(selectedCountryCode(selection) ?? "") ?? null;
 
-  const { data: rows, error: countError, isLoading: counting } = useSWR(
+  const { data: countedRows, error: countError, isLoading: counting } = useSWR(
     client && validOn && source.ready !== false ? ["regions-map:counts", source.key, validOn] : null,
     () => source.fetchRows(validOn!)
   );
+  const rowFilter = source.rowFilter;
+  const rows = useMemo(() => (countedRows && rowFilter ? countedRows.filter(rowFilter) : countedRows), [countedRows, rowFilter]);
 
   const world = useMemo(() => worldCounts(rows ?? [], homeId, unitTypes), [rows, homeId, unitTypes]);
   const perCountry = useMemo(() => countryCounts(rows ?? []), [rows]);
@@ -242,7 +287,9 @@ export function RegionsMap({
 
   // What the map draws for the selection: the children of a domestic selection; at the world
   // every country with units at its centre (country.latitude, longitude), the installation's
-  // own one among them; a foreign country, which has no regions here, as its one circle.
+  // own one among them; a foreign country, which has no regions here, as its one circle. The
+  // driving page's Country filter keeps only its countries.
+  const countryIds = control?.countryIds ?? null;
   const { features, withoutCentre } = useMemo(() => {
     if (!rows || !regions) return { features: { type: "FeatureCollection" as const, features: [] }, withoutCentre: [] };
     if (selection === null || selectedCountry) {
@@ -250,6 +297,7 @@ export function RegionsMap({
       const unplaced: { path: string; name: string; total: number }[] = [];
       for (const [countryId, counts] of perCountry) {
         if (selectedCountry && countryId !== selectedCountry.id) continue;
+        if (countryIds && !countryIds.includes(countryId)) continue;
         const total = selectedTotal(counts, unitTypes);
         if (total === 0) continue;
         const c = countries?.get(countryId);
@@ -270,7 +318,7 @@ export function RegionsMap({
     }
     const { features: f, withoutCentre: w } = regionFeatures(regions, childCounts(rows, selection, homeId), unitTypes);
     return { features: f, withoutCentre: w };
-  }, [rows, regions, selection, selectedCountry, homeId, unitTypes, perCountry, countries]);
+  }, [rows, regions, selection, selectedCountry, homeId, unitTypes, perCountry, countries, countryIds]);
 
   const selectedCounts = useMemo(() => {
     if (!rows || selection === null) return null;
@@ -360,7 +408,7 @@ export function RegionsMap({
   // New data for the map; a new selection is also framed. Unit-type or time-frame changes keep
   // the view where it is.
   // The framed selection, and the picked child (only where it was picked: a new selection leaves it behind).
-  const framedSelection = useRef<MapSelection | undefined>(undefined);
+  const framedSelection = useRef<string | undefined>(undefined);
   const picked = pickedChild && pickedChild.at === selection ? pickedChild.path : null;
   useGuardedEffect(
     () => {
@@ -373,12 +421,14 @@ export function RegionsMap({
       // The ring follows the picked child's circle; at another selection there is none.
       const ringed = picked ? features.features.filter((f) => f.properties.path === picked) : [];
       (map.getSource("picked-region") as GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: ringed });
-      if (features.features.length > 0 && framedSelection.current !== selection) {
-        framedSelection.current = selection;
+      // A new selection, or a new set of countries at the world, is framed afresh.
+      const framingKey = `${selection ?? "world"}|${countryIds?.join(",") ?? ""}`;
+      if (features.features.length > 0 && framedSelection.current !== framingKey) {
+        framedSelection.current = framingKey;
         fitSelection();
       }
     },
-    [features, mapReady, circleColour, selection, picked],
+    [features, mapReady, circleColour, selection, picked, countryIds],
     "RegionsMapPage:setData"
   );
 
@@ -422,7 +472,9 @@ export function RegionsMap({
 
   return (
     <main className="flex w-full flex-col" style={{ height: "calc(100vh - 56px)" }} data-regions-map-page="">
-      <div className="mx-auto w-full max-w-5xl px-2 pt-8 md:pt-12">
+      {/* The search's map lays its header out as the search's list does (full width, the same
+          padding), so the List/Map switch stands on the same spot in both views (owner 2026-11-26). */}
+      <div className={control ? "w-full px-2 pt-8 md:pt-12 lg:px-8" : "mx-auto w-full max-w-5xl px-2 pt-8 md:pt-12"}>
         {header(
           <nav aria-label="Region trail" className="flex flex-wrap items-center gap-1 text-sm" data-regions-map-trail="">
             {selectionTrail(selection).map((s, i, trail) => (

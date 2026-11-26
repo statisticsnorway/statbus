@@ -151,9 +151,16 @@ describe("facetParams and liveCountSelect (5nq78t)", () => {
     expect([
       facetParams(new URLSearchParams(`search=fts(simple).bygg:*&${frame}`), 161),
       facetParams(new URLSearchParams("select=*,quality_missing_region!inner()"), 161),
-      facetParams(new URLSearchParams("status_code=in.(A)"), 161),
+      facetParams(new URLSearchParams("unit_size_code=in.(small)"), 161),
       facetParams(new URLSearchParams("domestic=is.true"), null),
     ]).toEqual([null, null, null, null]);
+  });
+  it("turns status and legal form codes into the facet's ids, or leaves them live when a code is unknown", () => {
+    const codeIds = { status: new Map([["active", 1], ["passive", 2]]), legalForm: new Map([["AS", 52]]) };
+    expect([
+      facetParams(new URLSearchParams("status_code=in.(active,passive)&legal_form_code=in.(AS)"), 161, codeIds)?.toString(),
+      facetParams(new URLSearchParams("status_code=in.(gone)"), 161, codeIds),
+    ]).toEqual(["status_id=in.%281%2C2%29&legal_form_id=in.%2852%29", null]);
   });
   it("counts live by region, keeping a filter's embedding", () => {
     // An empty embed cannot stand beside an aggregate in PostgREST (400: column does not exist), so

@@ -180,10 +180,23 @@ points in bulk later. Points per region give the circle placement at once;
 exact unit positions fill in later, and the spider shows them at the detailed
 level.
 
-**One page, both ways.** The map is a page under Reports. The search page's
-Map button opens it with the same query string; its "View and download" row
-opens `/search` with that query string. A filter set on one side holds on the
-other.
+**A view of the search (owner 2026-11-26, replacing the Reports page of 11-24).**
+The map is the search's second view, at `/search/map`: the same filters on top,
+the same header, and a List/Map switch on the same spot in both, as on the
+Regions list and map. One selection: where the units are (Region, Country,
+Domestic, Physical Location) is the map's place, so going into Vestland sets the
+Region filter and List shows Vestland's units; the legend's ticks are the Unit
+Type filter. An unfiltered search opens at World, the same units as the list.
+Several countries show at World, framed together. The drilldown report links to
+both views, so only the search and its map keep in step. Ordering and paging do
+not matter to the map; they ride along so List returns as it was left.
+
+**Counting once.** The map counts once for every filter but the place ones and
+the unit types, by unit type, region and country; the place filters and the
+legend apply over that count in the browser, so drilling in and out asks the
+database nothing (observed: 0 new requests going World > Norway > Vestland).
+Status and legal form codes translate to the facet's ids (0.35 s against
+1.3-3.7 s live, equal counts; `tmp/z2qt08/status-legal-form-facet.log`).
 
 **Time.** The page's selected time frame, as the drilldown report reads it.
 No map over time (that would be an animation, a separate thing), so no history
@@ -231,15 +244,13 @@ no special case.
 
 ## 5. Each place in detail
 
-- **B Search** (`SearchPageClient.tsx`, beside `ExportCSVLink`): a "Map"
-  button to the Reports map page with the same query string (section 4a,
-  decided 2026-11-24); the map's "View and download" row returns to the list.
+- **B Search** (`/search/map`, `app/src/app/search/map/`): the search's map
+  view, switched to from the search's header (section 4a, decided 2026-11-26).
 - **A Links**: a "Map" section on the links page (`TopologySlot` neighbour),
   the unit highlighted, related units (`relevant_statistical_units`) around it,
   at most a few hundred points, so always points.
-- **C Reports**: the same Reports map page, opened with no filter, is the
-  general report map: counts for the whole register per region from
-  `statistical_unit_facet` (section 4a, decided 2026-11-24).
+- **C Reports**: no map page of its own; the drilldown report's "Show on map"
+  opens the search's map with its region, activity and unit type (2026-11-26).
 - **D Regions**: lat/lon columns in the regions table (they exist in the data
   but are not shown) and a "Map" button: every region at its centre, label and
   count of units; regions without a centre listed beside the map (on Norway:

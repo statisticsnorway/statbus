@@ -364,8 +364,9 @@ export function locationView(
 
 /**
  * The search filters statistical_unit_facet can answer, by their PostgREST parameter: the facet
- * has these columns, counted per unit in the frame. Any other filter (text, quality, data source,
- * size, legal form or status codes, identifiers, statistics) is answered live from statistical_unit.
+ * has these columns, counted per unit in the frame. Status and legal form are filtered by code in
+ * the search and by id in the facet; facetParams translates them. Any other filter (text, quality,
+ * data source, size, identifiers, statistics) is answered live from statistical_unit.
  */
 const FACET_PARAMS = new Set([
   "unit_type",
@@ -376,23 +377,54 @@ const FACET_PARAMS = new Set([
   "domestic",
   "existence_from",
   "existence_until",
+  "status_code",
+  "legal_form_code",
 ]);
+
+/** The ids of the codes a search's status and legal form filters name, to filter the facet by. */
+export interface FacetCodeIds {
+  status: Map<string, number>;
+  legalForm: Map<string, number>;
+}
+
+/** `in.(a,b)` to the ids of its codes, or null when a code has no id (the facet cannot say). */
+function codesToIds(value: string, ids: Map<string, number>): string | null {
+  const match = /^in\.\((.*)\)$/.exec(value);
+  if (!match) return null;
+  const out: number[] = [];
+  for (const code of match[1].split(",")) {
+    const id = ids.get(code);
+    if (id === undefined) return null;
+    out.push(id);
+  }
+  return `in.(${out.join(",")})`;
+}
 
 /**
  * A search's PostgREST filter rewritten for statistical_unit_facet, or null when the facet cannot
  * answer it (5nq78t). The facet holds the same units in the frame (its rows follow the existence
  * rule), so its sums equal the list's counts: the time frame's existence_from/until become the
  * facet's valid_from/until, and domestic becomes the installation's country, which is what
- * statistical_unit.domestic is (tmp/z2qt08/domestic-vs-country.log). Reading the facet takes a
+ * statistical_unit.domestic is (tmp/z2qt08/domestic-vs-country.log). Status and legal form codes
+ * become their ids (same counts: status active 1,134,475 and legal form AS 415,947 either way, at
+ * 0.35 s against 1.3-3.7 s live; tmp/z2qt08/status-legal-form-facet.log). Reading the facet takes a
  * tenth of a second where grouping statistical_unit takes seconds (map-counts-postgrest.log).
  */
-export function facetParams(api: URLSearchParams, homeCountryId: number | null): URLSearchParams | null {
+export function facetParams(
+  api: URLSearchParams,
+  homeCountryId: number | null,
+  codeIds: FacetCodeIds = { status: new Map(), legalForm: new Map() }
+): URLSearchParams | null {
   const out = new URLSearchParams();
   for (const [key, value] of api) {
     if (!FACET_PARAMS.has(key)) return null;
     if (key === "existence_from") out.append("valid_from", value);
     else if (key === "existence_until") out.append("valid_until", value);
-    else if (key === "domestic") {
+    else if (key === "status_code" || key === "legal_form_code") {
+      const ids = codesToIds(value, key === "status_code" ? codeIds.status : codeIds.legalForm);
+      if (ids === null) return null;
+      out.append(key === "status_code" ? "status_id" : "legal_form_id", ids);
+    } else if (key === "domestic") {
       if (homeCountryId === null) return null;
       if (value === "is.true") out.append("physical_country_id", `eq.${homeCountryId}`);
       // A null country is neither: SQL's <> leaves those out, as domestic = false does.

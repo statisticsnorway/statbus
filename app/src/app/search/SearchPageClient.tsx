@@ -6,7 +6,7 @@ import SearchResultTable from "@/app/search/components/search-result-table";
 import { SearchResultCount } from "@/app/search/components/search-result-count";
 import SearchResultPagination from "@/app/search/components/search-result-pagination";
 import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
-import { SearchMapLink } from "@/app/search/components/search-map-link";
+import { SearchViewHeader } from "@/app/search/components/search-view-header";
 import { Selection } from "@/app/search/components/selection";
 import type { Tables } from "@/lib/database.types";
 import { useBaseData } from "@/atoms/base-data";
@@ -102,10 +102,7 @@ export default function SearchPageClient({
     >
       <main className="overflow-x-hidden">
         <div className="mx-auto flex flex-col w-full max-w-fit py-8 md:py-12 px-2 lg:px-8">
-          <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
-            Search for statistical units
-          </h1>
-          <div className="flex flex-wrap items-center p-1 lg:p-0 *:mb-2 *:mx-1 w-full"></div>
+          <SearchViewHeader view="list" />
           <section className="space-y-3">
             <TableToolbar />
             <div className="rounded-md border min-w-[300px] overflow-auto">
@@ -115,7 +112,6 @@ export default function SearchPageClient({
               <SearchResultCount className="flex-1 hidden lg:inline-block" />
               <SearchResultPagination />
               <div className="hidden flex-1 space-x-3 justify-end flex-wrap lg:flex">
-                <SearchMapLink />
                 <ExportCSVLink />
               </div>
             </div>

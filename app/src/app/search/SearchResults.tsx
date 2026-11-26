@@ -21,6 +21,11 @@ interface SearchResultsProps {
   readonly allLegalForms: Tables<"legal_form_used">[];
   readonly allSectors: Tables<"sector_used">[];
   readonly initialUrlSearchParamsString: string;
+  /**
+   * Which view of the search the page shows (5nq78t): the list fetches its page of units; the map
+   * counts by region itself, so it shares the URL reading and syncing but fetches no list.
+   */
+  readonly view?: "list" | "map";
 }
 
 export function SearchResults({
@@ -34,6 +39,7 @@ export function SearchResults({
   allLegalForms,
   allSectors,
   initialUrlSearchParamsString,
+  view = "list",
 }: SearchResultsProps) {
   const setFilters = useSetAtom(filtersAtom);
   const setQuery = useSetAtom(queryAtom);
@@ -88,12 +94,13 @@ export function SearchResults({
   const derivedApiParamsFromJotai = useAtomValue(derivedApiSearchParamsAtom);
   const performSearch = useSetAtom(performSearchAtom);
   
-  // This effect remains to trigger the data fetch whenever the API params change.
+  // This effect remains to trigger the data fetch whenever the API params change. The map view
+  // counts by region instead and needs no page of units.
   useGuardedEffect(() => {
-    if (isInitialized && derivedApiParamsFromJotai.toString()) {
+    if (view === "list" && isInitialized && derivedApiParamsFromJotai.toString()) {
       performSearch();
     }
-  }, [isInitialized, derivedApiParamsFromJotai, performSearch], 'SearchResults:directFetch');
+  }, [view, isInitialized, derivedApiParamsFromJotai, performSearch], 'SearchResults:directFetch');
 
   return (
     <>
