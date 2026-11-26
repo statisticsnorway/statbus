@@ -1,7 +1,7 @@
 ---
 id: fc9xbd
 title: "Dashboard count requests exhaust the API pool on large registers"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["rabbit"]
@@ -10,12 +10,10 @@ group: ""
 rank: "zzzzzzzzzzzv"
 created: 2026-11-24
 updated: 2026-11-24
-doing_since: "2026-11-24T20:14"
-doing_with: "ca6dk5"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+done_at: "2026-11-26T08:45"
 ---
 
 ## Goal
@@ -48,3 +46,4 @@ check 2: A cold dashboard load starts 3 statistical_unit count queries (Enterpri
 2026-11-26 07:45 owner in Firefox on the Norway copy: each card shows a spinner then the exact number, fast in total; approved.
 ## History
 - 2026-11-24T20:14 todo -> doing/active (take with ca6dk5)
+- 2026-11-26T08:45 doing/active -> done (done); was doing_since: 2026-11-24T20:14; doing_with: ca6dk5
