@@ -6,15 +6,25 @@ import type { Enums } from "@/lib/database.types";
 
 export type UnitType = Enums<"statistical_unit_type">;
 
-/** The unit types a map legend lets you pick, in the app's order (enterprise above its units). */
-export const MAP_UNIT_TYPES = ["enterprise", "legal_unit", "establishment"] as const satisfies readonly UnitType[];
+/**
+ * The unit types a map legend lets you pick, in the order of the search's Unit Type filter, so
+ * the map's legend and that filter list the same types (owner 2026-11-26, 5nq78t: power groups
+ * were in the filter but not on the map).
+ */
+export const MAP_UNIT_TYPES = ["enterprise", "legal_unit", "establishment", "power_group"] as const satisfies readonly UnitType[];
 export type MapUnitType = (typeof MAP_UNIT_TYPES)[number];
 
 export const UNIT_TYPE_LABEL: Record<MapUnitType, string> = {
   enterprise: "Enterprise",
   legal_unit: "Legal unit",
   establishment: "Establishment",
+  power_group: "Power group",
 };
+
+/** A count of nothing for every map unit type, the start of each sum below. */
+export function zeroCounts(): Record<MapUnitType, number> {
+  return { enterprise: 0, legal_unit: 0, establishment: 0, power_group: 0 };
+}
 
 /**
  * Tailwind classes for each unit type's colour. Tailwind writes a theme colour's CSS variable
@@ -26,6 +36,7 @@ export const UNIT_TYPE_SWATCH: Record<MapUnitType | "mixed", string> = {
   enterprise: "bg-enterprise-500",
   legal_unit: "bg-legal_unit-500",
   establishment: "bg-establishment-500",
+  power_group: "bg-power_group-500",
   mixed: "bg-informal-500",
 };
 
@@ -88,8 +99,7 @@ export function maxRegionDepth(regions: { path: string }[]): number {
 
 /**
  * Sums facet rows to one count per region path prefix at `depth`, per unit type. Rows without
- * a region, and unit types the map does not draw (power groups), are left out; the map lists
- * units without a region separately (`unplacedCount`).
+ * a region are left out; the map lists units without a region separately (`unplacedCount`).
  */
 export function countsByRegion(rows: RegionCountRow[], depth: number): RegionCount[] {
   const byPath = new Map<string, RegionCount>();
@@ -98,7 +108,7 @@ export function countsByRegion(rows: RegionCountRow[], depth: number): RegionCou
     const path = pathPrefix(row.physical_region_path, depth);
     let entry = byPath.get(path);
     if (!entry) {
-      entry = { path, counts: { enterprise: 0, legal_unit: 0, establishment: 0 } };
+      entry = { path, counts: zeroCounts() };
       byPath.set(path, entry);
     }
     entry.counts[row.unit_type] += row.count ?? 0;
@@ -157,7 +167,7 @@ export function countryCounts(rows: RegionCountRow[]): Map<number, Record<MapUni
     if (r.physical_country_id == null || !isMapUnitType(r.unit_type)) continue;
     let c = byCountry.get(r.physical_country_id);
     if (!c) {
-      c = { enterprise: 0, legal_unit: 0, establishment: 0 };
+      c = zeroCounts();
       byCountry.set(r.physical_country_id, c);
     }
     c[r.unit_type] += r.count ?? 0;
@@ -187,9 +197,21 @@ export function childCounts(rows: RegionCountRow[], selection: string, homeCount
 
 /** Units per type in a domestic selection, the region and everything below it. */
 export function countsUnder(rows: RegionCountRow[], selection: string, homeCountryId: number | null): Record<MapUnitType, number> {
-  const counts: Record<MapUnitType, number> = { enterprise: 0, legal_unit: 0, establishment: 0 };
+  const counts = zeroCounts();
   for (const r of rows) {
     if (isMapUnitType(r.unit_type) && isUnder(r, selection, homeCountryId)) counts[r.unit_type] += r.count ?? 0;
+  }
+  return counts;
+}
+
+/**
+ * Units per type in the whole world: at home, abroad and without a location, so the legend at
+ * World adds up to the world split above it (owner 2026-11-26, 5nq78t).
+ */
+export function countsAll(rows: RegionCountRow[]): Record<MapUnitType, number> {
+  const counts = zeroCounts();
+  for (const r of rows) {
+    if (isMapUnitType(r.unit_type)) counts[r.unit_type] += r.count ?? 0;
   }
   return counts;
 }
@@ -237,6 +259,7 @@ export interface RegionFeatureProperties {
   enterprise: number;
   legal_unit: number;
   establishment: number;
+  power_group: number;
 }
 
 /**
@@ -266,7 +289,7 @@ export function regionFeatures(
     features.push({
       type: "Feature",
       geometry: { type: "Point", coordinates: [Number(region.center_longitude), Number(region.center_latitude)] },
-      properties: { path, name, total, enterprise: c.enterprise, legal_unit: c.legal_unit, establishment: c.establishment },
+      properties: { path, name, total, ...c },
     });
   }
   return { features: { type: "FeatureCollection", features }, withoutCentre };
@@ -535,6 +558,7 @@ const UNIT_PATH: Record<MapUnitType, string> = {
   enterprise: "enterprises",
   legal_unit: "legal-units",
   establishment: "establishments",
+  power_group: "power-groups",
 };
 
 /**

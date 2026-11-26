@@ -1,4 +1,4 @@
-import { childCounts, countryCounts, countsByRegion, countsUnder, selectedCountryCode, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, locationView, facetParams, liveCountSelect, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, spiderNodes, type RegionCountRow } from "./map-data";
+import { childCounts, countryCounts, countsAll, countsByRegion, countsUnder, selectedCountryCode, selectionDepth, selectionParent, selectionTrail, worldCounts, depthForZoom, featureBounds, framingFeatures, linksUnitPoints, maxRegionDepth, maxTotal, pathPrefix, pickerStart, locationView, facetParams, liveCountSelect, roundCoordinate, regionFeatures, unitTypeColourVariable, unplacedCount, spiderNodes, type RegionCountRow } from "./map-data";
 
 // z2qt08: the Regions map counts units per region path prefix from statistical_unit_facet and
 // draws each region with a centre; regions without one are listed beside the map.
@@ -27,11 +27,11 @@ describe("pathPrefix", () => {
 });
 
 describe("countsByRegion", () => {
-  it("sums each unit type per county, leaving out power groups and units without a region", () => {
+  it("sums each unit type per county, power groups too, leaving out units without a region", () => {
     expect(countsByRegion(rows, 1)).toEqual([
-      { path: "03", counts: { enterprise: 0, legal_unit: 20, establishment: 0 } },
-      { path: "25", counts: { enterprise: 0, legal_unit: 3, establishment: 0 } },
-      { path: "46", counts: { enterprise: 2, legal_unit: 15, establishment: 7 } },
+      { path: "03", counts: { enterprise: 0, legal_unit: 20, establishment: 0, power_group: 9 } },
+      { path: "25", counts: { enterprise: 0, legal_unit: 3, establishment: 0, power_group: 0 } },
+      { path: "46", counts: { enterprise: 2, legal_unit: 15, establishment: 7, power_group: 0 } },
     ]);
   });
 
@@ -244,8 +244,8 @@ describe("the map selection", () => {
   it("counts each unit type per country, leaving out units without a location", () => {
     const counts = countryCounts(worldRows);
     expect([counts.get(NO), counts.get(SE), counts.size]).toEqual([
-      { enterprise: 0, legal_unit: 39, establishment: 0 },
-      { enterprise: 0, legal_unit: 30, establishment: 4 },
+      { enterprise: 0, legal_unit: 39, establishment: 0, power_group: 0 },
+      { enterprise: 0, legal_unit: 30, establishment: 4, power_group: 0 },
       2,
     ]);
   });
@@ -269,6 +269,10 @@ describe("the map selection", () => {
       noLocation: 7,
     });
     expect(worldCounts(worldRows, NO, ["establishment"]).abroad).toEqual([{ countryId: SE, count: 4 }]);
+  });
+
+  it("counts each unit type in the whole world, home, abroad and without a location, for the legend at World", () => {
+    expect(countsAll(worldRows)).toEqual({ enterprise: 0, legal_unit: 76, establishment: 4, power_group: 0 });
   });
 });
 

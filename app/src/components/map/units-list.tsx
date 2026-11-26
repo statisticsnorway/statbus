@@ -6,7 +6,7 @@ import { Search, SquareArrowOutUpRight, X } from "lucide-react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import type { UnitPointProperties } from "./map-data";
 
-const TYPE_LABEL = { legal_unit: "legal unit", establishment: "establishment", enterprise: "enterprise" } as const;
+const TYPE_LABEL = { legal_unit: "legal unit", establishment: "establishment", enterprise: "enterprise", power_group: "power group" } as const;
 
 /**
  * The units beside a unit's Map page, as the Regions map lists the regions beside its map (owner

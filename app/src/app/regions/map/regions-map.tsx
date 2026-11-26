@@ -23,7 +23,9 @@ import {
   UNIT_TYPE_SWATCH,
   childCounts,
   countryCounts,
+  countsAll,
   countsUnder,
+  zeroCounts,
   featureBounds,
   framingFeatures,
   maxTotal,
@@ -322,9 +324,10 @@ export function RegionsMap({
 
   const selectedCounts = useMemo(() => {
     if (!rows || selection === null) return null;
-    if (selectedCountry) return perCountry.get(selectedCountry.id) ?? { enterprise: 0, legal_unit: 0, establishment: 0 };
+    if (selectedCountry) return perCountry.get(selectedCountry.id) ?? zeroCounts();
     return countsUnder(rows, selection, homeId);
   }, [rows, selection, selectedCountry, perCountry, homeId]);
+  const worldTypeCounts = useMemo(() => (rows ? countsAll(rows) : null), [rows]);
 
   // The circles take the colour of the one picked unit type, grey when types are mixed.
   const circleColour = unitTypes.length === 1 ? `--color-${unitTypes[0]}-500` : "--color-informal-500";
@@ -465,7 +468,7 @@ export function RegionsMap({
           path: p.path,
           name: p.name,
           code: country ? null : p.path,
-          counts: { enterprise: p.enterprise, legal_unit: p.legal_unit, establishment: p.establishment },
+          counts: { enterprise: p.enterprise, legal_unit: p.legal_unit, establishment: p.establishment, power_group: p.power_group },
           canEnter: country || parentPaths.has(p.path),
         };
       });
@@ -571,7 +574,7 @@ export function RegionsMap({
             )}
             {selection === null && (
               <div className="mt-3 border-t pt-3">
-                <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} />
+                <UnitTypeLegend selected={unitTypes} onChange={setUnitTypes} totals={worldTypeCounts ?? undefined} />
               </div>
             )}
             <p className="mt-2 text-xs text-gray-500" data-regions-map-level="">
