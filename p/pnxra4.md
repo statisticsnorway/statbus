@@ -1,7 +1,7 @@
 ---
 id: pnxra4
 title: "Admin edits only custom definitional entries; built-in ones are read-only"
-state: todo
+state: "dropped"
 type: feature
 priority: ""
 assignee: []
@@ -10,6 +10,8 @@ group: ""
 rank: "zzzzzzzzzzzy"
 created: 2026-11-26
 updated: 2026-11-26
+dropped_reason: "duplicate of mna899"
+dropped_at: "2026-11-26T10:34"
 ---
 
 ## Goal
@@ -33,3 +35,7 @@ Tables with a custom flag: data_source, unit_size, status, legal_form, sector, a
 ## Notes
 
 Duplicate of mna899 (Shipped classification rows can be enabled or disabled, not changed), which holds the owner's design from 2026-11-22: a read-only factory twin per shipped table with a foreign key over every column except enabled. Found via Hibiscus.
+
+
+## History
+- 2026-11-26T10:34 todo -> dropped (drop)
