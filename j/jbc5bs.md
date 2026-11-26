@@ -38,6 +38,7 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 - [ ] statistical_unit and the timeline views carry latitude, longitude and altitude (no physical_ prefix) and no postal coordinate columns; the fast SQL suite passes with regenerated doc/db and app types
 - [ ] The import's physical location step takes latitude, longitude, altitude; the postal location step takes no coordinates; an import of a unit with a point stores it, a SQL test asserts it
 - [ ] The app (search export, unit history, maps) and docs (data-model, import-system, API reference) use the new names: rg finds none of the old coordinate names outside migrations
+- [ ] An independent reviewer (neither the implementer nor hibiscus) checked every hunk of git diff origin/master -- test/expected against the rename and its migration, and found no change beyond the rename (no changed value, row count, order, or appearing or vanishing error); its findings and their fixes are recorded in this task
 
 ## Questions
 - 2026-11-23T11:47 question 1 by hibiscus to jhf:
