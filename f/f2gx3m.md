@@ -53,6 +53,7 @@ file:paste-1540.png (169473 bytes, sha256:f4f591fe) pasted from the clipboard in
 check 2: Owner 2026-11-26 21:21: go ahead now; import validation and the counting fix to the helper in statbus_a, the Links tree and the visuals to rabbit.
 Owner 2026-11-26 21:24: counting needs both: valid_from (validity) and, where a birth_date exists, the birth_date. No birth_date: validity decides.
 Owner 2026-11-26 21:46, design for counting (one source of the rule): (1) birth_date and death_date are timepoints, so timeline rows split there; (2) used_for_counting in each timeline means 'counts in this period' = status flag AND within unit_existence_from(valid_from, birth_date) .. unit_existence_until(valid_until, death_date), written once as one function; (3) the legal unit's and enterprise's Σ and the report facets read only used_for_counting; the facets drop their own existence expression. Sent to lobster (branch counting/birth-date-and-lu-es-rollup).
+Owner 2026-11-26 23:58: the later-year birth_date rule stays an error. Demo rows are fixed (13 establishments get valid_from 2024-01-01 and keep birth 2024-11-01), plus one dedicated test that a later-year birth_date row is refused. Sent to lobster.
 ## History
 - 2026-11-26T21:15 request 1 by jhf
 - 2026-11-26T21:15 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
