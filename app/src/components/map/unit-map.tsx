@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { BASEMAP_STYLE_URL } from "./basemap";
+import { BASEMAP_BORDER_LAYERS, BASEMAP_STYLE_URL } from "./basemap";
 
 /**
  * A MapLibre map on the StatBus base map, for any of the map pages (z2qt08). MapLibre is
@@ -32,40 +32,72 @@ export function UnitMap({
       let map: MapLibreMap | null = null;
       let cancelled = false;
       import("maplibre-gl")
-        .then(({ Map, NavigationControl, AttributionControl, setWorkerUrl }) => {
-          if (cancelled || !containerRef.current) return;
-          // MapLibre finds its worker next to its own module (import.meta.url), which after
-          // bundling is a Next chunk, not maplibre-gl/dist; the bundler emits the worker as an
-          // asset at this URL instead.
-          setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).href);
-          const bounds = boundsRef.current;
-          map = new Map({
-            container: containerRef.current,
-            style: BASEMAP_STYLE_URL,
-            ...(bounds ? { bounds, fitBoundsOptions: { padding: 40 } } : { center: [10, 62], zoom: 4 }),
-            attributionControl: false,
-          });
-          map.addControl(new NavigationControl({ showCompass: false }), "top-left");
-          map.addControl(new AttributionControl({ compact: true }), "bottom-right");
-          // The compact attribution opens itself on maps wider than 640 px, at load and on every
-          // resize; it starts as the ⓘ on every map, opened by a click (owner 2026-11-24: it
-          // covered the smaller unit map). A click on the ⓘ still toggles it.
-          const collapseAttribution = () => {
-            const attribution = containerRef.current?.querySelector(".maplibregl-ctrl-attrib");
-            attribution?.classList.remove("maplibregl-compact-show");
-            attribution?.removeAttribute("open");
-          };
-          map.once("load", collapseAttribution);
-          map.on("resize", collapseAttribution);
-          map.on("error", (e) => setError(e.error?.message ?? "The map could not load."));
-          map.once("load", () => {
-            if (cancelled || !map) return;
-            // Development only: driven browser checks reach the map to project and move it.
-            if (process.env.NODE_ENV === "development") (window as unknown as { __statbusMap?: MapLibreMap }).__statbusMap = map;
-            onReadyRef.current(map);
-          });
-        })
-        .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+        .then(
+          ({ Map, NavigationControl, AttributionControl, setWorkerUrl }) => {
+            if (cancelled || !containerRef.current) return;
+            // MapLibre finds its worker next to its own module (import.meta.url), which after
+            // bundling is a Next chunk, not maplibre-gl/dist; the bundler emits the worker as an
+            // asset at this URL instead.
+            setWorkerUrl(
+              new URL(
+                "maplibre-gl/dist/maplibre-gl-worker.mjs",
+                import.meta.url
+              ).href
+            );
+            const bounds = boundsRef.current;
+            map = new Map({
+              container: containerRef.current,
+              style: BASEMAP_STYLE_URL,
+              ...(bounds
+                ? { bounds, fitBoundsOptions: { padding: 40 } }
+                : { center: [10, 62], zoom: 4 }),
+              attributionControl: false,
+              // The world once (team feedback 2026-11-26, z2qt08): no copies of it side by side,
+              // and no zooming out past the whole of it.
+              renderWorldCopies: false,
+              minZoom: 1,
+            });
+            map.addControl(
+              new NavigationControl({ showCompass: false }),
+              "top-left"
+            );
+            map.addControl(
+              new AttributionControl({ compact: true }),
+              "bottom-right"
+            );
+            // The compact attribution opens itself on maps wider than 640 px, at load and on every
+            // resize; it starts as the ⓘ on every map, opened by a click (owner 2026-11-24: it
+            // covered the smaller unit map). A click on the ⓘ still toggles it.
+            const collapseAttribution = () => {
+              const attribution = containerRef.current?.querySelector(
+                ".maplibregl-ctrl-attrib"
+              );
+              attribution?.classList.remove("maplibregl-compact-show");
+              attribution?.removeAttribute("open");
+            };
+            map.once("load", collapseAttribution);
+            map.on("resize", collapseAttribution);
+            map.on("error", (e) =>
+              setError(e.error?.message ?? "The map could not load.")
+            );
+            map.once("load", () => {
+              if (cancelled || !map) return;
+              // No borders on any StatBus map (BASEMAP_BORDER_LAYERS says why).
+              for (const id of BASEMAP_BORDER_LAYERS)
+                if (map.getLayer(id))
+                  map.setLayoutProperty(id, "visibility", "none");
+              // Development only: driven browser checks reach the map to project and move it.
+              if (process.env.NODE_ENV === "development")
+                (
+                  window as unknown as { __statbusMap?: MapLibreMap }
+                ).__statbusMap = map;
+              onReadyRef.current(map);
+            });
+          }
+        )
+        .catch((e: unknown) =>
+          setError(e instanceof Error ? e.message : String(e))
+        );
       return () => {
         cancelled = true;
         map?.remove();
@@ -79,7 +111,10 @@ export function UnitMap({
     <div className={className} data-unit-map="">
       <div ref={containerRef} className="h-full w-full" />
       {error && (
-        <p className="absolute left-1/2 top-4 -translate-x-1/2 rounded bg-red-50 px-3 py-2 text-sm text-red-700 shadow" role="alert">
+        <p
+          className="absolute left-1/2 top-4 -translate-x-1/2 rounded bg-red-50 px-3 py-2 text-sm text-red-700 shadow"
+          role="alert"
+        >
           {error}
         </p>
       )}
@@ -89,5 +124,7 @@ export function UnitMap({
 
 /** A CSS variable's colour on this page (the unit-type colours of globals.css), for MapLibre paint. */
 export function cssColour(variable: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(variable).trim();
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue(variable)
+    .trim();
 }
