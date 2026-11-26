@@ -27,7 +27,7 @@ Owner request 1 (2026-11-26 21:15). Image paste-1540.png (jo.statbus.org/establi
 ## Depends on
 
 ## Acceptance
-- [ ] Verify Counting issue in jo.statbus.org
+- [ ] ~~Verify Counting issue in jo.statbus.org~~ (not relevant: replaced by checks 2-5 from the owner's request 1, rabbit, 2026-11-26)
 - [ ] [Owner] plays the ticket back and approves the plan before work starts; answer recorded in Notes
 - [ ] A SQL test reproduces jo's case for both Employees and Turnover: it fails on master and passes after the fix
 - [ ] An import row whose birth_date is in a later year than its valid_from is refused with an error naming both dates; a birth_date later in the same year is accepted
