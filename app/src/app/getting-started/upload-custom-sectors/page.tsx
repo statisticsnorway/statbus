@@ -5,6 +5,7 @@ import { useAtom } from 'jotai'; // Added useAtom
 import { numberOfCustomSectorsAtomAsync } from '@/atoms/getting-started'; // Added specific atom
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
+import { ExampleDownloads } from "@/app/getting-started/example-downloads";
 import {
   Accordion,
   AccordionContent,
@@ -102,13 +103,7 @@ export default function UploadCustomSectorsPage() {
               in turn supports the comparison of economic data across countries
               using international standards.
             </p>
-            <a
-              href="/demo/sectors_demo.csv"
-              download="sectors_demo.csv"
-              className="underline"
-            >
-              Download example CSV file
-            </a>
+            <ExampleDownloads csvHref="/demo/sectors_demo.csv" label="Example file" />
           </AccordionContent>
         </AccordionItem>
       </Accordion>

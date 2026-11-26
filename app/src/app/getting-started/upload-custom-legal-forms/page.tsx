@@ -5,6 +5,7 @@ import { useAtom } from 'jotai'; // Added useAtom
 import { numberOfCustomLegalFormsAtomAsync } from '@/atoms/getting-started'; // Added specific atom
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
+import { ExampleDownloads } from "@/app/getting-started/example-downloads";
 import {
   Accordion,
   AccordionContent,
@@ -103,13 +104,7 @@ export default function UploadCustomLegalFormsPage() { // Renamed component func
               processes, statistical analysis, and international comparisons of
               business environments.
             </p>
-            <a
-              href="/demo/legal_forms_demo.csv"
-              download="legal_forms_demo.csv"
-              className="underline"
-            >
-              Download example CSV file
-            </a>
+            <ExampleDownloads csvHref="/demo/legal_forms_demo.csv" label="Example file" />
           </AccordionContent>
         </AccordionItem>
       </Accordion>

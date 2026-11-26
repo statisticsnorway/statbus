@@ -6,6 +6,7 @@ import { numberOfCustomActivityCodesAtomAsync, settingsAtomAsync } from '@/atoms
 import { RequiresActivityStandard } from "./requires-activity-standard";
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
+import { ExampleDownloads } from "@/app/getting-started/example-downloads";
 import {
   Accordion,
   AccordionContent,
@@ -100,13 +101,7 @@ export default function UploadCustomActivityCategoryCodesPage() {
               correctly. Have a look at this example CSV file to get an idea of
               how the file should be structured:
             </p>
-            <a
-              href="/demo/activity_custom_isic_demo.csv"
-              download="activity_custom_isic_demo.csv"
-              className="underline"
-            >
-              Download example CSV file
-            </a>
+            <ExampleDownloads csvHref="/demo/activity_custom_isic_demo.csv" label="Example file" />
           </AccordionContent>
         </AccordionItem>
       </Accordion>
