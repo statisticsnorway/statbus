@@ -67,6 +67,7 @@ rc.04 failed its gate (STATBUS-382, unrelated). 14ecf9e42 is in v2026.10.6-rc.05
 2026-11-17 23:27 WAITING FOR ALBANIA'S VERSION. Status: check 3 is met for every box SSB can see (./cloud.sh status 2026-11-17 11:48: dev, demo, et, jo, ma, ug, no on v2026.11.4; mw, ua, gh on v2026.11.3; both contain 14ecf9e42). Albania runs a private installation SSB cannot reach; the owner asked them for their version and will ping again on 2026-11-18. Next: if Albania runs v2026.11.0 or later, tick check 3, then delete origin/db-seed, the local db-seed branch and the /Users/jhf/ssb/statbus-db-seed worktree, and confirm a fetch on a box (check 4). If older, keep the branch until they upgrade. Once telemetry (6d20t9) ships, this kind of check reads from the receiver instead.
 
 
+Jørgen H. Fjeld set asked_since 2026-11-27T00:05 here at 2026-11-27T00:05:28+01:00 (commit a48d3174c28a "hug task wake: yq5tr6 (the date came)"); the board had 2026-11-27T00:00; kept 2026-11-27T00:00
 ## History
 - 2026-11-18T00:27 doing -> todo/ready (give back)
 - 2026-11-18T00:28 todo/ready -> doing/active (take)
@@ -84,3 +85,4 @@ rc.04 failed its gate (STATBUS-382, unrelated). 14ecf9e42 is in v2026.10.6-rc.05
 - 2026-11-20T13:22 doing/active -> doing/waiting (ask jhf after 2026-11-27)
 - 2026-11-20T13:22 resolved request 1 by hibiscus
 - 2026-11-27T00:00 doing/waiting -> doing/asked (woke: the date 2026-11-27 has come, asked jhf); was waiting_ask_check: 3; waiting_ask_for: jhf; waiting_ask_what: Has Albania confirmed its StatBus version? If it is v2026.11.0 or later, tick check 3 (then I delete origin/db-seed, the local branch and the statbus-db-seed worktree, check 4); if not yet, answer with when to ask again.; waiting_asked_by: hibiscus; waiting_on: the date 2026-11-27, then ask jhf; waiting_since: 2026-11-20T13:22; waiting_until: 2026-11-27
+- 2026-11-27T00:05 doing/waiting -> doing/asked (woke: the date 2026-11-27 has come, asked jhf); was waiting_ask_check: 3; waiting_ask_for: jhf; waiting_ask_what: Has Albania confirmed its StatBus version? If it is v2026.11.0 or later, tick check 3 (then I delete origin/db-seed, the local branch and the statbus-db-seed worktree, check 4); if not yet, answer with when to ask again.; waiting_asked_by: hibiscus; waiting_on: the date 2026-11-27, then ask jhf; waiting_since: 2026-11-20T13:22; waiting_until: 2026-11-27
