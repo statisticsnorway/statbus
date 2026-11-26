@@ -26,9 +26,9 @@ BEGIN
   END IF;
 
   SELECT NULL::public.ltree AS path
-       , NULL::numeric(9, 6) AS center_latitude
-       , NULL::numeric(9, 6) AS center_longitude
-       , NULL::numeric(6, 1) AS center_altitude
+       , NULL::numeric(9, 6) AS latitude
+       , NULL::numeric(9, 6) AS longitude
+       , NULL::numeric(6, 1) AS altitude
        INTO new_typed;
 
     SELECT ltree_value    , updated_fields_with_error
@@ -36,16 +36,16 @@ BEGIN
     FROM   admin.type_ltree_field(new_jsonb, 'path', fields_with_error);
 
     SELECT numeric_value            , updated_fields_with_error
-    INTO   new_typed.center_latitude, fields_with_error
-    FROM   admin.type_numeric_field(new_jsonb, 'center_latitude', 9, 6, fields_with_error);
+    INTO   new_typed.latitude, fields_with_error
+    FROM   admin.type_numeric_field(new_jsonb, 'latitude', 9, 6, fields_with_error);
 
     SELECT numeric_value             , updated_fields_with_error
-    INTO   new_typed.center_longitude, fields_with_error
-    FROM   admin.type_numeric_field(new_jsonb, 'center_longitude', 9, 6, fields_with_error);
+    INTO   new_typed.longitude, fields_with_error
+    FROM   admin.type_numeric_field(new_jsonb, 'longitude', 9, 6, fields_with_error);
 
     SELECT numeric_value            , updated_fields_with_error
-    INTO   new_typed.center_altitude, fields_with_error
-    FROM   admin.type_numeric_field(new_jsonb, 'center_altitude', 6, 1, fields_with_error);
+    INTO   new_typed.altitude, fields_with_error
+    FROM   admin.type_numeric_field(new_jsonb, 'altitude', 6, 1, fields_with_error);
 
     -- Validate path format and find parent (scoped to same version)
     IF public.nlevel(new_typed.path) > 1 THEN
@@ -71,7 +71,7 @@ BEGIN
         fields_with_error := fields_with_error || jsonb_build_object('name',
             format('A new region needs a name (path %s is not in the region list yet)', new_typed.path));
     END IF;
-    v_moves_centre := new_typed.center_latitude IS NOT NULL OR new_typed.center_longitude IS NOT NULL;
+    v_moves_centre := new_typed.latitude IS NOT NULL OR new_typed.longitude IS NOT NULL;
 
     -- If we found any validation errors, raise them
     IF fields_with_error <> '{}'::jsonb THEN
@@ -84,17 +84,17 @@ BEGIN
     END IF;
 
     BEGIN
-        INSERT INTO public.region (path, parent_id, name, center_latitude, center_longitude, center_altitude, version_id)
+        INSERT INTO public.region (path, parent_id, name, latitude, longitude, altitude, version_id)
         VALUES (
             new_typed.path,
             maybe_parent_id,
             COALESCE(v_name, v_existing.name),
-            CASE WHEN v_moves_centre THEN new_typed.center_latitude ELSE v_existing.center_latitude END,
-            CASE WHEN v_moves_centre THEN new_typed.center_longitude ELSE v_existing.center_longitude END,
+            CASE WHEN v_moves_centre THEN new_typed.latitude ELSE v_existing.latitude END,
+            CASE WHEN v_moves_centre THEN new_typed.longitude ELSE v_existing.longitude END,
             CASE
-                WHEN new_typed.center_altitude IS NOT NULL THEN new_typed.center_altitude
+                WHEN new_typed.altitude IS NOT NULL THEN new_typed.altitude
                 WHEN v_moves_centre THEN NULL
-                ELSE v_existing.center_altitude
+                ELSE v_existing.altitude
             END,
             v_version_id
         )
@@ -102,12 +102,12 @@ BEGIN
         DO UPDATE SET
             parent_id = maybe_parent_id,
             name = EXCLUDED.name,
-            center_latitude = EXCLUDED.center_latitude,
-            center_longitude = EXCLUDED.center_longitude,
-            center_altitude = EXCLUDED.center_altitude
+            latitude = EXCLUDED.latitude,
+            longitude = EXCLUDED.longitude,
+            altitude = EXCLUDED.altitude
         -- A row as stored writes nothing, so no change is logged for it.
-        WHERE (region.parent_id, region.name, region.center_latitude, region.center_longitude, region.center_altitude)
-              IS DISTINCT FROM (maybe_parent_id, EXCLUDED.name, EXCLUDED.center_latitude, EXCLUDED.center_longitude, EXCLUDED.center_altitude)
+        WHERE (region.parent_id, region.name, region.latitude, region.longitude, region.altitude)
+              IS DISTINCT FROM (maybe_parent_id, EXCLUDED.name, EXCLUDED.latitude, EXCLUDED.longitude, EXCLUDED.altitude)
         RETURNING * INTO row;
       EXCEPTION WHEN OTHERS THEN
           RAISE EXCEPTION 'Failed to insert/update region: %', jsonb_pretty(

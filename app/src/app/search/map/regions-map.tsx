@@ -340,7 +340,7 @@ export function RegionsMap({
     async () => {
       const { data, error } = await client!
         .from("region")
-        .select("id,path,name,center_latitude,center_longitude,center_altitude")
+        .select("id,path,name,latitude,longitude,altitude")
         .order("path");
       if (error) throw error;
       return (data ?? []) as MapRegion[];

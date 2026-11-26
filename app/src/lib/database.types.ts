@@ -3246,39 +3246,39 @@ export type Database = {
       },
       region: {
         Row: {
-          center_altitude: number | null
-          center_latitude: number | null
-          center_longitude: number | null
+          altitude: number | null
           code: string | null
           id: number
           label: string
+          latitude: number | null
           level: number | null
+          longitude: number | null
           name: string
           parent_id: number | null
           path: string
           version_id: number
         },
         Insert: {
-          center_altitude?: number | null
-          center_latitude?: number | null
-          center_longitude?: number | null
+          altitude?: number | null
           code?: string | null
           id?: number
           label: string
+          latitude?: number | null
           level?: number | null
+          longitude?: number | null
           name: string
           parent_id?: number | null
           path: string
           version_id: number
         },
         Update: {
-          center_altitude?: number | null
-          center_latitude?: number | null
-          center_longitude?: number | null
+          altitude?: number | null
           code?: string | null
           id?: number
           label?: string
+          latitude?: number | null
           level?: number | null
+          longitude?: number | null
           name?: string
           parent_id?: number | null
           path?: string
@@ -4164,6 +4164,7 @@ export type Database = {
       statistical_unit: {
         Row: {
           activity_category_paths: string[] | null
+          altitude: number | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -4187,20 +4188,19 @@ export type Database = {
           last_edit_at: string | null
           last_edit_by_user_id: number | null
           last_edit_comment: string | null
+          latitude: number | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
+          longitude: number | null
           mobile_number: string | null
           name: string | null
           phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_latitude: number | null
-          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -4209,11 +4209,8 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_latitude: number | null
-          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -4251,6 +4248,7 @@ export type Database = {
         },
         Insert: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -4274,20 +4272,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -4296,11 +4293,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -4338,6 +4332,7 @@ export type Database = {
         },
         Update: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -4361,20 +4356,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -4383,11 +4377,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -4533,6 +4524,7 @@ export type Database = {
       statistical_unit_staging: {
         Row: {
           activity_category_paths: string[] | null
+          altitude: number | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -4556,20 +4548,19 @@ export type Database = {
           last_edit_at: string | null
           last_edit_by_user_id: number | null
           last_edit_comment: string | null
+          latitude: number | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
+          longitude: number | null
           mobile_number: string | null
           name: string | null
           phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_latitude: number | null
-          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -4578,11 +4569,8 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_latitude: number | null
-          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -4619,6 +4607,7 @@ export type Database = {
         },
         Insert: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -4642,20 +4631,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -4664,11 +4652,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -4705,6 +4690,7 @@ export type Database = {
         },
         Update: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -4728,20 +4714,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -4750,11 +4735,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -5085,6 +5067,7 @@ export type Database = {
       timeline_enterprise: {
         Row: {
           activity_category_paths: string[] | null
+          altitude: number | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -5104,20 +5087,19 @@ export type Database = {
           last_edit_at: string | null
           last_edit_by_user_id: number | null
           last_edit_comment: string | null
+          latitude: number | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
+          longitude: number | null
           mobile_number: string | null
           name: string | null
           phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_latitude: number | null
-          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -5126,11 +5108,8 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_latitude: number | null
-          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -5167,6 +5146,7 @@ export type Database = {
         },
         Insert: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -5186,20 +5166,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -5208,11 +5187,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -5249,6 +5225,7 @@ export type Database = {
         },
         Update: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -5268,20 +5245,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -5290,11 +5266,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -5334,6 +5307,7 @@ export type Database = {
       timeline_establishment: {
         Row: {
           activity_category_paths: string[] | null
+          altitude: number | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -5354,21 +5328,20 @@ export type Database = {
           last_edit_at: string | null
           last_edit_by_user_id: number | null
           last_edit_comment: string | null
+          latitude: number | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
           legal_unit_id: number | null
+          longitude: number | null
           mobile_number: string | null
           name: string | null
           phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_latitude: number | null
-          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -5377,11 +5350,8 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_latitude: number | null
-          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -5419,6 +5389,7 @@ export type Database = {
         },
         Insert: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -5439,21 +5410,20 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
           legal_unit_id?: number | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -5462,11 +5432,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -5504,6 +5471,7 @@ export type Database = {
         },
         Update: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -5524,21 +5492,20 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
           legal_unit_id?: number | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -5547,11 +5514,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -5592,6 +5556,7 @@ export type Database = {
       timeline_legal_unit: {
         Row: {
           activity_category_paths: string[] | null
+          altitude: number | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -5611,21 +5576,20 @@ export type Database = {
           last_edit_at: string | null
           last_edit_by_user_id: number | null
           last_edit_comment: string | null
+          latitude: number | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
           legal_unit_id: number | null
+          longitude: number | null
           mobile_number: string | null
           name: string | null
           phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_latitude: number | null
-          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -5634,11 +5598,8 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_latitude: number | null
-          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -5675,6 +5636,7 @@ export type Database = {
         },
         Insert: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -5694,21 +5656,20 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
           legal_unit_id?: number | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -5717,11 +5678,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -5758,6 +5716,7 @@ export type Database = {
         },
         Update: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -5777,21 +5736,20 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
           legal_unit_id?: number | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -5800,11 +5758,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -5844,6 +5799,7 @@ export type Database = {
       timeline_power_group: {
         Row: {
           activity_category_paths: string[] | null
+          altitude: number | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -5862,20 +5818,19 @@ export type Database = {
           last_edit_at: string | null
           last_edit_by_user_id: number | null
           last_edit_comment: string | null
+          latitude: number | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
+          longitude: number | null
           mobile_number: string | null
           name: string | null
           phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_latitude: number | null
-          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -5884,11 +5839,8 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_latitude: number | null
-          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -5925,6 +5877,7 @@ export type Database = {
         },
         Insert: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -5943,20 +5896,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -5965,11 +5917,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -6006,6 +5955,7 @@ export type Database = {
         },
         Update: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -6024,20 +5974,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -6046,11 +5995,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -9419,23 +9365,23 @@ export type Database = {
       },
       region_upload: {
         Row: {
-          center_altitude: string | null
-          center_latitude: string | null
-          center_longitude: string | null
+          altitude: string | null
+          latitude: string | null
+          longitude: string | null
           name: string | null
           path: string | null
         },
         Insert: {
-          center_altitude?: string | null
-          center_latitude?: string | null
-          center_longitude?: string | null
+          altitude?: string | null
+          latitude?: string | null
+          longitude?: string | null
           name?: string | null
           path?: string | null
         },
         Update: {
-          center_altitude?: string | null
-          center_latitude?: string | null
-          center_longitude?: string | null
+          altitude?: string | null
+          latitude?: string | null
+          longitude?: string | null
           name?: string | null
           path?: string | null
         },
@@ -10179,6 +10125,7 @@ export type Database = {
       statistical_unit_def: {
         Row: {
           activity_category_paths: string[] | null
+          altitude: number | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -10201,20 +10148,19 @@ export type Database = {
           last_edit_at: string | null
           last_edit_by_user_id: number | null
           last_edit_comment: string | null
+          latitude: number | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
+          longitude: number | null
           mobile_number: string | null
           name: string | null
           phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_latitude: number | null
-          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -10223,11 +10169,8 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_latitude: number | null
-          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -10264,6 +10207,7 @@ export type Database = {
         },
         Insert: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -10286,20 +10230,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -10308,11 +10251,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -10349,6 +10289,7 @@ export type Database = {
         },
         Update: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -10371,20 +10312,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -10393,11 +10333,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -10813,6 +10750,7 @@ export type Database = {
       timeline_enterprise_def: {
         Row: {
           activity_category_paths: string[] | null
+          altitude: number | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -10832,20 +10770,19 @@ export type Database = {
           last_edit_at: string | null
           last_edit_by_user_id: number | null
           last_edit_comment: string | null
+          latitude: number | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
+          longitude: number | null
           mobile_number: string | null
           name: string | null
           phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_latitude: number | null
-          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -10854,11 +10791,8 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_latitude: number | null
-          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -10895,6 +10829,7 @@ export type Database = {
         },
         Insert: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -10914,20 +10849,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -10936,11 +10870,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -10977,6 +10908,7 @@ export type Database = {
         },
         Update: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -10996,20 +10928,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -11018,11 +10949,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -11062,6 +10990,7 @@ export type Database = {
       timeline_establishment_def: {
         Row: {
           activity_category_paths: string[] | null
+          altitude: number | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -11082,21 +11011,20 @@ export type Database = {
           last_edit_at: string | null
           last_edit_by_user_id: number | null
           last_edit_comment: string | null
+          latitude: number | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
           legal_unit_id: number | null
+          longitude: number | null
           mobile_number: string | null
           name: string | null
           phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_latitude: number | null
-          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -11105,11 +11033,8 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_latitude: number | null
-          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -11147,6 +11072,7 @@ export type Database = {
         },
         Insert: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -11167,21 +11093,20 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
           legal_unit_id?: number | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -11190,11 +11115,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -11232,6 +11154,7 @@ export type Database = {
         },
         Update: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -11252,21 +11175,20 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
           legal_unit_id?: number | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -11275,11 +11197,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -11320,6 +11239,7 @@ export type Database = {
       timeline_legal_unit_def: {
         Row: {
           activity_category_paths: string[] | null
+          altitude: number | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -11339,21 +11259,20 @@ export type Database = {
           last_edit_at: string | null
           last_edit_by_user_id: number | null
           last_edit_comment: string | null
+          latitude: number | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
           legal_unit_id: number | null
+          longitude: number | null
           mobile_number: string | null
           name: string | null
           phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_latitude: number | null
-          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -11362,11 +11281,8 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_latitude: number | null
-          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -11403,6 +11319,7 @@ export type Database = {
         },
         Insert: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -11422,21 +11339,20 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
           legal_unit_id?: number | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -11445,11 +11361,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -11486,6 +11399,7 @@ export type Database = {
         },
         Update: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -11505,21 +11419,20 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
           legal_unit_id?: number | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -11528,11 +11441,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -11572,6 +11482,7 @@ export type Database = {
       timeline_power_group_def: {
         Row: {
           activity_category_paths: string[] | null
+          altitude: number | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -11590,20 +11501,19 @@ export type Database = {
           last_edit_at: string | null
           last_edit_by_user_id: number | null
           last_edit_comment: string | null
+          latitude: number | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
+          longitude: number | null
           mobile_number: string | null
           name: string | null
           phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
-          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_latitude: number | null
-          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -11612,11 +11522,8 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
-          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_latitude: number | null
-          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -11653,6 +11560,7 @@ export type Database = {
         },
         Insert: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -11671,20 +11579,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -11693,11 +11600,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null
@@ -11734,6 +11638,7 @@ export type Database = {
         },
         Update: {
           activity_category_paths?: string[] | null
+          altitude?: number | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -11752,20 +11657,19 @@ export type Database = {
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
           last_edit_comment?: string | null
+          latitude?: number | null
           legal_form_code?: string | null
           legal_form_id?: number | null
           legal_form_name?: string | null
+          longitude?: number | null
           mobile_number?: string | null
           name?: string | null
           phone_number?: string | null
           physical_address_part1?: string | null
           physical_address_part2?: string | null
           physical_address_part3?: string | null
-          physical_altitude?: number | null
           physical_country_id?: number | null
           physical_country_iso_2?: string | null
-          physical_latitude?: number | null
-          physical_longitude?: number | null
           physical_postcode?: string | null
           physical_postplace?: string | null
           physical_region_code?: string | null
@@ -11774,11 +11678,8 @@ export type Database = {
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
-          postal_altitude?: number | null
           postal_country_id?: number | null
           postal_country_iso_2?: string | null
-          postal_latitude?: number | null
-          postal_longitude?: number | null
           postal_postcode?: string | null
           postal_postplace?: string | null
           postal_region_code?: string | null

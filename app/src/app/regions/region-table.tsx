@@ -37,8 +37,8 @@ const RegionTable = ({
         </TableHeader>
         <TableBody>
           {regions.map((region) => {
-            const { id, code, path, name, level, center_latitude, center_longitude, center_altitude } = region;
-            const placed = center_latitude != null && center_longitude != null;
+            const { id, code, path, name, level, latitude, longitude, altitude } = region;
+            const placed = latitude != null && longitude != null;
             return (
               <TableRow key={id} data-region-row={String(path)}>
                 <TableCell className="py-3 lg:w-36">{code}</TableCell>
@@ -53,8 +53,8 @@ const RegionTable = ({
                         // All three always, in the header's order; a missing altitude is a grey dot,
                         // so its place shows without words (owner 2026-11-26).
                         <span className="tabular-nums">
-                          {center_latitude}, {center_longitude},{" "}
-                          {center_altitude ?? <span className="text-gray-400" title="Altitude not set">·</span>}
+                          {latitude}, {longitude},{" "}
+                          {altitude ?? <span className="text-gray-400" title="Altitude not set">·</span>}
                         </span>
                       ) : (
                         <span className="text-gray-500">Not set</span>

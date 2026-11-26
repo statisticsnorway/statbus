@@ -28,9 +28,9 @@ ERROR:  Failed to insert/update region: {
     "row": {
         "name": "Second Region with same code 01",
         "path": "AL.01",
-        "center_altitude": null,
-        "center_latitude": null,
-        "center_longitude": null
+        "altitude": null,
+        "latitude": null,
+        "longitude": null
     },
     "error": "duplicate key value violates unique constraint \"region_code_version_key\""
 }

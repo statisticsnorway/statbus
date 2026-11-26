@@ -106,17 +106,17 @@ SELECT * FROM import_data_column_baseline;
       10 |        8 | physical_postcode                    | TEXT                             | internal     | t           |               | f
       10 |        9 | physical_postplace_raw               | TEXT                             | source_input | t           |               | f
       10 |       10 | physical_postplace                   | TEXT                             | internal     | t           |               | f
-      10 |       11 | physical_latitude_raw                | TEXT                             | source_input | t           |               | f
-      10 |       12 | physical_longitude_raw               | TEXT                             | source_input | t           |               | f
-      10 |       13 | physical_altitude_raw                | TEXT                             | source_input | t           |               | f
+      10 |       11 | latitude_raw                         | TEXT                             | source_input | t           |               | f
+      10 |       12 | longitude_raw                        | TEXT                             | source_input | t           |               | f
+      10 |       13 | altitude_raw                         | TEXT                             | source_input | t           |               | f
       10 |       14 | physical_region_code_raw             | TEXT                             | source_input | t           |               | f
       10 |       15 | physical_country_iso_2_raw           | TEXT                             | source_input | t           |               | f
       10 |       16 | physical_location_id                 | INTEGER                          | pk_id        | t           |               | f
       10 |       17 | physical_region_id                   | INTEGER                          | internal     | t           |               | f
       10 |       18 | physical_country_id                  | INTEGER                          | internal     | t           |               | f
-      10 |       19 | physical_latitude                    | numeric(9,6)                     | internal     | t           |               | f
-      10 |       20 | physical_longitude                   | numeric(9,6)                     | internal     | t           |               | f
-      10 |       21 | physical_altitude                    | numeric(6,1)                     | internal     | t           |               | f
+      10 |       19 | latitude                             | numeric(9,6)                     | internal     | t           |               | f
+      10 |       20 | longitude                            | numeric(9,6)                     | internal     | t           |               | f
+      10 |       21 | altitude                             | numeric(6,1)                     | internal     | t           |               | f
       11 |        1 | postal_address_part1_raw             | TEXT                             | source_input | t           |               | f
       11 |        2 | postal_address_part1                 | TEXT                             | internal     | t           |               | f
       11 |        3 | postal_address_part2_raw             | TEXT                             | source_input | t           |               | f
@@ -129,15 +129,9 @@ SELECT * FROM import_data_column_baseline;
       11 |       10 | postal_postplace                     | TEXT                             | internal     | t           |               | f
       11 |       11 | postal_region_code_raw               | TEXT                             | source_input | t           |               | f
       11 |       12 | postal_country_iso_2_raw             | TEXT                             | source_input | t           |               | f
-      11 |       13 | postal_latitude_raw                  | TEXT                             | source_input | t           |               | f
-      11 |       14 | postal_longitude_raw                 | TEXT                             | source_input | t           |               | f
-      11 |       15 | postal_altitude_raw                  | TEXT                             | source_input | t           |               | f
       11 |       16 | postal_location_id                   | INTEGER                          | pk_id        | t           |               | f
       11 |       17 | postal_region_id                     | INTEGER                          | internal     | t           |               | f
       11 |       18 | postal_country_id                    | INTEGER                          | internal     | t           |               | f
-      11 |       19 | postal_latitude                      | numeric(9,6)                     | internal     | t           |               | f
-      11 |       20 | postal_longitude                     | numeric(9,6)                     | internal     | t           |               | f
-      11 |       21 | postal_altitude                      | numeric(6,1)                     | internal     | t           |               | f
       12 |        1 | primary_activity_category_code_raw   | TEXT                             | source_input | t           |               | f
       12 |        2 | primary_activity_id                  | INTEGER                          | pk_id        | t           |               | f
       12 |        3 | primary_activity_category_id         | INTEGER                          | internal     | t           |               | f
@@ -190,7 +184,7 @@ SELECT * FROM import_data_column_baseline;
       19 |       11 | legal_relationship_id                | INTEGER                          | pk_id        | t           |               | f
       20 |          | cluster_root_legal_unit_id           | INTEGER                          | internal     | t           |               | f
       20 |          | derived_power_group_id               | INTEGER                          | internal     | t           |               | f
-(140 rows)
+(134 rows)
 
 \echo "Initial import_source_column state (default definitions):"
 "Initial import_source_column state (default definitions):"
@@ -205,9 +199,9 @@ SELECT * FROM import_source_column_baseline;
              1 |        6 | physical_address_part3
              1 |        7 | physical_postcode
              1 |        8 | physical_postplace
-             1 |        9 | physical_latitude
-             1 |       10 | physical_longitude
-             1 |       11 | physical_altitude
+             1 |        9 | latitude
+             1 |       10 | longitude
+             1 |       11 | altitude
              1 |       12 | physical_region_code
              1 |       13 | physical_country_iso_2
              1 |       14 | postal_address_part1
@@ -244,9 +238,9 @@ SELECT * FROM import_source_column_baseline;
              2 |        6 | physical_address_part3
              2 |        7 | physical_postcode
              2 |        8 | physical_postplace
-             2 |        9 | physical_latitude
-             2 |       10 | physical_longitude
-             2 |       11 | physical_altitude
+             2 |        9 | latitude
+             2 |       10 | longitude
+             2 |       11 | altitude
              2 |       12 | physical_region_code
              2 |       13 | physical_country_iso_2
              2 |       14 | postal_address_part1
@@ -285,9 +279,9 @@ SELECT * FROM import_source_column_baseline;
              3 |        6 | physical_address_part3
              3 |        7 | physical_postcode
              3 |        8 | physical_postplace
-             3 |        9 | physical_latitude
-             3 |       10 | physical_longitude
-             3 |       11 | physical_altitude
+             3 |        9 | latitude
+             3 |       10 | longitude
+             3 |       11 | altitude
              3 |       12 | physical_region_code
              3 |       13 | physical_country_iso_2
              3 |       14 | postal_address_part1
@@ -326,9 +320,9 @@ SELECT * FROM import_source_column_baseline;
              4 |        6 | physical_address_part3
              4 |        7 | physical_postcode
              4 |        8 | physical_postplace
-             4 |        9 | physical_latitude
-             4 |       10 | physical_longitude
-             4 |       11 | physical_altitude
+             4 |        9 | latitude
+             4 |       10 | longitude
+             4 |       11 | altitude
              4 |       12 | physical_region_code
              4 |       13 | physical_country_iso_2
              4 |       14 | postal_address_part1
@@ -369,9 +363,9 @@ SELECT * FROM import_source_column_baseline;
              5 |        6 | physical_address_part3
              5 |        7 | physical_postcode
              5 |        8 | physical_postplace
-             5 |        9 | physical_latitude
-             5 |       10 | physical_longitude
-             5 |       11 | physical_altitude
+             5 |        9 | latitude
+             5 |       10 | longitude
+             5 |       11 | altitude
              5 |       12 | physical_region_code
              5 |       13 | physical_country_iso_2
              5 |       14 | postal_address_part1
@@ -407,9 +401,9 @@ SELECT * FROM import_source_column_baseline;
              6 |        6 | physical_address_part3
              6 |        7 | physical_postcode
              6 |        8 | physical_postplace
-             6 |        9 | physical_latitude
-             6 |       10 | physical_longitude
-             6 |       11 | physical_altitude
+             6 |        9 | latitude
+             6 |       10 | longitude
+             6 |       11 | altitude
              6 |       12 | physical_region_code
              6 |       13 | physical_country_iso_2
              6 |       14 | postal_address_part1
@@ -470,6 +464,7 @@ SELECT * FROM import_mapping_baseline;
 ---------------+----------------------------------+-------------------+--------------------------------------+----------------------------+------------+--------------
              1 |                                  | default           | valid_from_raw                       | source_input               | f          | 
              1 |                                  | default           | valid_to_raw                         | source_input               | f          | 
+             1 | altitude                         |                   | altitude_raw                         | source_input               | f          | 
              1 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
              1 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
              1 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
@@ -477,7 +472,9 @@ SELECT * FROM import_mapping_baseline;
              1 | employees                        |                   | employees_raw                        | source_input               | f          | 
              1 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
              1 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             1 | latitude                         |                   | latitude_raw                         | source_input               | f          | 
              1 | legal_form_code                  |                   | legal_form_code_raw                  | source_input               | f          | 
+             1 | longitude                        |                   | longitude_raw                        | source_input               | f          | 
              1 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              1 | name                             |                   | name_raw                             | source_input               | f          | 
              1 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
@@ -485,10 +482,7 @@ SELECT * FROM import_mapping_baseline;
              1 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              1 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
              1 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
-             1 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
              1 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
-             1 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
-             1 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
              1 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
              1 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
              1 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
@@ -509,6 +503,7 @@ SELECT * FROM import_mapping_baseline;
              1 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
              1 | unit_size_code                   |                   | unit_size_code_raw                   | source_input               | f          | 
              1 | web_address                      |                   | web_address_raw                      | source_input               | f          | 
+             2 | altitude                         |                   | altitude_raw                         | source_input               | f          | 
              2 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
              2 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
              2 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
@@ -516,7 +511,9 @@ SELECT * FROM import_mapping_baseline;
              2 | employees                        |                   | employees_raw                        | source_input               | f          | 
              2 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
              2 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             2 | latitude                         |                   | latitude_raw                         | source_input               | f          | 
              2 | legal_form_code                  |                   | legal_form_code_raw                  | source_input               | f          | 
+             2 | longitude                        |                   | longitude_raw                        | source_input               | f          | 
              2 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              2 | name                             |                   | name_raw                             | source_input               | f          | 
              2 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
@@ -524,10 +521,7 @@ SELECT * FROM import_mapping_baseline;
              2 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              2 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
              2 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
-             2 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
              2 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
-             2 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
-             2 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
              2 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
              2 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
              2 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
@@ -552,6 +546,7 @@ SELECT * FROM import_mapping_baseline;
              2 | web_address                      |                   | web_address_raw                      | source_input               | f          | 
              3 |                                  | default           | valid_from_raw                       | source_input               | f          | 
              3 |                                  | default           | valid_to_raw                         | source_input               | f          | 
+             3 | altitude                         |                   | altitude_raw                         | source_input               | f          | 
              3 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
              3 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
              3 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
@@ -559,9 +554,11 @@ SELECT * FROM import_mapping_baseline;
              3 | employees                        |                   | employees_raw                        | source_input               | f          | 
              3 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
              3 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             3 | latitude                         |                   | latitude_raw                         | source_input               | f          | 
              3 | legal_unit_person_ident          |                   | legal_unit_person_ident_raw          | source_input               | f          | 
              3 | legal_unit_stat_ident            |                   | legal_unit_stat_ident_raw            | source_input               | f          | 
              3 | legal_unit_tax_ident             |                   | legal_unit_tax_ident_raw             | source_input               | f          | 
+             3 | longitude                        |                   | longitude_raw                        | source_input               | f          | 
              3 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              3 | name                             |                   | name_raw                             | source_input               | f          | 
              3 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
@@ -569,10 +566,7 @@ SELECT * FROM import_mapping_baseline;
              3 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              3 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
              3 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
-             3 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
              3 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
-             3 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
-             3 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
              3 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
              3 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
              3 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
@@ -593,6 +587,7 @@ SELECT * FROM import_mapping_baseline;
              3 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
              3 | unit_size_code                   |                   | unit_size_code_raw                   | source_input               | f          | 
              3 | web_address                      |                   | web_address_raw                      | source_input               | f          | 
+             4 | altitude                         |                   | altitude_raw                         | source_input               | f          | 
              4 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
              4 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
              4 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
@@ -600,9 +595,11 @@ SELECT * FROM import_mapping_baseline;
              4 | employees                        |                   | employees_raw                        | source_input               | f          | 
              4 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
              4 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             4 | latitude                         |                   | latitude_raw                         | source_input               | f          | 
              4 | legal_unit_person_ident          |                   | legal_unit_person_ident_raw          | source_input               | f          | 
              4 | legal_unit_stat_ident            |                   | legal_unit_stat_ident_raw            | source_input               | f          | 
              4 | legal_unit_tax_ident             |                   | legal_unit_tax_ident_raw             | source_input               | f          | 
+             4 | longitude                        |                   | longitude_raw                        | source_input               | f          | 
              4 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              4 | name                             |                   | name_raw                             | source_input               | f          | 
              4 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
@@ -610,10 +607,7 @@ SELECT * FROM import_mapping_baseline;
              4 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              4 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
              4 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
-             4 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
              4 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
-             4 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
-             4 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
              4 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
              4 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
              4 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
@@ -638,6 +632,7 @@ SELECT * FROM import_mapping_baseline;
              4 | web_address                      |                   | web_address_raw                      | source_input               | f          | 
              5 |                                  | default           | valid_from_raw                       | source_input               | f          | 
              5 |                                  | default           | valid_to_raw                         | source_input               | f          | 
+             5 | altitude                         |                   | altitude_raw                         | source_input               | f          | 
              5 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
              5 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
              5 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
@@ -645,6 +640,8 @@ SELECT * FROM import_mapping_baseline;
              5 | employees                        |                   | employees_raw                        | source_input               | f          | 
              5 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
              5 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             5 | latitude                         |                   | latitude_raw                         | source_input               | f          | 
+             5 | longitude                        |                   | longitude_raw                        | source_input               | f          | 
              5 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              5 | name                             |                   | name_raw                             | source_input               | f          | 
              5 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
@@ -652,10 +649,7 @@ SELECT * FROM import_mapping_baseline;
              5 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              5 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
              5 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
-             5 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
              5 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
-             5 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
-             5 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
              5 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
              5 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
              5 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
@@ -676,6 +670,7 @@ SELECT * FROM import_mapping_baseline;
              5 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
              5 | unit_size_code                   |                   | unit_size_code_raw                   | source_input               | f          | 
              5 | web_address                      |                   | web_address_raw                      | source_input               | f          | 
+             6 | altitude                         |                   | altitude_raw                         | source_input               | f          | 
              6 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
              6 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
              6 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
@@ -683,6 +678,8 @@ SELECT * FROM import_mapping_baseline;
              6 | employees                        |                   | employees_raw                        | source_input               | f          | 
              6 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
              6 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             6 | latitude                         |                   | latitude_raw                         | source_input               | f          | 
+             6 | longitude                        |                   | longitude_raw                        | source_input               | f          | 
              6 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              6 | name                             |                   | name_raw                             | source_input               | f          | 
              6 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
@@ -690,10 +687,7 @@ SELECT * FROM import_mapping_baseline;
              6 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              6 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
              6 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
-             6 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
              6 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
-             6 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
-             6 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
              6 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
              6 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
              6 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
@@ -1860,6 +1854,7 @@ SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, 
 SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY definition_id, column_name;
  definition_id |           column_name            
 ---------------+----------------------------------
+             1 | altitude
              1 | birth_date
              1 | data_source_code
              1 | death_date
@@ -1867,7 +1862,9 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              1 | employees
              1 | fax_number
              1 | landline
+             1 | latitude
              1 | legal_form_code
+             1 | longitude
              1 | mobile_number
              1 | name
              1 | person_ident
@@ -1875,10 +1872,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              1 | physical_address_part1
              1 | physical_address_part2
              1 | physical_address_part3
-             1 | physical_altitude
              1 | physical_country_iso_2
-             1 | physical_latitude
-             1 | physical_longitude
              1 | physical_postcode
              1 | physical_postplace
              1 | physical_region_code
@@ -1899,6 +1893,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              1 | turnover
              1 | unit_size_code
              1 | web_address
+             2 | altitude
              2 | birth_date
              2 | data_source_code
              2 | death_date
@@ -1906,7 +1901,9 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              2 | employees
              2 | fax_number
              2 | landline
+             2 | latitude
              2 | legal_form_code
+             2 | longitude
              2 | mobile_number
              2 | name
              2 | person_ident
@@ -1914,10 +1911,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              2 | physical_address_part1
              2 | physical_address_part2
              2 | physical_address_part3
-             2 | physical_altitude
              2 | physical_country_iso_2
-             2 | physical_latitude
-             2 | physical_longitude
              2 | physical_postcode
              2 | physical_postplace
              2 | physical_region_code
@@ -1940,6 +1934,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              2 | valid_from
              2 | valid_to
              2 | web_address
+             3 | altitude
              3 | birth_date
              3 | data_source_code
              3 | death_date
@@ -1947,9 +1942,11 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              3 | employees
              3 | fax_number
              3 | landline
+             3 | latitude
              3 | legal_unit_person_ident
              3 | legal_unit_stat_ident
              3 | legal_unit_tax_ident
+             3 | longitude
              3 | mobile_number
              3 | name
              3 | person_ident
@@ -1957,10 +1954,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              3 | physical_address_part1
              3 | physical_address_part2
              3 | physical_address_part3
-             3 | physical_altitude
              3 | physical_country_iso_2
-             3 | physical_latitude
-             3 | physical_longitude
              3 | physical_postcode
              3 | physical_postplace
              3 | physical_region_code
@@ -1981,6 +1975,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              3 | turnover
              3 | unit_size_code
              3 | web_address
+             4 | altitude
              4 | birth_date
              4 | data_source_code
              4 | death_date
@@ -1988,9 +1983,11 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              4 | employees
              4 | fax_number
              4 | landline
+             4 | latitude
              4 | legal_unit_person_ident
              4 | legal_unit_stat_ident
              4 | legal_unit_tax_ident
+             4 | longitude
              4 | mobile_number
              4 | name
              4 | person_ident
@@ -1998,10 +1995,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              4 | physical_address_part1
              4 | physical_address_part2
              4 | physical_address_part3
-             4 | physical_altitude
              4 | physical_country_iso_2
-             4 | physical_latitude
-             4 | physical_longitude
              4 | physical_postcode
              4 | physical_postplace
              4 | physical_region_code
@@ -2024,6 +2018,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              4 | valid_from
              4 | valid_to
              4 | web_address
+             5 | altitude
              5 | birth_date
              5 | data_source_code
              5 | death_date
@@ -2031,6 +2026,8 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              5 | employees
              5 | fax_number
              5 | landline
+             5 | latitude
+             5 | longitude
              5 | mobile_number
              5 | name
              5 | person_ident
@@ -2038,10 +2035,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              5 | physical_address_part1
              5 | physical_address_part2
              5 | physical_address_part3
-             5 | physical_altitude
              5 | physical_country_iso_2
-             5 | physical_latitude
-             5 | physical_longitude
              5 | physical_postcode
              5 | physical_postplace
              5 | physical_region_code
@@ -2062,6 +2056,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              5 | turnover
              5 | unit_size_code
              5 | web_address
+             6 | altitude
              6 | birth_date
              6 | data_source_code
              6 | death_date
@@ -2069,6 +2064,8 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              6 | employees
              6 | fax_number
              6 | landline
+             6 | latitude
+             6 | longitude
              6 | mobile_number
              6 | name
              6 | person_ident
@@ -2076,10 +2073,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              6 | physical_address_part1
              6 | physical_address_part2
              6 | physical_address_part3
-             6 | physical_altitude
              6 | physical_country_iso_2
-             6 | physical_latitude
-             6 | physical_longitude
              6 | physical_postcode
              6 | physical_postplace
              6 | physical_region_code
@@ -2134,6 +2128,7 @@ WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = f
 ORDER BY definition_id, column_name;
  definition_id |           column_name            
 ---------------+----------------------------------
+             1 | altitude
              1 | birth_date
              1 | data_source_code
              1 | death_date
@@ -2141,17 +2136,16 @@ ORDER BY definition_id, column_name;
              1 | employees
              1 | fax_number
              1 | landline
+             1 | latitude
              1 | legal_form_code
+             1 | longitude
              1 | mobile_number
              1 | name
              1 | phone_number
              1 | physical_address_part1
              1 | physical_address_part2
              1 | physical_address_part3
-             1 | physical_altitude
              1 | physical_country_iso_2
-             1 | physical_latitude
-             1 | physical_longitude
              1 | physical_postcode
              1 | physical_postplace
              1 | physical_region_code
@@ -2172,6 +2166,7 @@ ORDER BY definition_id, column_name;
              1 | turnover
              1 | unit_size_code
              1 | web_address
+             2 | altitude
              2 | birth_date
              2 | data_source_code
              2 | death_date
@@ -2179,17 +2174,16 @@ ORDER BY definition_id, column_name;
              2 | employees
              2 | fax_number
              2 | landline
+             2 | latitude
              2 | legal_form_code
+             2 | longitude
              2 | mobile_number
              2 | name
              2 | phone_number
              2 | physical_address_part1
              2 | physical_address_part2
              2 | physical_address_part3
-             2 | physical_altitude
              2 | physical_country_iso_2
-             2 | physical_latitude
-             2 | physical_longitude
              2 | physical_postcode
              2 | physical_postplace
              2 | physical_region_code
@@ -2212,6 +2206,7 @@ ORDER BY definition_id, column_name;
              2 | valid_from
              2 | valid_to
              2 | web_address
+             3 | altitude
              3 | birth_date
              3 | data_source_code
              3 | death_date
@@ -2219,18 +2214,17 @@ ORDER BY definition_id, column_name;
              3 | employees
              3 | fax_number
              3 | landline
+             3 | latitude
              3 | legal_unit_stat_ident
              3 | legal_unit_tax_ident
+             3 | longitude
              3 | mobile_number
              3 | name
              3 | phone_number
              3 | physical_address_part1
              3 | physical_address_part2
              3 | physical_address_part3
-             3 | physical_altitude
              3 | physical_country_iso_2
-             3 | physical_latitude
-             3 | physical_longitude
              3 | physical_postcode
              3 | physical_postplace
              3 | physical_region_code
@@ -2251,6 +2245,7 @@ ORDER BY definition_id, column_name;
              3 | turnover
              3 | unit_size_code
              3 | web_address
+             4 | altitude
              4 | birth_date
              4 | data_source_code
              4 | death_date
@@ -2258,18 +2253,17 @@ ORDER BY definition_id, column_name;
              4 | employees
              4 | fax_number
              4 | landline
+             4 | latitude
              4 | legal_unit_stat_ident
              4 | legal_unit_tax_ident
+             4 | longitude
              4 | mobile_number
              4 | name
              4 | phone_number
              4 | physical_address_part1
              4 | physical_address_part2
              4 | physical_address_part3
-             4 | physical_altitude
              4 | physical_country_iso_2
-             4 | physical_latitude
-             4 | physical_longitude
              4 | physical_postcode
              4 | physical_postplace
              4 | physical_region_code
@@ -2292,6 +2286,7 @@ ORDER BY definition_id, column_name;
              4 | valid_from
              4 | valid_to
              4 | web_address
+             5 | altitude
              5 | birth_date
              5 | data_source_code
              5 | death_date
@@ -2299,16 +2294,15 @@ ORDER BY definition_id, column_name;
              5 | employees
              5 | fax_number
              5 | landline
+             5 | latitude
+             5 | longitude
              5 | mobile_number
              5 | name
              5 | phone_number
              5 | physical_address_part1
              5 | physical_address_part2
              5 | physical_address_part3
-             5 | physical_altitude
              5 | physical_country_iso_2
-             5 | physical_latitude
-             5 | physical_longitude
              5 | physical_postcode
              5 | physical_postplace
              5 | physical_region_code
@@ -2329,6 +2323,7 @@ ORDER BY definition_id, column_name;
              5 | turnover
              5 | unit_size_code
              5 | web_address
+             6 | altitude
              6 | birth_date
              6 | data_source_code
              6 | death_date
@@ -2336,16 +2331,15 @@ ORDER BY definition_id, column_name;
              6 | employees
              6 | fax_number
              6 | landline
+             6 | latitude
+             6 | longitude
              6 | mobile_number
              6 | name
              6 | phone_number
              6 | physical_address_part1
              6 | physical_address_part2
              6 | physical_address_part3
-             6 | physical_altitude
              6 | physical_country_iso_2
-             6 | physical_latitude
-             6 | physical_longitude
              6 | physical_postcode
              6 | physical_postplace
              6 | physical_region_code
@@ -2397,6 +2391,7 @@ FROM import_mapping_baseline
 ORDER BY definition_id, source_column_name, target_data_column_name;
  definition_id |        source_column_name        |       target_data_column_name        
 ---------------+----------------------------------+--------------------------------------
+             1 | altitude                         | altitude_raw
              1 | birth_date                       | birth_date_raw
              1 | data_source_code                 | data_source_code_raw
              1 | death_date                       | death_date_raw
@@ -2404,7 +2399,9 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              1 | employees                        | employees_raw
              1 | fax_number                       | fax_number_raw
              1 | landline                         | landline_raw
+             1 | latitude                         | latitude_raw
              1 | legal_form_code                  | legal_form_code_raw
+             1 | longitude                        | longitude_raw
              1 | mobile_number                    | mobile_number_raw
              1 | name                             | name_raw
              1 | person_ident                     | person_ident_raw
@@ -2412,10 +2409,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              1 | physical_address_part1           | physical_address_part1_raw
              1 | physical_address_part2           | physical_address_part2_raw
              1 | physical_address_part3           | physical_address_part3_raw
-             1 | physical_altitude                | physical_altitude_raw
              1 | physical_country_iso_2           | physical_country_iso_2_raw
-             1 | physical_latitude                | physical_latitude_raw
-             1 | physical_longitude               | physical_longitude_raw
              1 | physical_postcode                | physical_postcode_raw
              1 | physical_postplace               | physical_postplace_raw
              1 | physical_region_code             | physical_region_code_raw
@@ -2438,6 +2432,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              1 | web_address                      | web_address_raw
              1 |                                  | valid_from_raw
              1 |                                  | valid_to_raw
+             2 | altitude                         | altitude_raw
              2 | birth_date                       | birth_date_raw
              2 | data_source_code                 | data_source_code_raw
              2 | death_date                       | death_date_raw
@@ -2445,7 +2440,9 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              2 | employees                        | employees_raw
              2 | fax_number                       | fax_number_raw
              2 | landline                         | landline_raw
+             2 | latitude                         | latitude_raw
              2 | legal_form_code                  | legal_form_code_raw
+             2 | longitude                        | longitude_raw
              2 | mobile_number                    | mobile_number_raw
              2 | name                             | name_raw
              2 | person_ident                     | person_ident_raw
@@ -2453,10 +2450,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              2 | physical_address_part1           | physical_address_part1_raw
              2 | physical_address_part2           | physical_address_part2_raw
              2 | physical_address_part3           | physical_address_part3_raw
-             2 | physical_altitude                | physical_altitude_raw
              2 | physical_country_iso_2           | physical_country_iso_2_raw
-             2 | physical_latitude                | physical_latitude_raw
-             2 | physical_longitude               | physical_longitude_raw
              2 | physical_postcode                | physical_postcode_raw
              2 | physical_postplace               | physical_postplace_raw
              2 | physical_region_code             | physical_region_code_raw
@@ -2479,6 +2473,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              2 | valid_from                       | valid_from_raw
              2 | valid_to                         | valid_to_raw
              2 | web_address                      | web_address_raw
+             3 | altitude                         | altitude_raw
              3 | birth_date                       | birth_date_raw
              3 | data_source_code                 | data_source_code_raw
              3 | death_date                       | death_date_raw
@@ -2486,9 +2481,11 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              3 | employees                        | employees_raw
              3 | fax_number                       | fax_number_raw
              3 | landline                         | landline_raw
+             3 | latitude                         | latitude_raw
              3 | legal_unit_person_ident          | legal_unit_person_ident_raw
              3 | legal_unit_stat_ident            | legal_unit_stat_ident_raw
              3 | legal_unit_tax_ident             | legal_unit_tax_ident_raw
+             3 | longitude                        | longitude_raw
              3 | mobile_number                    | mobile_number_raw
              3 | name                             | name_raw
              3 | person_ident                     | person_ident_raw
@@ -2496,10 +2493,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              3 | physical_address_part1           | physical_address_part1_raw
              3 | physical_address_part2           | physical_address_part2_raw
              3 | physical_address_part3           | physical_address_part3_raw
-             3 | physical_altitude                | physical_altitude_raw
              3 | physical_country_iso_2           | physical_country_iso_2_raw
-             3 | physical_latitude                | physical_latitude_raw
-             3 | physical_longitude               | physical_longitude_raw
              3 | physical_postcode                | physical_postcode_raw
              3 | physical_postplace               | physical_postplace_raw
              3 | physical_region_code             | physical_region_code_raw
@@ -2522,6 +2516,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              3 | web_address                      | web_address_raw
              3 |                                  | valid_from_raw
              3 |                                  | valid_to_raw
+             4 | altitude                         | altitude_raw
              4 | birth_date                       | birth_date_raw
              4 | data_source_code                 | data_source_code_raw
              4 | death_date                       | death_date_raw
@@ -2529,9 +2524,11 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              4 | employees                        | employees_raw
              4 | fax_number                       | fax_number_raw
              4 | landline                         | landline_raw
+             4 | latitude                         | latitude_raw
              4 | legal_unit_person_ident          | legal_unit_person_ident_raw
              4 | legal_unit_stat_ident            | legal_unit_stat_ident_raw
              4 | legal_unit_tax_ident             | legal_unit_tax_ident_raw
+             4 | longitude                        | longitude_raw
              4 | mobile_number                    | mobile_number_raw
              4 | name                             | name_raw
              4 | person_ident                     | person_ident_raw
@@ -2539,10 +2536,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              4 | physical_address_part1           | physical_address_part1_raw
              4 | physical_address_part2           | physical_address_part2_raw
              4 | physical_address_part3           | physical_address_part3_raw
-             4 | physical_altitude                | physical_altitude_raw
              4 | physical_country_iso_2           | physical_country_iso_2_raw
-             4 | physical_latitude                | physical_latitude_raw
-             4 | physical_longitude               | physical_longitude_raw
              4 | physical_postcode                | physical_postcode_raw
              4 | physical_postplace               | physical_postplace_raw
              4 | physical_region_code             | physical_region_code_raw
@@ -2565,6 +2559,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              4 | valid_from                       | valid_from_raw
              4 | valid_to                         | valid_to_raw
              4 | web_address                      | web_address_raw
+             5 | altitude                         | altitude_raw
              5 | birth_date                       | birth_date_raw
              5 | data_source_code                 | data_source_code_raw
              5 | death_date                       | death_date_raw
@@ -2572,6 +2567,8 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              5 | employees                        | employees_raw
              5 | fax_number                       | fax_number_raw
              5 | landline                         | landline_raw
+             5 | latitude                         | latitude_raw
+             5 | longitude                        | longitude_raw
              5 | mobile_number                    | mobile_number_raw
              5 | name                             | name_raw
              5 | person_ident                     | person_ident_raw
@@ -2579,10 +2576,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              5 | physical_address_part1           | physical_address_part1_raw
              5 | physical_address_part2           | physical_address_part2_raw
              5 | physical_address_part3           | physical_address_part3_raw
-             5 | physical_altitude                | physical_altitude_raw
              5 | physical_country_iso_2           | physical_country_iso_2_raw
-             5 | physical_latitude                | physical_latitude_raw
-             5 | physical_longitude               | physical_longitude_raw
              5 | physical_postcode                | physical_postcode_raw
              5 | physical_postplace               | physical_postplace_raw
              5 | physical_region_code             | physical_region_code_raw
@@ -2605,6 +2599,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              5 | web_address                      | web_address_raw
              5 |                                  | valid_from_raw
              5 |                                  | valid_to_raw
+             6 | altitude                         | altitude_raw
              6 | birth_date                       | birth_date_raw
              6 | data_source_code                 | data_source_code_raw
              6 | death_date                       | death_date_raw
@@ -2612,6 +2607,8 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              6 | employees                        | employees_raw
              6 | fax_number                       | fax_number_raw
              6 | landline                         | landline_raw
+             6 | latitude                         | latitude_raw
+             6 | longitude                        | longitude_raw
              6 | mobile_number                    | mobile_number_raw
              6 | name                             | name_raw
              6 | person_ident                     | person_ident_raw
@@ -2619,10 +2616,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              6 | physical_address_part1           | physical_address_part1_raw
              6 | physical_address_part2           | physical_address_part2_raw
              6 | physical_address_part3           | physical_address_part3_raw
-             6 | physical_altitude                | physical_altitude_raw
              6 | physical_country_iso_2           | physical_country_iso_2_raw
-             6 | physical_latitude                | physical_latitude_raw
-             6 | physical_longitude               | physical_longitude_raw
              6 | physical_postcode                | physical_postcode_raw
              6 | physical_postplace               | physical_postplace_raw
              6 | physical_region_code             | physical_region_code_raw
@@ -2683,6 +2677,7 @@ WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom =
 ORDER BY m.definition_id, isc.column_name, idc.column_name;
  definition_id |        source_column_name        |       target_data_column_name        
 ---------------+----------------------------------+--------------------------------------
+             1 | altitude                         | altitude_raw
              1 | birth_date                       | birth_date_raw
              1 | data_source_code                 | data_source_code_raw
              1 | death_date                       | death_date_raw
@@ -2690,17 +2685,16 @@ ORDER BY m.definition_id, isc.column_name, idc.column_name;
              1 | employees                        | employees_raw
              1 | fax_number                       | fax_number_raw
              1 | landline                         | landline_raw
+             1 | latitude                         | latitude_raw
              1 | legal_form_code                  | legal_form_code_raw
+             1 | longitude                        | longitude_raw
              1 | mobile_number                    | mobile_number_raw
              1 | name                             | name_raw
              1 | phone_number                     | phone_number_raw
              1 | physical_address_part1           | physical_address_part1_raw
              1 | physical_address_part2           | physical_address_part2_raw
              1 | physical_address_part3           | physical_address_part3_raw
-             1 | physical_altitude                | physical_altitude_raw
              1 | physical_country_iso_2           | physical_country_iso_2_raw
-             1 | physical_latitude                | physical_latitude_raw
-             1 | physical_longitude               | physical_longitude_raw
              1 | physical_postcode                | physical_postcode_raw
              1 | physical_postplace               | physical_postplace_raw
              1 | physical_region_code             | physical_region_code_raw
@@ -2723,6 +2717,7 @@ ORDER BY m.definition_id, isc.column_name, idc.column_name;
              1 | web_address                      | web_address_raw
              1 |                                  | valid_from_raw
              1 |                                  | valid_to_raw
+             2 | altitude                         | altitude_raw
              2 | birth_date                       | birth_date_raw
              2 | data_source_code                 | data_source_code_raw
              2 | death_date                       | death_date_raw
@@ -2730,17 +2725,16 @@ ORDER BY m.definition_id, isc.column_name, idc.column_name;
              2 | employees                        | employees_raw
              2 | fax_number                       | fax_number_raw
              2 | landline                         | landline_raw
+             2 | latitude                         | latitude_raw
              2 | legal_form_code                  | legal_form_code_raw
+             2 | longitude                        | longitude_raw
              2 | mobile_number                    | mobile_number_raw
              2 | name                             | name_raw
              2 | phone_number                     | phone_number_raw
              2 | physical_address_part1           | physical_address_part1_raw
              2 | physical_address_part2           | physical_address_part2_raw
              2 | physical_address_part3           | physical_address_part3_raw
-             2 | physical_altitude                | physical_altitude_raw
              2 | physical_country_iso_2           | physical_country_iso_2_raw
-             2 | physical_latitude                | physical_latitude_raw
-             2 | physical_longitude               | physical_longitude_raw
              2 | physical_postcode                | physical_postcode_raw
              2 | physical_postplace               | physical_postplace_raw
              2 | physical_region_code             | physical_region_code_raw
@@ -2763,6 +2757,7 @@ ORDER BY m.definition_id, isc.column_name, idc.column_name;
              2 | valid_from                       | valid_from_raw
              2 | valid_to                         | valid_to_raw
              2 | web_address                      | web_address_raw
+             3 | altitude                         | altitude_raw
              3 | birth_date                       | birth_date_raw
              3 | data_source_code                 | data_source_code_raw
              3 | death_date                       | death_date_raw
@@ -2770,18 +2765,17 @@ ORDER BY m.definition_id, isc.column_name, idc.column_name;
              3 | employees                        | employees_raw
              3 | fax_number                       | fax_number_raw
              3 | landline                         | landline_raw
+             3 | latitude                         | latitude_raw
              3 | legal_unit_stat_ident            | legal_unit_stat_ident_raw
              3 | legal_unit_tax_ident             | legal_unit_tax_ident_raw
+             3 | longitude                        | longitude_raw
              3 | mobile_number                    | mobile_number_raw
              3 | name                             | name_raw
              3 | phone_number                     | phone_number_raw
              3 | physical_address_part1           | physical_address_part1_raw
              3 | physical_address_part2           | physical_address_part2_raw
              3 | physical_address_part3           | physical_address_part3_raw
-             3 | physical_altitude                | physical_altitude_raw
              3 | physical_country_iso_2           | physical_country_iso_2_raw
-             3 | physical_latitude                | physical_latitude_raw
-             3 | physical_longitude               | physical_longitude_raw
              3 | physical_postcode                | physical_postcode_raw
              3 | physical_postplace               | physical_postplace_raw
              3 | physical_region_code             | physical_region_code_raw
@@ -2804,6 +2798,7 @@ ORDER BY m.definition_id, isc.column_name, idc.column_name;
              3 | web_address                      | web_address_raw
              3 |                                  | valid_from_raw
              3 |                                  | valid_to_raw
+             4 | altitude                         | altitude_raw
              4 | birth_date                       | birth_date_raw
              4 | data_source_code                 | data_source_code_raw
              4 | death_date                       | death_date_raw
@@ -2811,18 +2806,17 @@ ORDER BY m.definition_id, isc.column_name, idc.column_name;
              4 | employees                        | employees_raw
              4 | fax_number                       | fax_number_raw
              4 | landline                         | landline_raw
+             4 | latitude                         | latitude_raw
              4 | legal_unit_stat_ident            | legal_unit_stat_ident_raw
              4 | legal_unit_tax_ident             | legal_unit_tax_ident_raw
+             4 | longitude                        | longitude_raw
              4 | mobile_number                    | mobile_number_raw
              4 | name                             | name_raw
              4 | phone_number                     | phone_number_raw
              4 | physical_address_part1           | physical_address_part1_raw
              4 | physical_address_part2           | physical_address_part2_raw
              4 | physical_address_part3           | physical_address_part3_raw
-             4 | physical_altitude                | physical_altitude_raw
              4 | physical_country_iso_2           | physical_country_iso_2_raw
-             4 | physical_latitude                | physical_latitude_raw
-             4 | physical_longitude               | physical_longitude_raw
              4 | physical_postcode                | physical_postcode_raw
              4 | physical_postplace               | physical_postplace_raw
              4 | physical_region_code             | physical_region_code_raw
@@ -2845,6 +2839,7 @@ ORDER BY m.definition_id, isc.column_name, idc.column_name;
              4 | valid_from                       | valid_from_raw
              4 | valid_to                         | valid_to_raw
              4 | web_address                      | web_address_raw
+             5 | altitude                         | altitude_raw
              5 | birth_date                       | birth_date_raw
              5 | data_source_code                 | data_source_code_raw
              5 | death_date                       | death_date_raw
@@ -2852,16 +2847,15 @@ ORDER BY m.definition_id, isc.column_name, idc.column_name;
              5 | employees                        | employees_raw
              5 | fax_number                       | fax_number_raw
              5 | landline                         | landline_raw
+             5 | latitude                         | latitude_raw
+             5 | longitude                        | longitude_raw
              5 | mobile_number                    | mobile_number_raw
              5 | name                             | name_raw
              5 | phone_number                     | phone_number_raw
              5 | physical_address_part1           | physical_address_part1_raw
              5 | physical_address_part2           | physical_address_part2_raw
              5 | physical_address_part3           | physical_address_part3_raw
-             5 | physical_altitude                | physical_altitude_raw
              5 | physical_country_iso_2           | physical_country_iso_2_raw
-             5 | physical_latitude                | physical_latitude_raw
-             5 | physical_longitude               | physical_longitude_raw
              5 | physical_postcode                | physical_postcode_raw
              5 | physical_postplace               | physical_postplace_raw
              5 | physical_region_code             | physical_region_code_raw
@@ -2884,6 +2878,7 @@ ORDER BY m.definition_id, isc.column_name, idc.column_name;
              5 | web_address                      | web_address_raw
              5 |                                  | valid_from_raw
              5 |                                  | valid_to_raw
+             6 | altitude                         | altitude_raw
              6 | birth_date                       | birth_date_raw
              6 | data_source_code                 | data_source_code_raw
              6 | death_date                       | death_date_raw
@@ -2891,16 +2886,15 @@ ORDER BY m.definition_id, isc.column_name, idc.column_name;
              6 | employees                        | employees_raw
              6 | fax_number                       | fax_number_raw
              6 | landline                         | landline_raw
+             6 | latitude                         | latitude_raw
+             6 | longitude                        | longitude_raw
              6 | mobile_number                    | mobile_number_raw
              6 | name                             | name_raw
              6 | phone_number                     | phone_number_raw
              6 | physical_address_part1           | physical_address_part1_raw
              6 | physical_address_part2           | physical_address_part2_raw
              6 | physical_address_part3           | physical_address_part3_raw
-             6 | physical_altitude                | physical_altitude_raw
              6 | physical_country_iso_2           | physical_country_iso_2_raw
-             6 | physical_latitude                | physical_latitude_raw
-             6 | physical_longitude               | physical_longitude_raw
              6 | physical_postcode                | physical_postcode_raw
              6 | physical_postplace               | physical_postplace_raw
              6 | physical_region_code             | physical_region_code_raw

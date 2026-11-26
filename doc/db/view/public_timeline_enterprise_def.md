@@ -37,9 +37,9 @@
  physical_region_code             | character varying        |           |          |         | extended | 
  physical_country_id              | integer                  |           |          |         | plain    | 
  physical_country_iso_2           | text                     |           |          |         | extended | 
- physical_latitude                | numeric(9,6)             |           |          |         | main     | 
- physical_longitude               | numeric(9,6)             |           |          |         | main     | 
- physical_altitude                | numeric(6,1)             |           |          |         | main     | 
+ latitude                         | numeric(9,6)             |           |          |         | main     | 
+ longitude                        | numeric(9,6)             |           |          |         | main     | 
+ altitude                         | numeric(6,1)             |           |          |         | main     | 
  domestic                         | boolean                  |           |          |         | plain    | 
  postal_address_part1             | character varying(200)   |           |          |         | extended | 
  postal_address_part2             | character varying(200)   |           |          |         | extended | 
@@ -51,9 +51,6 @@
  postal_region_code               | character varying        |           |          |         | extended | 
  postal_country_id                | integer                  |           |          |         | plain    | 
  postal_country_iso_2             | text                     |           |          |         | extended | 
- postal_latitude                  | numeric(9,6)             |           |          |         | main     | 
- postal_longitude                 | numeric(9,6)             |           |          |         | main     | 
- postal_altitude                  | numeric(6,1)             |           |          |         | main     | 
  web_address                      | character varying(256)   |           |          |         | extended | 
  email_address                    | character varying(50)    |           |          |         | extended | 
  phone_number                     | character varying(50)    |           |          |         | extended | 
@@ -177,9 +174,9 @@ View definition:
             basis.physical_region_code,
             basis.physical_country_id,
             basis.physical_country_iso_2,
-            basis.physical_latitude,
-            basis.physical_longitude,
-            basis.physical_altitude,
+            basis.latitude,
+            basis.longitude,
+            basis.altitude,
             basis.domestic,
             basis.postal_address_part1,
             basis.postal_address_part2,
@@ -191,9 +188,6 @@ View definition:
             basis.postal_region_code,
             basis.postal_country_id,
             basis.postal_country_iso_2,
-            basis.postal_latitude,
-            basis.postal_longitude,
-            basis.postal_altitude,
             basis.web_address,
             basis.email_address,
             basis.phone_number,
@@ -257,9 +251,9 @@ View definition:
                     COALESCE(enplu.physical_region_code, enpes.physical_region_code) AS physical_region_code,
                     COALESCE(enplu.physical_country_id, enpes.physical_country_id) AS physical_country_id,
                     COALESCE(enplu.physical_country_iso_2, enpes.physical_country_iso_2) AS physical_country_iso_2,
-                    COALESCE(enplu.physical_latitude, enpes.physical_latitude) AS physical_latitude,
-                    COALESCE(enplu.physical_longitude, enpes.physical_longitude) AS physical_longitude,
-                    COALESCE(enplu.physical_altitude, enpes.physical_altitude) AS physical_altitude,
+                    COALESCE(enplu.latitude, enpes.latitude) AS latitude,
+                    COALESCE(enplu.longitude, enpes.longitude) AS longitude,
+                    COALESCE(enplu.altitude, enpes.altitude) AS altitude,
                     COALESCE(enplu.domestic, enpes.domestic) AS domestic,
                     COALESCE(enplu.postal_address_part1, enpes.postal_address_part1) AS postal_address_part1,
                     COALESCE(enplu.postal_address_part2, enpes.postal_address_part2) AS postal_address_part2,
@@ -271,9 +265,6 @@ View definition:
                     COALESCE(enplu.postal_region_code, enpes.postal_region_code) AS postal_region_code,
                     COALESCE(enplu.postal_country_id, enpes.postal_country_id) AS postal_country_id,
                     COALESCE(enplu.postal_country_iso_2, enpes.postal_country_iso_2) AS postal_country_iso_2,
-                    COALESCE(enplu.postal_latitude, enpes.postal_latitude) AS postal_latitude,
-                    COALESCE(enplu.postal_longitude, enpes.postal_longitude) AS postal_longitude,
-                    COALESCE(enplu.postal_altitude, enpes.postal_altitude) AS postal_altitude,
                     COALESCE(enplu.web_address, enpes.web_address) AS web_address,
                     COALESCE(enplu.email_address, enpes.email_address) AS email_address,
                     COALESCE(enplu.phone_number, enpes.phone_number) AS phone_number,
@@ -339,9 +330,9 @@ View definition:
                             enplu_1.physical_region_code,
                             enplu_1.physical_country_id,
                             enplu_1.physical_country_iso_2,
-                            enplu_1.physical_latitude,
-                            enplu_1.physical_longitude,
-                            enplu_1.physical_altitude,
+                            enplu_1.latitude,
+                            enplu_1.longitude,
+                            enplu_1.altitude,
                             enplu_1.domestic,
                             enplu_1.postal_address_part1,
                             enplu_1.postal_address_part2,
@@ -353,9 +344,6 @@ View definition:
                             enplu_1.postal_region_code,
                             enplu_1.postal_country_id,
                             enplu_1.postal_country_iso_2,
-                            enplu_1.postal_latitude,
-                            enplu_1.postal_longitude,
-                            enplu_1.postal_altitude,
                             enplu_1.web_address,
                             enplu_1.email_address,
                             enplu_1.phone_number,
@@ -424,9 +412,9 @@ View definition:
                             enpes_1.physical_region_code,
                             enpes_1.physical_country_id,
                             enpes_1.physical_country_iso_2,
-                            enpes_1.physical_latitude,
-                            enpes_1.physical_longitude,
-                            enpes_1.physical_altitude,
+                            enpes_1.latitude,
+                            enpes_1.longitude,
+                            enpes_1.altitude,
                             enpes_1.domestic,
                             enpes_1.postal_address_part1,
                             enpes_1.postal_address_part2,
@@ -438,9 +426,6 @@ View definition:
                             enpes_1.postal_region_code,
                             enpes_1.postal_country_id,
                             enpes_1.postal_country_iso_2,
-                            enpes_1.postal_latitude,
-                            enpes_1.postal_longitude,
-                            enpes_1.postal_altitude,
                             enpes_1.web_address,
                             enpes_1.email_address,
                             enpes_1.phone_number,
@@ -520,9 +505,9 @@ View definition:
     physical_region_code,
     physical_country_id,
     physical_country_iso_2,
-    physical_latitude,
-    physical_longitude,
-    physical_altitude,
+    latitude,
+    longitude,
+    altitude,
     domestic,
     postal_address_part1,
     postal_address_part2,
@@ -534,9 +519,6 @@ View definition:
     postal_region_code,
     postal_country_id,
     postal_country_iso_2,
-    postal_latitude,
-    postal_longitude,
-    postal_altitude,
     web_address,
     email_address,
     phone_number,

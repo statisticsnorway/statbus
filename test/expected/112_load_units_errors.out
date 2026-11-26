@@ -239,7 +239,7 @@ SELECT
     false;
 NOTICE:  identifier "import_31_lu_era_b3_coord_errors_upload_check_state_before_insert" will be truncated to "import_31_lu_era_b3_coord_errors_upload_check_state_before_inse"
 NOTICE:  identifier "import_31_lu_era_b3_coord_errors_upload_update_state_after_insert" will be truncated to "import_31_lu_era_b3_coord_errors_upload_update_state_after_inse"
-INSERT INTO public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code, physical_latitude, physical_longitude, physical_altitude, web_address, email_address, phone_number) VALUES
+INSERT INTO public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code, latitude, longitude, altitude, web_address, email_address, phone_number) VALUES
 -- Original: Latitude out of range (cast error)
 ('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UN','4752','4','6100',2,9000000,'nlr','3333333','32.2984354','1144','nilepearlwater.ug','contact@npw.ug','123456789'),
 -- Original: Valid coordinates
@@ -278,18 +278,18 @@ ORDER BY slug;
 
 \echo "Error rows in import_31_lu_era_b3_coord_errors_data (if any):"
 "Error rows in import_31_lu_era_b3_coord_errors_data (if any):"
-SELECT row_id, state, errors, tax_ident_raw, name_raw, physical_latitude_raw, merge_status
+SELECT row_id, state, errors, tax_ident_raw, name_raw, latitude_raw, merge_status
 FROM public.import_31_lu_era_b3_coord_errors_data
 WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
- row_id | state |                                                         errors                                                         | tax_ident_raw |         name_raw          | physical_latitude_raw | merge_status 
---------+-------+------------------------------------------------------------------------------------------------------------------------+---------------+---------------------------+-----------------------+--------------
-      1 | error | {"physical_latitude_raw": "Value '3333333' is out of range for type NUMERIC(9,6). SQLSTATE: 22003"}                    | 2212760144    | NILE PEARL WATER          | 3333333               | {}
-      3 | error | {"physical_longitude_raw": "Value 190.123456 out of range. Expected -180 to 180."}                                     | 3000000003    | Longitude Range Test LU   | 10.0                  | {}
-      4 | error | {"physical_altitude_raw": "Value -50.5 cannot be negative. Expected >= 0."}                                            | 3000000004    | Altitude Negative Test LU | 10.0                  | {}
-      5 | error | {"physical_latitude_raw": "Value 'abc' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"}  | 3000000005    | Latitude Text Test LU     | abc                   | {}
-      6 | error | {"physical_longitude_raw": "Value 'def' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"} | 3000000006    | Longitude Text Test LU    | 10.0                  | {}
-      7 | error | {"physical_altitude_raw": "Value 'ghi' is not a valid numeric representation for type NUMERIC(6,1). SQLSTATE: 22P02"}  | 3000000007    | Altitude Text Test LU     | 10.0                  | {}
+ row_id | state |                                                    errors                                                     | tax_ident_raw |         name_raw          | latitude_raw | merge_status 
+--------+-------+---------------------------------------------------------------------------------------------------------------+---------------+---------------------------+--------------+--------------
+      1 | error | {"latitude_raw": "Value '3333333' is out of range for type NUMERIC(9,6). SQLSTATE: 22003"}                    | 2212760144    | NILE PEARL WATER          | 3333333      | {}
+      3 | error | {"longitude_raw": "Value 190.123456 out of range. Expected -180 to 180."}                                     | 3000000003    | Longitude Range Test LU   | 10.0         | {}
+      4 | error | {"altitude_raw": "Value -50.5 cannot be negative. Expected >= 0."}                                            | 3000000004    | Altitude Negative Test LU | 10.0         | {}
+      5 | error | {"latitude_raw": "Value 'abc' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"}  | 3000000005    | Latitude Text Test LU     | abc          | {}
+      6 | error | {"longitude_raw": "Value 'def' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"} | 3000000006    | Longitude Text Test LU    | 10.0         | {}
+      7 | error | {"altitude_raw": "Value 'ghi' is not a valid numeric representation for type NUMERIC(6,1). SQLSTATE: 22P02"}  | 3000000007    | Altitude Text Test LU     | 10.0         | {}
 (6 rows)
 
 ROLLBACK TO before_loading_units;

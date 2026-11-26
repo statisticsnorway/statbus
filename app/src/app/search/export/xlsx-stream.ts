@@ -552,9 +552,9 @@ export function exportFieldTypes(
   const types: Record<string, XlsxColumnType> = {
     birth_date: "date",
     death_date: "date",
-    physical_latitude: "number",
-    physical_longitude: "number",
-    physical_altitude: "number",
+    latitude: "number",
+    longitude: "number",
+    altitude: "number",
   };
   for (const code of statDefinitionCodes) types[code] = "number";
   return types;

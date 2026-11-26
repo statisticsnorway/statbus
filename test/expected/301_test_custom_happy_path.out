@@ -341,17 +341,17 @@ END $$;
  physical_postcode                    | text                      |           |          |                              | extended |              | 
  physical_postplace_raw               | text                      |           |          |                              | extended |              | 
  physical_postplace                   | text                      |           |          |                              | extended |              | 
- physical_latitude_raw                | text                      |           |          |                              | extended |              | 
- physical_longitude_raw               | text                      |           |          |                              | extended |              | 
- physical_altitude_raw                | text                      |           |          |                              | extended |              | 
+ latitude_raw                         | text                      |           |          |                              | extended |              | 
+ longitude_raw                        | text                      |           |          |                              | extended |              | 
+ altitude_raw                         | text                      |           |          |                              | extended |              | 
  physical_region_code_raw             | text                      |           |          |                              | extended |              | 
  physical_country_iso_2_raw           | text                      |           |          |                              | extended |              | 
  physical_location_id                 | integer                   |           |          |                              | plain    |              | 
  physical_region_id                   | integer                   |           |          |                              | plain    |              | 
  physical_country_id                  | integer                   |           |          |                              | plain    |              | 
- physical_latitude                    | numeric(9,6)              |           |          |                              | main     |              | 
- physical_longitude                   | numeric(9,6)              |           |          |                              | main     |              | 
- physical_altitude                    | numeric(6,1)              |           |          |                              | main     |              | 
+ latitude                             | numeric(9,6)              |           |          |                              | main     |              | 
+ longitude                            | numeric(9,6)              |           |          |                              | main     |              | 
+ altitude                             | numeric(6,1)              |           |          |                              | main     |              | 
  postal_address_part1_raw             | text                      |           |          |                              | extended |              | 
  postal_address_part1                 | text                      |           |          |                              | extended |              | 
  postal_address_part2_raw             | text                      |           |          |                              | extended |              | 
@@ -364,15 +364,9 @@ END $$;
  postal_postplace                     | text                      |           |          |                              | extended |              | 
  postal_region_code_raw               | text                      |           |          |                              | extended |              | 
  postal_country_iso_2_raw             | text                      |           |          |                              | extended |              | 
- postal_latitude_raw                  | text                      |           |          |                              | extended |              | 
- postal_longitude_raw                 | text                      |           |          |                              | extended |              | 
- postal_altitude_raw                  | text                      |           |          |                              | extended |              | 
  postal_location_id                   | integer                   |           |          |                              | plain    |              | 
  postal_region_id                     | integer                   |           |          |                              | plain    |              | 
  postal_country_id                    | integer                   |           |          |                              | plain    |              | 
- postal_latitude                      | numeric(9,6)              |           |          |                              | main     |              | 
- postal_longitude                     | numeric(9,6)              |           |          |                              | main     |              | 
- postal_altitude                      | numeric(6,1)              |           |          |                              | main     |              | 
  primary_activity_category_code_raw   | text                      |           |          |                              | extended |              | 
  primary_activity_id                  | integer                   |           |          |                              | plain    |              | 
  primary_activity_category_id         | integer                   |           |          |                              | plain    |              | 

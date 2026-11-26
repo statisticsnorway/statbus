@@ -1627,8 +1627,11 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRANLØFT ENK",                                                          +
                       |     "search": "'enk':2 'kranløft':1",                                                +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -1648,20 +1651,14 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": "tny",                                                         +
                       |     "legal_form_code": null,                                                         +
                       |     "legal_form_name": null,                                                         +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -1735,8 +1732,11 @@ external_idents       | {"tax_ident": "823573673"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRANLØFT ENK",                                                          +
                       |     "search": "'enk':2 'kranløft':1",                                                +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -1756,21 +1756,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "ENK",                                                        +
                       |     "legal_form_name": "Enkeltpersonforetak",                                        +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -1835,8 +1829,11 @@ external_idents       | {"tax_ident": "823573673"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRANLØFT ENK",                                                          +
                       |     "search": "'enk':2 'kranløft':1",                                                +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -1856,21 +1853,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "ENK",                                                        +
                       |     "legal_form_name": "Enkeltpersonforetak",                                        +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -1934,8 +1925,11 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -1955,20 +1949,14 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": "tny",                                                         +
                       |     "legal_form_code": null,                                                         +
                       |     "legal_form_name": null,                                                         +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -2042,8 +2030,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -2063,21 +2054,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -2142,8 +2127,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -2163,21 +2151,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -2241,8 +2223,11 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -2262,20 +2247,14 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": "sml",                                                         +
                       |     "legal_form_code": null,                                                         +
                       |     "legal_form_name": null,                                                         +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -2349,8 +2328,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -2370,21 +2352,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -2449,8 +2425,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -2470,21 +2449,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -2548,8 +2521,11 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -2569,20 +2545,14 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": "med",                                                         +
                       |     "legal_form_code": null,                                                         +
                       |     "legal_form_name": null,                                                         +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -2656,8 +2626,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -2677,21 +2650,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -2756,8 +2723,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -2777,21 +2747,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -2855,8 +2819,11 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -2876,20 +2843,14 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": "med",                                                         +
                       |     "legal_form_code": null,                                                         +
                       |     "legal_form_name": null,                                                         +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -2963,8 +2924,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -2984,21 +2948,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -3063,8 +3021,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -3084,21 +3045,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -3162,8 +3117,11 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -3183,20 +3141,14 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": "med",                                                         +
                       |     "legal_form_code": null,                                                         +
                       |     "legal_form_name": null,                                                         +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -3270,8 +3222,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -3291,21 +3246,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -3370,8 +3319,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -3391,21 +3343,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -3469,8 +3415,11 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -3490,20 +3439,14 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": "med",                                                         +
                       |     "legal_form_code": null,                                                         +
                       |     "legal_form_name": null,                                                         +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -3577,8 +3520,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -3598,21 +3544,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -3677,8 +3617,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -3698,21 +3641,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -3776,8 +3713,11 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -3797,20 +3737,14 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": "med",                                                         +
                       |     "legal_form_code": null,                                                         +
                       |     "legal_form_name": null,                                                         +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -3884,8 +3818,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -3905,21 +3842,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -3984,8 +3915,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -4005,21 +3939,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -4083,8 +4011,11 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -4104,20 +4035,14 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": "med",                                                         +
                       |     "legal_form_code": null,                                                         +
                       |     "legal_form_name": null,                                                         +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -4191,8 +4116,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -4212,21 +4140,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -4291,8 +4213,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -4312,21 +4237,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -4390,8 +4309,11 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2010-01-01",                                                      +
@@ -4411,20 +4333,14 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": "lrg",                                                         +
                       |     "legal_form_code": null,                                                         +
                       |     "legal_form_name": null,                                                         +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -4498,8 +4414,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -4519,21 +4438,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -4598,8 +4511,11 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "altitude": null,                                                                +
                       |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
                       |     "birth_date": "2013-01-01",                                                      +
@@ -4619,21 +4535,15 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                                          +
                       |     "legal_form_code": "AS",                                                         +
                       |     "legal_form_name": "Aksjeselskap",                                               +
-                      |     "postal_altitude": null,                                                         +
-                      |     "postal_latitude": null,                                                         +
                       |     "postal_postcode": null,                                                         +
-                      |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
                       |         "brreg",                                                                     +
                       |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
-                      |     "physical_altitude": null,                                                       +
-                      |     "physical_latitude": null,                                                       +
                       |     "physical_postcode": "4347",                                                     +
                       |     "used_for_counting": true,                                                       +
-                      |     "physical_longitude": null,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -14241,9 +14151,9 @@ statistical_unit_hierarchy
                             "path": "11.21",
                             "label": "1121",
                             "level": 2,
-                            "center_altitude": null,
-                            "center_latitude": null,
-                            "center_longitude": null
+                            "altitude": null,
+                            "latitude": null,
+                            "longitude": null
                         },
                         "country": {
                             "name": "Norway",
@@ -14350,9 +14260,9 @@ statistical_unit_hierarchy
                                     "path": "11.21",
                                     "label": "1121",
                                     "level": 2,
-                                    "center_altitude": null,
-                                    "center_latitude": null,
-                                    "center_longitude": null
+                                    "altitude": null,
+                                    "latitude": null,
+                                    "longitude": null
                                 },
                                 "country": {
                                     "name": "Norway",
@@ -14565,9 +14475,9 @@ statistical_unit_hierarchy
                             "path": "11.21",
                             "label": "1121",
                             "level": 2,
-                            "center_altitude": null,
-                            "center_latitude": null,
-                            "center_longitude": null
+                            "altitude": null,
+                            "latitude": null,
+                            "longitude": null
                         },
                         "country": {
                             "name": "Norway",
@@ -14674,9 +14584,9 @@ statistical_unit_hierarchy
                                     "path": "11.21",
                                     "label": "1121",
                                     "level": 2,
-                                    "center_altitude": null,
-                                    "center_latitude": null,
-                                    "center_longitude": null
+                                    "altitude": null,
+                                    "latitude": null,
+                                    "longitude": null
                                 },
                                 "country": {
                                     "name": "Norway",
@@ -14888,9 +14798,9 @@ statistical_unit_hierarchy
                             "path": "11.21",
                             "label": "1121",
                             "level": 2,
-                            "center_altitude": null,
-                            "center_latitude": null,
-                            "center_longitude": null
+                            "altitude": null,
+                            "latitude": null,
+                            "longitude": null
                         },
                         "country": {
                             "name": "Norway",
@@ -14997,9 +14907,9 @@ statistical_unit_hierarchy
                                     "path": "11.21",
                                     "label": "1121",
                                     "level": 2,
-                                    "center_altitude": null,
-                                    "center_latitude": null,
-                                    "center_longitude": null
+                                    "altitude": null,
+                                    "latitude": null,
+                                    "longitude": null
                                 },
                                 "country": {
                                     "name": "Norway",

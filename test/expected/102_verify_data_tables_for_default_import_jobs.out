@@ -199,17 +199,17 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  physical_postcode                    | text                      |           |          | 
  physical_postplace_raw               | text                      |           |          | 
  physical_postplace                   | text                      |           |          | 
- physical_latitude_raw                | text                      |           |          | 
- physical_longitude_raw               | text                      |           |          | 
- physical_altitude_raw                | text                      |           |          | 
+ latitude_raw                         | text                      |           |          | 
+ longitude_raw                        | text                      |           |          | 
+ altitude_raw                         | text                      |           |          | 
  physical_region_code_raw             | text                      |           |          | 
  physical_country_iso_2_raw           | text                      |           |          | 
  physical_location_id                 | integer                   |           |          | 
  physical_region_id                   | integer                   |           |          | 
  physical_country_id                  | integer                   |           |          | 
- physical_latitude                    | numeric(9,6)              |           |          | 
- physical_longitude                   | numeric(9,6)              |           |          | 
- physical_altitude                    | numeric(6,1)              |           |          | 
+ latitude                             | numeric(9,6)              |           |          | 
+ longitude                            | numeric(9,6)              |           |          | 
+ altitude                             | numeric(6,1)              |           |          | 
  postal_address_part1_raw             | text                      |           |          | 
  postal_address_part1                 | text                      |           |          | 
  postal_address_part2_raw             | text                      |           |          | 
@@ -222,15 +222,9 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  postal_postplace                     | text                      |           |          | 
  postal_region_code_raw               | text                      |           |          | 
  postal_country_iso_2_raw             | text                      |           |          | 
- postal_latitude_raw                  | text                      |           |          | 
- postal_longitude_raw                 | text                      |           |          | 
- postal_altitude_raw                  | text                      |           |          | 
  postal_location_id                   | integer                   |           |          | 
  postal_region_id                     | integer                   |           |          | 
  postal_country_id                    | integer                   |           |          | 
- postal_latitude                      | numeric(9,6)              |           |          | 
- postal_longitude                     | numeric(9,6)              |           |          | 
- postal_altitude                      | numeric(6,1)              |           |          | 
  primary_activity_category_code_raw   | text                      |           |          | 
  primary_activity_id                  | integer                   |           |          | 
  primary_activity_category_id         | integer                   |           |          | 
@@ -354,17 +348,17 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  physical_postcode                    | text                      |           |          | 
  physical_postplace_raw               | text                      |           |          | 
  physical_postplace                   | text                      |           |          | 
- physical_latitude_raw                | text                      |           |          | 
- physical_longitude_raw               | text                      |           |          | 
- physical_altitude_raw                | text                      |           |          | 
+ latitude_raw                         | text                      |           |          | 
+ longitude_raw                        | text                      |           |          | 
+ altitude_raw                         | text                      |           |          | 
  physical_region_code_raw             | text                      |           |          | 
  physical_country_iso_2_raw           | text                      |           |          | 
  physical_location_id                 | integer                   |           |          | 
  physical_region_id                   | integer                   |           |          | 
  physical_country_id                  | integer                   |           |          | 
- physical_latitude                    | numeric(9,6)              |           |          | 
- physical_longitude                   | numeric(9,6)              |           |          | 
- physical_altitude                    | numeric(6,1)              |           |          | 
+ latitude                             | numeric(9,6)              |           |          | 
+ longitude                            | numeric(9,6)              |           |          | 
+ altitude                             | numeric(6,1)              |           |          | 
  postal_address_part1_raw             | text                      |           |          | 
  postal_address_part1                 | text                      |           |          | 
  postal_address_part2_raw             | text                      |           |          | 
@@ -377,15 +371,9 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  postal_postplace                     | text                      |           |          | 
  postal_region_code_raw               | text                      |           |          | 
  postal_country_iso_2_raw             | text                      |           |          | 
- postal_latitude_raw                  | text                      |           |          | 
- postal_longitude_raw                 | text                      |           |          | 
- postal_altitude_raw                  | text                      |           |          | 
  postal_location_id                   | integer                   |           |          | 
  postal_region_id                     | integer                   |           |          | 
  postal_country_id                    | integer                   |           |          | 
- postal_latitude                      | numeric(9,6)              |           |          | 
- postal_longitude                     | numeric(9,6)              |           |          | 
- postal_altitude                      | numeric(6,1)              |           |          | 
  primary_activity_category_code_raw   | text                      |           |          | 
  primary_activity_id                  | integer                   |           |          | 
  primary_activity_category_id         | integer                   |           |          | 
@@ -509,17 +497,17 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  physical_postcode                    | text                      |           |          | 
  physical_postplace_raw               | text                      |           |          | 
  physical_postplace                   | text                      |           |          | 
- physical_latitude_raw                | text                      |           |          | 
- physical_longitude_raw               | text                      |           |          | 
- physical_altitude_raw                | text                      |           |          | 
+ latitude_raw                         | text                      |           |          | 
+ longitude_raw                        | text                      |           |          | 
+ altitude_raw                         | text                      |           |          | 
  physical_region_code_raw             | text                      |           |          | 
  physical_country_iso_2_raw           | text                      |           |          | 
  physical_location_id                 | integer                   |           |          | 
  physical_region_id                   | integer                   |           |          | 
  physical_country_id                  | integer                   |           |          | 
- physical_latitude                    | numeric(9,6)              |           |          | 
- physical_longitude                   | numeric(9,6)              |           |          | 
- physical_altitude                    | numeric(6,1)              |           |          | 
+ latitude                             | numeric(9,6)              |           |          | 
+ longitude                            | numeric(9,6)              |           |          | 
+ altitude                             | numeric(6,1)              |           |          | 
  postal_address_part1_raw             | text                      |           |          | 
  postal_address_part1                 | text                      |           |          | 
  postal_address_part2_raw             | text                      |           |          | 
@@ -532,15 +520,9 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  postal_postplace                     | text                      |           |          | 
  postal_region_code_raw               | text                      |           |          | 
  postal_country_iso_2_raw             | text                      |           |          | 
- postal_latitude_raw                  | text                      |           |          | 
- postal_longitude_raw                 | text                      |           |          | 
- postal_altitude_raw                  | text                      |           |          | 
  postal_location_id                   | integer                   |           |          | 
  postal_region_id                     | integer                   |           |          | 
  postal_country_id                    | integer                   |           |          | 
- postal_latitude                      | numeric(9,6)              |           |          | 
- postal_longitude                     | numeric(9,6)              |           |          | 
- postal_altitude                      | numeric(6,1)              |           |          | 
  primary_activity_category_code_raw   | text                      |           |          | 
  primary_activity_id                  | integer                   |           |          | 
  primary_activity_category_id         | integer                   |           |          | 
@@ -664,17 +646,17 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  physical_postcode                    | text                      |           |          | 
  physical_postplace_raw               | text                      |           |          | 
  physical_postplace                   | text                      |           |          | 
- physical_latitude_raw                | text                      |           |          | 
- physical_longitude_raw               | text                      |           |          | 
- physical_altitude_raw                | text                      |           |          | 
+ latitude_raw                         | text                      |           |          | 
+ longitude_raw                        | text                      |           |          | 
+ altitude_raw                         | text                      |           |          | 
  physical_region_code_raw             | text                      |           |          | 
  physical_country_iso_2_raw           | text                      |           |          | 
  physical_location_id                 | integer                   |           |          | 
  physical_region_id                   | integer                   |           |          | 
  physical_country_id                  | integer                   |           |          | 
- physical_latitude                    | numeric(9,6)              |           |          | 
- physical_longitude                   | numeric(9,6)              |           |          | 
- physical_altitude                    | numeric(6,1)              |           |          | 
+ latitude                             | numeric(9,6)              |           |          | 
+ longitude                            | numeric(9,6)              |           |          | 
+ altitude                             | numeric(6,1)              |           |          | 
  postal_address_part1_raw             | text                      |           |          | 
  postal_address_part1                 | text                      |           |          | 
  postal_address_part2_raw             | text                      |           |          | 
@@ -687,15 +669,9 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  postal_postplace                     | text                      |           |          | 
  postal_region_code_raw               | text                      |           |          | 
  postal_country_iso_2_raw             | text                      |           |          | 
- postal_latitude_raw                  | text                      |           |          | 
- postal_longitude_raw                 | text                      |           |          | 
- postal_altitude_raw                  | text                      |           |          | 
  postal_location_id                   | integer                   |           |          | 
  postal_region_id                     | integer                   |           |          | 
  postal_country_id                    | integer                   |           |          | 
- postal_latitude                      | numeric(9,6)              |           |          | 
- postal_longitude                     | numeric(9,6)              |           |          | 
- postal_altitude                      | numeric(6,1)              |           |          | 
  primary_activity_category_code_raw   | text                      |           |          | 
  primary_activity_id                  | integer                   |           |          | 
  primary_activity_category_id         | integer                   |           |          | 
@@ -817,17 +793,17 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  physical_postcode                    | text                      |           |          | 
  physical_postplace_raw               | text                      |           |          | 
  physical_postplace                   | text                      |           |          | 
- physical_latitude_raw                | text                      |           |          | 
- physical_longitude_raw               | text                      |           |          | 
- physical_altitude_raw                | text                      |           |          | 
+ latitude_raw                         | text                      |           |          | 
+ longitude_raw                        | text                      |           |          | 
+ altitude_raw                         | text                      |           |          | 
  physical_region_code_raw             | text                      |           |          | 
  physical_country_iso_2_raw           | text                      |           |          | 
  physical_location_id                 | integer                   |           |          | 
  physical_region_id                   | integer                   |           |          | 
  physical_country_id                  | integer                   |           |          | 
- physical_latitude                    | numeric(9,6)              |           |          | 
- physical_longitude                   | numeric(9,6)              |           |          | 
- physical_altitude                    | numeric(6,1)              |           |          | 
+ latitude                             | numeric(9,6)              |           |          | 
+ longitude                            | numeric(9,6)              |           |          | 
+ altitude                             | numeric(6,1)              |           |          | 
  postal_address_part1_raw             | text                      |           |          | 
  postal_address_part1                 | text                      |           |          | 
  postal_address_part2_raw             | text                      |           |          | 
@@ -840,15 +816,9 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  postal_postplace                     | text                      |           |          | 
  postal_region_code_raw               | text                      |           |          | 
  postal_country_iso_2_raw             | text                      |           |          | 
- postal_latitude_raw                  | text                      |           |          | 
- postal_longitude_raw                 | text                      |           |          | 
- postal_altitude_raw                  | text                      |           |          | 
  postal_location_id                   | integer                   |           |          | 
  postal_region_id                     | integer                   |           |          | 
  postal_country_id                    | integer                   |           |          | 
- postal_latitude                      | numeric(9,6)              |           |          | 
- postal_longitude                     | numeric(9,6)              |           |          | 
- postal_altitude                      | numeric(6,1)              |           |          | 
  primary_activity_category_code_raw   | text                      |           |          | 
  primary_activity_id                  | integer                   |           |          | 
  primary_activity_category_id         | integer                   |           |          | 
@@ -970,17 +940,17 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  physical_postcode                    | text                      |           |          | 
  physical_postplace_raw               | text                      |           |          | 
  physical_postplace                   | text                      |           |          | 
- physical_latitude_raw                | text                      |           |          | 
- physical_longitude_raw               | text                      |           |          | 
- physical_altitude_raw                | text                      |           |          | 
+ latitude_raw                         | text                      |           |          | 
+ longitude_raw                        | text                      |           |          | 
+ altitude_raw                         | text                      |           |          | 
  physical_region_code_raw             | text                      |           |          | 
  physical_country_iso_2_raw           | text                      |           |          | 
  physical_location_id                 | integer                   |           |          | 
  physical_region_id                   | integer                   |           |          | 
  physical_country_id                  | integer                   |           |          | 
- physical_latitude                    | numeric(9,6)              |           |          | 
- physical_longitude                   | numeric(9,6)              |           |          | 
- physical_altitude                    | numeric(6,1)              |           |          | 
+ latitude                             | numeric(9,6)              |           |          | 
+ longitude                            | numeric(9,6)              |           |          | 
+ altitude                             | numeric(6,1)              |           |          | 
  postal_address_part1_raw             | text                      |           |          | 
  postal_address_part1                 | text                      |           |          | 
  postal_address_part2_raw             | text                      |           |          | 
@@ -993,15 +963,9 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  postal_postplace                     | text                      |           |          | 
  postal_region_code_raw               | text                      |           |          | 
  postal_country_iso_2_raw             | text                      |           |          | 
- postal_latitude_raw                  | text                      |           |          | 
- postal_longitude_raw                 | text                      |           |          | 
- postal_altitude_raw                  | text                      |           |          | 
  postal_location_id                   | integer                   |           |          | 
  postal_region_id                     | integer                   |           |          | 
  postal_country_id                    | integer                   |           |          | 
- postal_latitude                      | numeric(9,6)              |           |          | 
- postal_longitude                     | numeric(9,6)              |           |          | 
- postal_altitude                      | numeric(6,1)              |           |          | 
  primary_activity_category_code_raw   | text                      |           |          | 
  primary_activity_id                  | integer                   |           |          | 
  primary_activity_category_id         | integer                   |           |          | 

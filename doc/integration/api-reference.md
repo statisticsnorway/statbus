@@ -102,7 +102,7 @@ Region paths are `ltree` values built from region codes (e.g. `03.01`), so filte
 
 **Sample browser URL — with coordinates, employees and turnover:**
 ```
-https://ma.statbus.org/rest/statistical_unit?select=unit_type,physical_latitude,physical_longitude,name,employees:stats->employees->>value,turnover:stats->turnover->>value&limit=10
+https://ma.statbus.org/rest/statistical_unit?select=unit_type,latitude,longitude,name,employees:stats->employees->>value,turnover:stats->turnover->>value&limit=10
 ```
 
 **Useful columns:**
@@ -116,8 +116,8 @@ https://ma.statbus.org/rest/statistical_unit?select=unit_type,physical_latitude,
 | `primary_activity_category_path` | Main industry classification path |
 | `sector_path` | Institutional sector |
 | `legal_form_name` | Legal form |
-| `physical_latitude` | Latitude coordinate |
-| `physical_longitude` | Longitude coordinate |
+| `latitude` | Latitude coordinate |
+| `longitude` | Longitude coordinate |
 | `valid_from` | Start of validity period |
 | `valid_to` | End of validity period |
 | `existence_from`, `existence_until` | When the unit exists (birth/death dates applied); use these to ask "which units exist on a date", see [Time frames](#time-frames) |
@@ -242,7 +242,7 @@ https://ma.statbus.org/rest/activity_category_enabled?select=path,code,name,stan
 https://ma.statbus.org/rest/region_used?select=path,code,name&limit=20&order=path.asc
 ```
 
-**Upload regions — `POST /rest/region_upload`.** Send a CSV file whose header names the columns: `path` and `name`, and optionally `center_latitude`, `center_longitude` and `center_altitude`. Each row adds or changes one region by `path`. A new region needs a name; columns a row leaves out or empty keep what is stored, so a file of path and centre columns adds centres to the regions you have. A row that matches what is stored changes nothing. One bad row rejects the whole request, and the error names the row. `GET /rest/region_upload` returns the regions in the same columns, as CSV with `Accept: text/csv`.
+**Upload regions — `POST /rest/region_upload`.** Send a CSV file whose header names the columns: `path` and `name`, and optionally `latitude`, `longitude` and `altitude`. Each row adds or changes one region by `path`. A new region needs a name; columns a row leaves out or empty keep what is stored, so a file of path and coordinate columns adds points to the regions you have. A row that matches what is stored changes nothing. One bad row rejects the whole request, and the error names the row. `GET /rest/region_upload` returns the regions in the same columns, as CSV with `Accept: text/csv`.
 
 ```bash
 curl -X POST -H "Authorization: Bearer YOUR_API_KEY" \

@@ -47,7 +47,7 @@ END $$;
 INSERT INTO public.import_70_01_01_lu_analysis_errors_upload(
     tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code, birth_date, death_date,
     secondary_activity_category_code, tag_path, employees, turnover,
-    physical_address_part1, physical_region_code, physical_country_iso_2, physical_latitude,
+    physical_address_part1, physical_region_code, physical_country_iso_2, latitude,
     status_code, data_source_code, unit_size_code,
     postal_address_part1, postal_region_code, postal_country_iso_2
 ) VALUES

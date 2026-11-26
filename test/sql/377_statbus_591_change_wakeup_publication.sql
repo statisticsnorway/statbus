@@ -133,7 +133,7 @@ SELECT (SELECT count(*) FROM worker.base_change_log)=0,
 INSERT INTO public.region_used(id,path,level,label,code,name)
 SELECT id,path,level,label,code,name FROM public.region
 WHERE id=(SELECT region_id FROM public.location WHERE legal_unit_id=(SELECT id FROM public.legal_unit WHERE name='T377 region unit'));
-UPDATE public.region SET name=name||' renamed',center_latitude=59.9,center_longitude=10.7,center_altitude=12
+UPDATE public.region SET name=name||' renamed',latitude=59.9,longitude=10.7,altitude=12
 WHERE id=(SELECT region_id FROM public.location WHERE legal_unit_id=(SELECT id FROM public.legal_unit WHERE name='T377 region unit'));
 \echo Affected region renamed and moved: no log, no publication, region_used has the new name
 SELECT (SELECT count(*) FROM worker.base_change_log)=0,

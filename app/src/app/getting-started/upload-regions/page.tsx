@@ -223,7 +223,7 @@ export default function UploadRegionsPage() {
       const { data: rows, error } = await client!
         .from("region")
         .select("id")
-        .not("center_latitude", "is", null)
+        .not("latitude", "is", null)
         .limit(1);
       if (error) throw error;
       return (rows ?? []).length > 0;
@@ -278,15 +278,15 @@ export default function UploadRegionsPage() {
             {showCoordinates && (
               <>
                 <li>
-                  <code>center_latitude</code>: degrees north, from -90 to 90,
+                  <code>latitude</code>: degrees north, from -90 to 90,
                   up to six decimals.
                 </li>
                 <li>
-                  <code>center_longitude</code>: degrees east, from -180 to 180,
+                  <code>longitude</code>: degrees east, from -180 to 180,
                   up to six decimals.
                 </li>
                 <li>
-                  <code>center_altitude</code>: metres above sea level, zero or
+                  <code>altitude</code>: metres above sea level, zero or
                   more, one decimal. Optional.
                 </li>
               </>

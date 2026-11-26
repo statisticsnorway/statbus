@@ -78,7 +78,7 @@ INSERT INTO public.errors_lu_analysis_upload(
     sector_code, legal_form_code, primary_activity_category_code, 
     birth_date, death_date,
     secondary_activity_category_code, 
-    physical_address_part1, physical_region_code, physical_country_iso_2, physical_latitude,
+    physical_address_part1, physical_region_code, physical_country_iso_2, latitude,
     postal_address_part1, postal_region_code, postal_country_iso_2,
     status_code, data_source_code, unit_size_code,
     employees, turnover

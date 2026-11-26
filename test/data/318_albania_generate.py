@@ -145,7 +145,7 @@ def main(src_lu, src_est):
     # the out-of-range latitude, and rows without a tax identifier.
     pinned = {r[li["tax_ident"]] for r in lu
               if r[li["physical_country_iso_2"]] not in ("AL", "")
-              or (r[li["physical_latitude"]] and abs(float(r[li["physical_latitude"]])) > 90)}
+              or (r[li["latitude"]] and abs(float(r[li["latitude"]])) > 90)}
     pinned.add("")
     shuffle_codes(lu_h, lu, LU_CODES, "tax_ident", pinned)
     shuffle_codes(es_h, es, EST_CODES, "tax_ident", {""})

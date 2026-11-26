@@ -627,9 +627,9 @@ erDiagram
 		character_varying label
 		character_varying code
 		text name
-		numeric(9_6) center_latitude
-		numeric(9_6) center_longitude
-		numeric(6_1) center_altitude
+		numeric(9_6) latitude
+		numeric(9_6) longitude
+		numeric(6_1) altitude
 		integer version_id
 	}
 	region_access["region_access"] {
@@ -846,9 +846,9 @@ erDiagram
 		character_varying physical_region_code
 		integer physical_country_id
 		text physical_country_iso_2
-		numeric(9_6) physical_latitude
-		numeric(9_6) physical_longitude
-		numeric(6_1) physical_altitude
+		numeric(9_6) latitude
+		numeric(9_6) longitude
+		numeric(6_1) altitude
 		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
@@ -860,9 +860,6 @@ erDiagram
 		character_varying postal_region_code
 		integer postal_country_id
 		text postal_country_iso_2
-		numeric(9_6) postal_latitude
-		numeric(9_6) postal_longitude
-		numeric(6_1) postal_altitude
 		character_varying(256) web_address
 		character_varying(50) email_address
 		character_varying(50) phone_number
@@ -965,9 +962,9 @@ erDiagram
 		character_varying physical_region_code
 		integer physical_country_id
 		text physical_country_iso_2
-		numeric(9_6) physical_latitude
-		numeric(9_6) physical_longitude
-		numeric(6_1) physical_altitude
+		numeric(9_6) latitude
+		numeric(9_6) longitude
+		numeric(6_1) altitude
 		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
@@ -979,9 +976,6 @@ erDiagram
 		character_varying postal_region_code
 		integer postal_country_id
 		text postal_country_iso_2
-		numeric(9_6) postal_latitude
-		numeric(9_6) postal_longitude
-		numeric(6_1) postal_altitude
 		character_varying(256) web_address
 		character_varying(50) email_address
 		character_varying(50) phone_number
@@ -1104,9 +1098,9 @@ erDiagram
 		character_varying physical_region_code
 		integer physical_country_id
 		text physical_country_iso_2
-		numeric(9_6) physical_latitude
-		numeric(9_6) physical_longitude
-		numeric(6_1) physical_altitude
+		numeric(9_6) latitude
+		numeric(9_6) longitude
+		numeric(6_1) altitude
 		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
@@ -1118,9 +1112,6 @@ erDiagram
 		character_varying postal_region_code
 		integer postal_country_id
 		text postal_country_iso_2
-		numeric(9_6) postal_latitude
-		numeric(9_6) postal_longitude
-		numeric(6_1) postal_altitude
 		character_varying(256) web_address
 		character_varying(50) email_address
 		character_varying(50) phone_number
@@ -1186,9 +1177,9 @@ erDiagram
 		character_varying physical_region_code
 		integer physical_country_id
 		text physical_country_iso_2
-		numeric(9_6) physical_latitude
-		numeric(9_6) physical_longitude
-		numeric(6_1) physical_altitude
+		numeric(9_6) latitude
+		numeric(9_6) longitude
+		numeric(6_1) altitude
 		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
@@ -1200,9 +1191,6 @@ erDiagram
 		character_varying postal_region_code
 		integer postal_country_id
 		text postal_country_iso_2
-		numeric(9_6) postal_latitude
-		numeric(9_6) postal_longitude
-		numeric(6_1) postal_altitude
 		character_varying(256) web_address
 		character_varying(50) email_address
 		character_varying(50) phone_number
@@ -1271,9 +1259,9 @@ erDiagram
 		character_varying physical_region_code
 		integer physical_country_id
 		text physical_country_iso_2
-		numeric(9_6) physical_latitude
-		numeric(9_6) physical_longitude
-		numeric(6_1) physical_altitude
+		numeric(9_6) latitude
+		numeric(9_6) longitude
+		numeric(6_1) altitude
 		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
@@ -1285,9 +1273,6 @@ erDiagram
 		character_varying postal_region_code
 		integer postal_country_id
 		text postal_country_iso_2
-		numeric(9_6) postal_latitude
-		numeric(9_6) postal_longitude
-		numeric(6_1) postal_altitude
 		character_varying(256) web_address
 		character_varying(50) email_address
 		character_varying(50) phone_number
@@ -1354,9 +1339,9 @@ erDiagram
 		character_varying physical_region_code
 		integer physical_country_id
 		text physical_country_iso_2
-		numeric(9_6) physical_latitude
-		numeric(9_6) physical_longitude
-		numeric(6_1) physical_altitude
+		numeric(9_6) latitude
+		numeric(9_6) longitude
+		numeric(6_1) altitude
 		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
@@ -1368,9 +1353,6 @@ erDiagram
 		character_varying postal_region_code
 		integer postal_country_id
 		text postal_country_iso_2
-		numeric(9_6) postal_latitude
-		numeric(9_6) postal_longitude
-		numeric(6_1) postal_altitude
 		character_varying(256) web_address
 		character_varying(50) email_address
 		character_varying(50) phone_number

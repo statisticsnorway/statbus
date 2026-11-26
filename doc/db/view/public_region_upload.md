@@ -1,18 +1,18 @@
 ```sql
-                            View "public.region_upload"
-      Column      | Type | Collation | Nullable | Default | Storage  | Description 
-------------------+------+-----------+----------+---------+----------+-------------
- path             | text |           |          |         | extended | 
- name             | text |           |          |         | extended | 
- center_latitude  | text |           |          |         | extended | 
- center_longitude | text |           |          |         | extended | 
- center_altitude  | text |           |          |         | extended | 
+                        View "public.region_upload"
+  Column   | Type | Collation | Nullable | Default | Storage  | Description 
+-----------+------+-----------+----------+---------+----------+-------------
+ path      | text |           |          |         | extended | 
+ name      | text |           |          |         | extended | 
+ latitude  | text |           |          |         | extended | 
+ longitude | text |           |          |         | extended | 
+ altitude  | text |           |          |         | extended | 
 View definition:
  SELECT path::text AS path,
     name,
-    center_latitude::text AS center_latitude,
-    center_longitude::text AS center_longitude,
-    center_altitude::text AS center_altitude
+    latitude::text AS latitude,
+    longitude::text AS longitude,
+    altitude::text AS altitude
    FROM region
   ORDER BY (path::text);
 Triggers:
@@ -21,4 +21,4 @@ Options: security_invoker=on
 
 ```
 
-**Comment:** Upload of regions by path, with name, and optionally center_latitude, center_longitude and center_altitude. Each row adds or changes one region; columns a row leaves out or empty keep what is stored, so a file of path and centre columns adds centres to the regions already listed (admin.region_upload_upsert).
+**Comment:** Upload of regions by path, with name, and optionally latitude, longitude and altitude. Each row adds or changes one region; columns a row leaves out or empty keep what is stored, so a file of path and coordinate columns adds points to the regions already listed (admin.region_upload_upsert).

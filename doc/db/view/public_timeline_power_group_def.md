@@ -37,9 +37,9 @@
  physical_region_code             | character varying        |           |          |         | extended | 
  physical_country_id              | integer                  |           |          |         | plain    | 
  physical_country_iso_2           | text                     |           |          |         | extended | 
- physical_latitude                | numeric(9,6)             |           |          |         | main     | 
- physical_longitude               | numeric(9,6)             |           |          |         | main     | 
- physical_altitude                | numeric(6,1)             |           |          |         | main     | 
+ latitude                         | numeric(9,6)             |           |          |         | main     | 
+ longitude                        | numeric(9,6)             |           |          |         | main     | 
+ altitude                         | numeric(6,1)             |           |          |         | main     | 
  domestic                         | boolean                  |           |          |         | plain    | 
  postal_address_part1             | character varying(200)   |           |          |         | extended | 
  postal_address_part2             | character varying(200)   |           |          |         | extended | 
@@ -51,9 +51,6 @@
  postal_region_code               | character varying        |           |          |         | extended | 
  postal_country_id                | integer                  |           |          |         | plain    | 
  postal_country_iso_2             | text                     |           |          |         | extended | 
- postal_latitude                  | numeric(9,6)             |           |          |         | main     | 
- postal_longitude                 | numeric(9,6)             |           |          |         | main     | 
- postal_altitude                  | numeric(6,1)             |           |          |         | main     | 
  web_address                      | character varying(256)   |           |          |         | extended | 
  email_address                    | character varying(50)    |           |          |         | extended | 
  phone_number                     | character varying(50)    |           |          |         | extended | 
@@ -152,9 +149,9 @@ View definition:
             pgplu.physical_region_code,
             pgplu.physical_country_id,
             pgplu.physical_country_iso_2,
-            pgplu.physical_latitude,
-            pgplu.physical_longitude,
-            pgplu.physical_altitude,
+            pgplu.latitude,
+            pgplu.longitude,
+            pgplu.altitude,
             pgplu.domestic,
             pgplu.postal_address_part1,
             pgplu.postal_address_part2,
@@ -166,9 +163,6 @@ View definition:
             pgplu.postal_region_code,
             pgplu.postal_country_id,
             pgplu.postal_country_iso_2,
-            pgplu.postal_latitude,
-            pgplu.postal_longitude,
-            pgplu.postal_altitude,
             pgplu.web_address,
             pgplu.email_address,
             pgplu.phone_number,
@@ -229,9 +223,9 @@ View definition:
                     tlu_p.physical_region_code,
                     tlu_p.physical_country_id,
                     tlu_p.physical_country_iso_2,
-                    tlu_p.physical_latitude,
-                    tlu_p.physical_longitude,
-                    tlu_p.physical_altitude,
+                    tlu_p.latitude,
+                    tlu_p.longitude,
+                    tlu_p.altitude,
                     tlu_p.domestic,
                     tlu_p.postal_address_part1,
                     tlu_p.postal_address_part2,
@@ -243,9 +237,6 @@ View definition:
                     tlu_p.postal_region_code,
                     tlu_p.postal_country_id,
                     tlu_p.postal_country_iso_2,
-                    tlu_p.postal_latitude,
-                    tlu_p.postal_longitude,
-                    tlu_p.postal_altitude,
                     tlu_p.web_address,
                     tlu_p.email_address,
                     tlu_p.phone_number,
@@ -313,9 +304,9 @@ View definition:
     b.physical_region_code,
     b.physical_country_id,
     b.physical_country_iso_2,
-    b.physical_latitude,
-    b.physical_longitude,
-    b.physical_altitude,
+    b.latitude,
+    b.longitude,
+    b.altitude,
     b.domestic,
     b.postal_address_part1,
     b.postal_address_part2,
@@ -327,9 +318,6 @@ View definition:
     b.postal_region_code,
     b.postal_country_id,
     b.postal_country_iso_2,
-    b.postal_latitude,
-    b.postal_longitude,
-    b.postal_altitude,
     b.web_address,
     b.email_address,
     b.phone_number,

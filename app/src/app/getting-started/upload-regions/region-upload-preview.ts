@@ -9,9 +9,9 @@
 export interface StoredRegion {
   path: string | null;
   name: string | null;
-  center_latitude: string | number | null;
-  center_longitude: string | number | null;
-  center_altitude: string | number | null;
+  latitude: string | number | null;
+  longitude: string | number | null;
+  altitude: string | number | null;
 }
 
 export interface RegionChange {
@@ -40,7 +40,7 @@ export interface RegionUploadPreview {
   errors: RegionUploadError[];
 }
 
-const COLUMNS = ["path", "name", "center_latitude", "center_longitude", "center_altitude"] as const;
+const COLUMNS = ["path", "name", "latitude", "longitude", "altitude"] as const;
 
 const PATH = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/;
 
@@ -118,9 +118,9 @@ export function previewRegionUpload(
       continue;
     }
 
-    const latitude = number(at(fields, "center_latitude"));
-    const longitude = number(at(fields, "center_longitude"));
-    const altitude = number(at(fields, "center_altitude"));
+    const latitude = number(at(fields, "latitude"));
+    const longitude = number(at(fields, "longitude"));
+    const altitude = number(at(fields, "altitude"));
     if (Number.isNaN(latitude) || Number.isNaN(longitude) || Number.isNaN(altitude)) {
       fail("a coordinate is not a number (use a dot for decimals)");
       continue;
@@ -158,7 +158,7 @@ export function previewRegionUpload(
       continue;
     }
 
-    const hasPoint = current.center_latitude !== null && current.center_latitude !== "";
+    const hasPoint = current.latitude !== null && current.latitude !== "";
     if (altitude !== null && latitude === null && !hasPoint) {
       fail("an altitude needs latitude and longitude, and the region has none");
       continue;
@@ -170,15 +170,15 @@ export function previewRegionUpload(
     }
     const shown = name || current.name || path;
     if (latitude !== null) {
-      const moved = !same(latitude, current.center_latitude) || !same(longitude, current.center_longitude);
+      const moved = !same(latitude, current.latitude) || !same(longitude, current.longitude);
       if (!hasPoint) {
         preview.coordinatesSet.push({ line, path, name: shown });
         changed = true;
-      } else if (moved || (altitude !== null && !same(altitude, current.center_altitude))) {
+      } else if (moved || (altitude !== null && !same(altitude, current.altitude))) {
         preview.coordinatesMoved.push({ line, path, name: shown });
         changed = true;
       }
-    } else if (altitude !== null && !same(altitude, current.center_altitude)) {
+    } else if (altitude !== null && !same(altitude, current.altitude)) {
       preview.coordinatesMoved.push({ line, path, name: shown });
       changed = true;
     }

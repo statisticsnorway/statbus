@@ -33,8 +33,8 @@ const fetcher: Fetcher<RegionResult, SearchState> = async ({pagination, queries}
 
       if (queries.name) query = query.ilike('name', `%${queries.name}%`);
       if (queries.code) query = query.like('code', `${queries.code}%`);
-      if (queries.coordinates === 'with') query = query.not('center_latitude', 'is', null);
-      if (queries.coordinates === 'without') query = query.is('center_latitude', null);
+      if (queries.coordinates === 'with') query = query.not('latitude', 'is', null);
+      if (queries.coordinates === 'without') query = query.is('latitude', null);
 
       const {data: maybeRegions, count: maybeCount} = await query;
       const regions = maybeRegions ?? [];

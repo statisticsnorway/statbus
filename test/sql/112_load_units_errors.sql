@@ -172,7 +172,7 @@ SELECT
     'Import job with various physical coordinate errors for Legal Units (Block 3).',
     'Test data load (31_load_units_errors.sql)',
     false;
-INSERT INTO public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code, physical_latitude, physical_longitude, physical_altitude, web_address, email_address, phone_number) VALUES
+INSERT INTO public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code, latitude, longitude, altitude, web_address, email_address, phone_number) VALUES
 -- Original: Latitude out of range (cast error)
 ('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UN','4752','4','6100',2,9000000,'nlr','3333333','32.2984354','1144','nilepearlwater.ug','contact@npw.ug','123456789'),
 -- Original: Valid coordinates
@@ -200,7 +200,7 @@ WHERE slug = 'import_31_lu_era_b3_coord_errors'
 ORDER BY slug;
 
 \echo "Error rows in import_31_lu_era_b3_coord_errors_data (if any):"
-SELECT row_id, state, errors, tax_ident_raw, name_raw, physical_latitude_raw, merge_status
+SELECT row_id, state, errors, tax_ident_raw, name_raw, latitude_raw, merge_status
 FROM public.import_31_lu_era_b3_coord_errors_data
 WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;

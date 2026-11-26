@@ -35,7 +35,7 @@ export function CoordinateRow({
     regions.find((r) => String(r.id) === String(id ?? ""));
   const region = regionOf(regionId);
   const regionCentre = region
-    ? { latitude: region.center_latitude, longitude: region.center_longitude }
+    ? { latitude: region.latitude, longitude: region.longitude }
     : null;
 
   const address = (): AddressForLookup => {

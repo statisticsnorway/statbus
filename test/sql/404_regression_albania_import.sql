@@ -95,7 +95,7 @@ SELECT
     false;
 
 \echo "Uploading Albania legal units (333 rows)"
-\copy public.import_318_lu_upload(tax_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code,male,female,selfemp,punpag) FROM 'test/data/318_albania_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_318_lu_upload(tax_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,latitude,longitude,altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code,male,female,selfemp,punpag) FROM 'test/data/318_albania_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 \echo "Checking upload table row count"
 SELECT COUNT(*) AS upload_row_count FROM public.import_318_lu_upload;

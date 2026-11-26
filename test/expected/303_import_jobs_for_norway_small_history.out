@@ -210,17 +210,17 @@ Triggers:
  physical_postcode                    | text                      |           |          | 
  physical_postplace_raw               | text                      |           |          | 
  physical_postplace                   | text                      |           |          | 
- physical_latitude_raw                | text                      |           |          | 
- physical_longitude_raw               | text                      |           |          | 
- physical_altitude_raw                | text                      |           |          | 
+ latitude_raw                         | text                      |           |          | 
+ longitude_raw                        | text                      |           |          | 
+ altitude_raw                         | text                      |           |          | 
  physical_region_code_raw             | text                      |           |          | 
  physical_country_iso_2_raw           | text                      |           |          | 
  physical_location_id                 | integer                   |           |          | 
  physical_region_id                   | integer                   |           |          | 
  physical_country_id                  | integer                   |           |          | 
- physical_latitude                    | numeric(9,6)              |           |          | 
- physical_longitude                   | numeric(9,6)              |           |          | 
- physical_altitude                    | numeric(6,1)              |           |          | 
+ latitude                             | numeric(9,6)              |           |          | 
+ longitude                            | numeric(9,6)              |           |          | 
+ altitude                             | numeric(6,1)              |           |          | 
  postal_address_part1_raw             | text                      |           |          | 
  postal_address_part1                 | text                      |           |          | 
  postal_address_part2_raw             | text                      |           |          | 
@@ -233,15 +233,9 @@ Triggers:
  postal_postplace                     | text                      |           |          | 
  postal_region_code_raw               | text                      |           |          | 
  postal_country_iso_2_raw             | text                      |           |          | 
- postal_latitude_raw                  | text                      |           |          | 
- postal_longitude_raw                 | text                      |           |          | 
- postal_altitude_raw                  | text                      |           |          | 
  postal_location_id                   | integer                   |           |          | 
  postal_region_id                     | integer                   |           |          | 
  postal_country_id                    | integer                   |           |          | 
- postal_latitude                      | numeric(9,6)              |           |          | 
- postal_longitude                     | numeric(9,6)              |           |          | 
- postal_altitude                      | numeric(6,1)              |           |          | 
  primary_activity_category_code_raw   | text                      |           |          | 
  primary_activity_id                  | integer                   |           |          | 
  primary_activity_category_id         | integer                   |           |          | 
@@ -1333,7 +1327,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                        +
              "purpose": "source_input",                                           +
              "priority": 11,                                                      +
-             "column_name": "physical_latitude_raw",                              +
+             "column_name": "latitude_raw",                                       +
              "column_type": "TEXT",                                               +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
@@ -1343,7 +1337,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                        +
              "purpose": "source_input",                                           +
              "priority": 12,                                                      +
-             "column_name": "physical_longitude_raw",                             +
+             "column_name": "longitude_raw",                                      +
              "column_type": "TEXT",                                               +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
@@ -1353,7 +1347,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                        +
              "purpose": "source_input",                                           +
              "priority": 13,                                                      +
-             "column_name": "physical_altitude_raw",                              +
+             "column_name": "altitude_raw",                                       +
              "column_type": "TEXT",                                               +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
@@ -1413,7 +1407,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                        +
              "purpose": "internal",                                               +
              "priority": 19,                                                      +
-             "column_name": "physical_latitude",                                  +
+             "column_name": "latitude",                                           +
              "column_type": "numeric(9,6)",                                       +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
@@ -1423,7 +1417,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                        +
              "purpose": "internal",                                               +
              "priority": 20,                                                      +
-             "column_name": "physical_longitude",                                 +
+             "column_name": "longitude",                                          +
              "column_type": "numeric(9,6)",                                       +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
@@ -1433,7 +1427,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                        +
              "purpose": "internal",                                               +
              "priority": 21,                                                      +
-             "column_name": "physical_altitude",                                  +
+             "column_name": "altitude",                                           +
              "column_type": "numeric(6,1)",                                       +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
@@ -1561,36 +1555,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                     +
          },                                                                       +
          {                                                                        +
-             "purpose": "source_input",                                           +
-             "priority": 13,                                                      +
-             "column_name": "postal_latitude_raw",                                +
-             "column_type": "TEXT",                                               +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "target_pg_type": "numeric(9,6)",                                    +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "source_input",                                           +
-             "priority": 14,                                                      +
-             "column_name": "postal_longitude_raw",                               +
-             "column_type": "TEXT",                                               +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "target_pg_type": "numeric(9,6)",                                    +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "source_input",                                           +
-             "priority": 15,                                                      +
-             "column_name": "postal_altitude_raw",                                +
-             "column_type": "TEXT",                                               +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "target_pg_type": "numeric(6,1)",                                    +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
              "purpose": "pk_id",                                                  +
              "priority": 16,                                                      +
              "column_name": "postal_location_id",                                 +
@@ -1618,36 +1582,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
              "target_pg_type": "integer",                                         +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "internal",                                               +
-             "priority": 19,                                                      +
-             "column_name": "postal_latitude",                                    +
-             "column_type": "numeric(9,6)",                                       +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "target_pg_type": "numeric(9,6)",                                    +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "internal",                                               +
-             "priority": 20,                                                      +
-             "column_name": "postal_longitude",                                   +
-             "column_type": "numeric(9,6)",                                       +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "target_pg_type": "numeric(9,6)",                                    +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "internal",                                               +
-             "priority": 21,                                                      +
-             "column_name": "postal_altitude",                                    +
-             "column_type": "numeric(6,1)",                                       +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "target_pg_type": "numeric(6,1)",                                    +
              "is_uniquely_identifying": false                                     +
          },                                                                       +
          {                                                                        +
@@ -2352,17 +2286,17 @@ Triggers:
  physical_postcode                    | text                      |           |          | 
  physical_postplace_raw               | text                      |           |          | 
  physical_postplace                   | text                      |           |          | 
- physical_latitude_raw                | text                      |           |          | 
- physical_longitude_raw               | text                      |           |          | 
- physical_altitude_raw                | text                      |           |          | 
+ latitude_raw                         | text                      |           |          | 
+ longitude_raw                        | text                      |           |          | 
+ altitude_raw                         | text                      |           |          | 
  physical_region_code_raw             | text                      |           |          | 
  physical_country_iso_2_raw           | text                      |           |          | 
  physical_location_id                 | integer                   |           |          | 
  physical_region_id                   | integer                   |           |          | 
  physical_country_id                  | integer                   |           |          | 
- physical_latitude                    | numeric(9,6)              |           |          | 
- physical_longitude                   | numeric(9,6)              |           |          | 
- physical_altitude                    | numeric(6,1)              |           |          | 
+ latitude                             | numeric(9,6)              |           |          | 
+ longitude                            | numeric(9,6)              |           |          | 
+ altitude                             | numeric(6,1)              |           |          | 
  postal_address_part1_raw             | text                      |           |          | 
  postal_address_part1                 | text                      |           |          | 
  postal_address_part2_raw             | text                      |           |          | 
@@ -2375,15 +2309,9 @@ Triggers:
  postal_postplace                     | text                      |           |          | 
  postal_region_code_raw               | text                      |           |          | 
  postal_country_iso_2_raw             | text                      |           |          | 
- postal_latitude_raw                  | text                      |           |          | 
- postal_longitude_raw                 | text                      |           |          | 
- postal_altitude_raw                  | text                      |           |          | 
  postal_location_id                   | integer                   |           |          | 
  postal_region_id                     | integer                   |           |          | 
  postal_country_id                    | integer                   |           |          | 
- postal_latitude                      | numeric(9,6)              |           |          | 
- postal_longitude                     | numeric(9,6)              |           |          | 
- postal_altitude                      | numeric(6,1)              |           |          | 
  primary_activity_category_code_raw   | text                      |           |          | 
  primary_activity_id                  | integer                   |           |          | 
  primary_activity_category_id         | integer                   |           |          | 
@@ -3475,7 +3403,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                          +
              "purpose": "source_input",                                             +
              "priority": 11,                                                        +
-             "column_name": "physical_latitude_raw",                                +
+             "column_name": "latitude_raw",                                         +
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
@@ -3485,7 +3413,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                          +
              "purpose": "source_input",                                             +
              "priority": 12,                                                        +
-             "column_name": "physical_longitude_raw",                               +
+             "column_name": "longitude_raw",                                        +
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
@@ -3495,7 +3423,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                          +
              "purpose": "source_input",                                             +
              "priority": 13,                                                        +
-             "column_name": "physical_altitude_raw",                                +
+             "column_name": "altitude_raw",                                         +
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
@@ -3555,7 +3483,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                          +
              "purpose": "internal",                                                 +
              "priority": 19,                                                        +
-             "column_name": "physical_latitude",                                    +
+             "column_name": "latitude",                                             +
              "column_type": "numeric(9,6)",                                         +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
@@ -3565,7 +3493,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                          +
              "purpose": "internal",                                                 +
              "priority": 20,                                                        +
-             "column_name": "physical_longitude",                                   +
+             "column_name": "longitude",                                            +
              "column_type": "numeric(9,6)",                                         +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
@@ -3575,7 +3503,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                          +
              "purpose": "internal",                                                 +
              "priority": 21,                                                        +
-             "column_name": "physical_altitude",                                    +
+             "column_name": "altitude",                                             +
              "column_type": "numeric(6,1)",                                         +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
@@ -3703,36 +3631,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                       +
          },                                                                         +
          {                                                                          +
-             "purpose": "source_input",                                             +
-             "priority": 13,                                                        +
-             "column_name": "postal_latitude_raw",                                  +
-             "column_type": "TEXT",                                                 +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "target_pg_type": "numeric(9,6)",                                      +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "source_input",                                             +
-             "priority": 14,                                                        +
-             "column_name": "postal_longitude_raw",                                 +
-             "column_type": "TEXT",                                                 +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "target_pg_type": "numeric(9,6)",                                      +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "source_input",                                             +
-             "priority": 15,                                                        +
-             "column_name": "postal_altitude_raw",                                  +
-             "column_type": "TEXT",                                                 +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "target_pg_type": "numeric(6,1)",                                      +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
              "purpose": "pk_id",                                                    +
              "priority": 16,                                                        +
              "column_name": "postal_location_id",                                   +
@@ -3760,36 +3658,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
              "target_pg_type": "integer",                                           +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "internal",                                                 +
-             "priority": 19,                                                        +
-             "column_name": "postal_latitude",                                      +
-             "column_type": "numeric(9,6)",                                         +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "target_pg_type": "numeric(9,6)",                                      +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "internal",                                                 +
-             "priority": 20,                                                        +
-             "column_name": "postal_longitude",                                     +
-             "column_type": "numeric(9,6)",                                         +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "target_pg_type": "numeric(9,6)",                                      +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "internal",                                                 +
-             "priority": 21,                                                        +
-             "column_name": "postal_altitude",                                      +
-             "column_type": "numeric(6,1)",                                         +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "target_pg_type": "numeric(6,1)",                                      +
              "is_uniquely_identifying": false                                       +
          },                                                                         +
          {                                                                          +
@@ -5194,8 +5062,11 @@ external_idents       | {"tax_ident": "929554205"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2014-05-28",                                        +
@@ -5215,19 +5086,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2016 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "2005",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "RÆLINGEN",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -5266,8 +5131,11 @@ external_idents       | {"tax_ident": "992603216"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2008-02-17",                                        +
@@ -5287,19 +5155,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "1406",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -5356,8 +5218,11 @@ external_idents       | {"tax_ident": "996464415"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2010-12-13",                                        +
@@ -5377,19 +5242,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -5446,8 +5305,11 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2014-01-01",                                        +
@@ -5467,18 +5329,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "1406",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -5530,8 +5386,11 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
@@ -5551,18 +5410,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "2005",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "RÆLINGEN",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -5601,8 +5454,11 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2010-12-03",                                        +
@@ -5622,18 +5478,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -5690,8 +5540,11 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2014-01-01",                                        +
@@ -5711,18 +5564,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "1406",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -5773,8 +5620,11 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
@@ -5794,18 +5644,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "2005",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "RÆLINGEN",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -5843,8 +5687,11 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2010-12-03",                                        +
@@ -5864,18 +5711,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -5926,8 +5767,11 @@ external_idents       | {"tax_ident": "929895711"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-04-16",                                        +
@@ -5947,19 +5791,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
@@ -5998,8 +5836,11 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-01-05",                                        +
@@ -6019,18 +5860,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
@@ -6069,8 +5904,11 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-01-05",                                        +
@@ -6090,18 +5928,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
@@ -6139,8 +5971,11 @@ external_idents       | {"tax_ident": "928719510"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2012-01-17",                                        +
@@ -6160,19 +5995,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -6211,8 +6040,11 @@ external_idents       | {"tax_ident": "972287091"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1992-01-01",                                        +
@@ -6232,19 +6064,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -6301,8 +6127,11 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
@@ -6322,18 +6151,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2017 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -6372,8 +6195,11 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2015-02-15",                                        +
@@ -6393,18 +6219,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -6461,8 +6281,11 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
@@ -6482,18 +6305,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2017 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -6531,8 +6348,11 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2015-02-15",                                        +
@@ -6552,18 +6372,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -6614,8 +6428,11 @@ external_idents       | {"tax_ident": "992603216"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2008-02-17",                                        +
@@ -6635,19 +6452,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "1406",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -6704,8 +6515,11 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2014-01-01",                                        +
@@ -6725,18 +6539,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "1406",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -6788,8 +6596,11 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2010-12-03",                                        +
@@ -6809,18 +6620,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -6877,8 +6682,11 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2014-01-01",                                        +
@@ -6898,18 +6706,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "1406",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -6960,8 +6762,11 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2010-12-03",                                        +
@@ -6981,18 +6786,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -7043,8 +6842,11 @@ external_idents       | {"tax_ident": "929554205"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2014-05-28",                                        +
@@ -7064,19 +6866,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2016 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -7115,8 +6911,11 @@ external_idents       | {"tax_ident": "996464415"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2010-12-13",                                        +
@@ -7136,19 +6935,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -7205,8 +6998,11 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
@@ -7226,18 +7022,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -7276,8 +7066,11 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
@@ -7297,18 +7090,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -7346,8 +7133,11 @@ external_idents       | {"tax_ident": "928719510"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2012-01-17",                                        +
@@ -7367,19 +7157,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -7418,8 +7202,11 @@ external_idents       | {"tax_ident": "929895711"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-04-16",                                        +
@@ -7439,19 +7226,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
@@ -7490,8 +7271,11 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-01-05",                                        +
@@ -7511,18 +7295,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
@@ -7561,8 +7339,11 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
@@ -7582,18 +7363,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -7632,8 +7407,11 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-02-15",                                        +
@@ -7653,18 +7431,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -7721,8 +7493,11 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-01-05",                                        +
@@ -7742,18 +7517,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
@@ -7791,8 +7560,11 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
@@ -7812,18 +7584,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -7861,8 +7627,11 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-02-15",                                        +
@@ -7882,18 +7651,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -7944,8 +7707,11 @@ external_idents       | {"tax_ident": "972287091"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1992-01-01",                                        +
@@ -7965,19 +7731,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -8034,8 +7794,11 @@ external_idents       | {"tax_ident": "928719510"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2012-01-17",                                        +
@@ -8055,19 +7818,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3014",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "DRAMMEN",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -8106,8 +7863,11 @@ external_idents       | {"tax_ident": "929895711"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-04-16",                                        +
@@ -8127,19 +7887,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
@@ -8178,8 +7932,11 @@ external_idents       | {"tax_ident": "992603216"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2008-02-17",                                        +
@@ -8199,19 +7956,13 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
                       |     ],                                                                 +
                       |     "last_edit_comment": "BRREG Underenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3114",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "TØNSBERG",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -8268,8 +8019,11 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-01-05",                                        +
@@ -8289,18 +8043,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
@@ -8339,8 +8087,11 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2014-01-01",                                        +
@@ -8360,18 +8111,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3114",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "TØNSBERG",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -8423,8 +8168,11 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
@@ -8444,18 +8192,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3014",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "DRAMMEN",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -8494,8 +8236,11 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-02-15",                                        +
@@ -8515,18 +8260,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -8583,8 +8322,11 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2010-12-03",                                        +
@@ -8604,18 +8346,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -8672,8 +8408,11 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-01-05",                                        +
@@ -8693,18 +8432,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
@@ -8742,8 +8475,11 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2014-01-01",                                        +
@@ -8763,18 +8499,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3114",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "TØNSBERG",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -8825,8 +8555,11 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
@@ -8846,18 +8579,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3014",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "DRAMMEN",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -8895,8 +8622,11 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "1996-02-15",                                        +
@@ -8916,18 +8646,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -8978,8 +8702,11 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "altitude": null,                                                  +
                       |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
+                      |     "latitude": null,                                                  +
+                      |     "longitude": null,                                                 +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": "2010-12-03",                                        +
@@ -8999,18 +8726,12 @@ statistical_unit_data | {                                                       
                       |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
                       |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "used_for_counting": true,                                         +
-                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +

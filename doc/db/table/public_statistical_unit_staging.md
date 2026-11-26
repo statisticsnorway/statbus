@@ -38,9 +38,9 @@
  physical_region_code             | character varying        |           |          |         | extended |             |              | 
  physical_country_id              | integer                  |           |          |         | plain    |             |              | 
  physical_country_iso_2           | text                     |           |          |         | extended |             |              | 
- physical_latitude                | numeric(9,6)             |           |          |         | main     |             |              | 
- physical_longitude               | numeric(9,6)             |           |          |         | main     |             |              | 
- physical_altitude                | numeric(6,1)             |           |          |         | main     |             |              | 
+ latitude                         | numeric(9,6)             |           |          |         | main     |             |              | 
+ longitude                        | numeric(9,6)             |           |          |         | main     |             |              | 
+ altitude                         | numeric(6,1)             |           |          |         | main     |             |              | 
  domestic                         | boolean                  |           |          |         | plain    |             |              | 
  postal_address_part1             | character varying(200)   |           |          |         | extended |             |              | 
  postal_address_part2             | character varying(200)   |           |          |         | extended |             |              | 
@@ -52,9 +52,6 @@
  postal_region_code               | character varying        |           |          |         | extended |             |              | 
  postal_country_id                | integer                  |           |          |         | plain    |             |              | 
  postal_country_iso_2             | text                     |           |          |         | extended |             |              | 
- postal_latitude                  | numeric(9,6)             |           |          |         | main     |             |              | 
- postal_longitude                 | numeric(9,6)             |           |          |         | main     |             |              | 
- postal_altitude                  | numeric(6,1)             |           |          |         | main     |             |              | 
  web_address                      | character varying(256)   |           |          |         | extended |             |              | 
  email_address                    | character varying(50)    |           |          |         | extended |             |              | 
  phone_number                     | character varying(50)    |           |          |         | extended |             |              | 

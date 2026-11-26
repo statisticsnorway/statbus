@@ -64,7 +64,7 @@ BEGIN
                 dt.physical_address_part1 AS address_part1, dt.physical_address_part2 AS address_part2, dt.physical_address_part3 AS address_part3,
                 dt.physical_postcode AS postcode, dt.physical_postplace AS postplace,
                 dt.physical_region_id AS region_id, (SELECT r.version_id FROM public.region r WHERE r.id = dt.physical_region_id) AS region_version_id, dt.physical_country_id AS country_id,
-                dt.physical_latitude AS latitude, dt.physical_longitude AS longitude, dt.physical_altitude AS altitude,
+                dt.latitude, dt.longitude, dt.altitude,
                 dt.data_source_id,
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
                 dt.errors, dt.merge_status
@@ -97,7 +97,7 @@ BEGIN
                 dt.postal_address_part1 AS address_part1, dt.postal_address_part2 AS address_part2, dt.postal_address_part3 AS address_part3,
                 dt.postal_postcode AS postcode, dt.postal_postplace AS postplace,
                 dt.postal_region_id AS region_id, (SELECT r.version_id FROM public.region r WHERE r.id = dt.postal_region_id) AS region_version_id, dt.postal_country_id AS country_id,
-                dt.postal_latitude AS latitude, dt.postal_longitude AS longitude, dt.postal_altitude AS altitude,
+                NULL::numeric(9,6) AS latitude, NULL::numeric(9,6) AS longitude, NULL::numeric(6,1) AS altitude, -- a postal address has no position
                 dt.data_source_id,
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
                 dt.errors, dt.merge_status

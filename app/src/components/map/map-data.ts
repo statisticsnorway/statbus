@@ -65,9 +65,9 @@ export interface MapRegion {
   id: number;
   path: string;
   name: string;
-  center_latitude: number | null;
-  center_longitude: number | null;
-  center_altitude: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
 }
 
 /** Units per region path at one depth, split by unit type. */
@@ -285,13 +285,13 @@ export function regionFeatures(
     if (total === 0) continue;
     const region = regionByPath.get(path);
     const name = region?.name ?? path;
-    if (region?.center_latitude == null || region.center_longitude == null) {
+    if (region?.latitude == null || region.longitude == null) {
       withoutCentre.push({ path, name, total });
       continue;
     }
     features.push({
       type: "Feature",
-      geometry: { type: "Point", coordinates: [Number(region.center_longitude), Number(region.center_latitude)] },
+      geometry: { type: "Point", coordinates: [Number(region.longitude), Number(region.latitude)] },
       properties: { path, name, total, ...c },
     });
   }
@@ -508,7 +508,7 @@ export function resolveQualityForCount(api: URLSearchParams, statIds: ReadonlyMa
 }
 
 /** A unit of the hierarchy as the Links map needs it: its kind, name, link and physical locations. */
-type HierarchyRegion = { name: string; path: string; center_latitude: number | null; center_longitude: number | null };
+type HierarchyRegion = { name: string; path: string; latitude: number | null; longitude: number | null };
 type HierarchyLocation = { type: string; latitude: number | null; longitude: number | null; region?: HierarchyRegion | null };
 type HierarchyUnit = { id: number; name: string; location?: HierarchyLocation[] };
 export interface LinksHierarchy {
@@ -635,11 +635,11 @@ export function linksUnitPoints(
       continue;
     }
     const region = physical?.region;
-    if (region?.center_latitude != null && region.center_longitude != null) {
+    if (region?.latitude != null && region.longitude != null) {
       atRegion += 1;
       features.push({
         type: "Feature",
-        geometry: { type: "Point", coordinates: [Number(region.center_longitude), Number(region.center_latitude)] },
+        geometry: { type: "Point", coordinates: [Number(region.longitude), Number(region.latitude)] },
         properties: { ...base, placed: "region", region_name: region.name },
       });
     }

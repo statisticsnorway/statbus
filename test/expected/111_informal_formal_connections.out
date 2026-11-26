@@ -241,9 +241,9 @@ SELECT jsonb_pretty(
                              "path": "2.256.13",                                                                                  +
                              "label": "225613",                                                                                   +
                              "level": 3,                                                                                          +
-                             "center_altitude": null,                                                                             +
-                             "center_latitude": null,                                                                             +
-                             "center_longitude": null                                                                             +
+                             "altitude": null,                                                                                    +
+                             "latitude": null,                                                                                    +
+                             "longitude": null                                                                                    +
                          },                                                                                                       +
                          "country": {                                                                                             +
                              "name": "United Nations",                                                                            +
@@ -350,9 +350,9 @@ SELECT jsonb_pretty(
                                      "path": "2.256.13",                                                                          +
                                      "label": "225613",                                                                           +
                                      "level": 3,                                                                                  +
-                                     "center_altitude": null,                                                                     +
-                                     "center_latitude": null,                                                                     +
-                                     "center_longitude": null                                                                     +
+                                     "altitude": null,                                                                            +
+                                     "latitude": null,                                                                            +
+                                     "longitude": null                                                                            +
                                  },                                                                                               +
                                  "country": {                                                                                     +
                                      "name": "United Nations",                                                                    +
@@ -625,9 +625,9 @@ SELECT jsonb_pretty(
                              "path": "2.256.02",                                                                          +
                              "label": "225602",                                                                           +
                              "level": 3,                                                                                  +
-                             "center_altitude": null,                                                                     +
-                             "center_latitude": null,                                                                     +
-                             "center_longitude": null                                                                     +
+                             "altitude": null,                                                                            +
+                             "latitude": null,                                                                            +
+                             "longitude": null                                                                            +
                          },                                                                                               +
                          "country": {                                                                                     +
                              "name": "United Nations",                                                                    +
@@ -925,9 +925,9 @@ SELECT jsonb_pretty(
                              "path": "2.256.13",                                                                                  +
                              "label": "225613",                                                                                   +
                              "level": 3,                                                                                          +
-                             "center_altitude": null,                                                                             +
-                             "center_latitude": null,                                                                             +
-                             "center_longitude": null                                                                             +
+                             "altitude": null,                                                                                    +
+                             "latitude": null,                                                                                    +
+                             "longitude": null                                                                                    +
                          },                                                                                                       +
                          "country": {                                                                                             +
                              "name": "United Nations",                                                                            +
@@ -1034,9 +1034,9 @@ SELECT jsonb_pretty(
                                      "path": "2.256.13",                                                                          +
                                      "label": "225613",                                                                           +
                                      "level": 3,                                                                                  +
-                                     "center_altitude": null,                                                                     +
-                                     "center_latitude": null,                                                                     +
-                                     "center_longitude": null                                                                     +
+                                     "altitude": null,                                                                            +
+                                     "latitude": null,                                                                            +
+                                     "longitude": null                                                                            +
                                  },                                                                                               +
                                  "country": {                                                                                     +
                                      "name": "United Nations",                                                                    +
@@ -1280,9 +1280,9 @@ SELECT jsonb_pretty(
                              "path": "2.256.02",                                                                                  +
                              "label": "225602",                                                                                   +
                              "level": 3,                                                                                          +
-                             "center_altitude": null,                                                                             +
-                             "center_latitude": null,                                                                             +
-                             "center_longitude": null                                                                             +
+                             "altitude": null,                                                                                    +
+                             "latitude": null,                                                                                    +
+                             "longitude": null                                                                                    +
                          },                                                                                                       +
                          "country": {                                                                                             +
                              "name": "United Nations",                                                                            +
@@ -1490,9 +1490,9 @@ SELECT jsonb_pretty(
                              "path": "2.256.13",                                                                                  +
                              "label": "225613",                                                                                   +
                              "level": 3,                                                                                          +
-                             "center_altitude": null,                                                                             +
-                             "center_latitude": null,                                                                             +
-                             "center_longitude": null                                                                             +
+                             "altitude": null,                                                                                    +
+                             "latitude": null,                                                                                    +
+                             "longitude": null                                                                                    +
                          },                                                                                                       +
                          "country": {                                                                                             +
                              "name": "United Nations",                                                                            +
@@ -1599,9 +1599,9 @@ SELECT jsonb_pretty(
                                      "path": "2.256.13",                                                                          +
                                      "label": "225613",                                                                           +
                                      "level": 3,                                                                                  +
-                                     "center_altitude": null,                                                                     +
-                                     "center_latitude": null,                                                                     +
-                                     "center_longitude": null                                                                     +
+                                     "altitude": null,                                                                            +
+                                     "latitude": null,                                                                            +
+                                     "longitude": null                                                                            +
                                  },                                                                                               +
                                  "country": {                                                                                     +
                                      "name": "United Nations",                                                                    +
@@ -1845,9 +1845,9 @@ SELECT jsonb_pretty(
                              "path": "2.256.02",                                                                                  +
                              "label": "225602",                                                                                   +
                              "level": 3,                                                                                          +
-                             "center_altitude": null,                                                                             +
-                             "center_latitude": null,                                                                             +
-                             "center_longitude": null                                                                             +
+                             "altitude": null,                                                                                    +
+                             "latitude": null,                                                                                    +
+                             "longitude": null                                                                                    +
                          },                                                                                                       +
                          "country": {                                                                                             +
                              "name": "United Nations",                                                                            +
@@ -2055,9 +2055,9 @@ SELECT jsonb_pretty(
                              "path": "2.256.13",                                                                                  +
                              "label": "225613",                                                                                   +
                              "level": 3,                                                                                          +
-                             "center_altitude": null,                                                                             +
-                             "center_latitude": null,                                                                             +
-                             "center_longitude": null                                                                             +
+                             "altitude": null,                                                                                    +
+                             "latitude": null,                                                                                    +
+                             "longitude": null                                                                                    +
                          },                                                                                                       +
                          "country": {                                                                                             +
                              "name": "United Nations",                                                                            +
@@ -2164,9 +2164,9 @@ SELECT jsonb_pretty(
                                      "path": "2.256.13",                                                                          +
                                      "label": "225613",                                                                           +
                                      "level": 3,                                                                                  +
-                                     "center_altitude": null,                                                                     +
-                                     "center_latitude": null,                                                                     +
-                                     "center_longitude": null                                                                     +
+                                     "altitude": null,                                                                            +
+                                     "latitude": null,                                                                            +
+                                     "longitude": null                                                                            +
                                  },                                                                                               +
                                  "country": {                                                                                     +
                                      "name": "United Nations",                                                                    +
@@ -2410,9 +2410,9 @@ SELECT jsonb_pretty(
                              "path": "2.256.02",                                                                                  +
                              "label": "225602",                                                                                   +
                              "level": 3,                                                                                          +
-                             "center_altitude": null,                                                                             +
-                             "center_latitude": null,                                                                             +
-                             "center_longitude": null                                                                             +
+                             "altitude": null,                                                                                    +
+                             "latitude": null,                                                                                    +
+                             "longitude": null                                                                                    +
                          },                                                                                                       +
                          "country": {                                                                                             +
                              "name": "United Nations",                                                                            +

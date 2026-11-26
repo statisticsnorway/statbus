@@ -27,9 +27,9 @@ interface MapRegion {
   path: string;
   code: string | null;
   name: string;
-  center_latitude: number | null;
-  center_longitude: number | null;
-  center_altitude: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
 }
 
 type DotProperties = { path: string; name: string };
@@ -83,9 +83,7 @@ export function RegionsMap() {
   } = useSWR(client ? ["regions-map:regions"] : null, async () => {
     const { data, error } = await client!
       .from("region")
-      .select(
-        "id,path,code,name,center_latitude,center_longitude,center_altitude"
-      )
+      .select("id,path,code,name,latitude,longitude,altitude")
       .order("path");
     if (error) throw error;
     return (data ?? []) as MapRegion[];
@@ -108,11 +106,9 @@ export function RegionsMap() {
     [regions, at]
   );
   const shown = children.length === 0 && selected ? [selected] : children;
-  const placed = shown.filter(
-    (r) => r.center_latitude != null && r.center_longitude != null
-  );
+  const placed = shown.filter((r) => r.latitude != null && r.longitude != null);
   const unplaced = shown.filter(
-    (r) => r.center_latitude == null || r.center_longitude == null
+    (r) => r.latitude == null || r.longitude == null
   );
   // The lists as the find field narrows them; the map keeps every dot of the level. The picked
   // region stays listed, so it can still be unpicked.
@@ -133,7 +129,7 @@ export function RegionsMap() {
         type: "Feature",
         geometry: {
           type: "Point",
-          coordinates: [Number(r.center_longitude), Number(r.center_latitude)],
+          coordinates: [Number(r.longitude), Number(r.latitude)],
         },
         properties: { path: r.path, name: r.name },
       })),
@@ -384,7 +380,7 @@ export function RegionsMap() {
   );
   const showButton = (r: MapRegion) => (
     <span className="flex w-7 shrink-0 justify-center">
-      {r.center_latitude != null && r.center_longitude != null && (
+      {r.latitude != null && r.longitude != null && (
         <button
           type="button"
           className={`rounded p-1 hover:bg-gray-200 hover:text-gray-900 ${r.path === picked ? "text-gray-900" : "text-gray-400"}`}
@@ -410,7 +406,7 @@ export function RegionsMap() {
   // A row's own click: in, where there is something below; else where it is on the map.
   const openRow = (r: MapRegion) => {
     if (hasChildren.has(r.path)) go(r.path);
-    else if (r.center_latitude != null) pick(r.path === picked ? null : r.path);
+    else if (r.latitude != null) pick(r.path === picked ? null : r.path);
   };
 
   return (
@@ -472,9 +468,8 @@ export function RegionsMap() {
                   {editButton(selected, "Edit the centre")}
                 </h2>
                 <p className="mt-1 text-xs tabular-nums text-gray-600">
-                  {selected.center_latitude != null &&
-                  selected.center_longitude != null
-                    ? `${selected.center_latitude}, ${selected.center_longitude}${selected.center_altitude != null ? `, ${selected.center_altitude} m` : ""}`
+                  {selected.latitude != null && selected.longitude != null
+                    ? `${selected.latitude}, ${selected.longitude}${selected.altitude != null ? `, ${selected.altitude} m` : ""}`
                     : "No centre"}
                 </p>
               </section>

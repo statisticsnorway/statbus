@@ -12,46 +12,46 @@ SET client_min_messages TO warning;
 \echo "The region list, with one centre placed"
 "The region list, with one centre placed"
 \copy public.region_upload(path,name) FROM stdin WITH (FORMAT csv, DELIMITER ',');
-\copy public.region_upload(path,name,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+\copy public.region_upload(path,name,latitude,longitude,altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
 \echo "A file of path and centre columns adds centres to listed regions and keeps their names"
 "A file of path and centre columns adds centres to listed regions and keeps their names"
-\copy public.region_upload(path,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
-SELECT path, name, center_latitude, center_longitude, center_altitude
+\copy public.region_upload(path,latitude,longitude,altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+SELECT path, name, latitude, longitude, altitude
   FROM public.region WHERE path IN ('03', '11.01') ORDER BY path;
- path  |   name    | center_latitude | center_longitude | center_altitude 
--------+-----------+-----------------+------------------+-----------------
- 03    | Oslo      |       59.913868 |        10.752245 |            23.0
- 11.01 | Eigersund |       58.463409 |         5.975909 |                
+ path  |   name    | latitude  | longitude | altitude 
+-------+-----------+-----------+-----------+----------
+ 03    | Oslo      | 59.913868 | 10.752245 |     23.0
+ 11.01 | Eigersund | 58.463409 |  5.975909 |         
 (2 rows)
 
 \echo "A path,name file corrects a name and keeps the centre"
 "A path,name file corrects a name and keeps the centre"
 \copy public.region_upload(path,name) FROM stdin WITH (FORMAT csv, DELIMITER ',');
-SELECT path, name, center_latitude, center_longitude, center_altitude
+SELECT path, name, latitude, longitude, altitude
   FROM public.region WHERE path = '11.03';
- path  |       name        | center_latitude | center_longitude | center_altitude 
--------+-------------------+-----------------+------------------+-----------------
- 11.03 | Stavanger kommune |       58.979290 |         5.707019 |            10.0
+ path  |       name        | latitude  | longitude | altitude 
+-------+-------------------+-----------+-----------+----------
+ 11.03 | Stavanger kommune | 58.979290 |  5.707019 |     10.0
 (1 row)
 
 \echo "A row with a name but empty centre cells keeps the centre too"
 "A row with a name but empty centre cells keeps the centre too"
-\copy public.region_upload(path,name,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
-SELECT path, name, center_latitude, center_longitude, center_altitude
+\copy public.region_upload(path,name,latitude,longitude,altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+SELECT path, name, latitude, longitude, altitude
   FROM public.region WHERE path = '03';
- path | name | center_latitude | center_longitude | center_altitude 
-------+------+-----------------+------------------+-----------------
- 03   | Oslo |       59.913868 |        10.752245 |            23.0
+ path | name | latitude  | longitude | altitude 
+------+------+-----------+-----------+----------
+ 03   | Oslo | 59.913868 | 10.752245 |     23.0
 (1 row)
 
 \echo "A new centre without an altitude drops the old point's altitude"
 "A new centre without an altitude drops the old point's altitude"
-\copy public.region_upload(path,center_latitude,center_longitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
-SELECT path, center_latitude, center_longitude, center_altitude
+\copy public.region_upload(path,latitude,longitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+SELECT path, latitude, longitude, altitude
   FROM public.region WHERE path = '11.03';
- path  | center_latitude | center_longitude | center_altitude 
--------+-----------------+------------------+-----------------
- 11.03 |       58.970000 |         5.730000 |                
+ path  | latitude  | longitude | altitude 
+-------+-----------+-----------+----------
+ 11.03 | 58.970000 |  5.730000 |         
 (1 row)
 
 \echo "Storing the regions as they are writes no region, so no unit is re-derived; one change writes one"
@@ -66,7 +66,7 @@ SELECT pg_stat_get_xact_tuples_updated('public.region'::regclass) - n AS regions
                                  0
 (1 row)
 
-UPDATE regions_as_stored SET center_altitude = '12' WHERE path = '11.03';
+UPDATE regions_as_stored SET altitude = '12' WHERE path = '11.03';
 UPDATE updates_before SET n = pg_stat_get_xact_tuples_updated('public.region'::regclass) WHERE true;
 INSERT INTO public.region_upload SELECT * FROM regions_as_stored;
 SELECT pg_stat_get_xact_tuples_updated('public.region'::regclass) - n AS regions_written_by_one_change
@@ -76,24 +76,24 @@ SELECT pg_stat_get_xact_tuples_updated('public.region'::regclass) - n AS regions
                              1
 (1 row)
 
-SELECT path, center_latitude, center_longitude, center_altitude
+SELECT path, latitude, longitude, altitude
   FROM public.region WHERE path = '11.03';
- path  | center_latitude | center_longitude | center_altitude 
--------+-----------------+------------------+-----------------
- 11.03 |       58.970000 |         5.730000 |            12.0
+ path  | latitude  | longitude | altitude 
+-------+-----------+-----------+----------
+ 11.03 | 58.970000 |  5.730000 |     12.0
 (1 row)
 
 \echo "A region not yet listed needs a name"
 "A region not yet listed needs a name"
 SAVEPOINT new_without_name;
-\copy public.region_upload(path,center_latitude,center_longitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+\copy public.region_upload(path,latitude,longitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
 ERROR:  Invalid data: {
     "row": {
         "name": null,
         "path": "11.98",
-        "center_altitude": null,
-        "center_latitude": "58.0",
-        "center_longitude": "6.0"
+        "altitude": null,
+        "latitude": "58.0",
+        "longitude": "6.0"
     },
     "errors": {
         "name": "A new region needs a name (path 11.98 is not in the region list yet)"

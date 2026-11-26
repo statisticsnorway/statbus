@@ -38,9 +38,9 @@
  physical_region_code             | character varying        |           |          |         | extended | 
  physical_country_id              | integer                  |           |          |         | plain    | 
  physical_country_iso_2           | text                     |           |          |         | extended | 
- physical_latitude                | numeric(9,6)             |           |          |         | main     | 
- physical_longitude               | numeric(9,6)             |           |          |         | main     | 
- physical_altitude                | numeric(6,1)             |           |          |         | main     | 
+ latitude                         | numeric(9,6)             |           |          |         | main     | 
+ longitude                        | numeric(9,6)             |           |          |         | main     | 
+ altitude                         | numeric(6,1)             |           |          |         | main     | 
  domestic                         | boolean                  |           |          |         | plain    | 
  postal_address_part1             | character varying(200)   |           |          |         | extended | 
  postal_address_part2             | character varying(200)   |           |          |         | extended | 
@@ -52,9 +52,6 @@
  postal_region_code               | character varying        |           |          |         | extended | 
  postal_country_id                | integer                  |           |          |         | plain    | 
  postal_country_iso_2             | text                     |           |          |         | extended | 
- postal_latitude                  | numeric(9,6)             |           |          |         | main     | 
- postal_longitude                 | numeric(9,6)             |           |          |         | main     | 
- postal_altitude                  | numeric(6,1)             |           |          |         | main     | 
  web_address                      | character varying(256)   |           |          |         | extended | 
  email_address                    | character varying(50)    |           |          |         | extended | 
  phone_number                     | character varying(50)    |           |          |         | extended | 
@@ -190,9 +187,9 @@ View definition:
             timeline_establishment.physical_region_code,
             timeline_establishment.physical_country_id,
             timeline_establishment.physical_country_iso_2,
-            timeline_establishment.physical_latitude,
-            timeline_establishment.physical_longitude,
-            timeline_establishment.physical_altitude,
+            timeline_establishment.latitude,
+            timeline_establishment.longitude,
+            timeline_establishment.altitude,
             timeline_establishment.domestic,
             timeline_establishment.postal_address_part1,
             timeline_establishment.postal_address_part2,
@@ -204,9 +201,6 @@ View definition:
             timeline_establishment.postal_region_code,
             timeline_establishment.postal_country_id,
             timeline_establishment.postal_country_iso_2,
-            timeline_establishment.postal_latitude,
-            timeline_establishment.postal_longitude,
-            timeline_establishment.postal_altitude,
             timeline_establishment.web_address,
             timeline_establishment.email_address,
             timeline_establishment.phone_number,
@@ -272,9 +266,9 @@ View definition:
             timeline_legal_unit.physical_region_code,
             timeline_legal_unit.physical_country_id,
             timeline_legal_unit.physical_country_iso_2,
-            timeline_legal_unit.physical_latitude,
-            timeline_legal_unit.physical_longitude,
-            timeline_legal_unit.physical_altitude,
+            timeline_legal_unit.latitude,
+            timeline_legal_unit.longitude,
+            timeline_legal_unit.altitude,
             timeline_legal_unit.domestic,
             timeline_legal_unit.postal_address_part1,
             timeline_legal_unit.postal_address_part2,
@@ -286,9 +280,6 @@ View definition:
             timeline_legal_unit.postal_region_code,
             timeline_legal_unit.postal_country_id,
             timeline_legal_unit.postal_country_iso_2,
-            timeline_legal_unit.postal_latitude,
-            timeline_legal_unit.postal_longitude,
-            timeline_legal_unit.postal_altitude,
             timeline_legal_unit.web_address,
             timeline_legal_unit.email_address,
             timeline_legal_unit.phone_number,
@@ -354,9 +345,9 @@ View definition:
             timeline_enterprise.physical_region_code,
             timeline_enterprise.physical_country_id,
             timeline_enterprise.physical_country_iso_2,
-            timeline_enterprise.physical_latitude,
-            timeline_enterprise.physical_longitude,
-            timeline_enterprise.physical_altitude,
+            timeline_enterprise.latitude,
+            timeline_enterprise.longitude,
+            timeline_enterprise.altitude,
             timeline_enterprise.domestic,
             timeline_enterprise.postal_address_part1,
             timeline_enterprise.postal_address_part2,
@@ -368,9 +359,6 @@ View definition:
             timeline_enterprise.postal_region_code,
             timeline_enterprise.postal_country_id,
             timeline_enterprise.postal_country_iso_2,
-            timeline_enterprise.postal_latitude,
-            timeline_enterprise.postal_longitude,
-            timeline_enterprise.postal_altitude,
             timeline_enterprise.web_address,
             timeline_enterprise.email_address,
             timeline_enterprise.phone_number,
@@ -436,9 +424,9 @@ View definition:
             timeline_power_group.physical_region_code,
             timeline_power_group.physical_country_id,
             timeline_power_group.physical_country_iso_2,
-            timeline_power_group.physical_latitude,
-            timeline_power_group.physical_longitude,
-            timeline_power_group.physical_altitude,
+            timeline_power_group.latitude,
+            timeline_power_group.longitude,
+            timeline_power_group.altitude,
             timeline_power_group.domestic,
             timeline_power_group.postal_address_part1,
             timeline_power_group.postal_address_part2,
@@ -450,9 +438,6 @@ View definition:
             timeline_power_group.postal_region_code,
             timeline_power_group.postal_country_id,
             timeline_power_group.postal_country_iso_2,
-            timeline_power_group.postal_latitude,
-            timeline_power_group.postal_longitude,
-            timeline_power_group.postal_altitude,
             timeline_power_group.web_address,
             timeline_power_group.email_address,
             timeline_power_group.phone_number,
@@ -519,9 +504,9 @@ View definition:
     data.physical_region_code,
     data.physical_country_id,
     data.physical_country_iso_2,
-    data.physical_latitude,
-    data.physical_longitude,
-    data.physical_altitude,
+    data.latitude,
+    data.longitude,
+    data.altitude,
     data.domestic,
     data.postal_address_part1,
     data.postal_address_part2,
@@ -533,9 +518,6 @@ View definition:
     data.postal_region_code,
     data.postal_country_id,
     data.postal_country_iso_2,
-    data.postal_latitude,
-    data.postal_longitude,
-    data.postal_altitude,
     data.web_address,
     data.email_address,
     data.phone_number,

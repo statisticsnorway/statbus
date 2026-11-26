@@ -175,15 +175,15 @@ export default function UnitHistoryTable({
         header: "Coordinates",
         render: (u) => (
           <CoordinatesCell
-            lat={u.physical_latitude}
-            lng={u.physical_longitude}
-            alt={u.physical_altitude}
+            lat={u.latitude}
+            lng={u.longitude}
+            alt={u.altitude}
           />
         ),
         compare: (u) => [
-          u.physical_latitude,
-          u.physical_longitude,
-          u.physical_altitude,
+          u.latitude,
+          u.longitude,
+          u.altitude,
         ],
       },
       {

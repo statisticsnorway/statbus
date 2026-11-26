@@ -75,9 +75,9 @@ AS $function$
          , physical_region_code
          , physical_country_id
          , physical_country_iso_2
-         , physical_latitude
-         , physical_longitude
-         , physical_altitude
+         , latitude
+         , longitude
+         , altitude
          --
          , domestic
          --
@@ -91,9 +91,6 @@ AS $function$
          , postal_region_code
          , postal_country_id
          , postal_country_iso_2
-         , postal_latitude
-         , postal_longitude
-         , postal_altitude
          --
          , web_address
          , email_address

@@ -8,9 +8,9 @@ import { LocationPicker, type PointValues } from "@/components/map/location-pick
 export interface RegionCentre {
   id: number;
   name: string;
-  center_latitude: number | null;
-  center_longitude: number | null;
-  center_altitude: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
 }
 
 /** A stored coordinate as the picker's text, empty when not set. */
@@ -50,9 +50,9 @@ export function RegionCentreDialog({
 
   const save = async (values: PointValues) => {
     const centre = {
-      center_latitude: asNumber(values.latitude, "Latitude"),
-      center_longitude: asNumber(values.longitude, "Longitude"),
-      center_altitude: asNumber(values.altitude, "Altitude"),
+      latitude: asNumber(values.latitude, "Latitude"),
+      longitude: asNumber(values.longitude, "Longitude"),
+      altitude: asNumber(values.altitude, "Altitude"),
     };
     const { error } = await client!.from("region").update(centre).eq("id", region.id);
     if (error) throw new Error(error.message);
@@ -65,9 +65,9 @@ export function RegionCentreDialog({
       subject="region"
       editing={editing}
       values={{
-        latitude: asText(region.center_latitude),
-        longitude: asText(region.center_longitude),
-        altitude: asText(region.center_altitude),
+        latitude: asText(region.latitude),
+        longitude: asText(region.longitude),
+        altitude: asText(region.altitude),
       }}
       regionCentre={null}
       address={() => ({ line: region.name, countryCode: countryCode ?? null, regionName: null })}

@@ -17,7 +17,7 @@ export default function RegionPage() {
   // Whether any region has a centre. The page is simple until one has (owner 2026-11-26, 5yxn4w):
   // then it opens with Coordinates on, and the Map, drawn from those centres, is offered.
   const { data: anyCentre, mutate: recheckCentres } = useSWR(client ? ["regions:any-centre"] : null, async () => {
-    const { data: rows, error } = await client!.from("region").select("id").not("center_latitude", "is", null).limit(1);
+    const { data: rows, error } = await client!.from("region").select("id").not("latitude", "is", null).limit(1);
     if (error) throw error;
     return (rows ?? []).length > 0;
   });

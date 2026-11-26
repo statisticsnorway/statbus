@@ -32,7 +32,7 @@ SELECT
     'Import job for test/data/34_legal_units.csv.',
     'Test data load (34_hierarchy_functions.sql)';
 \echo "User uploads legal units (via import job: import_34_lu_era)"
-\copy public.import_34_lu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,phone_number) FROM 'test/data/34_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_34_lu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,latitude,longitude,altitude,web_address,email_address,phone_number) FROM 'test/data/34_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Formal Establishments
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -43,7 +43,7 @@ SELECT
     'Import job for test/data/34_formal_establishments.csv.',
     'Test data load (34_hierarchy_functions.sql)';
 \echo "User uploads formal establishments (via import job: import_34_esflu_era)"
-\copy public.import_34_esflu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,landline) FROM 'test/data/34_formal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_34_esflu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code,latitude,longitude,altitude,web_address,email_address,landline) FROM 'test/data/34_formal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Informal Establishments
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -54,7 +54,7 @@ SELECT
     'Import job for test/data/34_informal_establishments.csv.',
     'Test data load (34_hierarchy_functions.sql)';
 \echo "User uploads informal establishments (via import job: import_34_eswlu_era)"
-\copy public.import_34_eswlu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,phone_number) FROM 'test/data/34_informal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_34_eswlu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code,latitude,longitude,altitude,web_address,email_address,phone_number) FROM 'test/data/34_informal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 \echo Run worker processing for import jobs
 CALL worker.process_tasks(p_queue => 'import');
