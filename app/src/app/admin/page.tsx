@@ -26,7 +26,7 @@ export default function AdminPage() {
     {
       title: "Upgrades",
       description: "Manage software updates",
-      href: "admin/upgrades",
+      href: "/admin/upgrades",
       icon: ArrowUpCircle,
     },
   ];
