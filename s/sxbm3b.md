@@ -29,7 +29,7 @@ Today import.process_* run in the worker as postgres and set edit_by_user_id := 
 - 1nsdwj
 ## Acceptance
 - [ ] ~~A SQL test: a regular user's portion edit stamps edit_by_user_id and edit_at on changed pieces only, untouched pieces keep theirs~~ (not relevant: duplicate of check 5, rabbit, 2026-11-26)
-- [ ] A SQL test: an import job's rows carry the uploading user as writer under provenance
+- [ ] ~~A SQL test: an import job's rows carry the uploading user as writer under provenance~~ (not relevant: covered by check 4 (role switch), rabbit, 2026-11-26)
 - [ ] [Owner] approves how imports carry the uploader (role switch or GUC) before it is built
 - [ ] A SQL test: an import job's rows carry the uploading user as writer, with the worker switching to that user's role
 - [ ] A SQL test: a regular user's portion edit stamps edit_by_user_id and edit_at on changed pieces only; untouched pieces keep theirs
