@@ -22,7 +22,7 @@ jo.statbus.org, Frame 2023, Drill Down Norway AS (establishment 89): the legal u
 Reproduce first: a test with jo's shape fails before the fix and passes after. Count a unit only where it exists. Validate at import, never repair silently: a birth_date in a later calendar year than the row's valid_from is an error on that row; a birth_date later in the same year stays valid. Do not start before the owner plays it back; this ticket is not yet due.
 
 ## Details
-Owner request 1 (2026-11-26 21:15). Image paste-1540.png (jo.statbus.org/establishments/89/links?details=true, Frame 2023): 23 + 0 vs Σ 25 employees, 20 023 + 23 vs Σ 20 066 turnover. The team asked: birth_date after valid_from is invalid; the owner refines it to a later year than valid_from. Find which units feed 25 and 20 066 (an establishment not shown under Frame 2023, or one valid before its birth_date) on a copy of jo's data.
+Owner request 1 (2026-11-26 21:15). Image paste-1540.png (jo.statbus.org/establishments/89/links?details=true, Frame 2023): 23 + 0 vs Σ 25 employees, 20 023 + 23 vs Σ 20 066 turnover. Cause (Notes 21:05): establishment 86 is valid from 2023-01-01 but born 2024-11-01, and its 2 / 20 are counted in 2023. The counting rule changes in the same function as s465ff (lu_es_rollup, timeline_legal_unit_def_for), so both land in one change.
 
 ## Depends on
 
