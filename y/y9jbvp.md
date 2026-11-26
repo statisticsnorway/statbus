@@ -65,3 +65,4 @@ git revert 2f52f3b7f + bb4848dd4 (keep f29e03a60 unless King says otherwise) →
 - 2026-11-22T23:31 todo -> todo/design (ask)
 - 2026-11-26T22:53 request 1 by jhf
 - 2026-11-26T22:53 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-26T22:53 request 1 acknowledged by rabbit
