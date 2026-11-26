@@ -63,7 +63,7 @@ const RegionTable = ({
             <TableCell className="text-right">Level</TableCell>
             {showCoordinates && (
               <TableCell className="text-right">
-                Coordinates <span className="text-xs font-normal text-gray-500">(lat, lon)</span>
+                Coordinates <span className="text-xs font-normal text-gray-500">(lat, lon, alt)</span>
               </TableCell>
             )}
           </TableRow>
@@ -83,9 +83,11 @@ const RegionTable = ({
                   <TableCell className="py-1.5 text-right" data-region-coordinates="">
                     <span className="inline-flex items-center gap-1">
                       {placed ? (
+                        // All three always, in the header's order; a missing altitude is a grey dot,
+                        // so its place shows without words (owner 2026-11-26).
                         <span className="tabular-nums">
-                          {center_latitude}, {center_longitude}
-                          {center_altitude != null && <span className="text-gray-500"> · {center_altitude} m</span>}
+                          {center_latitude}, {center_longitude},{" "}
+                          {center_altitude ?? <span className="text-gray-400" title="Altitude not set">·</span>}
                         </span>
                       ) : (
                         <span className="text-gray-500">Not set</span>
