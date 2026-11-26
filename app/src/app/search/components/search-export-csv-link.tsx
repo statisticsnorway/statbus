@@ -8,10 +8,10 @@ import { useAtomValue } from "jotai";
 import { searchResultAtom, derivedApiSearchParamsAtom } from "@/atoms/search";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DownloadMenuContent } from "@/components/download-menu";
+import { excelUnavailableReason, formatRowCount } from "@/components/download-menu-text";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +25,6 @@ import {
 import { Progress } from "@/components/ui/progress";
 import {
   EXCEL_CONFIRM_ROWS,
-  EXCEL_MAX_DATA_ROWS,
   exportBaseName,
 } from "@/app/search/export/export-query";
 import {
@@ -33,10 +32,6 @@ import {
   isExportActive,
   useStatisticalUnitExport,
 } from "@/app/search/export/use-statistical-unit-export";
-
-function formatRowCount(n: number): string {
-  return n.toLocaleString("en-US").replace(/,/g, " ");
-}
 
 /**
  * Search result export (STATBUS-421). One streaming request to the server's
@@ -120,7 +115,7 @@ export function ExportCSVLink() {
     );
   }
 
-  const excelUnavailable = total > EXCEL_MAX_DATA_ROWS;
+  const excelUnavailable = excelUnavailableReason(total) !== null;
 
   return (
     <>
@@ -133,30 +128,12 @@ export function ExportCSVLink() {
         >
           <Download size={17} />
           <span>Download</span>
-          {progress.phase === "complete" && (
-            <span className="text-xs text-green-600 ml-1">
-              {formatExportProgress(progress)}
-            </span>
-          )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onCsvClick}>
-            Download CSV ({formatRowCount(total)} rows)
-          </DropdownMenuItem>
-          {excelUnavailable ? (
-            <DropdownMenuItem
-              disabled
-              title="Excel row limit exceeded. Use CSV instead."
-            >
-              Excel unavailable (over {formatRowCount(EXCEL_MAX_DATA_ROWS)}{" "}
-              rows). Use CSV
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem onClick={onXlsxClick}>
-              Download Excel (.xlsx)
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
+        <DownloadMenuContent
+          rows={total}
+          onCsv={onCsvClick}
+          onExcel={excelUnavailable ? () => {} : onXlsxClick}
+        />
       </DropdownMenu>
 
       <AlertDialog open={confirmLargeXlsx} onOpenChange={setConfirmLargeXlsx}>

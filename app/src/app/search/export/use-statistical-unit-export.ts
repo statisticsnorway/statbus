@@ -58,11 +58,14 @@ import {
 import { createXlsxSink, exportFieldTypes } from "./xlsx-stream";
 import { createXlsxConverter } from "./create-xlsx-worker";
 import { reportExportEvent } from "./export-logger";
+import { toast } from "@/hooks/use-toast";
+import { downloadedMessage } from "@/components/download-menu-text";
 
 export type { ExportFormat };
 
 export interface SearchExportProgress {
-  phase: "idle" | "waiting" | "downloading" | "saving" | "complete" | "error";
+  /** A finished export is a notification (toast), so the hook returns to idle rather than holding a done state. */
+  phase: "idle" | "waiting" | "downloading" | "saving" | "error";
   rowsReceived: number;
   bytesReceived: number;
   /** Total the search page displays; null when no count is available. */
@@ -115,8 +118,6 @@ export function formatExportProgress(progress: SearchExportProgress): string {
       return `Downloading… ${formatCount(progress.rowsReceived)}${ofTotal} rows, ${formatMegabytes(progress.bytesReceived)} (${elapsed})`;
     case "saving":
       return `Saving file… ${formatMegabytes(progress.bytesReceived)} (${elapsed})`;
-    case "complete":
-      return `Downloaded ${formatCount(progress.rowsReceived)} rows in ${elapsed}`;
     case "error":
       return progress.error || "Download failed";
     default:
@@ -208,13 +209,9 @@ export function useStatisticalUnitExport() {
 
     const succeed = (rowsReceived: number, bytesReceived: number) => {
       const elapsedMs = Date.now() - startTime;
-      setProgress({
-        phase: "complete",
-        rowsReceived,
-        bytesReceived,
-        expectedRows,
-        elapsedMs,
-      });
+      // A finished download is announced by a notification (f69jcx); the button returns to its menu.
+      toast({ title: downloadedMessage({ rows: rowsReceived }, elapsedMs), description: filename });
+      setProgress(IDLE);
       if (rowsReceived >= COMPLETION_LOG_ROWS) {
         void reportExportEvent(
           "info",

@@ -3,14 +3,9 @@
 import React from "react";
 import { Download, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useProgressDownload, formatDownloadProgress } from "@/hooks/use-progress-download";
-import { excelDataRowsFit } from "@/lib/excel-limits";
+import { DownloadMenuContent } from "@/components/download-menu";
 
 interface ProgressDownloadButtonProps {
   slug: string;
@@ -22,8 +17,8 @@ interface ProgressDownloadButtonProps {
 }
 
 /**
- * Download button with CSV/Excel format dropdown and progress tracking.
- * Replaces plain <a href> links with fetch-based downloads showing progress.
+ * Download button for an import job's rows: the shared Download menu (row count once, CSV and Excel),
+ * progress with Cancel while running, a notification when done (f69jcx).
  */
 export function ProgressDownloadButton({
   slug,
@@ -40,8 +35,18 @@ export function ProgressDownloadButton({
     startDownload(url, filename);
   };
 
-  // rowCount counts data rows; the sheet also needs a header row.
-  const excelDisabled = rowCount != null && !excelDataRowsFit(rowCount);
+  if (progress.phase === 'error') {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-red-600" title={progress.error} role="alert">
+          {formatDownloadProgress(progress)}
+        </span>
+        <button onClick={cancelDownload} className="text-gray-400 hover:text-gray-600" title="Dismiss">
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  }
 
   if (progress.phase === 'downloading') {
     return (
@@ -57,43 +62,18 @@ export function ProgressDownloadButton({
     );
   }
 
-  if (progress.phase === 'complete') {
-    return (
-      <span className="text-xs text-green-600">
-        {formatDownloadProgress(progress)}
-      </span>
-    );
-  }
-
-  if (progress.phase === 'error') {
-    return (
-      <span className="text-xs text-red-600" title={progress.error}>
-        Download failed
-      </span>
-    );
-  }
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant={variant} size="sm" className={className}>
+        <Button variant={variant} size="sm" className={className} title="Download">
           <Download className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => handleDownload('csv')}>
-          Download CSV
-        </DropdownMenuItem>
-        {excelDisabled ? (
-          <DropdownMenuItem disabled>
-            <span className="text-gray-400">Excel — exceeds ~1M row limit</span>
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem onClick={() => handleDownload('xlsx')}>
-            Download Excel (.xlsx)
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
+      <DownloadMenuContent
+        rows={rowCount}
+        onCsv={() => handleDownload('csv')}
+        onExcel={() => handleDownload('xlsx')}
+      />
     </DropdownMenu>
   );
 }

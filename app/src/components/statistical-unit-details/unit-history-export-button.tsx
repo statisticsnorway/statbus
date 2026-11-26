@@ -5,10 +5,9 @@ import { Download, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DownloadMenuContent } from "@/components/download-menu";
 import {
   formatExportProgress,
   isExportActive,
@@ -63,13 +62,22 @@ export function UnitHistoryExportButton({
 
   if (progress.phase === "error") {
     return (
-      <span
-        className="text-xs text-red-600"
-        title={progress.error}
-        role="alert"
-      >
-        {formatExportProgress(progress)}
-      </span>
+      <div className="flex items-center gap-1">
+        <span
+          className="text-xs text-red-600"
+          title={progress.error}
+          role="alert"
+        >
+          {formatExportProgress(progress)}
+        </span>
+        <button
+          onClick={cancelExport}
+          className="text-gray-400 hover:text-gray-600"
+          title="Dismiss"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
     );
   }
 
@@ -84,14 +92,7 @@ export function UnitHistoryExportButton({
         <Download size={17} />
         <span>Download unit history</span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => begin("csv")}>
-          Download CSV
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => begin("xlsx")}>
-          Download XLSX
-        </DropdownMenuItem>
-      </DropdownMenuContent>
+      <DownloadMenuContent onCsv={() => begin("csv")} onExcel={() => begin("xlsx")} />
     </DropdownMenu>
   );
 }

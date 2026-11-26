@@ -2,9 +2,12 @@
 
 import { useState, useCallback, useRef } from "react";
 import { describeError } from "@/lib/error-format";
+import { toast } from "@/hooks/use-toast";
+import { downloadedMessage } from "@/components/download-menu-text";
 
 export interface DownloadProgress {
-  phase: 'idle' | 'downloading' | 'complete' | 'error';
+  /** A finished download is a notification (toast), so the hook returns to idle rather than holding a done state. */
+  phase: 'idle' | 'downloading' | 'error';
   bytesReceived: number;
   elapsedMs: number;
   error?: string;
@@ -26,9 +29,6 @@ export function formatDownloadProgress(progress: DownloadProgress): string {
   if (progress.phase === 'downloading') {
     return `Downloading... ${formatBytes(progress.bytesReceived)} (${formatElapsed(progress.elapsedMs)})`;
   }
-  if (progress.phase === 'complete') {
-    return `Downloaded ${formatBytes(progress.bytesReceived)} in ${formatElapsed(progress.elapsedMs)}`;
-  }
   if (progress.phase === 'error') {
     return progress.error || 'Download failed';
   }
@@ -44,19 +44,14 @@ export function useProgressDownload() {
     phase: 'idle', bytesReceived: 0, elapsedMs: 0,
   });
   const abortRef = useRef<AbortController | null>(null);
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startDownload = useCallback(async (
     url: string,
     suggestedFilename?: string,
     options?: { onError?: (message: string) => void },
   ) => {
-    // Cancel any in-progress download and clear pending auto-reset
+    // Cancel any in-progress download
     abortRef.current?.abort();
-    if (resetTimerRef.current) {
-      clearTimeout(resetTimerRef.current);
-      resetTimerRef.current = null;
-    }
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -129,17 +124,10 @@ export function useProgressDownload() {
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
 
-      setProgress({
-        phase: 'complete',
-        bytesReceived,
-        elapsedMs: Date.now() - startTime,
-      });
-
-      // Auto-reset after 3 seconds (stored in ref for cleanup)
-      resetTimerRef.current = setTimeout(() => {
-        resetTimerRef.current = null;
-        setProgress(prev => prev.phase === 'complete' ? { phase: 'idle', bytesReceived: 0, elapsedMs: 0 } : prev);
-      }, 3000);
+      // A finished download is announced by a notification (f69jcx); the button returns to its menu.
+      const elapsedMs = Date.now() - startTime;
+      toast({ title: downloadedMessage({ bytes: bytesReceived }, elapsedMs), description: filename });
+      setProgress({ phase: 'idle', bytesReceived: 0, elapsedMs: 0 });
 
     } catch (err) {
       if (controller.signal.aborted) return; // cancelled, don't update state
