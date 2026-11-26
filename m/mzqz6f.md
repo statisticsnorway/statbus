@@ -1,7 +1,7 @@
 ---
 id: mzqz6f
 title: "One Save click sends the edit twice and runs two derive cycles"
-state: "doing"
+state: "dropped"
 type: feature
 priority: ""
 assignee: ["rabbit"]
@@ -10,11 +10,11 @@ group: ""
 rank: "zzzzzzzzzzzv"
 created: 2026-11-26
 updated: 2026-11-26
-doing_since: "2026-11-27T00:01"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+dropped_reason: "not a defect: the agent browser tool's click fires twice; a real click and a real double-click each save once"
+dropped_at: "2026-11-27T00:05"
 ---
 
 ## Goal
@@ -41,3 +41,4 @@ Suspects: the capture submit listener in app/src/components/form/edit-metadata-c
 Diagnosis 2026-11-26 23:05: not a StatBus defect. The two writes came from the agent browser tool, whose click fires two synthetic click events (capture listener on Cancel recorded BUTTON:false twice for one call). Playwright real clicks, single and double-click, insert and update paths: exactly one server action and one REST write each (tmp/mzqz6f-double-save.mjs, tmp/journal.md). The owner never clicked; I did.
 ## History
 - 2026-11-27T00:01 todo -> doing/active (take)
+- 2026-11-27T00:05 doing/active -> dropped (drop); was doing_since: 2026-11-27T00:01
