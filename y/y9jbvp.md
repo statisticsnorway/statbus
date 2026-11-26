@@ -67,6 +67,8 @@ git revert 2f52f3b7f + bb4848dd4 (keep f29e03a60 unless King says otherwise) →
 ## Requests
 - 2026-11-26T22:53 request 1 by jhf:
   Can you just this ticket is not clear to me it's it's too many details and not enough like why are we having this discussion what is this about what's the point of it Yeah, help me here
+  resolved 2026-11-26T22:54 by rabbit:
+    Rewritten in plain words. Purpose: what it was about (June 2026, an upgrade crash fix was ready but release candidate rc.03 also carried an unfinished 'defer checkout' change with a recovery bug; three decisions were asked: take it out, raise the server quota, allow an image-cleanup fix). Details: what happened since (the change stayed and its bug was fixed properly in gfvfwe, shipped since rc.04; the quota and image cleanup were solved in 8jv43w and wpz2b6). The old checks are struck; one check left: confirm it can be dropped.
 
 ## History
 - 2026-11-22T23:31 todo -> todo/design (ask)
@@ -74,3 +76,4 @@ git revert 2f52f3b7f + bb4848dd4 (keep f29e03a60 unless King says otherwise) →
 - 2026-11-26T22:53 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-26T22:53 request 1 acknowledged by rabbit
 - 2026-11-26T22:54 request 1 in progress by rabbit: hug task set y9jbvp
+- 2026-11-26T22:54 resolved request 1 by rabbit
