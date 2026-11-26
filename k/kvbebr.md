@@ -32,7 +32,7 @@ PR #327: migration 20261114090337_rename_location_latitude_longitude (up/down) a
 - [x] [Owner] Decides the naming (rename as proposed, or another fix for the map code); the answer is recorded in the notes
 - [ ] With the agreed change, the fast SQL suite passes with updated expected outputs, and doc/db and app types are regenerated
 - [ ] Import definitions, samples and docs that name the coordinate columns use the agreed names (rg finds no old name)
-- [ ] PR #327 is merged or closed on GitHub as decided, with a comment that links this task
+- [x] PR #327 is merged or closed on GitHub as decided, with a comment that links this task
 
 ## Notes
 
@@ -45,3 +45,5 @@ check 1: Owner 2026-11-23 10:46 (his boss's decision, in chat with hibiscus): th
 2026-11-23 10:49 correction to check 1's wording: the decision MEETS PR #327's aim (one name for a coordinate, so map code reads one field without translating) the other way round. #327 adds physical_ to location to match statistical_unit; the owner's decision drops the prefixes so all say latitude, longitude, altitude, and with postal coordinates gone there is nothing left for physical_ to tell apart. The closing comment on #327 says so.
 
 Correction 2026-11-26 (owner): Erik's comment on PR #327 (2026-11-14) asked only that rpc/statistical_unit_hierarchy and statistical_unit return the SAME names for latitude/longitude, for one generic map. His agent turned that into renaming location to physical_latitude, the opposite of the owner's choice. Owner: physical_ was there only because postal locations were systematically given a position too; StatBus records no position for a postal address (location rows carry coordinates only for type physical), so physical_ says nothing and goes. jbc5bs delivers Erik's wish: statistical_unit becomes latitude/longitude/altitude, matching location and the hierarchy RPC. PR #327 to be closed with a reply saying so, the reply approved by the owner first.
+
+check 4: PR #327 closed 2026-11-26 with the owner-approved reply (tmp/pr327-reply.md): Erik's wish is met by jbc5bs, plain latitude/longitude/altitude everywhere.
