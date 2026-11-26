@@ -36,7 +36,7 @@ Today: postgres/Dockerfile ARG sql_saga_release=v1.6; the test slot reports extv
 - [ ] The postgres image builds with sql_saga v1.12 and a migration runs ALTER EXTENSION sql_saga UPDATE; on a database upgraded from the last release extversion is 1.12 and SELECT sql_saga.check_integrity() reports no problem
 - [ ] The fast SQL suite passes on 1.12
 - [ ] A real-guest upgrade from the last release to a build with 1.12 succeeds (install/upgrade testing guide)
-- [ ] [Owner] Confirms the target version (1.12 as the sql_saga agent said, or 1.13 tagged since); recorded here, and the other checks use that version
+- [x] [Owner] Confirms the target version (1.12 as the sql_saga agent said, or 1.13 tagged since); recorded here, and the other checks use that version
 
 ## Notes
 
@@ -45,5 +45,6 @@ Today: postgres/Dockerfile ARG sql_saga_release=v1.6; the test slot reports extv
 2026-11-23 owner: take the latest sql_saga, but it is not ready yet: the owner found another issue there. Wait for the sql_saga release that fixes it; check 4 is answered by that version.
 
 
+check 4: Owner 2026-11-26 20:33: target is sql_saga v1.15 (7011af1, 2026-11-25), the latest release. Preflight of 1.15 on the local slot's Norway copy (2.3 M units): no refusals, only the derived grants it carries over (tmp/1nsdwj/preflight-norway.log).
 ## History
 - 2026-11-26T21:28 todo -> doing/active (take with ca6dk5)
