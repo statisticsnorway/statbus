@@ -38,5 +38,6 @@ Suspects: the capture submit listener in app/src/components/form/edit-metadata-c
 ## Notes
 
 
+Diagnosis 2026-11-26 23:05: not a StatBus defect. The two writes came from the agent browser tool, whose click fires two synthetic click events (capture listener on Cancel recorded BUTTON:false twice for one call). Playwright real clicks, single and double-click, insert and update paths: exactly one server action and one REST write each (tmp/mzqz6f-double-save.mjs, tmp/journal.md). The owner never clicked; I did.
 ## History
 - 2026-11-27T00:01 todo -> doing/active (take)
