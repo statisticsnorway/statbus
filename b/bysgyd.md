@@ -39,6 +39,7 @@ Rows 15-16: physical_postplace 'GÃ¸te Kanal' (one round of UTF-8 read as Windo
 
 check 1: Jest RED on the old file (line 15 GÃ¸te Kanal refused), GREEN 16/16 after repair: tmp/hedda-upload/test-red.log, test-green.log
 check 2: ./dev.sh test 309 310: both ok (tmp/hedda-upload/test-309-310.log)
+landed ecd1c08 on master 2026-11-26: demo: legal_units_with_source_dates spells Gøta and Gøte Kanal in UTF-8 again…
 ## History
 - 2026-11-26T10:17 todo -> doing/active (take with ca6dk5)
 - 2026-11-26T10:17 doing/active -> done (done); was doing_since: 2026-11-26T10:17; doing_with: ca6dk5
