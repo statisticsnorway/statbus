@@ -52,3 +52,4 @@ HONEST PRIORITY: worth doing, NOT urgent — the wedge is closed by 264+265; thi
 - 2026-11-22T23:31 todo -> todo/design (ask)
 - 2026-11-26T21:39 request 1 by jhf
 - 2026-11-26T21:39 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-26T21:39 request 1 acknowledged by rabbit
