@@ -61,6 +61,7 @@ Owner 2026-11-26 20:46: why the prefix goes: positions are recorded only for phy
 2026-11-26 20:48 delegated by hibiscus to agent ox in ~/ssb/statbus_b (slot b, demo data), branch feat/coordinates-named-latitude, together with kvbebr checks 2-3. Order agreed with the owner: feat/units-on-map lands on master first; ox then rebases and renames the map branch's new code too (regions pages, map, upload page, test 414, migration 20261126201306). PR #327 closed with the owner-approved reply.
 Dep on z2qt08 removed to start building on master per owner-agreed ORDER: branch feat/coordinates-named-latitude is built now, rebased onto master after z2qt08 (feat/units-on-map) lands, and merged only after that.
 Owner 2026-11-26 20:50: the expected-output changes of this rename are too large for the implementer or the coordinator to review alone; an independent reviewer agent checks every hunk before merge (new acceptance check). ox told; ox lists each changed .out with its reason in tmp/expected-review.md, hibiscus starts the reviewer.
+Check 6's sweep for old names excludes the refusal code and its tests, which must name the old headers to detect them.
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
