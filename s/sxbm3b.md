@@ -36,3 +36,5 @@ Today import.process_* run in the worker as postgres and set edit_by_user_id := 
 - [ ] The fast SQL suite passes with provenance on every era
 
 ## Notes
+
+Owner 2026-11-26 20:43: no false choice. Provenance changes nothing until it is activated per era, so the sql_saga 1.15 upgrade (1nsdwj) does not change writer behaviour. This task checks that the worker's role switch works with the current system and activates provenance in the same change, not halfway.
