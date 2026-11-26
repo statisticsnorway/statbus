@@ -42,6 +42,9 @@ var sqlSagaImagePins = []struct {
 	// first shipped by the release after v2026.11.4, whose first migration is
 	// 20261111192819.
 	{"20261111192819", "1.6"},
+	// sql_saga 1.15 (1nsdwj): first shipped by the release after
+	// v2026.11.7-rc.01, whose first migration is 20261124114235.
+	{"20261124114235", "1.15"},
 }
 
 // dumpSqlSagaVersion returns the sql_saga version a dump was made with, read

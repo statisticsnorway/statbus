@@ -94,6 +94,18 @@ func TestDumpSqlSagaVersion(t *testing.T) {
 				"950\t20261111192819\tz.up.sql\tz\t2026-11-20\n\\.\n",
 			want: "1.6",
 		},
+		{
+			// Created on an image pinned at sql_saga 1.15 (1nsdwj): no receipt,
+			// ledger reaches the first migration of the release that ships 1.15.
+			name: "ledger at the 1.15-era release without a sql_saga receipt is 1.15",
+			audit: auditCopy +
+				"1\tjsonb_stats\t\\N\t3.1.0\t2026-11-27\n\\.\n",
+			migration: migrationCopy +
+				"900\t20261027221500\ty.up.sql\ty\t2026-11-27\n" +
+				"950\t20261111192819\tz.up.sql\tz\t2026-11-27\n" +
+				"990\t20261124114235\tw.up.sql\tw\t2026-11-27\n\\.\n",
+			want: "1.15",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
