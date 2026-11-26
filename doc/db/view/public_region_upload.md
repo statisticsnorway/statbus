@@ -21,4 +21,4 @@ Options: security_invoker=on
 
 ```
 
-**Comment:** Upload of region by path,name that automatically connects parent_id
+**Comment:** Upload of regions by path, with name, and optionally center_latitude, center_longitude and center_altitude. Each row adds or changes one region; columns a row leaves out or empty keep what is stored, so a file of path and centre columns adds centres to the regions already listed (admin.region_upload_upsert).

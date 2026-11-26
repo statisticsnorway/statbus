@@ -10,6 +10,9 @@ DECLARE
     row RECORD;
     new_typed RECORD;
     fields_with_error JSONB := '{}'::jsonb;
+    v_existing public.region%ROWTYPE;
+    v_name text := NULLIF(btrim(NEW.name), '');
+    v_moves_centre boolean;
 BEGIN
   -- Get the current region version: prefer settings, fall back to the current enabled version
   SELECT region_version_id INTO v_version_id FROM public.settings;
@@ -59,6 +62,17 @@ BEGIN
         RAISE DEBUG 'maybe_parent_id %', maybe_parent_id;
     END IF;
 
+    -- The stored region, if any: what the file leaves out is kept from it.
+    SELECT * INTO v_existing
+      FROM public.region
+     WHERE version_id = v_version_id
+       AND path OPERATOR(public.=) new_typed.path;
+    IF v_existing.id IS NULL AND v_name IS NULL THEN
+        fields_with_error := fields_with_error || jsonb_build_object('name',
+            format('A new region needs a name (path %s is not in the region list yet)', new_typed.path));
+    END IF;
+    v_moves_centre := new_typed.center_latitude IS NOT NULL OR new_typed.center_longitude IS NOT NULL;
+
     -- If we found any validation errors, raise them
     IF fields_with_error <> '{}'::jsonb THEN
         RAISE EXCEPTION 'Invalid data: %', jsonb_pretty(
@@ -71,15 +85,23 @@ BEGIN
 
     BEGIN
         INSERT INTO public.region (path, parent_id, name, center_latitude, center_longitude, center_altitude, version_id)
-        VALUES (new_typed.path, maybe_parent_id, NEW.name, new_typed.center_latitude, new_typed.center_longitude, new_typed.center_altitude, v_version_id)
+        VALUES (
+            new_typed.path,
+            maybe_parent_id,
+            COALESCE(v_name, v_existing.name),
+            CASE WHEN v_moves_centre THEN new_typed.center_latitude ELSE v_existing.center_latitude END,
+            CASE WHEN v_moves_centre THEN new_typed.center_longitude ELSE v_existing.center_longitude END,
+            CASE
+                WHEN new_typed.center_altitude IS NOT NULL THEN new_typed.center_altitude
+                WHEN v_moves_centre THEN NULL
+                ELSE v_existing.center_altitude
+            END,
+            v_version_id
+        )
         ON CONFLICT (version_id, path)
         DO UPDATE SET
             parent_id = maybe_parent_id,
-            name = CASE
-                WHEN EXCLUDED.name IS NOT NULL AND EXCLUDED.name <> ''
-                THEN EXCLUDED.name
-                ELSE region.name
-            END,
+            name = EXCLUDED.name,
             center_latitude = EXCLUDED.center_latitude,
             center_longitude = EXCLUDED.center_longitude,
             center_altitude = EXCLUDED.center_altitude

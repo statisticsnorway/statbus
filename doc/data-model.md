@@ -88,7 +88,7 @@ These tables link to any of the four core statistical units:
 - `region(id, path, label, code, name, parent_id, version_id, level, center_latitude, center_longitude, center_altitude)` — **reference**
   - Key FKs: parent_id, version_id.
 - `region_version(id, code, name, created_at, updated_at, enabled, description, lasts_to, custom)` — **reference**
-- `country(id, name, created_at, updated_at, enabled, iso_2, iso_3, iso_num, custom)` — **reference**
+- `country(id, name, created_at, updated_at, enabled, iso_2, iso_3, iso_num, custom, latitude, longitude)` — **reference**
 - `country_view(id, name, enabled, iso_2, iso_3, iso_num, custom)`
 
 ### Persons

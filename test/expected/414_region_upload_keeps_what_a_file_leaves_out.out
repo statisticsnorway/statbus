@@ -1,0 +1,82 @@
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+-- 5yxn4w: a region file changes only what it gives (admin.region_upload_upsert). The list is
+-- uploaded once with path and name; centres can come later in their own file of path and centre
+-- columns, and a later path,name file (a corrected name) keeps the centres placed since.
+SET client_min_messages TO warning;
+\echo "The region list, with one centre placed"
+"The region list, with one centre placed"
+\copy public.region_upload(path,name) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+\copy public.region_upload(path,name,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+\echo "A file of path and centre columns adds centres to listed regions and keeps their names"
+"A file of path and centre columns adds centres to listed regions and keeps their names"
+\copy public.region_upload(path,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+SELECT path, name, center_latitude, center_longitude, center_altitude
+  FROM public.region WHERE path IN ('03', '11.01') ORDER BY path;
+ path  |   name    | center_latitude | center_longitude | center_altitude 
+-------+-----------+-----------------+------------------+-----------------
+ 03    | Oslo      |       59.913868 |        10.752245 |            23.0
+ 11.01 | Eigersund |       58.463409 |         5.975909 |                
+(2 rows)
+
+\echo "A path,name file corrects a name and keeps the centre"
+"A path,name file corrects a name and keeps the centre"
+\copy public.region_upload(path,name) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+SELECT path, name, center_latitude, center_longitude, center_altitude
+  FROM public.region WHERE path = '11.03';
+ path  |       name        | center_latitude | center_longitude | center_altitude 
+-------+-------------------+-----------------+------------------+-----------------
+ 11.03 | Stavanger kommune |       58.979290 |         5.707019 |            10.0
+(1 row)
+
+\echo "A row with a name but empty centre cells keeps the centre too"
+"A row with a name but empty centre cells keeps the centre too"
+\copy public.region_upload(path,name,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+SELECT path, name, center_latitude, center_longitude, center_altitude
+  FROM public.region WHERE path = '03';
+ path | name | center_latitude | center_longitude | center_altitude 
+------+------+-----------------+------------------+-----------------
+ 03   | Oslo |       59.913868 |        10.752245 |            23.0
+(1 row)
+
+\echo "A new centre without an altitude drops the old point's altitude"
+"A new centre without an altitude drops the old point's altitude"
+\copy public.region_upload(path,center_latitude,center_longitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+SELECT path, center_latitude, center_longitude, center_altitude
+  FROM public.region WHERE path = '11.03';
+ path  | center_latitude | center_longitude | center_altitude 
+-------+-----------------+------------------+-----------------
+ 11.03 |       58.970000 |         5.730000 |                
+(1 row)
+
+\echo "A region not yet listed needs a name"
+"A region not yet listed needs a name"
+SAVEPOINT new_without_name;
+\copy public.region_upload(path,center_latitude,center_longitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+ERROR:  Invalid data: {
+    "row": {
+        "name": null,
+        "path": "11.98",
+        "center_altitude": null,
+        "center_latitude": "58.0",
+        "center_longitude": "6.0"
+    },
+    "errors": {
+        "name": "A new region needs a name (path 11.98 is not in the region list yet)"
+    }
+}
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 74 at RAISE
+COPY region_upload, line 1: "11.98,58.0,6.0"
+ROLLBACK TO new_without_name;
+SELECT count(*) AS regions_at_11_98 FROM public.region WHERE path = '11.98';
+ regions_at_11_98 
+------------------
+                0
+(1 row)
+
+ROLLBACK;
