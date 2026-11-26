@@ -26,6 +26,7 @@ Today import.process_* run in the worker as postgres and set edit_by_user_id := 
 
 ## Depends on
 
+- 1nsdwj
 ## Acceptance
 - [ ] A SQL test: a regular user's portion edit stamps edit_by_user_id and edit_at on changed pieces only, untouched pieces keep theirs
 - [ ] A SQL test: an import job's rows carry the uploading user as writer under provenance
