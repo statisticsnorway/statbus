@@ -51,7 +51,7 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet_delta'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_period'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.quality_finding'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.quality_check_switched_off'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.quality_check_switched_on'::regclass);
     --
     -- ########### add_rls_regular_user_can_edit ###########
     PERFORM admin.add_rls_regular_user_can_edit('public.image'::regclass);

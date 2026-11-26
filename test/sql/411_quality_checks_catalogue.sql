@@ -8,8 +8,9 @@ BEGIN;
 -- public.quality_rule (enum) names the kinds of check. A per-variable rule
 -- (public.quality_rule_per_stat) is a check for each enabled summed statistical variable
 -- (stat_definition of type int or float); every other rule is one check.
--- public.quality_check lists the checks with on_dashboard; only switched-off checks are
--- stored (public.quality_check_switched_off), so a new variable's checks start on.
+-- public.quality_check lists the checks with on_dashboard; only switched-on checks are
+-- stored (public.quality_check_switched_on, 1tx1ed), so a new variable's checks start off and
+-- a fresh database shows the starting set only.
 -- public.quality_finding holds each check's units, filled by worker.derive_quality, with
 -- the statistical_unit row's existence dates for counting at an instant.
 --
@@ -21,7 +22,10 @@ BEGIN;
 --   LU-ABROAD     located in SE without a region                 -> no finding: abroad has no UN region
 --   LU-NOWHERE    no physical location                           -> missing physical location
 --   LU-DIFFERS    legal unit activity A, primary establishment B -> establishment activity differs
--- Every unit but LU-DIFFERS and its establishment has no activity -> missing activity category.
+--   LU-SECSAME    legal unit and establishment: primary A, secondary A -> secondary equals primary (both)
+--   LU-SECDIFF    legal unit and establishment: primary A, secondary B -> no secondary finding
+-- Every unit but LU-DIFFERS, LU-SECSAME, LU-SECDIFF and their establishments has no activity -> missing
+-- activity category.
 -- A second summed variable 'members' (int) gives LU-LESS a finding for it too; a variable that is
 -- not summed, 'listed' (bool), gets no checks.
 
@@ -57,7 +61,9 @@ INSERT INTO pattern VALUES
     ('LU-NOREGION', NULL, ARRAY[1],       NULL, NULL,        'UN', false),
     ('LU-ABROAD',   NULL, ARRAY[1],       NULL, NULL,        'SE', false),
     ('LU-NOWHERE',  NULL, ARRAY[1],       NULL, NULL,        NULL, false),
-    ('LU-DIFFERS',  NULL, ARRAY[1],       NULL, NULL,        'UN', true);
+    ('LU-DIFFERS',  NULL, ARRAY[1],       NULL, NULL,        'UN', true),
+    ('LU-SECSAME',  NULL, ARRAY[1],       NULL, NULL,        'UN', true),
+    ('LU-SECDIFF',  NULL, ARRAY[1],       NULL, NULL,        'UN', true);
 
 INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
 SELECT 'EN-' || p.lu, :user_id, '05pe0x test enterprise' FROM pattern AS p;
@@ -98,6 +104,21 @@ FROM public.legal_unit AS lu WHERE lu.name = 'LU-DIFFERS';
 INSERT INTO public.activity (valid_from, valid_to, type, category_id, establishment_id, edit_by_user_id, edit_comment)
 SELECT '2020-01-01'::date, 'infinity'::date, 'primary', :activity_b_id, es.id, :user_id, '05pe0x test activity'
 FROM public.establishment AS es WHERE es.name = 'LU-DIFFERS-es1';
+
+-- qjy2eg: LU-SECSAME's legal unit and establishment have secondary = primary = A; LU-SECDIFF's have
+-- primary A and secondary B.
+INSERT INTO public.activity (valid_from, valid_to, type, category_id, legal_unit_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'infinity'::date, a.type::public.activity_type,
+       CASE WHEN lu.name = 'LU-SECDIFF' AND a.type = 'secondary' THEN :activity_b_id ELSE :activity_a_id END,
+       lu.id, :user_id, 'qjy2eg test activity'
+FROM public.legal_unit AS lu CROSS JOIN (VALUES ('primary'), ('secondary')) AS a(type)
+WHERE lu.name IN ('LU-SECSAME', 'LU-SECDIFF');
+INSERT INTO public.activity (valid_from, valid_to, type, category_id, establishment_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'infinity'::date, a.type::public.activity_type,
+       CASE WHEN es.name = 'LU-SECDIFF-es1' AND a.type = 'secondary' THEN :activity_b_id ELSE :activity_a_id END,
+       es.id, :user_id, 'qjy2eg test activity'
+FROM public.establishment AS es CROSS JOIN (VALUES ('primary'), ('secondary')) AS a(type)
+WHERE es.name IN ('LU-SECSAME-es1', 'LU-SECDIFF-es1');
 
 INSERT INTO public.stat_for_unit (stat_definition_id, valid_from, legal_unit_id, value_int, edit_by_user_id, edit_comment)
 SELECT :employees_id, '2020-01-01'::date, lu.id, p.own, :user_id, '05pe0x own value'
@@ -141,7 +162,7 @@ FROM unnest(enum_range(NULL::public.quality_rule)) AS r(rule)
 ORDER BY r.rule;
 
 \echo
-\echo "411.2 the checks: each rule once, each per-variable rule once per enabled summed variable; all on"
+\echo "411.2 the checks: each rule once, each per-variable rule once per enabled summed variable; on a fresh database only the starting set is on (1tx1ed): missing region, missing activity category, secondary activity equals primary"
 SELECT qc.rule, sd.code AS stat_code, qc.on_dashboard
 FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
@@ -166,6 +187,16 @@ FROM public.quality_finding AS f
 JOIN fixture_unit AS u USING (unit_type, unit_id)
 JOIN public.establishment AS es ON es.id = (f.detail->>'primary_establishment_id')::int
 WHERE f.rule = 'establishment_activity_differs';
+
+\echo
+\echo "411.3c secondary equals primary lists the legal unit and establishment of LU-SECSAME and not those of LU-SECDIFF"
+SELECT u.unit_type, u.name,
+       EXISTS (SELECT 1 FROM public.quality_finding AS f
+               WHERE f.rule = 'secondary_activity_equals_primary'
+                 AND f.unit_type = u.unit_type AND f.unit_id = u.unit_id) AS listed
+FROM fixture_unit AS u
+WHERE u.name IN ('LU-SECSAME', 'LU-SECSAME-es1', 'LU-SECDIFF', 'LU-SECDIFF-es1')
+ORDER BY u.name, u.unit_type;
 
 \echo
 \echo "411.4 a finding carries the existence dates of its statistical_unit row"
@@ -193,13 +224,14 @@ LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
 ORDER BY qc.priority;
 
 \echo
-\echo "411.6 switching off: a switched-off check shows on_dashboard false; the others stay on"
-INSERT INTO public.quality_check_switched_off (rule, stat_definition_id)
-VALUES ('missing_activity_category', NULL), ('legal_unit_above_establishments', :members_id);
+\echo "411.6 switching: an admin switches a check on with its row and off by deleting it; the others keep their state"
+INSERT INTO public.quality_check_switched_on (rule, stat_definition_id)
+VALUES ('legal_unit_above_establishments', :members_id);
+DELETE FROM public.quality_check_switched_on WHERE rule = 'missing_activity_category';
 SELECT qc.rule, sd.code AS stat_code, qc.on_dashboard
 FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
-WHERE NOT qc.on_dashboard
+WHERE qc.on_dashboard
 ORDER BY qc.rule;
 \echo "411.6 a switched-off check keeps its findings, so switching it on shows its number at once"
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -211,19 +243,19 @@ WHERE f.rule = 'missing_activity_category';
 \echo "411.7 the shape is the database's: a per-variable rule needs its variable, no other rule has one"
 SAVEPOINT before_wrong_shape;
 \set ON_ERROR_STOP off
-INSERT INTO public.quality_check_switched_off (rule, stat_definition_id) VALUES ('establishments_above_legal_unit', NULL);
+INSERT INTO public.quality_check_switched_on (rule, stat_definition_id) VALUES ('establishments_above_legal_unit', NULL);
 ROLLBACK TO SAVEPOINT before_wrong_shape;
-INSERT INTO public.quality_check_switched_off (rule, stat_definition_id) VALUES ('missing_region', :employees_id);
+INSERT INTO public.quality_check_switched_on (rule, stat_definition_id) VALUES ('missing_region', :employees_id);
 ROLLBACK TO SAVEPOINT before_wrong_shape;
 INSERT INTO public.quality_finding (rule, stat_definition_id, unit_type, unit_id, valid_from, valid_until, existence_from, existence_until)
 SELECT 'legal_unit_above_establishments', NULL, 'legal_unit', lu.id, '2020-01-01', 'infinity', '2020-01-01', 'infinity'
 FROM public.legal_unit AS lu WHERE lu.name = 'LU-GAP';
 ROLLBACK TO SAVEPOINT before_wrong_shape;
-INSERT INTO public.quality_check_switched_off (rule, stat_definition_id) VALUES ('missing_activity_category', NULL);
+INSERT INTO public.quality_check_switched_on (rule, stat_definition_id) VALUES ('missing_region', NULL);
 ROLLBACK TO SAVEPOINT before_wrong_shape;
 \set ON_ERROR_STOP on
-\echo "411.7 the four refusals above: two CHECKs on switches, one on findings, and a check switched off twice (the unique key)"
-SELECT count(*) AS switched_off_rows FROM public.quality_check_switched_off;
+\echo "411.7 the four refusals above: two CHECKs on switches, one on findings, and a check switched on twice (the unique key)"
+SELECT count(*) AS switched_on_rows FROM public.quality_check_switched_on;
 
 \echo
 \echo "411.8 disabling a variable removes its checks; its switch is kept for when it comes back"
@@ -235,11 +267,11 @@ FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
 WHERE public.quality_rule_per_stat(qc.rule)
 ORDER BY qc.rule, sd.priority;
-SELECT qs.rule, sd.code AS stat_code FROM public.quality_check_switched_off AS qs
+SELECT qs.rule, sd.code AS stat_code FROM public.quality_check_switched_on AS qs
 LEFT JOIN public.stat_definition AS sd ON sd.id = qs.stat_definition_id ORDER BY 1;
 
 \echo
-\echo "411.9 enabling it again brings its checks back, the switched-off one still off"
+\echo "411.9 enabling it again brings its checks back, the switched-on one still on"
 SET client_min_messages TO WARNING;
 UPDATE public.stat_definition SET enabled = true WHERE code = 'members';
 RESET client_min_messages;
@@ -260,7 +292,17 @@ FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
 WHERE public.quality_rule_per_stat(qc.rule)
 ORDER BY qc.rule, sd.priority;
-SELECT count(*) AS members_switches FROM public.quality_check_switched_off WHERE stat_definition_id = :members_id;
+SELECT count(*) AS members_switches FROM public.quality_check_switched_on WHERE stat_definition_id = :members_id;
 SELECT count(*) AS members_findings FROM public.quality_finding WHERE stat_definition_id = :members_id;
+
+\echo
+\echo "411.11 reset's customisation scope restores the starting set: missing region, missing activity category, secondary activity equals primary"
+SET client_min_messages TO WARNING;
+SELECT public.reset(confirmed => true, scope => 'customisation') -> 'quality_check_switched_on' AS reset_switches;
+RESET client_min_messages;
+SELECT qc.rule, qc.on_dashboard
+FROM public.quality_check AS qc
+WHERE NOT public.quality_rule_per_stat(qc.rule) OR qc.on_dashboard
+ORDER BY qc.priority;
 
 ROLLBACK;

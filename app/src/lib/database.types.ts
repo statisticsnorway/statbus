@@ -3060,7 +3060,7 @@ export type Database = {
           }
         ]
       },
-      quality_check_switched_off: {
+      quality_check_switched_on: {
         Row: {
           rule: Database["public"]["Enums"]["quality_rule"]
           stat_definition_id: number | null
@@ -3075,35 +3075,35 @@ export type Database = {
         },
         Relationships: [
           {
-            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            foreignKeyName: "quality_check_switched_on_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "stat_definition"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            foreignKeyName: "quality_check_switched_on_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "quality_check"
             referencedColumns: ["stat_definition_id"]
           },
           {
-            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            foreignKeyName: "quality_check_switched_on_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "quality_finding_def"
             referencedColumns: ["stat_definition_id"]
           },
           {
-            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            foreignKeyName: "quality_check_switched_on_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "stat_definition_enabled"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            foreignKeyName: "quality_check_switched_on_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "stat_definition_ordered"
@@ -9336,35 +9336,35 @@ export type Database = {
         },
         Relationships: [
           {
-            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            foreignKeyName: "quality_check_switched_on_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "stat_definition"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            foreignKeyName: "quality_check_switched_on_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "quality_check"
             referencedColumns: ["stat_definition_id"]
           },
           {
-            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            foreignKeyName: "quality_check_switched_on_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "quality_finding_def"
             referencedColumns: ["stat_definition_id"]
           },
           {
-            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            foreignKeyName: "quality_check_switched_on_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "stat_definition_enabled"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            foreignKeyName: "quality_check_switched_on_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "stat_definition_ordered"
@@ -15335,6 +15335,10 @@ export type Database = {
           isSetofReturn: true
         }
       },
+      quality_check_starting_set: {
+        Args: Record<string, never>
+        Returns: Database["public"]["Enums"]["quality_rule"][]
+      },
       quality_finding_derive: {
         Args: Record<string, never>
         Returns: unknown
@@ -16179,7 +16183,8 @@ export type Database = {
           | "missing_physical_location"
           | "establishment_activity_differs"
           | "establishments_above_legal_unit"
-          | "legal_unit_above_establishments",
+          | "legal_unit_above_establishments"
+          | "secondary_activity_equals_primary",
       release_builds_status_type: "building" | "ready" | "failed",
       release_status_type: "commit" | "prerelease" | "release",
       reset_scope: "units" | "getting-started" | "customisation",
@@ -16441,7 +16446,8 @@ export const Constants = {
         "missing_physical_location",
         "establishment_activity_differs",
         "establishments_above_legal_unit",
-        "legal_unit_above_establishments"
+        "legal_unit_above_establishments",
+        "secondary_activity_equals_primary"
       ],
       release_builds_status_type: ["building", "ready", "failed"],
       release_status_type: ["commit", "prerelease", "release"],

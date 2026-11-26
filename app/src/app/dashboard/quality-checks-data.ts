@@ -63,7 +63,7 @@ export function useQualityChecks(version = 0): {
                     statDefinitionId: c.stat_definition_id,
                     statCode: c.stat_definition_id === null ? null : statById.get(c.stat_definition_id)?.code ?? null,
                     statName: c.stat_definition_id === null ? null : statById.get(c.stat_definition_id)?.name ?? null,
-                    onDashboard: c.on_dashboard ?? true,
+                    onDashboard: c.on_dashboard ?? false,
                     priority: c.priority ?? 0,
                   },
                 ]

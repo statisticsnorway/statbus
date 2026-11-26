@@ -565,15 +565,20 @@ BEGIN
     -- system's standards, restored above to their factory defaults.
 
     CASE WHEN scope = 'customisation' THEN
-        -- quality_check_switched_off: every check switched on again, as shipped (it ships with no
-        -- rows, so every row goes).
+        -- quality_check_switched_on: the starting set again, as shipped (public.quality_check_starting_set).
         WITH deleted AS (
-            DELETE FROM public.quality_check_switched_off WHERE true
+            DELETE FROM public.quality_check_switched_on WHERE true -- every row: the starting set is inserted below
             RETURNING 1
         )
-        SELECT jsonb_build_object('quality_check_switched_off', jsonb_build_object(
-            'deleted_count', (SELECT count(*) FROM deleted)
-        )) INTO changed;
+        SELECT jsonb_build_object('deleted_count', count(*)) FROM deleted INTO changed;
+        WITH inserted AS (
+            INSERT INTO public.quality_check_switched_on (rule, stat_definition_id)
+            SELECT s.rule, NULL FROM public.quality_check_starting_set() AS s(rule)
+            RETURNING 1
+        )
+        SELECT jsonb_build_object('quality_check_switched_on',
+                   changed || jsonb_build_object('inserted_count', count(*)))
+        FROM inserted INTO changed;
         result := result || changed;
     ELSE END CASE;
 
