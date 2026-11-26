@@ -45,5 +45,6 @@ Owner 2026-11-26 20:10: the starting set on = missing region, missing activity c
 
 
 check 3: test/sql/414 replays the shipped down/up of 20261126202817 with 3 checks switched off: visible_before 8 = visible_after 8, same_checks_visible t; RED (relation switched_on missing) and GREEN logs in tmp/. Norway copy on slot a kept all 7 checks on after migrating.
+Fresh DB: seed after recreate shows exactly missing_region, missing_activity_category, secondary_activity_equals_primary (test 411.2); reset customisation restores them (411.11). Check 2 needs a browser look on a fresh install (not done here).
 ## History
 - 2026-11-26T21:22 todo -> doing/active (take with qjy2eg)
