@@ -1,7 +1,7 @@
 ---
 id: "y9jbvp"
 title: "June 2026 release candidate: ship the upgrade crash fix without a buggy add-on"
-state: "todo"
+state: "dropped"
 assignee: []
 labels:
   - upgrade
@@ -15,7 +15,8 @@ origin: "backlog:STATBUS-550"
 aliases: ["STATBUS-550"]
 type: "feature"
 created: "2026-06-16 08:04"
-stage: "ready"
+dropped_reason: "done by later work: gfvfwe (recovery fix, shipped since v2026.06.0-rc.04), 8jv43w, wpz2b6; owner 2026-11-26"
+dropped_at: "2026-11-26T22:57"
 ---
 
 ## Goal
@@ -84,3 +85,4 @@ check 4: Owner 2026-11-26 22:57: 'drop this as done'; superseded by gfvfwe, 8jv4
 - 2026-11-26T22:57 answer 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-26T22:57 answer 1 acknowledged by rabbit
 - 2026-11-26T22:57 answer 1 in progress by rabbit: hug task check y9jbvp 4 "Owner 2026-11-26 22:57: 'drop this as done'; superseded by gfvfwe, 8jv43w and wpz2b6."
+- 2026-11-26T22:57 todo/ready -> dropped (drop)
