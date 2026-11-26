@@ -13,16 +13,24 @@ import type { UploadView } from "@/app/getting-started/getting-started-server-ac
 import { useRouter } from "next/navigation";
 import { fileAsCsvText, isExcelFile } from "./upload-excel";
 
+/** Stores the checked file; disabled while it is being sent. */
+const StoreButton = () => {
+  const { pending } = useFormStatus();
+  return (
+    <Button disabled={pending} type="submit" data-upload-submit="">
+      {pending ? "Storing…" : "Store"}
+    </Button>
+  );
+};
+
 const UploadFormButtons = ({
   error,
   nextPage,
   label,
-  onCancel,
 }: {
   error: string | null;
   nextPage: string;
   label: string;
-  onCancel?: () => void;
 }) => {
   const { pending } = useFormStatus();
   return (
@@ -36,15 +44,9 @@ const UploadFormButtons = ({
         <Button disabled={pending} type="submit" data-upload-submit="">
           {label}
         </Button>
-        {onCancel ? (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
-            Cancel
-          </Button>
-        ) : (
-          <Link href={nextPage} className={buttonVariants({ variant: "outline" })}>
-            Skip
-          </Link>
-        )}
+        <Link href={nextPage} className={buttonVariants({ variant: "outline" })}>
+          Skip
+        </Link>
       </div>
     </div>
   );
@@ -144,11 +146,6 @@ export const UploadCSVForm = ({
     }
   };
 
-  const cancel = () => {
-    setChecked(null);
-    if (fileInput.current) fileInput.current.value = "";
-  };
-
   return (
     <form action={submit} className="bg-ssb-light p-6" data-upload-form={uploadView}>
       <Label
@@ -166,7 +163,7 @@ export const UploadCSVForm = ({
         accept=".csv,.xlsx,.xls"
         className="mb-4 bg-white"
         onChange={(e) => void check(e.target.files?.[0])}
-        disabled={checked !== null || reading}
+        disabled={reading}
       />
       {reading && preview && <p className="mb-4 text-sm text-gray-600">Checking the file…</p>}
       {readError && (
@@ -180,25 +177,27 @@ export const UploadCSVForm = ({
           {checked.summary}
         </div>
       )}
-      {checked && !checked.canStore ? (
-        <div className="space-x-3">
-          <Button type="button" variant="outline" onClick={cancel}>
-            Choose another file
-          </Button>
-        </div>
-      ) : preview && !checked ? (
-        // Nothing to store until a file is chosen and checked; Skip goes on without one.
-        <div className="space-x-3">
-          <Link href={nextPage} className={buttonVariants({ variant: "outline" })}>
-            Skip
-          </Link>
+      {preview ? (
+        // The picker stays open (owner 2026-11-26): another file is checked at once in its place.
+        // Store only when the checked file has something to store; Skip goes on without one.
+        <div className="space-y-3">
+          {state.error && (
+            <ErrorBox>
+              <span className="text-sm">Failed to upload file: {state.error}</span>
+            </ErrorBox>
+          )}
+          <div className="space-x-3">
+            {checked?.canStore && <StoreButton />}
+            <Link href={nextPage} className={buttonVariants({ variant: "outline" })}>
+              Skip
+            </Link>
+          </div>
         </div>
       ) : (
         <UploadFormButtons
           error={state.error}
           nextPage={nextPage}
-          label={reading ? "Reading the file…" : checked ? "Store" : "Upload"}
-          onCancel={checked ? cancel : undefined}
+          label={reading ? "Reading the file…" : "Upload"}
         />
       )}
     </form>
