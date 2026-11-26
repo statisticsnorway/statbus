@@ -15,6 +15,8 @@ Indexes:
     "ix_stat_definition_type" btree (type)
     "stat_definition_code_key" UNIQUE CONSTRAINT, btree (code)
     "stat_definition_enabled_priority_key" UNIQUE, btree (priority) WHERE enabled
+Check constraints:
+    "stat_definition_code_is_csv_column_name" CHECK (code::text ~ '^[a-z0-9_]+$'::text)
 Referenced by:
     TABLE "quality_check_switched_off" CONSTRAINT "quality_check_switched_off_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE CASCADE
     TABLE "quality_finding" CONSTRAINT "quality_finding_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE CASCADE

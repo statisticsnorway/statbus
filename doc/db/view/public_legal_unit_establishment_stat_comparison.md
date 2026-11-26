@@ -41,4 +41,4 @@ Options: security_invoker=on
 
 ```
 
-**Comment:** Per legal_unit row of statistical_unit and enabled summed stat (int, float) held both by the legal unit and by at least one counted establishment: the legal unit's own value (statistical_unit.stats) and its counted establishments' count, count with a value, and sum at the row's valid_from. The rules of quality_establishments_above_legal_unit and quality_legal_unit_above_establishments read it; a legal unit's total takes the larger level (public.jsonb_stats_covers).
+**Comment:** Per legal_unit row of statistical_unit and enabled summed stat (int, float) held both by the legal unit and by at least one counted establishment: the legal unit's own value (statistical_unit.stats) and its counted establishments' count, count with a value, and sum at the row's valid_from. The quality rules establishments_above_legal_unit and legal_unit_above_establishments read it (public.quality_finding_def); a legal unit's total takes the larger level (public.jsonb_stats_covers).

@@ -15,6 +15,7 @@ Indexes:
     "external_ident_type_code_key" UNIQUE CONSTRAINT, btree (code)
     "external_ident_type_enabled_priority_key" UNIQUE, btree (priority) WHERE enabled
 Check constraints:
+    "external_ident_type_code_is_csv_column_name" CHECK (code::text ~ '^[a-z0-9_]+$'::text)
     "shape_labels_consistency" CHECK (shape = 'regular'::external_ident_shape AND labels IS NULL OR shape = 'hierarchical'::external_ident_shape AND labels IS NOT NULL)
 Referenced by:
     TABLE "external_ident" CONSTRAINT "external_ident_type_id_fkey" FOREIGN KEY (type_id) REFERENCES external_ident_type(id) ON DELETE RESTRICT

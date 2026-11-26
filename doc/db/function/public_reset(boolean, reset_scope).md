@@ -565,9 +565,10 @@ BEGIN
     -- system's standards, restored above to their factory defaults.
 
     CASE WHEN scope = 'customisation' THEN
-        -- quality_check_switched_off: every check switched on again, as shipped.
+        -- quality_check_switched_off: every check switched on again, as shipped (it ships with no
+        -- rows, so every row goes).
         WITH deleted AS (
-            DELETE FROM public.quality_check_switched_off WHERE true -- every row: shipped with none
+            DELETE FROM public.quality_check_switched_off WHERE true
             RETURNING 1
         )
         SELECT jsonb_build_object('quality_check_switched_off', jsonb_build_object(

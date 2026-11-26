@@ -12,7 +12,8 @@ BEGIN
                public.unit_existence_until(su.valid_until, su.death_date) AS existence_until
         FROM public.quality_finding_def AS d
         JOIN public.statistical_unit AS su
-          ON su.unit_type = d.unit_type AND su.unit_id = d.unit_id AND su.valid_from = d.valid_from
+          ON su.unit_type = d.unit_type AND su.unit_id = d.unit_id
+         AND su.valid_range = daterange(d.valid_from, d.valid_until)
     ) AS source
     ON target.rule = source.rule
    AND COALESCE(target.stat_definition_id, 0) = COALESCE(source.stat_definition_id, 0)
