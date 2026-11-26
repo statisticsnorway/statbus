@@ -5,7 +5,7 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePermission } from "@/atoms/auth";
-import { AvailableColumns } from "./availiable-columns";
+import { CustomizedColumns } from "./available-columns";
 
 export default function ImportPage() {
   const router = useRouter();
@@ -110,21 +110,25 @@ export default function ImportPage() {
     <div className="space-y-6 text-center">
       <h1 className="text-center text-2xl">Import units</h1>
       <p>
-        Before you start uploading your units, check that the columns and values
-        below match your file.
+        Each kind of unit has its own file format: open a step on the left for
+        its columns and an example file. Some columns and codes are set up for
+        this installation; check that your files use them.
       </p>
       <div className="space-y-1 text-left">
-        <AvailableColumns />
+        <CustomizedColumns />
         <p className="text-center text-xs text-gray-500">
+          All other columns, such as name, addresses and activity, are the same
+          in every installation.{" "}
           {canAccessAdminTools ? (
             <>
-              Customize these in{" "}
+              Change these in{" "}
               <Link className="underline" href="/admin">
                 Admin & Customization
               </Link>
+              .
             </>
           ) : (
-            "Contact an administrator to customize these."
+            "Contact an administrator to change these."
           )}
         </p>
       </div>

@@ -43,22 +43,30 @@ function Row({
   );
 }
 
-export function AvailableColumns() {
+/**
+ * The import columns and codes this installation sets up itself (Admin & Customization): external
+ * identifier types and statistical variables, each a column in every import file, and the codes the
+ * unit size, status and data source columns accept. Every other import column is fixed by the import
+ * definition and explained on each import step's page.
+ */
+export function CustomizedColumns() {
   const { externalIdentTypes, statDefinitions } = useBaseData();
   const { unitSizes, status, dataSources } = useDetailsPageData();
   return (
     <Collapsible className="overflow-hidden rounded-md border text-left">
       <CollapsibleTrigger className="group flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium hover:underline">
         <ChevronRight className="h-4 w-4 transition-transform group-data-[state=open]:rotate-90 " />
-        Available columns and values
+        Customized columns and codes
       </CollapsibleTrigger>
       <CollapsibleContent className="border-t px-4 py-3">
         <div className="grid grid-cols-[auto_1fr] items-start gap-x-6 gap-y-2.5">
-          <h3 className="col-span-2 text-sm font-medium">Columns</h3>
+          <h3 className="col-span-2 text-sm font-medium">
+            Your columns, in every import file
+          </h3>
           <Row label="External identifiers" items={externalIdentTypes} />
           <Row label="Statistical variables" items={statDefinitions} />
           <h3 className="col-span-2 mt-3 text-sm font-medium">
-            Allowed values
+            Your codes, the values these columns accept
           </h3>
           <Row label="Unit size" column="unit_size_code" items={unitSizes} />
           <Row label="Status" column="status_code" items={status} />
