@@ -33,12 +33,13 @@ Hedda's change: details-page-layout.tsx max-w removed, address parts in one row 
 ## Depends on
 
 ## Acceptance
-- [ ] On a wide screen the unit Contact page keeps a readable width and the address parts sit in one row, approved by the owner in a browser
+- [x] On a wide screen the unit Contact page keeps a readable width and the address parts sit in one row, approved by the owner in a browser
 
 ## Notes
 
 
 2026-11-26 10:38 rabbit takes over from ladybug (stopped: one directory per agent); its uncommitted edits in ~/ssb/statbus are the starting point.
+check 1: Owner approved in Firefox 2026-11-26 13:13 on the local slot (Norway copy): forms and Links at max-w-6xl with address parts in one row; History wide for its table; chart width by observations (1 obs 360 px, 8 obs ~544 px). Committed 37a8812b4 (local).
 ## History
 - 2026-11-26T11:05 todo -> doing/active (take)
 - 2026-11-26T11:38 doing/active -> todo/ready (give back; was assignee: ladybug); was doing_since: 2026-11-26T11:05
