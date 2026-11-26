@@ -40,5 +40,7 @@ public.activity rows of type primary and secondary for the same unit with the sa
 
 check 1: test/sql/411 §411.3c on branch quality/default-off-secondary-equals-primary (0fe3b95e1): LU-SECSAME and LU-SECSAME-es1 listed, LU-SECDIFF and -es1 not; RED tmp/test-qjy2eg-1tx1ed-RED.log (invalid enum value), GREEN tmp/test-qjy2eg-1tx1ed-GREEN.log
 Norway copy (slot a, 5.23M statistical_unit rows) after migrating and a full worker run: secondary_activity_equals_primary finds 0 units. Confirmed at source: 32,642 LU/ES rows have a secondary activity, none equals the primary; public.activity has no overlapping primary/secondary pair with the same category. Card = search list (statistical_unit_quality) at current_date for every check: 2/2, 161571/161571, 22446/22446, 11010/11010, 17/17, 5/5, 0/0 (tmp/norway-quality-counts.txt). Browser check (check 2) not done.
+landed 9383f1f on master 2026-11-26: quality: secondary activity equals primary is a check (qjy2eg)
+landed dff701f on master 2026-11-26: quality: checks start switched off except a starting set (1tx1ed, qjy2eg)
 ## History
 - 2026-11-26T21:22 todo -> doing/active (take)
