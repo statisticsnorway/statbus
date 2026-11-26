@@ -35,7 +35,7 @@ Close it if nothing is open: the task exists only to decide those three things, 
 What happened since (checked 2026-11-26): the defer-checkout change was not reverted; its recovery bug was fixed properly in gfvfwe (preswap recovery refinement, STATBUS-061, done) and has shipped in every release since v2026.06.0-rc.04. The full test suite's limit was solved in 8jv43w (STATBUS-025 line, done), and the image-cleanup fix in wpz2b6 (STATBUS-057, done). Releases are now at v2026.11.6 stable. Nothing in this task remains.
 
 ## Acceptance
-- [ ] King ruled on revert / quota / 057
+- [ ] ~~King ruled on revert / quota / 057~~ (not relevant: settled by later work: gfvfwe (recovery fix, shipped since v2026.06.0-rc.04), 8jv43w (test suite limit), wpz2b6 (image cleanup), rabbit, 2026-11-26)
 - [ ] Clean config-drift-only RC cut + 0-happy green on it
 - [ ] defer-checkout/preswap-recovery work tracked in STATBUS-061 (rc.04)
 - [ ] [Owner] confirms nothing remains and the task is dropped as superseded by gfvfwe, 8jv43w and wpz2b6; recorded in Notes
