@@ -1,8 +1,6 @@
 ---
 id: "wn4xaa"
-title: >-
-  ci-verdict-ledger: workflow completions recorded where a git fetch can read
-  them — the end of REST polling
+title: "CI results stored in the repository, so release checks need no GitHub API"
 state: "todo"
 assignee: []
 labels:
@@ -26,20 +24,22 @@ stage: "design"
 ---
 
 ## Goal
+Each CI workflow's result for a commit is written to a branch ci-verdicts in the repo, and release checks read it with git fetch.
 
-Today's rate-limit incident (the foreman's watchers + preflights burned the GitHub REST quota and blocked the rc.03 cut on HTTP 403) motivates replacing poll-the-API with record-the-verdict.
 
-The event exists: GitHub fires workflow_run completion. Missing is only a durable, cheaply-readable place it lands.
+## Purpose
+Why: release preflight (cli/internal/release/workflow_check.go) and agents' CI watchers ask GitHub's REST API for workflow results. That API has an hourly quota; in an earlier release cut, watchers used it up and the cut stopped on HTTP 403. git fetch has no such quota, and every box already uses it.
 
-Design candidates for the King's ruling:
-A. (recommended) GitHub-native verdict ledger: a workflow_run-triggered workflow in the repo appends {sha, workflow, conclusion, run_id, finished_at} to a dedicated git ref (e.g. refs/ci-verdicts — an orphan branch or notes ref). Readers do one git fetch of that ref — smart-HTTP, no REST quota, the transport every box already uses. Release preflight's five REST checks become one fetch + local reads; watchers poll a ref for pennies. Matches the commit-is-authoritative doctrine: the ledger IS the repo. No new hosts, secrets, or daemons.
-B. Receiver on niue: webhook endpoint appending to a file/table, read over SSH. No REST in the read path, but adds a webhook secret + a daemon to operate.
-C. Do nothing structural; keep the polite-cadence polling discipline (recorded in tmp/rc-cut-procedure.md).
+## Principle
+What: one line per finished workflow run, {sha, workflow, conclusion, run_id, finished_at}, in one file per commit, on an orphan branch refs/heads/ci-verdicts. How it gets there: a small workflow triggered by workflow_run (completed) for every CI workflow commits that line. How it is read: git fetch origin ci-verdicts, then read verdicts/<sha>.jsonl. The REST API stays only as a fallback when the line is missing. No new server, secret or daemon. Customer boxes are not affected.
 
-Scope note: this serves OUR release machinery; customer boxes are untouched (their discovery already uses git transport). The Slack UPGRADE_CALLBACK stays as human notification; this is the machine-readable sibling.
+## Details
+Example after a push of abc123: verdicts/abc123.jsonl on branch ci-verdicts holds lines like {"sha":"abc123","workflow":"Fast Tests","conclusion":"success","run_id":45426056166,"finished_at":"2026-11-26T20:30:00Z"}. Changes: (1) .github/workflows/ci-verdicts.yaml, on workflow_run completed, appends the line and pushes (GITHUB_TOKEN with contents: write); (2) cli/internal/release/workflow_check.go reads the file first, REST as fallback; (3) the agents' CI instruction (AGENTS.md: gh run list) reads the file instead. Alternatives considered: a webhook receiver on niue (adds a secret and a daemon), or keep polling at a polite rate (no change). Priority: low unless the quota bites again.
 
-Acceptance (post-ruling, for A): every workflow_run completion lands in the ledger within a minute; ./sb release preflight reads verdicts from the ledger with REST as fallback only; watchers documented to poll the ledger; one release cut end-to-end with zero REST status calls.
-
+## Acceptance
+- [ ] [Owner] decides: build it, or drop it; recorded in Notes
+- [ ] After a push, verdicts/<sha>.jsonl on branch ci-verdicts lists every CI workflow's conclusion within a minute of each finishing
+- [ ] ./sb release preflight passes a release cut with zero GitHub REST status calls, reading the verdicts file
 
 ## Questions
 - 2026-11-22T23:31 question 1 by hibiscus to jhf:
@@ -55,3 +55,4 @@ Acceptance (post-ruling, for A): every workflow_run completion lands in the ledg
 - 2026-11-26T21:40 request 1 by jhf
 - 2026-11-26T21:40 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-26T21:41 request 1 acknowledged by rabbit
+- 2026-11-26T21:41 request 1 in progress by rabbit: hug task set wn4xaa
