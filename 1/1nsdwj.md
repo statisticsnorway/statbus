@@ -37,7 +37,7 @@ Today: postgres/Dockerfile ARG sql_saga_release=v1.6; every slot runs 1.6. Targe
 - [ ] ~~The fast SQL suite passes on 1.12~~ (not relevant: superseded by the 1.15 checks 5-8 (owner chose 1.15, 2026-11-26), rabbit, 2026-11-26)
 - [ ] ~~A real-guest upgrade from the last release to a build with 1.12 succeeds (install/upgrade testing guide)~~ (not relevant: superseded by the 1.15 checks 5-8 (owner chose 1.15, 2026-11-26), rabbit, 2026-11-26)
 - [x] [Owner] Confirms the target version (1.12 as the sql_saga agent said, or 1.13 tagged since); recorded here, and the other checks use that version
-- [ ] The postgres image builds with sql_saga v1.15; a database upgraded from the last release reports extversion 1.15 and SELECT sql_saga.check_integrity() reports no problem
+- [x] The postgres image builds with sql_saga v1.15; a database upgraded from the last release reports extversion 1.15 and SELECT sql_saga.check_integrity() reports no problem
 - [ ] ~~A regular user's edit through a for_portion_of view stamps edit_by_user_id and edit_at on the changed pieces only (SQL test)~~ (not relevant: moved to its own task: provenance needs imports to run as the uploading user (the worker runs as postgres and supplies edit_by_user_id, which provenance would replace with the DEFAULT auth.uid(), NULL for postgres), rabbit, 2026-11-26)
 - [ ] The fast SQL suite passes on 1.15
 - [ ] A real-guest upgrade from the last release to a build with 1.15 succeeds (install/upgrade testing guide)
@@ -50,5 +50,6 @@ Today: postgres/Dockerfile ARG sql_saga_release=v1.6; every slot runs 1.6. Targe
 
 
 check 4: Owner 2026-11-26 20:33: target is sql_saga v1.15 (7011af1, 2026-11-25), the latest release. Preflight of 1.15 on the local slot's Norway copy (2.3 M units): no refusals, only the derived grants it carries over (tmp/1nsdwj/preflight-norway.log).
+check 5: Image builds with sql_saga v1.15 (docker compose build db, 9 min). Local slot's Norway copy upgraded by ./sb migrate up: 'Extension sql_saga: 1.6 -> 1.15', extversion 1.15, db.extension_upgrade row 1.6->1.15, check_integrity clean, ~2 min (tmp/1nsdwj/migrate-up-norway.log). Pushed 7e99979ed.
 ## History
 - 2026-11-26T21:28 todo -> doing/active (take with ca6dk5)
