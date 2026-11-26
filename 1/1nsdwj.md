@@ -1,15 +1,21 @@
 ---
 id: 1nsdwj
 title: "StatBus runs sql_saga 1.12"
-state: todo
+state: "doing"
 type: chore
 priority: "high"
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "00000000000o"
 created: 2026-11-22
 updated: 2026-11-22
+doing_since: "2026-11-26T21:28"
+doing_with: "ca6dk5"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -37,3 +43,7 @@ Today: postgres/Dockerfile ARG sql_saga_release=v1.6; the test slot reports extv
 2026-11-23 (Rabbit) Checked read-only: rune and dev both run sql_saga 1.6; the sql_saga repo has v1.12 at 676370d as stated, and since then v1.13 (a96e1cf, 2026-11-22 22:50: era drop protection, covering an era's checks, sync trigger and range column). The sql_saga agent's message said 1.12; whether StatBus takes 1.13 instead is the owner's or that agent's call.
 
 2026-11-23 owner: take the latest sql_saga, but it is not ready yet: the owner found another issue there. Wait for the sql_saga release that fixes it; check 4 is answered by that version.
+
+
+## History
+- 2026-11-26T21:28 todo -> doing/active (take with ca6dk5)
