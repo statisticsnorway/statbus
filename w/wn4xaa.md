@@ -54,3 +54,4 @@ Acceptance (post-ruling, for A): every workflow_run completion lands in the ledg
 - 2026-11-22T23:31 todo -> todo/design (ask)
 - 2026-11-26T21:40 request 1 by jhf
 - 2026-11-26T21:40 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-26T21:41 request 1 acknowledged by rabbit
