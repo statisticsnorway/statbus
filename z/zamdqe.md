@@ -7,7 +7,7 @@ priority: ""
 assignee: ["rabbit"]
 labels: []
 group: ""
-rank: "zzzzzzzzzzzx"
+rank: "zzzzzzzzzzzu"
 created: 2026-11-26
 updated: 2026-11-26
 stage: "active"
