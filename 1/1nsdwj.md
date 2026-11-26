@@ -1,6 +1,6 @@
 ---
 id: 1nsdwj
-title: "StatBus runs sql_saga 1.12"
+title: "StatBus runs sql_saga 1.15, with writer and time stamped per changed piece"
 state: "doing"
 type: chore
 priority: "high"
@@ -19,7 +19,7 @@ worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
-Every StatBus database runs sql_saga 1.12 (tag v1.12, commit 676370d), upgraded from 1.6 by a migration, with check_integrity clean.
+Every StatBus database runs sql_saga 1.15, upgraded from 1.6, with edit_by_user_id and edit_at as provenance columns.
 
 ## Purpose
 sql_saga 1.12 brings provenance columns for edit_by_user_id and edit_at (k5q120) and fixes numeric rounding in temporal_merge before 1.11. Message from the sql_saga agent 2026-11-22, relayed by the owner.
