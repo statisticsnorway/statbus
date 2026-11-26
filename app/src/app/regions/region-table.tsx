@@ -61,7 +61,11 @@ const RegionTable = ({
             <TableCell>Code</TableCell>
             <TableCell>Name</TableCell>
             <TableCell className="text-right">Level</TableCell>
-            {showCoordinates && <TableCell className="text-right">Coordinates</TableCell>}
+            {showCoordinates && (
+              <TableCell className="text-right">
+                Coordinates <span className="text-xs font-normal text-gray-500">(lat, lon)</span>
+              </TableCell>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
