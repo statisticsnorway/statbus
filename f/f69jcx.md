@@ -44,5 +44,6 @@ check 1: Owner approved in Firefox 2026-11-26 12:25 on the Norway copy (local sl
 check 2: Owner approved 12:25: CSV download ends with a toast 'Downloaded N rows in Ts' (download-menu-text.test.ts 6/6), the button carries no completion text.
 check 3: UnitHistoryExportButton and ProgressDownloadButton use the same DownloadMenuContent and toast (both hooks call downloadedMessage); tsc, lint, Jest 560/560.
 Pushed to master 2026-11-26 18:25 (1c49640e0 / 37a8812b4).
+landed 1c49640 on master 2026-11-26: app: every Download menu states its rows once above CSV and Excel, and a…
 ## History
 - 2026-11-26T11:50 todo -> doing/active (take with ca6dk5)
