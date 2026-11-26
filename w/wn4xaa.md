@@ -10,7 +10,7 @@ labels:
 group: ""
 rank: "000000000388"
 dependencies: []
-priority: medium
+priority: "low"
 type: "feature"
 origin: "backlog:STATBUS-343"
 aliases: ["STATBUS-343"]
