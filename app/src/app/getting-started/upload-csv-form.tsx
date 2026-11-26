@@ -12,12 +12,14 @@ import { uploadFile } from "@/app/getting-started/getting-started-server-actions
 import type { UploadView } from "@/app/getting-started/getting-started-server-actions";
 import { useRouter } from "next/navigation";
 import { fileAsCsvText, isExcelFile } from "./upload-excel";
+import { Loader2 } from "lucide-react";
 
-/** Stores the checked file; disabled while it is being sent. */
+/** Stores the checked file; disabled, with a spinner, while it is being stored. */
 const StoreButton = () => {
   const { pending } = useFormStatus();
   return (
     <Button disabled={pending} type="submit" data-upload-submit="">
+      {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
       {pending ? "Storing…" : "Store"}
     </Button>
   );
@@ -146,6 +148,14 @@ export const UploadCSVForm = ({
     }
   };
 
+  // Cancel drops the picked file and its check, back to the empty form.
+  const cancel = () => {
+    setChecked(null);
+    setReadError(null);
+    if (fileInput.current) fileInput.current.value = "";
+  };
+  const picked = checked !== null || readError !== null;
+
   return (
     <form action={submit} className="bg-ssb-light p-6" data-upload-form={uploadView}>
       <Label
@@ -179,7 +189,8 @@ export const UploadCSVForm = ({
       )}
       {preview ? (
         // The picker stays open (owner 2026-11-26): another file is checked at once in its place.
-        // Store only when the checked file has something to store; Skip goes on without one.
+        // With a picked file the choice is Store or Cancel, Store only when there is something to
+        // store; before a file is picked, Skip goes on without one.
         <div className="space-y-3">
           {state.error && (
             <ErrorBox>
@@ -188,9 +199,15 @@ export const UploadCSVForm = ({
           )}
           <div className="space-x-3">
             {checked?.canStore && <StoreButton />}
-            <Link href={nextPage} className={buttonVariants({ variant: "outline" })}>
-              Skip
-            </Link>
+            {picked ? (
+              <Button type="button" variant="outline" onClick={cancel} disabled={reading}>
+                Cancel
+              </Button>
+            ) : (
+              <Link href={nextPage} className={buttonVariants({ variant: "outline" })}>
+                Skip
+              </Link>
+            )}
           </div>
         </div>
       ) : (
