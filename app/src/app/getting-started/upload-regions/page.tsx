@@ -13,13 +13,13 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { fetchWithAuth, getBrowserRestClient } from "@/context/RestClientStore";
+import { fetchWithAuthRefresh, getBrowserRestClient } from "@/context/RestClientStore";
 import { previewRegionUpload, type RegionChange, type StoredRegion } from "./region-upload-preview";
 
 /** The regions stored now, as the upload view reads and writes them. */
 async function fetchStoredRegions(): Promise<StoredRegion[]> {
   const client = await getBrowserRestClient();
-  const response = await fetchWithAuth(`${client.url}/region_upload`, { headers: { Accept: "application/json" } });
+  const response = await fetchWithAuthRefresh(`${client.url}/region_upload`, { headers: { Accept: "application/json" } });
   if (!response.ok) throw new Error(`Reading the regions failed (${response.status})`);
   return (await response.json()) as StoredRegion[];
 }

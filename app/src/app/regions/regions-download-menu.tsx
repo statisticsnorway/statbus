@@ -5,7 +5,7 @@ import { Download } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DownloadMenuContent } from "@/components/download-menu";
-import { fetchWithAuth, getBrowserRestClient } from "@/context/RestClientStore";
+import { fetchWithAuthRefresh, getBrowserRestClient } from "@/context/RestClientStore";
 import { csvTextToExcelBlob, saveBlob } from "@/app/getting-started/upload-excel";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +21,7 @@ export function RegionsDownloadMenu({ rows, className }: { rows?: number | null;
     setError(null);
     try {
       const client = await getBrowserRestClient();
-      const response = await fetchWithAuth(`${client.url}/region_upload`, { headers: { Accept: "text/csv" } });
+      const response = await fetchWithAuthRefresh(`${client.url}/region_upload`, { headers: { Accept: "text/csv" } });
       if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
       const csv = await response.text();
       if (excel) saveBlob(await csvTextToExcelBlob(csv, "Regions"), "regions.xlsx");
