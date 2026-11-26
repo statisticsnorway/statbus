@@ -32,6 +32,8 @@ Filed by Hibiscus (map agent, z2qt08) on 2026-11-24 17:11, after its branch feat
 ## Requests
 - 2026-11-26T21:16 request 1 by jhf:
   This ticket cannot be high priority. If it was, it would have been built while we needed it. Instead, you have to explain to me which agent reported it, where are the details, what would you do? How would it interact? How would it work with this status, status A, status B, and so forth? Why don't we push to have the CI run? Something is not computing for me.
+  resolved 2026-11-26T21:17 by rabbit:
+    Priority set to low. Details now say who filed it (Hibiscus, map work z2qt08, 2026-11-24), how CI runs on master versus a branch, why a branch run builds its own images and hits the 30-min limit (only master pushes trigger Images and fast-tests; a branch needs a manual dispatch), and how it fits the one-directory workflow: branches merge to master by fast-forward and master's push runs CI, so a branch run is only for evidence before merging.
 
 ## Notes
 
@@ -41,3 +43,4 @@ Filed by Hibiscus (map agent, z2qt08) on 2026-11-24 17:11, after its branch feat
 - 2026-11-26T21:16 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-26T21:16 request 1 acknowledged by rabbit
 - 2026-11-26T21:17 request 1 in progress by rabbit: hug task set kkj0mn
+- 2026-11-26T21:17 resolved request 1 by rabbit
