@@ -30,7 +30,7 @@ Today import.process_* run in the worker as postgres and set edit_by_user_id := 
 ## Acceptance
 - [ ] ~~A SQL test: a regular user's portion edit stamps edit_by_user_id and edit_at on changed pieces only, untouched pieces keep theirs~~ (not relevant: duplicate of check 5, rabbit, 2026-11-26)
 - [ ] ~~A SQL test: an import job's rows carry the uploading user as writer under provenance~~ (not relevant: covered by check 4 (role switch), rabbit, 2026-11-26)
-- [ ] [Owner] approves how imports carry the uploader (role switch or GUC) before it is built
+- [ ] ~~[Owner] approves how imports carry the uploader (role switch or GUC) before it is built~~ (not relevant: owner decided 2026-11-26 20:43: role switch, activated together with provenance in this one change, rabbit, 2026-11-26)
 - [ ] A SQL test: an import job's rows carry the uploading user as writer, with the worker switching to that user's role
 - [ ] A SQL test: a regular user's portion edit stamps edit_by_user_id and edit_at on changed pieces only; untouched pieces keep theirs
 - [ ] The fast SQL suite passes with provenance on every era
