@@ -34,3 +34,5 @@ Today: public.quality_check_switched_off (05pe0x), reset's customisation scope e
 ## Notes
 
 check 1: Owner agreed 2026-11-26 12:16: starting set on = missing region, missing activity category, secondary equals primary (qjy2eg); off = missing physical location, establishment has another activity, and the two per-variable LU/ES checks.
+
+Owner 2026-11-26 20:10: the starting set on = missing region, missing activity category, secondary activity equals primary (qjy2eg, on by default). All others start off.
