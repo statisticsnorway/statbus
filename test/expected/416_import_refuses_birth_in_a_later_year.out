@@ -1,0 +1,51 @@
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+-- f2gx3m: an import row whose birth_date is in a later calendar year than its valid_from is an error
+-- on that row, with a message naming both dates (import.analyse_date_consistency). A birth_date
+-- later in the same year stays valid: the unit is counted from its birth (public.unit_existence_from).
+-- jo's establishment 86 had valid_from 2023-01-01 and birth_date 2024-11-01.
+CALL test.set_user_from_email('test.admin@statbus.org');
+\o /dev/null
+\set ECHO none
+INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+SELECT id, 'import_f2gx3m_lu', 'Test 416 legal units', 'Test 416 (f2gx3m)', false
+FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+INSERT INTO public.import_f2gx3m_lu_upload (valid_from, valid_to, tax_ident, name, birth_date, death_date) VALUES
+    ('2023-01-01', 'infinity',   '416000001', 'Born a later year',        '2024-11-01', NULL),
+    ('2023-01-01', 'infinity',   '416000002', 'Born later the same year', '2023-11-01', NULL),
+    ('2023-01-01', 'infinity',   '416000003', 'Born an earlier year',     '1924-11-01', NULL),
+    ('2023-01-01', 'infinity',   '416000004', 'No birth date',            NULL,         NULL);
+CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
+\echo
+
+\echo "416.1 the job finishes; only the row born a later year is skipped"
+"416.1 the job finishes; only the row born a later year is skipped"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_job_error
+FROM public.import_job WHERE slug = 'import_f2gx3m_lu';
+       slug       |  state   | total_rows | imported_rows | has_job_error 
+------------------+----------+------------+---------------+---------------
+ import_f2gx3m_lu | finished |          4 |             3 | f
+(1 row)
+
+\echo "416.2 each row's state, action and errors, key and message"
+"416.2 each row's state, action and errors, key and message"
+SELECT dt.row_id, dt.name_raw, dt.state, dt.action, e.key, e.value
+FROM public.import_f2gx3m_lu_data AS dt
+LEFT JOIN LATERAL jsonb_each_text(dt.errors) AS e(key, value) ON TRUE
+ORDER BY dt.row_id, e.key;
+ row_id |         name_raw         |   state   | action |      key       |                                                                                                                   value                                                                                                                   
+--------+--------------------------+-----------+--------+----------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      1 | Born a later year        | error     | skip   | birth_date_raw | Row 1: Legal unit 'Born a later year' (tax_ident 416000001) was born 2024-11-01, in a later year than this row's valid_from 2023-01-01. A unit valid from a year is born in that year or before it. Correct the birth date or valid_from.
+      1 | Born a later year        | error     | skip   | valid_from_raw | Row 1: Legal unit 'Born a later year' (tax_ident 416000001) was born 2024-11-01, in a later year than this row's valid_from 2023-01-01. A unit valid from a year is born in that year or before it. Correct the birth date or valid_from.
+      2 | Born later the same year | processed | use    |                | 
+      3 | Born an earlier year     | processed | use    |                | 
+      4 | No birth date            | processed | use    |                | 
+(5 rows)
+
+ROLLBACK;

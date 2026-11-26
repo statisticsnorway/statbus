@@ -91,9 +91,11 @@ WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_from |  valid_to  | birth_date | death_date 
 -----------+-------------------+------------+------------+------------+------------
- 823573673 | Kranløft Vestland | 2010-01-01 | 2012-12-31 | 2010-01-01 | 2012-12-31
- 921835809 | Kranløft Østland  | 2010-01-01 | 2011-12-31 | 2010-01-01 | 2011-12-31
-(2 rows)
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2012-12-30 | 2010-01-01 | 2012-12-31
+ 823573673 | Kranløft Vestland | 2012-12-31 | 2012-12-31 | 2010-01-01 | 2012-12-31
+ 921835809 | Kranløft Østland  | 2010-01-01 | 2011-12-30 | 2010-01-01 | 2011-12-31
+ 921835809 | Kranløft Østland  | 2011-12-31 | 2011-12-31 | 2010-01-01 | 2011-12-31
+(4 rows)
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
 "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
@@ -234,9 +236,11 @@ WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_from |  valid_to  | birth_date | death_date 
 -----------+-------------------+------------+------------+------------+------------
- 823573673 | Kranløft Vestland | 2010-01-01 | 2012-12-31 | 2010-01-01 | 2012-12-31
- 921835809 | Kranløft Østland  | 2010-01-01 | 2011-01-31 | 2010-01-01 | 2011-01-31
-(2 rows)
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2012-12-30 | 2010-01-01 | 2012-12-31
+ 823573673 | Kranløft Vestland | 2012-12-31 | 2012-12-31 | 2010-01-01 | 2012-12-31
+ 921835809 | Kranløft Østland  | 2010-01-01 | 2011-01-30 | 2010-01-01 | 2011-01-31
+ 921835809 | Kranløft Østland  | 2011-01-31 | 2011-01-31 | 2010-01-01 | 2011-01-31
+(4 rows)
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
 "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
@@ -377,9 +381,11 @@ WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_from |  valid_to  | birth_date | death_date 
 -----------+-------------------+------------+------------+------------+------------
- 823573673 | Kranløft Vestland | 2010-01-01 | 2012-01-01 | 2010-01-01 | 2012-01-01
- 921835809 | Kranløft Østland  | 2010-01-01 | 2011-01-01 | 2010-01-01 | 2011-01-01
-(2 rows)
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2011-12-31 | 2010-01-01 | 2012-01-01
+ 823573673 | Kranløft Vestland | 2012-01-01 | 2012-01-01 | 2010-01-01 | 2012-01-01
+ 921835809 | Kranløft Østland  | 2010-01-01 | 2010-12-31 | 2010-01-01 | 2011-01-01
+ 921835809 | Kranløft Østland  | 2011-01-01 | 2011-01-01 | 2010-01-01 | 2011-01-01
+(4 rows)
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
 "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"

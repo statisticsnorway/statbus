@@ -66,7 +66,7 @@ SELECT su.external_idents->>'tax_ident' AS tax_ident, su.unit_id, su.name,
 FROM public.statistical_unit AS su
 WHERE su.unit_type = 'legal_unit'
   AND su.external_idents->>'tax_ident' IN ('563000001', '563000002')
-ORDER BY tax_ident;
+ORDER BY tax_ident, su.valid_from;
 
 \echo
 \echo "364.2 the units are in different hash slots, so 563000002 cannot be rescued by a slot-mate"
@@ -76,8 +76,8 @@ WHERE su.unit_type = 'legal_unit'
   AND su.external_idents->>'tax_ident' IN ('563000001', '563000002');
 
 -- The documented population, computed independently from public.statistical_unit
--- by the documented rule: the latest version
--- overlapping the period, used_for_counting.
+-- by the documented rule: the latest counted version (used_for_counting)
+-- overlapping the period.
 CREATE TEMP VIEW documented_population_2024 AS
 WITH latest_versions_curr AS (
     SELECT DISTINCT ON (su.unit_id, su.unit_type) su.*
@@ -86,6 +86,7 @@ WITH latest_versions_curr AS (
       AND su.valid_from <= '2024-12-31'::date
       AND su.valid_to >= '2024-01-01'::date
       AND su.external_idents->>'tax_ident' IN ('563000001', '563000002')
+      AND su.used_for_counting -- f2gx3m: a unit's timeline splits at birth and death; the rows outside its life do not count
     ORDER BY su.unit_id, su.unit_type, su.valid_from DESC, su.valid_until DESC
 )
 SELECT
@@ -116,6 +117,7 @@ WITH latest_versions_curr AS (
       AND su.valid_from <= '2024-12-31'::date
       AND su.valid_to >= '2024-01-01'::date
       AND su.external_idents->>'tax_ident' IN ('563000001', '563000002')
+      AND su.used_for_counting -- f2gx3m: a unit's timeline splits at birth and death; the rows outside its life do not count
     ORDER BY su.unit_id, su.unit_type, su.valid_from DESC, su.valid_until DESC
 ),
 expected AS (

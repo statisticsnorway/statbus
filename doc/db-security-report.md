@@ -424,7 +424,6 @@ DDL operations (CREATE/ALTER/DROP on tables, views, triggers). Matched by schema
 - `sql_saga.__api_drop_unique_key_by_name`
 - `sql_saga.__api_rebuild_system_versioning_views`
 - `sql_saga.__api_set_era_ephemeral_columns`
-- `sql_saga.__api_set_era_provenance_columns`
 - `sql_saga.__api_set_system_time_era_excluded_columns`
 - `sql_saga.__api_sync_all_history_policies`
 - `sql_saga.__api_sync_history_policies`

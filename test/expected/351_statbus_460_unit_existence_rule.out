@@ -77,10 +77,12 @@ WHERE su.unit_type = 'establishment'
 ORDER BY tax_ident, su.valid_from;
  tax_ident |         name         | valid_from |  valid_to  | birth_date | death_date | existence_from | existence_until 
 -----------+----------------------+------------+------------+------------+------------+----------------+-----------------
- 945000    | Statistics Denmark   | 2023-01-01 | infinity   | 2024-11-01 |            | 2024-11-01     | infinity
- 947111113 | Drill Down Norway AS | 2023-01-01 | 2023-12-31 | 2023-11-01 |            | 2023-11-01     | 2024-01-01
+ 945000    | Statistics Denmark   | 2024-01-01 | 2024-10-31 | 2024-11-01 |            | 2024-11-01     | 2024-11-01
+ 945000    | Statistics Denmark   | 2024-11-01 | infinity   | 2024-11-01 |            | 2024-11-01     | infinity
+ 947111113 | Drill Down Norway AS | 2023-01-01 | 2023-10-31 | 2023-11-01 |            | 2023-11-01     | 2023-11-01
+ 947111113 | Drill Down Norway AS | 2023-11-01 | 2023-12-31 | 2023-11-01 |            | 2023-11-01     | 2024-01-01
  947111113 | Drill Up Norway AS   | 2024-01-01 | infinity   | 2023-11-01 |            | 2024-01-01     | infinity
-(3 rows)
+(5 rows)
 
 -- The dashboard card query, exactly as StatisticalUnitCountCard sends it to
 -- PostgREST: /rest/statistical_unit?unit_type=eq.X&existence_from=lte.d

@@ -14,7 +14,10 @@ BEGIN
             s.physical_postcode, s.physical_postplace)::text AS addr,
            public.unit_existence_from(s.valid_from, s.birth_date) AS ef,
            public.unit_existence_until(s.valid_until, s.death_date) AS eu,
-           lead(s.valid_from) OVER (PARTITION BY s.unit_type, s.unit_id ORDER BY s.valid_from) AS next_valid_from
+           -- The next counted version: a row that does not count (before a birth, after a death, f2gx3m) carries no
+           -- stats, so the stats of the version before it end where that row starts.
+           min(CASE WHEN s.used_for_counting THEN s.valid_from END) OVER (PARTITION BY s.unit_type, s.unit_id ORDER BY s.valid_from
+               ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING) AS next_valid_from
       FROM %1$s AS s
       JOIN pg_temp.hd_units AS u ON u.unit_type = s.unit_type AND u.unit_id = s.unit_id
     $SQL$, p_source);  -- a regclass renders as its quoted, schema-qualified name

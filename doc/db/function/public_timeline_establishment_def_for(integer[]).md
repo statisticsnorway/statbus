@@ -73,7 +73,7 @@ AS $function$
     us.code AS unit_size_code,
     es.status_id,
     st.code AS status_code,
-    st.used_for_counting,
+    public.unit_counts_in(st.used_for_counting, es.valid_from, es.valid_until, es.birth_date, es.death_date, t.valid_from, t.valid_until) AS used_for_counting,
     last_edit.edit_comment AS last_edit_comment,
     last_edit.edit_by_user_id AS last_edit_by_user_id,
     last_edit.edit_at AS last_edit_at,
@@ -88,7 +88,7 @@ AS $function$
     ARRAY[t.unit_id] AS related_establishment_ids,
     ARRAY[]::integer[] AS excluded_establishment_ids,
         CASE
-            WHEN st.used_for_counting THEN ARRAY[t.unit_id]
+            WHEN public.unit_counts_in(st.used_for_counting, es.valid_from, es.valid_until, es.birth_date, es.death_date, t.valid_from, t.valid_until) THEN ARRAY[t.unit_id]
             ELSE '{}'::integer[]
         END AS included_establishment_ids,
         CASE
