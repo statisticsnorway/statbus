@@ -49,6 +49,8 @@ Example after a push of abc123: verdicts/abc123.jsonl on branch ci-verdicts hold
 ## Requests
 - 2026-11-26T21:40 request 1 by jhf:
   So you're can it be more concrete the goal so what why how store in the repository where how like like too much text too little clarity please
+  resolved 2026-11-26T21:41 by rabbit:
+    Rewritten to be concrete. Title: CI results stored in the repository. Goal in one sentence: each workflow's result is written to branch ci-verdicts and read with git fetch. Purpose: why (REST quota ran out in a release cut, git fetch has no quota). Principle: what (one line per run, one file per commit, verdicts/<sha>.jsonl on orphan branch ci-verdicts), how it is written (a workflow_run workflow commits it), how it is read (git fetch, REST only as fallback). Details: an example line, the three files it changes, the alternatives, and priority low. Checks: your build-or-drop decision, the file appearing after a push, and a release cut with zero REST calls.
 
 ## History
 - 2026-11-22T23:31 todo -> todo/design (ask)
@@ -56,3 +58,4 @@ Example after a push of abc123: verdicts/abc123.jsonl on branch ci-verdicts hold
 - 2026-11-26T21:40 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-26T21:41 request 1 acknowledged by rabbit
 - 2026-11-26T21:41 request 1 in progress by rabbit: hug task set wn4xaa
+- 2026-11-26T21:41 resolved request 1 by rabbit
