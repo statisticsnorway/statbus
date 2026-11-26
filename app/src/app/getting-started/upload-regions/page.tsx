@@ -128,6 +128,7 @@ const RegionsCountDisplay = () => {
         nextPage="/getting-started/upload-custom-sectors"
         refreshRelevantCounts={memoizedRefreshRelevantCounts}
         preview={checkRegionFile}
+        canSkip={typeof numberOfRegions === "number" && numberOfRegions > 0}
       />
     </>
   );

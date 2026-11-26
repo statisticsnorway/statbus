@@ -72,11 +72,15 @@ export const UploadCSVForm = ({
   nextPage,
   refreshRelevantCounts,
   preview,
+  canSkip = true,
 }: {
   uploadView: UploadView;
   nextPage: string;
   refreshRelevantCounts: () => Promise<void>;
   preview?: UploadPreview;
+  /** Whether this step may be passed by without a file. The Regions step offers Skip only once
+   *  regions exist (owner 2026-11-26): the rest of the system leans on them. */
+  canSkip?: boolean;
 }) => {
   const filename = "upload-file";
   const [state, formAction] = useActionState(
@@ -203,11 +207,11 @@ export const UploadCSVForm = ({
               <Button type="button" variant="outline" onClick={cancel} disabled={reading}>
                 Cancel
               </Button>
-            ) : (
+            ) : canSkip ? (
               <Link href={nextPage} className={buttonVariants({ variant: "outline" })}>
                 Skip
               </Link>
-            )}
+            ) : null}
           </div>
         </div>
       ) : (
