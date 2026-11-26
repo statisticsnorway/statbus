@@ -1,7 +1,7 @@
 ---
 id: svpafa
 title: "Codes are CSV column names: DB CHECK, and admin forms name fields to fix"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["hamster"]
@@ -10,11 +10,10 @@ group: ""
 rank: "zzzzzzzzzzzs"
 created: 2026-11-26
 updated: 2026-11-26
-doing_since: "2026-11-26T10:28"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+done_at: "2026-11-26T11:38"
 ---
 
 ## Goal
@@ -46,5 +45,7 @@ check 1: test 412: RED tmp/test-412-red.out accepts 'Demo Variable'; GREEN after
 check 2: migration 20261126094102_codes_are_csv_column_names up/down with COMMENT ON each constraint; types and doc/db regenerated, no deletions (809678734)
 check 3: no 'parse form data' left in app/src; browser :3019 empty Add statistical variable shows only Name/Code/Type/Priority is required, no alert, no record created (ba234201c)
 check 4: tsc, lint, jest 550/550; local fast suite 146/146 passed (run exited 1 only on its tracked-file hook, due to other agents' edits in details-page*.tsx); CI on ba234201c green, Fast Tests superseded there and green on c8237c58, which contains it
+Reflection (open, 2026-11-26, hamster): The local slot's stack is shared, but AGENTS.md does not say so: my recreate-database took the owner's review down. A line saying never to restart the slot's stack, and to use ./dev.sh test or --target seed instead, would have prevented that.
 ## History
 - 2026-11-26T10:28 todo -> doing/active (take)
+- 2026-11-26T11:38 doing/active -> done (done); was doing_since: 2026-11-26T10:28
