@@ -1,15 +1,20 @@
 ---
 id: f2gx3m
 title: "Totals that do not add up on jo: a unit counted before its birth date"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["lobster"]
 labels: []
 group: ""
 rank: "00000000000f"
 created: 2026-11-26
 updated: 2026-11-26
+doing_since: "2026-11-26T22:22"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "counting/birth-date-and-lu-es-rollup"
+worktree: "/Users/jhf/ssb/statbus_a"
 ---
 
 ## Goal
@@ -52,3 +57,4 @@ check 2: Owner 2026-11-26 21:21: go ahead now; import validation and the countin
 - 2026-11-26T21:15 request 1 acknowledged by rabbit
 - 2026-11-26T21:15 request 1 in progress by rabbit: hug task set f2gx3m
 - 2026-11-26T21:15 resolved request 1 by rabbit
+- 2026-11-26T22:22 todo -> doing/active (take)
