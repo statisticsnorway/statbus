@@ -44,5 +44,10 @@ HONEST PRIORITY: worth doing, NOT urgent — the wedge is closed by 264+265; thi
   drain-before-upgrade awaits your ruling on the architect's design (2026-08-27): finish pending work with a bounded drain before upgrading, falling back to interruption. Accept it (then it gets acceptance checks), reject it, or drop the task?
 
 
+## Requests
+- 2026-11-26T21:39 request 1 by jhf:
+  I find this ticket is lacking clarity in what do we have today? It is referencing something else. Interruption is now safe by construction, but I would like to can you organize this so it is clearer to understand what we have, what this will solve, what it brings to the table, what complexity it adds, and what pieces or machinery it modifies
+
 ## History
 - 2026-11-22T23:31 todo -> todo/design (ask)
+- 2026-11-26T21:39 request 1 by jhf
