@@ -45,5 +45,6 @@ landed 6071cb5 on master 2026-11-24: app: count cards show a spinner, then one e
 CI green at 6071cb54f: Fast Tests, Go Test, app build & lint, Images, Harness Selftest, Push on master (gh run list, 2026-11-24 21:17).
 check 1: Norway copy, cold dashboard (no saved counts), driven by tmp/fc9xbd/cold-dashboard.mjs with 05pe0x in the slot: every card's number in 2.7 s, 2.1 s, 2.0 s (three runs at load 29-32, cold-after-05pe0x*.log), 0 responses 5xx, no estimate shown, each count query sent once. Before: RED 53 count requests, 20 x 504, Legal Units never shown in 120 s (red.log).
 check 2: A cold dashboard load starts 3 statistical_unit count queries (Enterprises, Legal Units, Establishments; useExactCount runs at most 3 at a time per tab) and one quality_finding grouped count for every Data quality card (05pe0x); peak 4 concurrent PostgREST count backends measured (cold-after-05pe0x*.log); before: 53 requests, peak 14 (red.log).
+2026-11-26 07:45 owner in Firefox on the Norway copy: each card shows a spinner then the exact number, fast in total; approved.
 ## History
 - 2026-11-24T20:14 todo -> doing/active (take with ca6dk5)
