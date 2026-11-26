@@ -24,7 +24,7 @@ A Save on a unit's field sends one write, so one change runs one derive cycle.
 The two POSTs at 22:49 came from the agent's browser tool, whose click fires two click events; the owner did not click. A real click saves once.
 
 ## Principle
-Find the second submit's source and remove it; the save path stays one form submit. A test asserts one write per click.
+Diagnose before fixing: the second submit came from the agent browser tool, so StatBus's save path stays as it is.
 
 ## Details
 Playwright (tmp/mzqz6f-double-save.mjs): single click and double-click, insert and update paths, one server action and one REST write each. Page-world capture listener: one tool click on Cancel recorded two synthetic clicks. Reported to the jcode maintainer.
