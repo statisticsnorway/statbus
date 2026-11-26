@@ -79,3 +79,4 @@ git revert 2f52f3b7f + bb4848dd4 (keep f29e03a60 unless King says otherwise) →
   > This task is the rc.03 finalize step (revert defer-checkout, cut a config-drift-only RC); releases have since moved on to v2026.11.6 stable. Drop it as done by later releases, or is any of its three checks still open?
   I agree, drop this as done
 - 2026-11-26T22:57 answer 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-26T22:57 answer 1 acknowledged by rabbit
