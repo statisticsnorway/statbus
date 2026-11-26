@@ -110,13 +110,18 @@ const RegionsCountDisplay = () => {
         <InfoBox>
           <div className="flex justify-between items-center">
             <p>There are already {numberOfRegions} regions defined</p>
-            <Link
-              href="/regions"
-              target="_blank"
-              className={buttonVariants({ variant: "outline" })}
-            >
-              View all
-            </Link>
+            {/* The regions as the upload file, to edit and upload again (owner 2026-11-26): beside
+                View all, shown only when there are regions to download. */}
+            <div className="flex items-center gap-2">
+              <RegionsDownloadMenu rows={numberOfRegions} />
+              <Link
+                href="/regions"
+                target="_blank"
+                className={buttonVariants({ variant: "outline" })}
+              >
+                View all
+              </Link>
+            </div>
           </div>
         </InfoBox>
       )}
@@ -235,10 +240,6 @@ export default function UploadRegionsPage() {
                   label="Example file of coordinates for listed regions"
                 />
               )}
-              <span className="inline-flex items-center gap-2">
-                The regions you have, to edit and upload again:
-                <RegionsDownloadMenu />
-              </span>
             </div>
         </div>
       </section>
