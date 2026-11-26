@@ -9,6 +9,7 @@ import TablePagination from "../../components/table/table-pagination";
 import RegionTable from "./region-table";
 import useRegion from "./use-region";
 import TableFilters from "./region-table-filters";
+import { RegionsDownloadMenu } from "./regions-download-menu";
 
 export default function RegionPage() {
   const client = useAtomValue(restClientAtom);
@@ -23,6 +24,12 @@ export default function RegionPage() {
   // The person's own choice; until they make one, the data decides.
   const [chosen, setChosen] = useState<boolean | null>(null);
   const showCoordinates = chosen ?? anyCentre ?? false;
+  // The download holds every region, whatever the filters show.
+  const { data: totalRegions } = useSWR(client ? ["regions:total"] : null, async () => {
+    const { count, error } = await client!.from("region").select("id", { count: "exact", head: true });
+    if (error) throw error;
+    return count;
+  });
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
@@ -56,6 +63,11 @@ export default function RegionPage() {
             setPagination={setPagination}
             total={data?.count ?? 0}
           />
+          {/* All regions in the upload's columns, to edit and upload again (5yxn4w); bottom right,
+              where the search list has its Download. */}
+          <div className="flex justify-end">
+            <RegionsDownloadMenu rows={totalRegions ?? null} />
+          </div>
         </div>
       </section>
     </main>

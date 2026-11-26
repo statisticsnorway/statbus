@@ -5,17 +5,11 @@ import { useAtom, useAtomValue } from "jotai";
 import useSWR from "swr";
 import { numberOfRegionsAtomAsync } from "@/atoms/getting-started";
 import { restClientAtom } from "@/atoms/rest-client";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm, type UploadPreview } from "@/app/getting-started/upload-csv-form";
 import { ExampleDownloads } from "@/app/getting-started/example-downloads";
-import { csvTextToExcelBlob, saveBlob } from "@/app/getting-started/upload-excel";
 import { parseCsvRecords } from "@/app/getting-started/upload-csv-check";
+import { RegionsDownloadMenu } from "@/app/regions/regions-download-menu";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -29,40 +23,6 @@ async function fetchStoredRegions(): Promise<StoredRegion[]> {
   const response = await fetchWithAuth(`${client.url}/region_upload`, { headers: { Accept: "application/json" } });
   if (!response.ok) throw new Error(`Reading the regions failed (${response.status})`);
   return (await response.json()) as StoredRegion[];
-}
-
-/**
- * The regions as an upload file, CSV or Excel (path, name and the centre columns, as
- * public.region_upload reads them), so an office fills in coordinates and uploads it again
- * (owner 2026-11-26, 5yxn4w).
- */
-function RegionsDownload() {
-  const [error, setError] = useState<string | null>(null);
-  const download = async (excel: boolean) => {
-    setError(null);
-    try {
-      const client = await getBrowserRestClient();
-      const response = await fetchWithAuth(`${client.url}/region_upload`, { headers: { Accept: "text/csv" } });
-      if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
-      const csv = await response.text();
-      if (excel) saveBlob(await csvTextToExcelBlob(csv, "Regions"), "regions.xlsx");
-      else saveBlob(new Blob([csv], { type: "text/csv" }), "regions.csv");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  };
-  return (
-    <span className="inline-flex flex-wrap items-center gap-x-2" data-upload-regions-download="">
-      <span>The regions you have, to fill in:</span>
-      <button type="button" className="underline" onClick={() => void download(false)}>
-        CSV
-      </button>
-      <button type="button" className="underline" onClick={() => void download(true)}>
-        Excel
-      </button>
-      {error && <span className="text-red-700">The download failed: {error}</span>}
-    </span>
-  );
 }
 
 /** One group of the check's summary: its count, and its first rows by name. */
@@ -199,18 +159,7 @@ export default function UploadRegionsPage() {
 
   return (
     <section className="space-y-8">
-      <div className="relative flex items-center justify-center">
-        <h1 className="text-center text-2xl">Upload Regions</h1>
-        <div className="absolute right-0 flex items-center gap-2">
-          <Label htmlFor="upload-regions-coordinates">Coordinates</Label>
-          <Switch
-            id="upload-regions-coordinates"
-            checked={showCoordinates}
-            onCheckedChange={setChosen}
-            data-upload-regions-coordinates=""
-          />
-        </div>
-      </div>
+      <h1 className="text-center text-2xl">Upload Regions</h1>
       <p>
         Upload a CSV or Excel file with the regions you use in your analysis. The file is checked
         first: you see what it would add and change, and nothing is stored until you press Store.
@@ -218,10 +167,22 @@ export default function UploadRegionsPage() {
       <Suspense fallback={<RegionsCountSkeleton />}>
         <RegionsCountDisplay />
       </Suspense>
-      <Accordion type="single" collapsible defaultValue="file">
-        <AccordionItem value="file">
-          <AccordionTrigger>What is a regions file?</AccordionTrigger>
-          <AccordionContent className="space-y-3">
+      <section className="space-y-3" data-upload-regions-file="">
+        {/* The Coordinates switch on the heading of what it changes, the file's description (owner
+            2026-11-26): the upload itself takes coordinates either way. */}
+        <div className="flex items-center justify-between border-b pb-2">
+          <h2 className="font-medium">What is a regions file?</h2>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="upload-regions-coordinates">Coordinates</Label>
+            <Switch
+              id="upload-regions-coordinates"
+              checked={showCoordinates}
+              onCheckedChange={setChosen}
+              data-upload-regions-coordinates=""
+            />
+          </div>
+        </div>
+        <div className="space-y-3 text-sm">
             {/* The columns every country needs, and the coordinates with the switch on. The columns
                 are those of the view public.region_upload. */}
             <p className="mb-1">
@@ -269,18 +230,18 @@ export default function UploadRegionsPage() {
             <div className="flex flex-col gap-1">
               <ExampleDownloads csvHref="/demo/regions_demo.csv" label="Example file" />
               {showCoordinates && (
-                <>
-                  <ExampleDownloads
-                    csvHref="/demo/regions_with_centre_demo.csv"
-                    label="Example file of coordinates for listed regions"
-                  />
-                  <RegionsDownload />
-                </>
+                <ExampleDownloads
+                  csvHref="/demo/regions_with_centre_demo.csv"
+                  label="Example file of coordinates for listed regions"
+                />
               )}
+              <span className="inline-flex items-center gap-2">
+                The regions you have, to edit and upload again:
+                <RegionsDownloadMenu />
+              </span>
             </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+        </div>
+      </section>
     </section>
   );
 }
