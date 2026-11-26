@@ -1,7 +1,7 @@
 ---
 id: zamdqe
 title: "Unit pages use the width they need, not always the full screen"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["rabbit"]
@@ -10,12 +10,10 @@ group: ""
 rank: "zzzzzzzzzzzu"
 created: 2026-11-26
 updated: 2026-11-26
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
-doing_since: "2026-11-26T11:38"
-doing_with: "ca6dk5"
+done_at: "2026-11-26T21:52"
 ---
 
 ## Goal
@@ -46,3 +44,4 @@ landed 37a8812 on master 2026-11-26: app: unit pages take the width their conten
 - 2026-11-26T11:05 todo -> doing/active (take)
 - 2026-11-26T11:38 doing/active -> todo/ready (give back; was assignee: ladybug); was doing_since: 2026-11-26T11:05
 - 2026-11-26T11:38 todo/ready -> doing/active (take with ca6dk5)
+- 2026-11-26T21:52 doing/active -> done (done); was doing_since: 2026-11-26T11:38; doing_with: ca6dk5
