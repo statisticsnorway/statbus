@@ -11,12 +11,19 @@ BEGIN
     SELECT * INTO establishment_row
       FROM public.establishment
      WHERE id = establishment_id
-       AND from_to_overlaps(valid_from, valid_to, valid_from_param, valid_to_param);
-     IF NOT FOUND THEN
+       AND from_to_overlaps(valid_from, valid_to, valid_from_param, valid_to_param)
+     ORDER BY valid_from
+     LIMIT 1;
+     IF NOT FOUND OR establishment_row.legal_unit_id IS NULL THEN
         RAISE EXCEPTION 'Establishment does not exist or is not linked to a legal unit.';
     END IF;
 
-    IF establishment_row.primary_for_legal_unit THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM public.establishment AS es
+         WHERE es.id = establishment_row.id
+           AND from_to_overlaps(es.valid_from, es.valid_to, valid_from_param, valid_to_param)
+           AND NOT es.primary_for_legal_unit
+    ) THEN
       RETURN jsonb_build_object(
           'message', 'No changes made as the establishment is already primary.',
           'legal_unit_id', establishment_row.legal_unit_id,
@@ -24,28 +31,27 @@ BEGIN
       );
     END IF;
 
-    -- Unset all establishments of the legal unit from being primary and capture their ids and table name
-    WITH updated_rows AS (
-        UPDATE public.establishment
-        SET primary_for_legal_unit = false
-        WHERE primary_for_legal_unit
-          AND legal_unit_id = establishment_row.legal_unit_id
-          AND from_to_overlaps(valid_from, valid_to, valid_from_param, valid_to_param)
-        RETURNING id
-    )
-    SELECT jsonb_agg(jsonb_build_object('table', 'establishment', 'id', id)) INTO v_unset_ids FROM updated_rows;
+    -- The legal unit's other primary establishments stop being primary over the period only
+    -- (establishment__for_portion_of_valid splits their rows at its edges).
+    SELECT COALESCE(jsonb_agg(jsonb_build_object('table', 'establishment', 'id', other.id)), '[]')
+      INTO v_unset_ids
+      FROM (SELECT DISTINCT es.id
+              FROM public.establishment AS es
+             WHERE es.primary_for_legal_unit
+               AND es.legal_unit_id = establishment_row.legal_unit_id
+               AND es.id <> establishment_row.id
+               AND from_to_overlaps(es.valid_from, es.valid_to, valid_from_param, valid_to_param)) AS other;
 
-    -- Set the specified establishment as primary, capture its id and table name
-    WITH updated_row AS (
-        UPDATE public.establishment
-        SET primary_for_legal_unit = true
-        WHERE id = establishment_row.id
-          AND from_to_overlaps(valid_from, valid_to, valid_from_param, valid_to_param)
-        RETURNING id
-    )
-    SELECT jsonb_build_object('table', 'establishment', 'id', id) INTO v_set_id FROM updated_row;
+    UPDATE public.establishment__for_portion_of_valid AS v
+       SET primary_for_legal_unit = false, valid_from = valid_from_param, valid_to = valid_to_param
+     WHERE v.id IN (SELECT (u ->> 'id')::integer FROM jsonb_array_elements(v_unset_ids) AS u);
 
-    -- Return a jsonb summary of changes including table and ids of changed establishments
+    -- The establishment is primary over the period.
+    UPDATE public.establishment__for_portion_of_valid AS v
+       SET primary_for_legal_unit = true, valid_from = valid_from_param, valid_to = valid_to_param
+     WHERE v.id = establishment_row.id;
+    v_set_id := jsonb_build_object('table', 'establishment', 'id', establishment_row.id);
+
     RETURN jsonb_build_object(
         'unset_primary', v_unset_ids,
         'set_primary', v_set_id

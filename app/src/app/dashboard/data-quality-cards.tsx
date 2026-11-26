@@ -108,15 +108,14 @@ export function DataQualitySettingsLink() {
 /**
  * The dashboard's Data quality cards: one per switched-on check of public.quality_check, in its
  * order, each counting the units the check lists at the selected time frame from one grouped
- * request (useQualityFindingCounts). Below them, how many checks are switched off, with Edit for
- * admins (Admin > Data quality checks).
+ * request (useQualityFindingCounts). Admins choose which checks show with the section's gear
+ * (DataQualitySettingsLink, Admin > Data quality checks).
  */
 export function DataQualityCards() {
   const { selectedTimeFrame } = useTimeFrame();
   const validOn = selectedTimeFrame?.valid_on ?? null;
   const { checks, error } = useQualityChecks();
   const { counts, failed } = useQualityFindingCounts(validOn);
-  const role = useAtomValue(userRoleAtom);
 
   if (error) {
     return <p className="col-span-full text-sm text-orange-700">The data quality checks could not be read.</p>;
@@ -125,7 +124,6 @@ export function DataQualityCards() {
     return <p className="col-span-full text-sm text-gray-500">Reading the data quality checks…</p>;
   }
   const shown = checks.filter((c) => c.onDashboard);
-  const switchedOff = checks.length - shown.length;
   return (
     <>
       {shown.map((check) => (
@@ -136,19 +134,6 @@ export function DataQualityCards() {
           failed={failed}
         />
       ))}
-      {switchedOff > 0 && (
-        <p className="col-span-full text-xs text-gray-500">
-          {switchedOff === 1 ? "1 check switched off" : `${switchedOff} checks switched off`}
-          {role === "admin_user" && (
-            <>
-              {" · "}
-              <Link href="/admin/quality-checks" className="text-blue-600 underline">
-                Edit
-              </Link>
-            </>
-          )}
-        </p>
-      )}
     </>
   );
 }

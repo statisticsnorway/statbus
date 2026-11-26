@@ -389,17 +389,23 @@ export async function removeTemporalRecord({
   };
 }
 
-export async function setPrimaryLegalUnit(id: number) {
+/**
+ * Makes the legal unit its enterprise's primary over [validFrom, validTo] (inclusive, "infinity" for
+ * no end); before and after the period the primary stays as it was (2f4c0z).
+ */
+export async function setPrimaryLegalUnit(id: number, validFrom: string, validTo: string) {
   "use server";
   const logger = await createServerLogger();
   const client = await getServerRestClient();
   const { error } = await client.rpc("set_primary_legal_unit_for_enterprise", {
     legal_unit_id: id,
+    valid_from_param: validFrom,
+    valid_to_param: validTo,
   });
 
-   if (error) {
-     logger.error(error, "failed to set primary legal unit");
-     return { status: "error" as const, message: error.message };
-   }
-   return { status: "success" as const };
+  if (error) {
+    logger.error(error, "failed to set primary legal unit");
+    return { status: "error" as const, message: error.message };
+  }
+  return { status: "success" as const };
 }

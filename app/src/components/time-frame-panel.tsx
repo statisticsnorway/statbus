@@ -50,14 +50,18 @@ export function framePeriod(tf: Pick<TimeFrame, "valid_from" | "valid_to">): str
 const headingClass = "text-xs font-medium text-zinc-500";
 
 /**
- * Why a date typed into Advanced's From or To cannot be used: it falls outside
- * the bounds (where the unit exists, for an edit of a unit's record). Null for a
- * date inside them, an open end, a date not yet fully typed, or no bounds.
+ * Why a date typed into From or To cannot be used, and the nearest date that can: it falls outside
+ * the bounds (where the unit exists, for an edit of a unit's record). Null for a date inside them, an
+ * open end, a date not yet fully typed, or no bounds. DateInput shows the reason with the nearest
+ * date as a link that sets it (owner 2026-11-26).
  */
-export function dateOutsideBounds(value: string | null, bounds: DateBounds | undefined): string | null {
+export function dateOutsideBounds(
+  value: string | null,
+  bounds: DateBounds | undefined
+): { reason: string; nearest: string } | null {
   if (!bounds || !value || value === "infinity" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  if (value < bounds.from) return `The unit exists from ${bounds.from}`;
-  if (bounds.to !== "infinity" && value > bounds.to) return `The unit exists until ${bounds.to}`;
+  if (value < bounds.from) return { reason: "The unit exists from", nearest: bounds.from };
+  if (bounds.to !== "infinity" && value > bounds.to) return { reason: "The unit exists until", nearest: bounds.to };
   return null;
 }
 
@@ -99,7 +103,16 @@ function DateInput({
       />
       {problem && (
         <p className="mt-1 text-xs text-red-600" data-date-out-of-bounds="">
-          {problem}
+          {problem.reason}{" "}
+          <button
+            type="button"
+            className="font-medium underline underline-offset-2 hover:text-red-800"
+            title={`Use ${problem.nearest}`}
+            onClick={() => onChange(problem.nearest)}
+            data-date-use-nearest=""
+          >
+            {problem.nearest}
+          </button>
         </p>
       )}
       <Popover>

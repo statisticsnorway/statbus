@@ -83,13 +83,17 @@ export async function updateEstablishment(
   return { status: "success", message: "Establishment successfully updated" };
 }
 
-export async function setPrimaryEstablishment(id: number) {
+/**
+ * Makes the establishment its legal unit's primary over [validFrom, validTo] (inclusive, "infinity"
+ * for no end); before and after the period the primary stays as it was (2f4c0z).
+ */
+export async function setPrimaryEstablishment(id: number, validFrom: string, validTo: string) {
   "use server";
   const logger = await createServerLogger();
   const client = await getServerRestClient();
   const { error } = await client.rpc(
     "set_primary_establishment_for_legal_unit",
-    { establishment_id: id }
+    { establishment_id: id, valid_from_param: validFrom, valid_to_param: validTo }
   );
 
   if (error) {

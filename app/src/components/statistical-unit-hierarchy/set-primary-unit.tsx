@@ -8,14 +8,26 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
+import { useTimeFrame } from "@/atoms/app-derived";
+import { useDetailsPageData } from "@/atoms/edits";
+import { TimeFramePanel, dateOutsideBounds, framePeriod, type ValidityChoice } from "@/components/time-frame-panel";
+import { useFixedFrameConfirmation } from "@/components/fixed-frame-confirmation";
+import { useUnitExistence } from "@/components/form/timeline-skeleton-view";
 import { setPrimaryEstablishment } from "@/app/establishments/[id]/update-establishment-server-actions";
 import { setPrimaryLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
+import { liveFrame, primaryChangePeriod } from "./primary-change-period";
 
 const PRIMARY_CHANGE_BY_TYPE = {
   establishment: { label: "establishment", action: setPrimaryEstablishment },
   legal_unit: { label: "legal unit", action: setPrimaryLegalUnit },
 } as const;
 
+/**
+ * Makes a unit its parent's primary over a stretch of time (2f4c0z), like any other edit: the Time
+ * frame panel starts on the live frame and also offers the other frames and Specific dates. Before
+ * and after the chosen period the primary stays as it was; a change reaching a past frame asks
+ * first (Change a past frame?).
+ */
 export function SetPrimaryUnit({
   type,
   id,
@@ -30,14 +42,49 @@ export function SetPrimaryUnit({
   readonly currentPrimaryName?: string | null;
 }) {
   const { label, action } = PRIMARY_CHANGE_BY_TYPE[type];
+  const { timeFrames } = useTimeFrame();
+  const { dataSources } = useDetailsPageData();
   const [open, setOpen] = useState(false);
+  const [choice, setChoice] = useState<ValidityChoice>("frame");
+  const [frameIdent, setFrameIdent] = useState<string | null>(null);
+  const [validFrom, setValidFrom] = useState<string | null>(null);
+  const [validTo, setValidTo] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { mutate } = useSWRConfig();
   const { toast } = useToast();
+  const { ask, dialog } = useFixedFrameConfirmation();
 
-  const confirm = () =>
+  const live = liveFrame(timeFrames);
+  const frame = timeFrames.find((tf) => tf.ident === (frameIdent ?? live?.ident)) ?? null;
+  const period = primaryChangePeriod(choice, frame, validFrom, validTo);
+  // Where the unit exists, the same bound as an edit's Specific dates (edit-metadata-controls): a date
+  // outside it is refused at the date field, before anything is sent.
+  const existence = useUnitExistence(
+    open ? { table: type, match: { [`${type}_id`]: id }, column: `primary_for_${type === "establishment" ? "legal_unit" : "enterprise"}` } : undefined
+  );
+  const dateBounds = existence?.length
+    ? { from: existence[0].validFrom, to: existence[existence.length - 1].validTo }
+    : undefined;
+  const outside =
+    choice === "dates" ? dateOutsideBounds(validFrom, dateBounds) ?? dateOutsideBounds(validTo, dateBounds) : null;
+  const periodText = period
+    ? framePeriod({ valid_from: period.validFrom, valid_to: period.validTo })
+    : null;
+
+  const openChange = (next: boolean) => {
+    if (next) {
+      setChoice("frame");
+      setFrameIdent(live?.ident ?? null);
+      setValidFrom(null);
+      setValidTo(null);
+    }
+    setOpen(next);
+  };
+
+  const save = () =>
     startTransition(async () => {
-      const result = await action(id);
+      if (!period) return;
+      const result = await action(id, period.validFrom, period.validTo);
       if (result.status === "error") {
         toast({
           title: `Could not change primary ${label}`,
@@ -52,53 +99,84 @@ export function SetPrimaryUnit({
       setOpen(false);
       toast({
         title: `Primary ${label} changed`,
-        description: `${name} is now the primary ${label} of ${parentName}.`,
+        description: `${name} is the primary ${label} of ${parentName} in ${periodText}.`,
         className: "border-green-700 bg-green-100 text-green-700",
       });
     });
 
+  const confirm = () => {
+    if (!period) return;
+    if (!ask(period.validFrom, period.validTo, save)) save();
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-6 px-2.5 text-xs"
-        >
-          Set as primary
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 space-y-3">
-        <p className="text-sm font-semibold leading-snug text-zinc-900">
-          Make {name} the primary {label} of {parentName}?
-        </p>
-        {currentPrimaryName && (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-            <dt className="text-zinc-500">Now</dt>
-            <dd>{currentPrimaryName}</dd>
-            <dt className="text-zinc-500">New</dt>
-            <dd className="font-semibold">{name}</dd>
-          </dl>
-        )}
-        <p className="text-xs text-zinc-500">
-          {currentPrimaryName
-            ? `${currentPrimaryName} will no longer be primary. You can change it back at any time.`
-            : `There is no primary ${label} today.`}
-        </p>
-        <div className="flex justify-end gap-2">
+    <>
+      <Popover open={open} onOpenChange={openChange}>
+        <PopoverTrigger asChild>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setOpen(false)}
-            disabled={isPending}
+            className="h-6 px-2.5 text-xs"
           >
-            Cancel
+            Set as primary
           </Button>
-          <Button size="sm" onClick={confirm} disabled={isPending}>
-            {isPending ? "Saving…" : "Set as primary"}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-[28rem] space-y-3" data-set-primary-dialog>
+          <p className="text-sm font-semibold leading-snug text-zinc-900">
+            Make {name} the primary {label} of {parentName}?
+          </p>
+          {currentPrimaryName && (
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+              <dt className="text-zinc-500">Now</dt>
+              <dd>{currentPrimaryName}</dd>
+              <dt className="text-zinc-500">New</dt>
+              <dd className="font-semibold">{name}</dd>
+            </dl>
+          )}
+          <TimeFramePanel
+            idPrefix={`set-primary-${type}-${id}`}
+            timeFrames={timeFrames}
+            mode="frame"
+            onModeChange={() => {}}
+            choice={choice}
+            onChoiceChange={setChoice}
+            frameIdent={frame?.ident ?? null}
+            onFrameChange={setFrameIdent}
+            validFrom={validFrom}
+            validTo={validTo}
+            onValidFromChange={setValidFrom}
+            onValidToChange={setValidTo}
+            dataSources={dataSources}
+            dataSourceCode={null}
+            onDataSourceChange={() => {}}
+            comment={null}
+            onCommentChange={() => {}}
+            hideMetadata
+            dateBounds={dateBounds}
+          />
+          <p className="text-xs text-zinc-500">
+            {periodText
+              ? currentPrimaryName
+                ? `In ${periodText}, ${currentPrimaryName} will no longer be primary. Before and after, the primary stays as it is.`
+                : `${name} becomes primary in ${periodText}.`
+              : "Choose a time frame or a From date."}
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setOpen(false)}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" onClick={confirm} disabled={isPending || !period || outside !== null}>
+              {isPending ? "Saving…" : "Set as primary"}
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+      {dialog}
+    </>
   );
 }

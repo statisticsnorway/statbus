@@ -1,0 +1,127 @@
+SET datestyle TO 'ISO, DMY';
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+-- 2f4c0z: setting a primary is an edit over a stretch of time. Setting an establishment primary for
+-- its legal unit from a date on changes primary only from that date: before it the old primary stays,
+-- and each establishment's rows are split at the date with their other values unchanged. The same for
+-- a legal unit set primary for its enterprise.
+CALL test.set_user_from_email('test.admin@statbus.org');
+\o /dev/null
+\set ECHO none
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+       'import_413_lu', 'Legal units (413)', 'test/data/05_norwegian-legal-units.csv', 'Test data load (413)';
+\copy public.import_413_lu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'test/data/05_norwegian-legal-units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'),
+       'import_413_es', 'Establishments (413)', 'test/data/05_norwegian-establishments.csv', 'Test data load (413)';
+\copy public.import_413_es_upload(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover) FROM 'test/data/05_norwegian-establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\o /dev/null
+CALL worker.process_tasks(p_queue => 'import');
+\o
+-- A legal unit with more than one establishment, and its establishments in id order.
+SELECT es.legal_unit_id AS lu_id
+  FROM public.establishment AS es
+ GROUP BY es.legal_unit_id
+HAVING count(DISTINCT es.id) > 1
+ ORDER BY es.legal_unit_id
+ LIMIT 1 \gset
+SELECT min(es.id) FILTER (WHERE es.primary_for_legal_unit) AS old_primary_id,
+       min(es.id) FILTER (WHERE NOT es.primary_for_legal_unit) AS new_primary_id
+  FROM public.establishment AS es
+ WHERE es.legal_unit_id = :lu_id \gset
+\echo "Before: the old primary is primary over its whole life"
+"Before: the old primary is primary over its whole life"
+SELECT es.id = :old_primary_id AS is_old, es.valid_from, es.valid_until, es.primary_for_legal_unit, es.name
+  FROM public.establishment AS es
+ WHERE es.id IN (:old_primary_id, :new_primary_id)
+ ORDER BY is_old DESC, es.valid_from;
+ is_old | valid_from | valid_until | primary_for_legal_unit |      name      
+--------+------------+-------------+------------------------+----------------
+ t      | 2010-01-01 | infinity    | t                      | Kranløft Omegn
+ f      | 2010-01-01 | infinity    | f                      | Kranløft Oslo
+(2 rows)
+
+-- A regular user sets the primary, as in the app.
+CALL test.remove_pg_temp_for_tx_user_switch();
+CALL test.set_user_from_email('test.regular@statbus.org');
+\echo "Set the other establishment primary from 2024-01-01 on"
+"Set the other establishment primary from 2024-01-01 on"
+SELECT public.set_primary_establishment_for_legal_unit(:new_primary_id, '2024-01-01', 'infinity') IS NOT NULL AS done;
+ done 
+------
+ t
+(1 row)
+
+\echo "After: before 2024 the old primary stays primary; from 2024 the new one is; names unchanged"
+"After: before 2024 the old primary stays primary; from 2024 the new one is; names unchanged"
+SELECT es.id = :old_primary_id AS is_old, es.valid_from, es.valid_until, es.primary_for_legal_unit, es.name
+  FROM public.establishment AS es
+ WHERE es.id IN (:old_primary_id, :new_primary_id)
+ ORDER BY is_old DESC, es.valid_from;
+ is_old | valid_from | valid_until | primary_for_legal_unit |      name      
+--------+------------+-------------+------------------------+----------------
+ t      | 2010-01-01 | 2024-01-01  | t                      | Kranløft Omegn
+ t      | 2024-01-01 | infinity    | f                      | Kranløft Omegn
+ f      | 2010-01-01 | 2024-01-01  | f                      | Kranløft Oslo
+ f      | 2024-01-01 | infinity    | t                      | Kranløft Oslo
+(4 rows)
+
+\echo "Exactly one primary establishment for the legal unit at every date"
+"Exactly one primary establishment for the legal unit at every date"
+SELECT d::date AS on_date, count(*) FILTER (WHERE es.primary_for_legal_unit) AS primaries
+  FROM unnest(ARRAY['2015-06-01', '2023-12-31', '2024-01-01', '2030-01-01']::date[]) AS d
+  JOIN public.establishment AS es
+    ON es.legal_unit_id = :lu_id AND es.valid_range @> d::date
+ GROUP BY d
+ ORDER BY d;
+  on_date   | primaries 
+------------+-----------
+ 2015-06-01 |         1
+ 2023-12-31 |         1
+ 2024-01-01 |         1
+ 2030-01-01 |         1
+(4 rows)
+
+-- The same for a legal unit and its enterprise: join a second legal unit to the enterprise of the
+-- first (from its start), then set it primary from 2024 on.
+SELECT lu.id AS old_lu_id, lu.enterprise_id AS en_id
+  FROM public.legal_unit AS lu
+ WHERE lu.primary_for_enterprise
+ ORDER BY lu.id
+ LIMIT 1 \gset
+SELECT min(lu.id) AS new_lu_id
+  FROM public.legal_unit AS lu
+ WHERE lu.enterprise_id <> :en_id \gset
+SELECT public.connect_legal_unit_to_enterprise(:new_lu_id, :en_id, '2010-01-01', 'infinity') IS NOT NULL AS joined;
+ joined 
+--------
+ t
+(1 row)
+
+\echo "Set another legal unit primary for its enterprise from 2024-01-01 on"
+"Set another legal unit primary for its enterprise from 2024-01-01 on"
+SELECT public.set_primary_legal_unit_for_enterprise(:new_lu_id, '2024-01-01', 'infinity') IS NOT NULL AS done;
+ done 
+------
+ t
+(1 row)
+
+SELECT lu.id = :old_lu_id AS is_old, lu.valid_from, lu.valid_until, lu.primary_for_enterprise, lu.name
+  FROM public.legal_unit AS lu
+ WHERE lu.id IN (:old_lu_id, :new_lu_id)
+ ORDER BY is_old DESC, lu.valid_from;
+ is_old | valid_from | valid_until | primary_for_enterprise |       name        
+--------+------------+-------------+------------------------+-------------------
+ t      | 2010-01-01 | 2024-01-01  | t                      | Kranløft Østland
+ t      | 2024-01-01 | infinity    | f                      | Kranløft Østland
+ f      | 2010-01-01 | 2024-01-01  | f                      | Kranløft Vestland
+ f      | 2024-01-01 | infinity    | t                      | Kranløft Vestland
+(4 rows)
+
+ROLLBACK;
