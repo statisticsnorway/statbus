@@ -1,15 +1,20 @@
 ---
 id: zamdqe
 title: "Unit pages use the width they need, not always the full screen"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["ladybug"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzz"
 created: 2026-11-26
 updated: 2026-11-26
+doing_since: "2026-11-26T11:05"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -30,3 +35,7 @@ Hedda's change: details-page-layout.tsx max-w removed, address parts in one row 
 - [ ] On a wide screen the unit Contact page keeps a readable width and the address parts sit in one row, approved by the owner in a browser
 
 ## Notes
+
+
+## History
+- 2026-11-26T11:05 todo -> doing/active (take)
