@@ -4,7 +4,7 @@ title: "Location coordinates have one name in the table and the API"
 state: "doing"
 type: feature
 priority: ""
-assignee: ["ox"]
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zx"
@@ -59,3 +59,4 @@ check 2: Shipped with jbc5bs, commit 3bf2dbc6f on feat/coordinates-named-latitud
 check 3: Same commit: import definitions (source/data columns), samples/demo script, app/public/demo CSVs, test data, data-model.md, import-system.md, api-reference.md renamed; rg finds old names only in the refusal code and its tests
 ## History
 - 2026-11-26T21:50 todo -> doing/active (take with jbc5bs)
+- 2026-11-27T00:18 handed to rabbit: ox's session ended (closed 2026-11-26 23:16)

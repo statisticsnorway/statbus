@@ -4,7 +4,7 @@ title: "Coordinates are named latitude, longitude, altitude; no postal coordinat
 state: "doing"
 type: feature
 priority: ""
-assignee: ["ox"]
+assignee: ["rabbit"]
 labels: ["maps"]
 group: ""
 rank: "zzzzzzzzh"
@@ -79,3 +79,4 @@ Checks 8 and 9 say the same thing (added twice, by me and by hibiscus); both tic
 - 2026-11-26T21:42 answer 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-26T21:42 answer 1 acknowledged by rabbit
 - 2026-11-26T21:49 todo/ready -> doing/active (take)
+- 2026-11-27T00:18 handed to rabbit: ox's session ended (closed 2026-11-26 23:16)
