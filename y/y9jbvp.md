@@ -34,7 +34,7 @@ What happened since (checked 2026-11-26): the defer-checkout change was not reve
 - [ ] ~~King ruled on revert / quota / 057~~ (not relevant: settled by later work: gfvfwe (recovery fix, shipped since v2026.06.0-rc.04), 8jv43w (test suite limit), wpz2b6 (image cleanup), rabbit, 2026-11-26)
 - [ ] ~~Clean config-drift-only RC cut + 0-happy green on it~~ (not relevant: settled by later work: gfvfwe (recovery fix, shipped since v2026.06.0-rc.04), 8jv43w (test suite limit), wpz2b6 (image cleanup), rabbit, 2026-11-26)
 - [ ] ~~defer-checkout/preswap-recovery work tracked in STATBUS-061 (rc.04)~~ (not relevant: settled by later work: gfvfwe (recovery fix, shipped since v2026.06.0-rc.04), 8jv43w (test suite limit), wpz2b6 (image cleanup), rabbit, 2026-11-26)
-- [ ] [Owner] confirms nothing remains and the task is dropped as superseded by gfvfwe, 8jv43w and wpz2b6; recorded in Notes
+- [x] [Owner] confirms nothing remains and the task is dropped as superseded by gfvfwe, 8jv43w and wpz2b6; recorded in Notes
 
 ## State
 Config-drift upgrade-crash wedge (the King's charge) is SOLVED + validated GREEN on real VMs (0-happy run 27582053054 on the config-drift-only commit 658c34ebd; 27582686118 full stack). rc.03 was cut (tag v2026.06.0-rc.03 on d0992498a) BUT it carries the defer-checkout arc, which testing showed has real PreSwap recovery bugs (not the charge).
@@ -68,6 +68,9 @@ git revert 2f52f3b7f + bb4848dd4 (keep f29e03a60 unless King says otherwise) →
   resolved 2026-11-26T22:54 by rabbit:
     Rewritten in plain words. Purpose: what it was about (June 2026, an upgrade crash fix was ready but release candidate rc.03 also carried an unfinished 'defer checkout' change with a recovery bug; three decisions were asked: take it out, raise the server quota, allow an image-cleanup fix). Details: what happened since (the change stayed and its bug was fixed properly in gfvfwe, shipped since rc.04; the quota and image cleanup were solved in 8jv43w and wpz2b6). The old checks are struck; one check left: confirm it can be dropped.
 
+## Notes
+check 4: Owner 2026-11-26 22:57: 'drop this as done'; superseded by gfvfwe, 8jv43w and wpz2b6.
+
 ## History
 - 2026-11-22T23:31 todo -> todo/design (ask)
 - 2026-11-26T22:53 request 1 by jhf
@@ -80,3 +83,4 @@ git revert 2f52f3b7f + bb4848dd4 (keep f29e03a60 unless King says otherwise) →
   I agree, drop this as done
 - 2026-11-26T22:57 answer 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-26T22:57 answer 1 acknowledged by rabbit
+- 2026-11-26T22:57 answer 1 in progress by rabbit: hug task check y9jbvp 4 "Owner 2026-11-26 22:57: 'drop this as done'; superseded by gfvfwe, 8jv43w and wpz2b6."
