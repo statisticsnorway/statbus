@@ -11,10 +11,13 @@ rank: "00000000000f"
 created: 2026-11-26
 updated: 2026-11-26
 doing_since: "2026-11-26T22:22"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "counting/birth-date-and-lu-es-rollup"
 worktree: "/Users/jhf/ssb/statbus_a"
+waiting_on: "lobster's counting branch (counting/birth-date-and-lu-es-rollup in statbus_a)"
+waiting_since: "2026-11-27T00:00"
+waiting_asked_by: "rabbit"
 ---
 
 ## Goal
@@ -62,3 +65,4 @@ Owner 2026-11-26 23:58: the later-year birth_date rule stays an error. Demo rows
 - 2026-11-26T21:15 resolved request 1 by rabbit
 - 2026-11-26T22:22 todo -> doing/active (take)
 - 2026-11-26T22:24 handed to rabbit: lobster's session went silent (last seen 2026-11-19 16:38)
+- 2026-11-27T00:00 doing/active -> doing/waiting (wait)
