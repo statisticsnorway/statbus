@@ -151,9 +151,10 @@ describe("legal unit edit forms", () => {
 });
 
 describe("admin forms", () => {
-  const refused = (fields: [string, string][], message = "Failed to parse form data") => ({
+  // A refusal names what to fix: the fields' own messages, each also on its field.
+  const refused = (fields: [string, string][]) => ({
     status: "error",
-    message,
+    message: [...new Set(fields.map(([, message]) => message))].join("; "),
     errors: fields.map(([path, message]) => ({ path, message })),
   });
 
@@ -202,7 +203,7 @@ describe("admin forms", () => {
       payload: { name: "Employees", code: "employees", priority: 1, enabled: true, type: "int" },
     });
     expect(await createStatDefinition(null, form({ name: "E", code: "e", priority: "1", type: "date" }))).toEqual(
-      refused([["type", 'Invalid option: expected one of "int"|"float"|"string"|"bool"']])
+      refused([["type", "Type is required"]])
     );
   });
 
@@ -252,7 +253,7 @@ describe("admin forms", () => {
         ["email", "Invalid email"],
         ["statbus_role", "Role is required"],
         ["password", "Password must contain at least 8 characters"],
-      ], "failed to parse form data")
+      ])
     );
   });
 

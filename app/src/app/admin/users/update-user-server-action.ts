@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getServerRestClient } from "@/context/RestClientStore";
 import { zfd } from "zod-form-data";
 import { z } from "zod";
+import { describeInvalidForm } from "@/components/form/metadata-validation";
 
 const baseUserSchema = z.object({
   display_name: z.string().min(1, "Display name is required"),
@@ -37,14 +38,7 @@ export async function createUser(
   const validatedFields = createUserSchema.safeParse(formData);
 
   if (!validatedFields.success) {
-    return {
-      status: "error",
-      message: "failed to parse form data",
-      errors: validatedFields.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    };
+    return describeInvalidForm(validatedFields.error);
   }
 
   const { display_name, email, statbus_role, password } = validatedFields.data;
@@ -71,14 +65,7 @@ export async function updateUser(
   const validatedFields = updateUserSchema.safeParse(formData);
 
   if (!validatedFields.success) {
-    return {
-      status: "error",
-      message: "failed to parse form data",
-      errors: validatedFields.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    };
+    return describeInvalidForm(validatedFields.error);
   }
 
   const { id, password, ...updatedFields } = validatedFields.data;

@@ -3,6 +3,7 @@ import { createServerLogger } from "@/lib/server-logger";
 import { getServerRestClient } from "@/context/RestClientStore";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { describeInvalidForm } from "@/components/form/metadata-validation";
 import { zfd } from "zod-form-data";
 import { baseDataStore } from "@/context/BaseDataStore";
 import { _parseAuthStatusRpcResponseToAuthStatus } from "@/lib/auth.types";
@@ -60,14 +61,7 @@ export async function updateExternalIdent(
   const { externalIdentTypes } = await baseDataStore.getBaseData(client);
 
   if (!validatedFields.success) {
-    return {
-      status: "error",
-      message: "failed to parse form data",
-      errors: validatedFields.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    };
+    return describeInvalidForm(validatedFields.error);
   }
   const { data } = await client.rpc("auth_status", undefined, { get: true });
   const parsedAuthStatus = _parseAuthStatusRpcResponseToAuthStatus(data);

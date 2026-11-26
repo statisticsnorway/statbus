@@ -32,4 +32,17 @@ describe("AdminDialogFooter", () => {
     expect(html).toContain('role="alert"');
     expect(html).toContain("duplicate key value");
   });
+
+  it("leaves a field-by-field refusal to the fields, with no summary above the buttons", () => {
+    const state: UpdateResponse = {
+      status: "error",
+      message: "Name is required; Code is required",
+      errors: [
+        { path: "name", message: "Name is required" },
+        { path: "code", message: "Code is required" },
+      ],
+    };
+    const html = renderToStaticMarkup(<AdminDialogFooter submitLabel="Create" pending={false} state={state} />);
+    expect(html).toBe(renderToStaticMarkup(<AdminDialogFooter submitLabel="Create" pending={false} state={null} />));
+  });
 });

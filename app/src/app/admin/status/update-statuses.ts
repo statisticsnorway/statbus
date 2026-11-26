@@ -2,6 +2,7 @@
 import { getServerRestClient } from "@/context/RestClientStore";
 import { zfd } from "zod-form-data";
 import { z } from "zod";
+import { describeInvalidForm } from "@/components/form/metadata-validation";
 
 const schema = zfd.formData({
   name: z.string().min(1, "Name is required"),
@@ -22,14 +23,7 @@ export async function createStatusCode(
   const validatedFields = schema.safeParse(formData);
 
   if (!validatedFields.success) {
-    return {
-      status: "error",
-      message: "Failed to parse form data",
-      errors: validatedFields.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    };
+    return describeInvalidForm(validatedFields.error);
   }
 
   const { error } = await client
@@ -52,14 +46,7 @@ export async function updateStatusCode(
   const validatedFields = schema.safeParse(formData);
 
   if (!validatedFields.success) {
-    return {
-      status: "error",
-      message: "Failed to parse form data",
-      errors: validatedFields.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    };
+    return describeInvalidForm(validatedFields.error);
   }
 
   const { error } = await client

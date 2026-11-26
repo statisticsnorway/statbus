@@ -10,7 +10,9 @@ import { DialogClose, DialogFooter } from "@/components/ui/dialog";
  * `pending` of useActionState) both are disabled and the submit button reads
  * "Saving…", because some saves take seconds on a full register (a statistical
  * variable on Norway: 9 to 13 s, STATBUS-619). A failed save shows the server's
- * message above the buttons; field errors stay on their fields.
+ * message above the buttons. A form the action refused field by field
+ * (describeInvalidForm) shows each message on its field, which says what to
+ * fix, so the footer adds no summary of them.
  */
 export function AdminDialogFooter({
   submitLabel,
@@ -23,7 +25,7 @@ export function AdminDialogFooter({
 }) {
   return (
     <>
-      {!pending && state?.status === "error" && (
+      {!pending && state?.status === "error" && !state.errors?.length && (
         <p role="alert" className="text-sm text-red-600">
           {state.message}
         </p>
