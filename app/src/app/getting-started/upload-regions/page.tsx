@@ -56,7 +56,7 @@ const checkRegionFile: UploadPreview = async (csv) => {
     <div className="space-y-2" data-region-upload-check="">
       <ul className="space-y-1">
         <li>
-          <span className="font-medium tabular-nums">{preview.rows.toLocaleString()}</span> rows in the file
+          <span className="font-medium tabular-nums">{preview.rows.toLocaleString()}</span> {preview.rows === 1 ? "row" : "rows"} in the file
         </li>
         <ChangeList title="new regions" rows={preview.added} show={(r) => `${r.path} ${r.name}`} />
         <ChangeList title="names changed" rows={preview.renamed} show={(r) => `${r.path} ${r.oldName} → ${r.name}`} />
