@@ -3691,6 +3691,7 @@ export type Database = {
           enabled: boolean
           frequency: Database["public"]["Enums"]["stat_frequency"]
           id: number
+          lu_es_rollup: Database["public"]["Enums"]["lu_es_rollup"]
           name: string
           priority: number | null
           type: Database["public"]["Enums"]["stat_type"]
@@ -3701,6 +3702,7 @@ export type Database = {
           enabled?: boolean
           frequency: Database["public"]["Enums"]["stat_frequency"]
           id?: number
+          lu_es_rollup?: Database["public"]["Enums"]["lu_es_rollup"]
           name: string
           priority?: number | null
           type: Database["public"]["Enums"]["stat_type"]
@@ -3711,6 +3713,7 @@ export type Database = {
           enabled?: boolean
           frequency?: Database["public"]["Enums"]["stat_frequency"]
           id?: number
+          lu_es_rollup?: Database["public"]["Enums"]["lu_es_rollup"]
           name?: string
           priority?: number | null
           type?: Database["public"]["Enums"]["stat_type"]
@@ -14661,6 +14664,13 @@ export type Database = {
         }
         Returns: Json
       },
+      jsonb_stats_lu_es_rollup: {
+        Args: {
+          own?: Json
+          parts?: Json
+        }
+        Returns: Json
+      },
       jsonb_stats_merge: {
         Args: {
           a?: Json
@@ -15866,6 +15876,18 @@ export type Database = {
         }
         Returns: string
       },
+      unit_counts_in: {
+        Args: {
+          status_counts?: boolean
+          valid_from?: string
+          valid_until?: string
+          birth_date?: string
+          death_date?: string
+          row_valid_from?: string
+          row_valid_until?: string
+        }
+        Returns: boolean
+      },
       unit_existence_from: {
         Args: {
           valid_from?: string
@@ -16097,6 +16119,7 @@ export type Database = {
           | "update_only",
       import_valid_time_from: "job_provided" | "source_columns",
       location_type: "physical" | "postal",
+      lu_es_rollup: "sum" | "max",
       person_sex: "Male" | "Female",
       power_group_root_status: "single" | "cycle" | "multi",
       quality_rule: 
@@ -16360,6 +16383,7 @@ export const Constants = {
       ],
       import_valid_time_from: ["job_provided", "source_columns"],
       location_type: ["physical", "postal"],
+      lu_es_rollup: ["sum", "max"],
       person_sex: ["Male", "Female"],
       power_group_root_status: ["single", "cycle", "multi"],
       quality_rule: [

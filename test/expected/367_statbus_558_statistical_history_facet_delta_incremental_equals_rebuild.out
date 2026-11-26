@@ -189,7 +189,7 @@ FROM pairs AS p ORDER BY p.curr;
    snapshot   | rows_added_or_changed | rows_removed_or_changed 
 --------------+-----------------------+-------------------------
  after_delete |                     0 |                       2
- after_move   |                     6 |                       4
+ after_move   |                     8 |                       6
  after_new    |                     2 |                       0
 (3 rows)
 
@@ -217,8 +217,9 @@ ORDER BY d.on_month, d.physical_region_path;
  1.046.01             | 2023-01-01 |                  1 |                    0 |                     0 |                      0 |                            0
  1.046.01             | 2024-01-01 |                  0 |                    0 |                     0 |                      1 |                            0
  2.256.02             | 2024-01-01 |                  0 |                    0 |                     1 |                      0 |                            1
+ 2.256.02             | 2024-11-01 |                  0 |                    0 |                     0 |                      0 |                            0
  2.256.02             | 2025-01-01 |                  0 |                    0 |                     0 |                      0 |                            0
-(4 rows)
+(5 rows)
 
 \echo
 
@@ -239,9 +240,9 @@ FROM snapshot WHERE label IN ('rebuilt', 'after_delete')
 GROUP BY kind ORDER BY kind;
      kind      | rebuilt_rows | incremental_rows 
 ---------------+--------------+------------------
- enterprise    |           70 |               70
- establishment |           32 |               32
- legal_unit    |           70 |               70
+ enterprise    |           80 |               80
+ establishment |           23 |               23
+ legal_unit    |           80 |               80
 (3 rows)
 
 SELECT

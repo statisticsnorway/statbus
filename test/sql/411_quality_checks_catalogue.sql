@@ -53,6 +53,11 @@ VALUES ('members', 'int', 'yearly', 'Members', 30),
 RESET client_min_messages;
 SELECT id AS members_id FROM public.stat_definition WHERE code = 'members' \gset
 
+-- s465ff: the comparison checks apply to a variable whose legal unit total takes the larger level.
+SET client_min_messages TO WARNING;
+UPDATE public.stat_definition SET lu_es_rollup = 'max' WHERE type IN ('int', 'float');
+RESET client_min_messages;
+
 CREATE TEMP TABLE pattern (lu text, own int, est_values int[], members_own int, members_est int[], country text, with_region boolean) ON COMMIT DROP;
 INSERT INTO pattern VALUES
     ('LU-LESS',     5,    ARRAY[4, 3],    1,    ARRAY[2, 2], 'UN', true),

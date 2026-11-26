@@ -104,8 +104,8 @@ These tables link to any of the four core statistical units:
 
 - `stat_for_unit(id, value_int, value_float, value_string, value_bool, stat_definition_id, data_source_id, establishment_id, legal_unit_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, edit_comment, stat)` (temporal) — **base data**
   - Key FKs: data_source_id, edit_by_user_id, establishment_id, legal_unit_id, stat_definition_id, valid_range, valid_range.
-- `stat_definition(id, code, type, name, enabled, frequency, description, priority)` — **configuration**
-  - Enums: `frequency` (`public.stat_frequency`), `type` (`public.stat_type`).
+- `stat_definition(id, code, type, name, enabled, frequency, description, priority, lu_es_rollup)` — **configuration**
+  - Enums: `frequency` (`public.stat_frequency`), `lu_es_rollup` (`public.lu_es_rollup`), `type` (`public.stat_type`).
 
 ### General Code/Classification Tables
 These tables typically store codes, names, and flags for `custom` and `enabled` status.
@@ -145,6 +145,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.import_strategy`**: `insert_or_replace`, `insert_only`, `replace_only`, `insert_or_update`, `update_only`
 - **`public.import_valid_time_from`**: `job_provided`, `source_columns`
 - **`public.location_type`**: `physical`, `postal`
+- **`public.lu_es_rollup`**: `sum`, `max`
 - **`public.person_sex`**: `Male`, `Female`
 - **`public.power_group_root_status`**: `single`, `cycle`, `multi`
 - **`public.quality_rule`**: `missing_region`, `missing_activity_category`, `missing_physical_location`, `establishment_activity_differs`, `establishments_above_legal_unit`, `legal_unit_above_establishments`, `secondary_activity_equals_primary`

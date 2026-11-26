@@ -18,7 +18,7 @@ View definition:
             sd.id,
             sd.priority
            FROM unnest(enum_range(NULL::quality_rule)) r(rule)
-             JOIN stat_definition sd ON sd.enabled AND (sd.type = ANY (ARRAY['int'::stat_type, 'float'::stat_type]))
+             JOIN stat_definition sd ON sd.enabled AND (sd.type = ANY (ARRAY['int'::stat_type, 'float'::stat_type])) AND sd.lu_es_rollup = 'max'::lu_es_rollup
           WHERE quality_rule_per_stat(r.rule)
         )
  SELECT rule,

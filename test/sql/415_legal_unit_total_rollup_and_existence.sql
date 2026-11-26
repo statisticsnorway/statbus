@@ -1,0 +1,147 @@
+BEGIN;
+
+\i test/setup.sql
+
+-- s465ff: each summed variable chooses how a legal unit's total combines its own value with its
+-- establishments' (stat_definition.lu_es_rollup): 'sum' adds them (every released version), 'max'
+-- takes the larger. Changing the choice recalculates the stored totals.
+--
+-- f2gx3m: a unit counts in its legal unit's and enterprise's totals only where it exists: its
+-- validity covers the period and, when it has them, the period is on or after its birth_date and
+-- before its death_date (public.unit_existence_from / unit_existence_until, STATBUS-460). Birth and
+-- death only narrow counting; with no birth_date validity alone decides.
+--
+-- Fixture, legal units with one enterprise each:
+--   LU-ROLLUP   own 364 from 2020, one establishment of 5                  -> sum 369, max 364
+--   LU-JO       jo's shape: own 23 / turnover 20023 from 2023 (born 1924);
+--               ES-JO-89 born 2023-11-01 valid 2023: 0 / 23;
+--               ES-JO-86 born 2024-11-01 valid 2023: 2 / 20                -> 2023: 23 / 20046,
+--                                                                             from 2024-11-01: 25 / 20066
+--   LU-NOBIRTH  own 10 from 2023, ES-NOBIRTH 3 valid 2023, no birth_date    -> 13 from 2023
+--   LU-EARLY    own 10 from 2022, ES-EARLY 3 valid from 2023, born 2020     -> 10 in 2022, 13 from 2023
+
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+\o /dev/null
+\set ECHO none
+\i samples/demo/getting-started.sql
+\o
+\set ECHO all
+
+SELECT id AS user_id FROM auth.user LIMIT 1 \gset
+SELECT id AS active_id FROM public.status WHERE code = 'active' LIMIT 1 \gset
+SELECT id AS employees_id FROM public.stat_definition WHERE code = 'employees' \gset
+SELECT id AS turnover_id FROM public.stat_definition WHERE code = 'turnover' \gset
+
+CREATE TEMP TABLE lu_fixture (lu text, valid_from date, birth_date date, employees int, turnover numeric) ON COMMIT DROP;
+INSERT INTO lu_fixture VALUES
+    ('LU-ROLLUP',  '2020-01-01', NULL,         364, NULL),
+    ('LU-JO',      '2023-01-01', '1924-11-01',  23, 20023),
+    ('LU-NOBIRTH', '2023-01-01', NULL,          10, NULL),
+    ('LU-EARLY',   '2022-01-01', NULL,          10, NULL);
+
+CREATE TEMP TABLE es_fixture (es text, lu text, valid_from date, birth_date date, employees int, turnover numeric, is_primary boolean) ON COMMIT DROP;
+INSERT INTO es_fixture VALUES
+    ('ES-ROLLUP',  'LU-ROLLUP',  '2020-01-01', NULL,         5, NULL, true),
+    ('ES-JO-86',   'LU-JO',      '2023-01-01', '2024-11-01', 2, 20,   true),
+    ('ES-JO-89',   'LU-JO',      '2023-01-01', '2023-11-01', 0, 23,   false),
+    ('ES-NOBIRTH', 'LU-NOBIRTH', '2023-01-01', NULL,         3, NULL, true),
+    ('ES-EARLY',   'LU-EARLY',   '2023-01-01', '2020-01-01', 3, NULL, true);
+
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
+SELECT 'EN-' || f.lu, :user_id, 's465ff test enterprise' FROM lu_fixture AS f;
+
+INSERT INTO public.legal_unit (valid_from, name, birth_date, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
+SELECT f.valid_from, f.lu, f.birth_date, en.id, true, :active_id, :user_id, 's465ff test legal unit'
+FROM lu_fixture AS f JOIN public.enterprise AS en ON en.short_name = 'EN-' || f.lu;
+
+INSERT INTO public.establishment (valid_from, name, birth_date, legal_unit_id, primary_for_legal_unit, status_id, edit_by_user_id, edit_comment)
+SELECT f.valid_from, f.es, f.birth_date, lu.id, f.is_primary, :active_id, :user_id, 's465ff test establishment'
+FROM es_fixture AS f JOIN public.legal_unit AS lu ON lu.name = f.lu;
+
+INSERT INTO public.stat_for_unit (stat_definition_id, valid_from, legal_unit_id, value_int, value_float, edit_by_user_id, edit_comment)
+SELECT :employees_id, f.valid_from, lu.id, f.employees, NULL, :user_id, 's465ff own value'
+FROM lu_fixture AS f JOIN public.legal_unit AS lu ON lu.name = f.lu
+UNION ALL
+SELECT :turnover_id, f.valid_from, lu.id, NULL, f.turnover, :user_id, 's465ff own value'
+FROM lu_fixture AS f JOIN public.legal_unit AS lu ON lu.name = f.lu WHERE f.turnover IS NOT NULL;
+
+INSERT INTO public.stat_for_unit (stat_definition_id, valid_from, establishment_id, value_int, value_float, edit_by_user_id, edit_comment)
+SELECT :employees_id, f.valid_from, es.id, f.employees, NULL, :user_id, 's465ff establishment value'
+FROM es_fixture AS f JOIN public.establishment AS es ON es.name = f.es
+UNION ALL
+SELECT :turnover_id, f.valid_from, es.id, NULL, f.turnover, :user_id, 's465ff establishment value'
+FROM es_fixture AS f JOIN public.establishment AS es ON es.name = f.es WHERE f.turnover IS NOT NULL;
+
+CALL worker.process_tasks(p_queue => 'analytics');
+
+-- Each legal unit's and enterprise's slices with their employee and turnover totals.
+CREATE TEMP VIEW totals AS
+SELECT su.unit_type, f.lu, su.valid_from, su.valid_until,
+       (su.stats_summary->'employees'->>'sum')::int AS employees,
+       (su.stats_summary->'turnover'->>'sum')::numeric AS turnover
+FROM lu_fixture AS f
+JOIN public.legal_unit AS lu ON lu.name = f.lu
+JOIN public.enterprise AS en ON en.short_name = 'EN-' || f.lu
+JOIN public.statistical_unit AS su
+  ON (su.unit_type = 'legal_unit' AND su.unit_id = lu.id)
+  OR (su.unit_type = 'enterprise' AND su.unit_id = en.id);
+
+\echo
+\echo "415.1 jo's shape: ES-JO-86, valid from 2023 but born 2024-11-01, counts only from 2024-11-01"
+\echo "      before ES-JO-89's birth 2023-11-01: own 23 / 20023; then + 0 / 23; from 2024-11-01 also + 2 / 20: 25 / 20066"
+SELECT unit_type, valid_from, valid_until, employees, turnover
+FROM totals WHERE lu = 'LU-JO' ORDER BY unit_type, valid_from;
+
+\echo
+\echo "415.2 a unit without birth_date counts over its whole validity: LU-NOBIRTH 13 from 2023"
+SELECT unit_type, valid_from, valid_until, employees
+FROM totals WHERE lu = 'LU-NOBIRTH' ORDER BY unit_type, valid_from;
+
+\echo
+\echo "415.3 a unit born before its valid_from counts from valid_from: LU-EARLY 10 in 2022, 13 from 2023"
+SELECT unit_type, valid_from, valid_until, employees
+FROM totals WHERE lu = 'LU-EARLY' ORDER BY unit_type, valid_from;
+
+\echo
+\echo "415.3b a report and the legal unit's total count the same establishments: at each date the report facets'"
+\echo "       establishment count and employees (statistical_unit_facet, every fixture region) equal the establishments"
+\echo "       the legal units' totals include (included_establishment_ids) and what those totals add to the own values"
+SELECT d.valid_on,
+       (SELECT coalesce(sum(f.count), 0) FROM public.statistical_unit_facet AS f
+         WHERE f.unit_type = 'establishment' AND f.valid_from <= d.valid_on AND d.valid_on < f.valid_until) AS report_establishments,
+       (SELECT coalesce(sum((f.stats_summary->'employees'->>'sum')::int), 0) FROM public.statistical_unit_facet AS f
+         WHERE f.unit_type = 'establishment' AND f.valid_from <= d.valid_on AND d.valid_on < f.valid_until) AS report_employees,
+       (SELECT coalesce(sum(cardinality(su.included_establishment_ids)), 0) FROM public.statistical_unit AS su
+         WHERE su.unit_type = 'legal_unit' AND su.valid_from <= d.valid_on AND d.valid_on < su.valid_until) AS totals_establishments,
+       (SELECT coalesce(sum((su.stats_summary->'employees'->>'sum')::int - coalesce((su.stats->'employees'->>'value')::int, 0)), 0)
+          FROM public.statistical_unit AS su
+         WHERE su.unit_type = 'legal_unit' AND su.valid_from <= d.valid_on AND d.valid_on < su.valid_until) AS totals_add_employees
+FROM (VALUES ('2022-06-30'::date), ('2023-06-30'), ('2023-12-31'), ('2024-12-31')) AS d(valid_on)
+ORDER BY d.valid_on;
+
+\echo
+\echo "415.4 the rollup is a choice per variable, 'sum' unless chosen"
+SELECT code, lu_es_rollup FROM public.stat_definition WHERE code IN ('employees', 'turnover') ORDER BY code;
+
+\echo
+\echo "415.5 sum: LU-ROLLUP's total is its own 364 plus its establishment's 5 = 369, its enterprise's too"
+SELECT unit_type, employees FROM totals WHERE lu = 'LU-ROLLUP' ORDER BY unit_type;
+
+\echo
+\echo "415.6 switching employees to max recalculates the stored totals: 364 = max(364, 5)"
+SET client_min_messages TO WARNING;
+UPDATE public.stat_definition SET lu_es_rollup = 'max' WHERE code = 'employees';
+RESET client_min_messages;
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT unit_type, employees FROM totals WHERE lu = 'LU-ROLLUP' ORDER BY unit_type;
+
+\echo
+\echo "415.7 switching back to sum recalculates them again: 369"
+SET client_min_messages TO WARNING;
+UPDATE public.stat_definition SET lu_es_rollup = 'sum' WHERE code = 'employees';
+RESET client_min_messages;
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT unit_type, employees FROM totals WHERE lu = 'LU-ROLLUP' ORDER BY unit_type;
+
+ROLLBACK;

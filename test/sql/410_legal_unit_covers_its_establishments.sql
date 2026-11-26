@@ -35,6 +35,11 @@ SELECT id AS user_id FROM auth.user LIMIT 1 \gset
 SELECT id AS active_id FROM public.status WHERE code = 'active' LIMIT 1 \gset
 SELECT id AS employees_id FROM public.stat_definition WHERE code = 'employees' \gset
 
+-- s465ff: employees reported on both levels (Norway) is set to max, the larger level.
+SET client_min_messages TO WARNING;
+UPDATE public.stat_definition SET lu_es_rollup = 'max' WHERE code = 'employees';
+RESET client_min_messages;
+
 CREATE TEMP TABLE pattern (lu text, own int, est_values int[], covers int) ON COMMIT DROP;
 INSERT INTO pattern VALUES
     ('LU-OWN',   10,   ARRAY[]::int[],      10),

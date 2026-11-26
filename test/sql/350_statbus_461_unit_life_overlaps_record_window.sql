@@ -111,7 +111,7 @@ FROM (VALUES
     ('461000012', 'C11a accept'),
     ('461000013', 'C11b reject'),
     ('461000014', 'C12 accept'),
-    ('461000015', 'C13 accept'),
+    ('461000015', 'C13 reject (born a later year, f2gx3m)'),
     ('461000016', 'C14a 2023 reject, 2024 accept'),
     ('461000017', 'C14b 2023 accept, 2024 reject'),
     ('461000018', 'C14c 2024 accept, 2023 reject'),
@@ -210,7 +210,7 @@ FROM (VALUES
     ('461100003', 'E03 accept'),
     ('461100004', 'E04 accept'),
     ('461200001', 'F01 2023 reject, 2024 accept'),
-    ('461200002', 'F02 accept'),
+    ('461200002', 'F02 reject (born a later year, f2gx3m)'),
     ('461200003', 'F03 reject')
 ) AS ids(tax_ident, expectation)
 LEFT JOIN public.statistical_unit AS su
@@ -224,10 +224,11 @@ ORDER BY ids.tax_ident;
 -- ═════════════════════════════════════════════════════════════════════════
 
 \echo
-\echo "E1 documented scan: rows whose unit life cannot overlap the row window (expect 0 per unit type)"
+\echo "E1 documented scan: counted rows whose unit life cannot overlap the row window (expect 0 per unit type)."
+\echo "   Timelines split at birth and death (f2gx3m), so a row before a birth or after a death exists and is not counted."
 SELECT unit_type,
        count(*) AS rows,
-       count(*) FILTER (WHERE birth_date >= valid_until OR death_date <= valid_from) AS violators
+       count(*) FILTER (WHERE used_for_counting AND (birth_date >= valid_until OR death_date <= valid_from)) AS violators
 FROM public.statistical_unit
 GROUP BY unit_type
 ORDER BY unit_type;

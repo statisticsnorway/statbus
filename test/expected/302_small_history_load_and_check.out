@@ -2565,15 +2565,15 @@ stats_summary         | {                                                       
                       |     "employees": {                                                     +
                       |         "max": 6,                                                      +
                       |         "min": 6,                                                      +
-                      |         "sum": 6,                                                      +
+                      |         "sum": 12,                                                     +
                       |         "mean": 6.00,                                                  +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 36,                                                  +
-                      |         "variance": null,                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "sum_sq": 72,                                                  +
+                      |         "variance": 0.00,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 28 ]--------+------------------------------------------------------------------------
@@ -2651,15 +2651,15 @@ stats_summary         | {                                                       
                       |     "employees": {                                                     +
                       |         "max": 6,                                                      +
                       |         "min": 6,                                                      +
-                      |         "sum": 6,                                                      +
+                      |         "sum": 12,                                                     +
                       |         "mean": 6.00,                                                  +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 36,                                                  +
-                      |         "variance": null,                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "sum_sq": 72,                                                  +
+                      |         "variance": 0.00,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 29 ]--------+------------------------------------------------------------------------
@@ -2736,16 +2736,16 @@ stats_summary         | {                                                       
                       |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 9,                                                      +
-                      |         "min": 9,                                                      +
-                      |         "sum": 9,                                                      +
-                      |         "mean": 9.00,                                                  +
+                      |         "min": 6,                                                      +
+                      |         "sum": 15,                                                     +
+                      |         "mean": 7.50,                                                  +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 81,                                                  +
-                      |         "variance": null,                                              +
-                      |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 2.12,                                                +
+                      |         "sum_sq": 117,                                                 +
+                      |         "variance": 4.50,                                              +
+                      |         "sum_sq_diff": 4.50,                                           +
+                      |         "coefficient_of_variation_pct": 28.28                          +
                       |     }                                                                  +
                       | }
 -[ RECORD 30 ]--------+------------------------------------------------------------------------
@@ -2823,15 +2823,15 @@ stats_summary         | {                                                       
                       |     "employees": {                                                     +
                       |         "max": 15,                                                     +
                       |         "min": 15,                                                     +
-                      |         "sum": 15,                                                     +
+                      |         "sum": 30,                                                     +
                       |         "mean": 15.00,                                                 +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 225,                                                 +
-                      |         "variance": null,                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "sum_sq": 450,                                                 +
+                      |         "variance": 0.00,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 31 ]--------+------------------------------------------------------------------------
@@ -2909,15 +2909,15 @@ stats_summary         | {                                                       
                       |     "employees": {                                                     +
                       |         "max": 30,                                                     +
                       |         "min": 30,                                                     +
-                      |         "sum": 30,                                                     +
+                      |         "sum": 60,                                                     +
                       |         "mean": 30.00,                                                 +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 900,                                                 +
-                      |         "variance": null,                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "sum_sq": 1800,                                                +
+                      |         "variance": 0.00,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 32 ]--------+------------------------------------------------------------------------
@@ -2995,15 +2995,15 @@ stats_summary         | {                                                       
                       |     "employees": {                                                     +
                       |         "max": 30,                                                     +
                       |         "min": 30,                                                     +
-                      |         "sum": 30,                                                     +
+                      |         "sum": 60,                                                     +
                       |         "mean": 30.00,                                                 +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 900,                                                 +
-                      |         "variance": null,                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "sum_sq": 1800,                                                +
+                      |         "variance": 0.00,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 33 ]--------+------------------------------------------------------------------------
@@ -3851,15 +3851,15 @@ stats_summary         | {                                                       
                       |     "employees": {                                                     +
                       |         "max": 6,                                                      +
                       |         "min": 6,                                                      +
-                      |         "sum": 6,                                                      +
+                      |         "sum": 12,                                                     +
                       |         "mean": 6.00,                                                  +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 36,                                                  +
-                      |         "variance": null,                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "sum_sq": 72,                                                  +
+                      |         "variance": 0.00,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 45 ]--------+------------------------------------------------------------------------
@@ -3931,15 +3931,15 @@ stats_summary         | {                                                       
                       |     "employees": {                                                     +
                       |         "max": 6,                                                      +
                       |         "min": 6,                                                      +
-                      |         "sum": 6,                                                      +
+                      |         "sum": 12,                                                     +
                       |         "mean": 6.00,                                                  +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 36,                                                  +
-                      |         "variance": null,                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "sum_sq": 72,                                                  +
+                      |         "variance": 0.00,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 46 ]--------+------------------------------------------------------------------------
@@ -4010,16 +4010,16 @@ stats_summary         | {                                                       
                       |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 9,                                                      +
-                      |         "min": 9,                                                      +
-                      |         "sum": 9,                                                      +
-                      |         "mean": 9.00,                                                  +
+                      |         "min": 6,                                                      +
+                      |         "sum": 15,                                                     +
+                      |         "mean": 7.50,                                                  +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 81,                                                  +
-                      |         "variance": null,                                              +
-                      |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 2.12,                                                +
+                      |         "sum_sq": 117,                                                 +
+                      |         "variance": 4.50,                                              +
+                      |         "sum_sq_diff": 4.50,                                           +
+                      |         "coefficient_of_variation_pct": 28.28                          +
                       |     }                                                                  +
                       | }
 -[ RECORD 47 ]--------+------------------------------------------------------------------------
@@ -4091,15 +4091,15 @@ stats_summary         | {                                                       
                       |     "employees": {                                                     +
                       |         "max": 15,                                                     +
                       |         "min": 15,                                                     +
-                      |         "sum": 15,                                                     +
+                      |         "sum": 30,                                                     +
                       |         "mean": 15.00,                                                 +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 225,                                                 +
-                      |         "variance": null,                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "sum_sq": 450,                                                 +
+                      |         "variance": 0.00,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 48 ]--------+------------------------------------------------------------------------
@@ -4171,15 +4171,15 @@ stats_summary         | {                                                       
                       |     "employees": {                                                     +
                       |         "max": 30,                                                     +
                       |         "min": 30,                                                     +
-                      |         "sum": 30,                                                     +
+                      |         "sum": 60,                                                     +
                       |         "mean": 30.00,                                                 +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 900,                                                 +
-                      |         "variance": null,                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "sum_sq": 1800,                                                +
+                      |         "variance": 0.00,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 49 ]--------+------------------------------------------------------------------------
@@ -4251,15 +4251,15 @@ stats_summary         | {                                                       
                       |     "employees": {                                                     +
                       |         "max": 30,                                                     +
                       |         "min": 30,                                                     +
-                      |         "sum": 30,                                                     +
+                      |         "sum": 60,                                                     +
                       |         "mean": 30.00,                                                 +
                       |         "type": "int_agg",                                             +
-                      |         "count": 1,                                                    +
-                      |         "stddev": null,                                                +
-                      |         "sum_sq": 900,                                                 +
-                      |         "variance": null,                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "sum_sq": 1800,                                                +
+                      |         "variance": 0.00,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": null                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
 

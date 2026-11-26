@@ -103,6 +103,9 @@ BEGIN
                        bd.p_value AS birth_date,
                        dd.p_value AS death_date,
                        (bd.p_value IS NOT NULL AND b.valid_until IS NOT NULL AND bd.p_value >= b.valid_until) AS born_after_window,
+                       -- f2gx3m: a unit valid from a year is born in that year or before it.
+                       (bd.p_value IS NOT NULL AND b.valid_from IS NOT NULL AND bd.p_value < b.valid_until
+                        AND extract(year FROM b.valid_from) < extract(year FROM bd.p_value)) AS born_in_later_year,
                        (dd.p_value IS NOT NULL AND b.valid_from IS NOT NULL AND dd.p_value <= b.valid_from) AS died_before_window
                 FROM batch AS b
                 LEFT JOIN cast_dates AS bd ON bd.date_string = b.birth_date_raw
@@ -117,8 +120,13 @@ BEGIN
             ),
             messages AS (
                 SELECT d.row_id,
-                       d.born_after_window,
+                       (d.born_after_window OR d.born_in_later_year) AS born_after_window,
                        d.died_before_window,
+                       CASE WHEN d.born_in_later_year AND NOT d.born_after_window THEN
+                           'Row ' || d.row_id || ': ' || d.unit_text || ' was born ' || d.birth_date::TEXT
+                           || ', in a later year than this row''s valid_from ' || d.valid_from::TEXT
+                           || '. A unit valid from a year is born in that year or before it. Correct the birth date or valid_from.'
+                       END AS later_year_message,
                        CASE WHEN d.born_after_window THEN
                            'Row ' || d.row_id || ': ' || d.unit_text || ' was born ' || d.birth_date::TEXT
                            || ', on or after the end of this row''s validity period ' || d.window_text
@@ -142,10 +150,10 @@ BEGIN
                          END,
                 errors = (COALESCE(dt.errors, '{}'::jsonb) - %3$L::TEXT[])
                          || jsonb_strip_nulls(jsonb_build_object(
-                                'birth_date_raw', m.birth_message,
+                                'birth_date_raw', COALESCE(m.birth_message, m.later_year_message),
                                 'valid_to_raw',   m.birth_message,
                                 'death_date_raw', m.death_message,
-                                'valid_from_raw', m.death_message
+                                'valid_from_raw', COALESCE(m.death_message, m.later_year_message)
                             )),
                 last_completed_priority = %6$L
             FROM messages AS m

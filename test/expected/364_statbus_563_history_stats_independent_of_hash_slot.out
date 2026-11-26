@@ -75,12 +75,14 @@ SELECT su.external_idents->>'tax_ident' AS tax_ident, su.unit_id, su.name,
 FROM public.statistical_unit AS su
 WHERE su.unit_type = 'legal_unit'
   AND su.external_idents->>'tax_ident' IN ('563000001', '563000002')
-ORDER BY tax_ident;
- tax_ident | unit_id |            name             | valid_from | valid_to | birth_date | death_date | existence_from | existence_until | used_for_counting | hash_slot 
------------+---------+-----------------------------+------------+----------+------------+------------+----------------+-----------------+-------------------+-----------
- 563000001 |       1 | Present at every period end | 2020-01-01 | infinity |            |            | 2020-01-01     | infinity        | t                 |      2955
- 563000002 |       2 | Born and dead inside 2024   | 2024-01-01 | infinity | 2024-03-01 | 2024-09-30 | 2024-03-01     | 2024-09-30      | t                 |     14449
-(2 rows)
+ORDER BY tax_ident, su.valid_from;
+ tax_ident | unit_id |            name             | valid_from |  valid_to  | birth_date | death_date | existence_from | existence_until | used_for_counting | hash_slot 
+-----------+---------+-----------------------------+------------+------------+------------+------------+----------------+-----------------+-------------------+-----------
+ 563000001 |       1 | Present at every period end | 2020-01-01 | infinity   |            |            | 2020-01-01     | infinity        | t                 |      2955
+ 563000002 |       2 | Born and dead inside 2024   | 2024-01-01 | 2024-02-29 | 2024-03-01 | 2024-09-30 | 2024-03-01     | 2024-03-01      | f                 |     14449
+ 563000002 |       2 | Born and dead inside 2024   | 2024-03-01 | 2024-09-29 | 2024-03-01 | 2024-09-30 | 2024-03-01     | 2024-09-30      | t                 |     14449
+ 563000002 |       2 | Born and dead inside 2024   | 2024-09-30 | infinity   | 2024-03-01 | 2024-09-30 | 2024-09-30     | 2024-09-30      | f                 |     14449
+(4 rows)
 
 \echo
 
@@ -96,8 +98,8 @@ WHERE su.unit_type = 'legal_unit'
 (1 row)
 
 -- The documented population, computed independently from public.statistical_unit
--- by the documented rule: the latest version
--- overlapping the period, used_for_counting.
+-- by the documented rule: the latest counted version (used_for_counting)
+-- overlapping the period.
 CREATE TEMP VIEW documented_population_2024 AS
 WITH latest_versions_curr AS (
     SELECT DISTINCT ON (su.unit_id, su.unit_type) su.*
@@ -106,6 +108,7 @@ WITH latest_versions_curr AS (
       AND su.valid_from <= '2024-12-31'::date
       AND su.valid_to >= '2024-01-01'::date
       AND su.external_idents->>'tax_ident' IN ('563000001', '563000002')
+      AND su.used_for_counting -- f2gx3m: a unit's timeline splits at birth and death; the rows outside its life do not count
     ORDER BY su.unit_id, su.unit_type, su.valid_from DESC, su.valid_until DESC
 )
 SELECT
@@ -143,6 +146,7 @@ WITH latest_versions_curr AS (
       AND su.valid_from <= '2024-12-31'::date
       AND su.valid_to >= '2024-01-01'::date
       AND su.external_idents->>'tax_ident' IN ('563000001', '563000002')
+      AND su.used_for_counting -- f2gx3m: a unit's timeline splits at birth and death; the rows outside its life do not count
     ORDER BY su.unit_id, su.unit_type, su.valid_from DESC, su.valid_until DESC
 ),
 expected AS (

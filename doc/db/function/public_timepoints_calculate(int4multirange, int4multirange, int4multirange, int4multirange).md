@@ -22,6 +22,9 @@ BEGIN
         UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.contact WHERE v_es_ids IS NULL OR establishment_id = ANY(v_es_ids)
         UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.stat_for_unit WHERE v_es_ids IS NULL OR establishment_id = ANY(v_es_ids)
         UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.person_for_unit WHERE v_es_ids IS NULL OR establishment_id = ANY(v_es_ids)
+        -- f2gx3m: birth and death, where set and inside the validity, split the timeline (public.unit_counts_in).
+        UNION ALL SELECT id, public.existence_from(establishment), public.existence_until(establishment) FROM public.establishment
+                  WHERE (birth_date IS NOT NULL OR death_date IS NOT NULL) AND (v_es_ids IS NULL OR id = ANY(v_es_ids))
     ),
     lu_periods_base AS (
         SELECT id AS src_unit_id, valid_from, valid_until FROM public.legal_unit WHERE v_lu_ids IS NULL OR id = ANY(v_lu_ids)
@@ -30,6 +33,8 @@ BEGIN
         UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.contact WHERE v_lu_ids IS NULL OR legal_unit_id = ANY(v_lu_ids)
         UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.stat_for_unit WHERE v_lu_ids IS NULL OR legal_unit_id = ANY(v_lu_ids)
         UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.person_for_unit WHERE v_lu_ids IS NULL OR legal_unit_id = ANY(v_lu_ids)
+        UNION ALL SELECT id, public.existence_from(legal_unit), public.existence_until(legal_unit) FROM public.legal_unit
+                  WHERE (birth_date IS NOT NULL OR death_date IS NOT NULL) AND (v_lu_ids IS NULL OR id = ANY(v_lu_ids))
     ),
     lu_periods_with_children AS (
         SELECT src_unit_id, valid_from, valid_until FROM lu_periods_base

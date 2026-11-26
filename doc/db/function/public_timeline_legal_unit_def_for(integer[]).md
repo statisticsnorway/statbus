@@ -86,7 +86,7 @@ AS $function$
             us.code AS unit_size_code,
             lu.status_id,
             st.code AS status_code,
-            st.used_for_counting,
+            public.unit_counts_in(st.used_for_counting, lu.valid_from, lu.valid_until, lu.birth_date, lu.death_date, t.valid_from, t.valid_until) AS used_for_counting,
             last_edit.edit_comment AS last_edit_comment,
             last_edit.edit_by_user_id AS last_edit_by_user_id,
             last_edit.edit_at AS last_edit_at,
@@ -354,7 +354,7 @@ AS $function$
     basis.primary_for_enterprise,
     basis.stats,
         CASE
-            WHEN basis.used_for_counting THEN COALESCE(public.jsonb_stats_covers(own => basis.stats_summary, parts => esa.stats_summary), '{}'::jsonb)
+            WHEN basis.used_for_counting THEN COALESCE(public.jsonb_stats_lu_es_rollup(own => basis.stats_summary, parts => esa.stats_summary), '{}'::jsonb)
             ELSE '{}'::jsonb
         END AS stats_summary
    FROM basis
