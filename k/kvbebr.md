@@ -36,7 +36,7 @@ PR #327: migration 20261114090337_rename_location_latitude_longitude (up/down) a
 
 ## Acceptance
 - [x] [Owner] Decides the naming (rename as proposed, or another fix for the map code); the answer is recorded in the notes
-- [ ] With the agreed change, the fast SQL suite passes with updated expected outputs, and doc/db and app types are regenerated
+- [x] With the agreed change, the fast SQL suite passes with updated expected outputs, and doc/db and app types are regenerated
 - [ ] Import definitions, samples and docs that name the coordinate columns use the agreed names (rg finds no old name)
 - [x] PR #327 is merged or closed on GitHub as decided, with a comment that links this task
 
@@ -55,5 +55,6 @@ Correction 2026-11-26 (owner): Erik's comment on PR #327 (2026-11-14) asked only
 check 4: PR #327 closed 2026-11-26 with the owner-approved reply (tmp/pr327-reply.md): Erik's wish is met by jbc5bs, plain latitude/longitude/altitude everywhere.
 
 
+check 2: Shipped with jbc5bs, commit 3bf2dbc6f on feat/coordinates-named-latitude: fast suite All 146 tests passed, doc/db and app types regenerated
 ## History
 - 2026-11-26T21:50 todo -> doing/active (take with jbc5bs)
