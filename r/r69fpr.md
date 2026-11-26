@@ -39,5 +39,6 @@ Inputs that decide counting today, to enumerate: statistical_unit.used_for_count
 ## Notes
 
 
+Owner 2026-11-26 21:29: lobster's counting change (f2gx3m on branch counting/birth-date-and-lu-es-rollup) goes ahead from where we are; if these findings show a more complete rule that was altered, that change is amended to match it. No revert to old code.
 ## History
 - 2026-11-26T22:28 todo -> doing/active (take)
