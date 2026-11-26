@@ -9,7 +9,6 @@ import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm, type UploadPreview } from "@/app/getting-started/upload-csv-form";
 import { ExampleDownloads } from "@/app/getting-started/example-downloads";
 import { parseCsvRecords } from "@/app/getting-started/upload-csv-check";
-import { RegionsDownloadMenu } from "@/app/regions/regions-download-menu";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -110,18 +109,13 @@ const RegionsCountDisplay = () => {
         <InfoBox>
           <div className="flex justify-between items-center">
             <p>There are already {numberOfRegions} regions defined</p>
-            {/* The regions as the upload file, to edit and upload again (owner 2026-11-26): beside
-                View all, shown only when there are regions to download. */}
-            <div className="flex items-center gap-2">
-              <RegionsDownloadMenu rows={numberOfRegions} />
-              <Link
-                href="/regions"
-                target="_blank"
-                className={buttonVariants({ variant: "outline" })}
-              >
-                View all
-              </Link>
-            </div>
+            <Link
+              href="/regions"
+              target="_blank"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              View all
+            </Link>
           </div>
         </InfoBox>
       )}
@@ -225,8 +219,8 @@ export default function UploadRegionsPage() {
                 <>
                   {" "}
                   To add coordinates to the regions you have, a file of <code>path</code> and the
-                  coordinate columns is enough; the names stay. Start from the regions you have,
-                  fill in the coordinates you know, and upload it here. One region at a time:
+                  coordinate columns is enough; the names stay. Start from the regions you have (View all,
+                  then Download as CSV or Excel), fill in the coordinates you know, and upload it here. One region at a time:
                   Regions, with Coordinates on, has Edit on each row, and the Regions map has it on
                   the selected region; a centre is removed there.
                 </>
