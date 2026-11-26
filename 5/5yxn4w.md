@@ -31,7 +31,7 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 ## Acceptance
 - [ ] /regions shows code, name and level; with Advanced on it also shows centre latitude, longitude and altitude; shown in a driven browser run (screenshot in the task) with the columns and one region's values
 - [ ] The region upload page shows the plain columns in its instructions and example, and the centre columns under Advanced; shown in a driven browser run for both views
-- [ ] Uploading a region file with centre coordinates stores them; a SQL test asserts the stored values
+- [x] Uploading a region file with centre coordinates stores them; a SQL test asserts the stored values
 - [ ] /regions filters All, With coordinates and Without coordinates; the counts shown match the region table (SQL count recorded in the task)
 - [ ] An admin's Place on map for a region without a centre searches OpenStreetMap by its name, puts the pin on the chosen match, and Save stores the region's centre; one is saved in a driven browser run and read back from public.region
 
@@ -57,6 +57,7 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 
 
 2026-11-23 (hibiscus) Owner's answer on Playwright: browser tests only as a systematic suite for most of the app, in its own ticket, created as m1gadc. Checks 1, 2, 4 and 5 now ask for driven-browser and SQL evidence instead of Playwright tests.
+check 3: test/sql/100_regions_with__itudes.sql uploads regions through public.region_upload with center_latitude/longitude/altitude and asserts the stored values (expected/100 lines 121-122: Oslo 59.913868 10.752245 23.0; Rogaland 58.969975 5.733107 50.0); also rejects out-of-range values. Existing test, part of the fast suite.
 ## History
 - 2026-11-23T13:58 todo -> todo/depends (ask)
 - 2026-11-23T16:12 answered design, by jhf, for hibiscus (todo/depends -> todo/depends):
