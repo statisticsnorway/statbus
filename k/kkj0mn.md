@@ -3,7 +3,7 @@ id: kkj0mn
 title: "Branch fast-tests fit in their time limit: build images once, not per run"
 state: todo
 type: feature
-priority: ""
+priority: "low"
 assignee: []
 labels: []
 group: ""
@@ -22,7 +22,7 @@ A dispatched branch run builds every image itself (docker compose up -d --build,
 The branch run tests the same images it would ship; the limit stays a guard against hangs, not a race against image building.
 
 ## Details
-Options: let workflow_dispatch use the Images workflow's commit-tagged images when they exist (fall back to build), cache the docker build layers, or give the build its own step outside the timed test budget. .github/workflows/fast-tests.yaml lines 146-151 (concurrency, timeout-minutes: 30) and 239-252 (Start services). Seen 2026-11-24: Start services 15:30:28-15:42:05 on the branch vs 15:11:39-15:12:09 on master.
+Filed by Hibiscus (map agent, z2qt08) on 2026-11-24 17:11, after its branch feat/units-on-map needed a CI run before merging. How CI runs today: on master, a push starts Images (builds commit-tagged images), and fast-tests starts when Images finishes and pulls those images (Start services ~30 s). A branch push starts nothing, because Images and fast-tests only trigger on master; to test a branch before merging, an agent dispatches fast-tests by hand (workflow_dispatch), which builds every image itself (docker compose up -d --build, 10-12 min) inside the job's 30-minute limit. Run 45426056166 on c403f37a1: attempt 1 was cancelled 11 s into its last step at the limit, attempt 2 passed. With the one-directory-per-agent workflow (2026-11-26) branches are rebased and merged to master by fast-forward, and master's push runs the full CI with prebuilt images; a branch CI run is only needed when an agent wants evidence before merging. Options if it is needed: dispatch Images for the branch first and let fast-tests use those images, cache docker build layers, or keep the build outside the timed step. .github/workflows/fast-tests.yaml lines 146-151 (timeout-minutes: 30), 239-252 (Start services).
 
 ## Depends on
 
@@ -40,3 +40,4 @@ Options: let workflow_dispatch use the Images workflow's commit-tagged images wh
 - 2026-11-26T21:16 request 1 by jhf
 - 2026-11-26T21:16 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-26T21:16 request 1 acknowledged by rabbit
+- 2026-11-26T21:17 request 1 in progress by rabbit: hug task set kkj0mn
