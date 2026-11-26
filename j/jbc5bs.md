@@ -55,3 +55,4 @@ Answer delivered to rabbit as board coordinator; Hibiscus asked it and does the 
   > Old headers in upload files: region files with center_latitude/longitude/altitude and unit files with physical_latitude/longitude/altitude (Erik's coordinate files use those) stop matching after the rename. Refuse them with a message naming the new headers, or accept them for one release before refusing?
   Refuse old headers with a message naming the new ones; a clean cut (owner 2026-11-26 20:41).
 - 2026-11-26T21:42 answer 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-26T21:42 answer 1 acknowledged by rabbit
