@@ -1,25 +1,39 @@
 import { Dispatch, SetStateAction } from "react";
 import TableTextSearchFilter from "../../components/table/table-text-search-filter";
 import ResetFilterButton from "@/components/table/reset-filter-button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type RegionQueries = { name: string; code: string; coordinates: "" | "with" | "without" };
 
-const COORDINATE_CHOICES: { value: RegionQueries["coordinates"]; label: string }[] = [
-  { value: "", label: "All" },
+/** "" is All; Radix Select gives no item an empty value, so All is "all" inside the dropdown. */
+const COORDINATE_CHOICES: { value: "all" | "with" | "without"; label: string }[] = [
+  { value: "all", label: "All" },
   { value: "with", label: "With coordinates" },
   { value: "without", label: "Without coordinates" },
 ];
 
+/**
+ * The list's filters (owner 2026-11-26, 5yxn4w): code and name, Reset, then Advanced. Advanced on
+ * shows the Coordinates column and a dropdown filter: all regions, those with a centre, or those
+ * without one, which is where an admin edits one. Advanced off resets that filter, so no hidden
+ * filter narrows the list.
+ */
 export default function RegionTableFilters({
   setQueries,
   setPagination,
   queries,
+  advanced,
+  setAdvanced,
 }: {
   readonly setQueries: Dispatch<SetStateAction<RegionQueries>>;
   readonly setPagination: Dispatch<
     SetStateAction<{ pageSize: number; pageNumber: number }>
   >;
   readonly queries: RegionQueries;
+  readonly advanced: boolean;
+  readonly setAdvanced: (on: boolean) => void;
 }) {
   const handleFilterChange = (filterName: string, value: string) => {
     setQueries((prev) => {
@@ -30,6 +44,10 @@ export default function RegionTableFilters({
   const handleResetFilter = () => {
     setQueries({ name: "", code: "", coordinates: "" });
     setPagination((prev) => ({ ...prev, pageNumber: 1 }));
+  };
+  const toggleAdvanced = (on: boolean) => {
+    if (!on && queries.coordinates !== "") handleFilterChange("coordinates", "");
+    setAdvanced(on);
   };
   return (
     <div className="flex flex-wrap items-center p-1 lg:p-0 *:mb-2 *:mx-1">
@@ -43,22 +61,33 @@ export default function RegionTableFilters({
         value={queries["name"]}
         type="name"
       />
-      {/* All, with or without a centre point: the ones without are where an admin uses Place on map. */}
-      <div className="inline-flex h-9 overflow-hidden rounded-md border text-sm" role="group" aria-label="Coordinates" data-regions-coordinates-filter="">
-        {COORDINATE_CHOICES.map(({ value, label }) => (
-          <button
-            key={value || "all"}
-            type="button"
-            aria-pressed={queries.coordinates === value}
-            className={`px-3 ${queries.coordinates === value ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"}`}
-            onClick={() => handleFilterChange("coordinates", value)}
-            data-coordinates={value || "all"}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {advanced && (
+        <Select
+          value={queries.coordinates || "all"}
+          onValueChange={(v) => handleFilterChange("coordinates", v === "all" ? "" : v)}
+        >
+          <SelectTrigger className="h-9 w-52" aria-label="Coordinates" data-regions-coordinates-filter="">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {COORDINATE_CHOICES.map(({ value, label }) => (
+              <SelectItem key={value} value={value} data-coordinates={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       <ResetFilterButton onReset={handleResetFilter} />
+      <div className="flex h-9 items-center gap-2 px-1">
+        <Label htmlFor="regions-advanced">Advanced</Label>
+        <Switch
+          id="regions-advanced"
+          checked={advanced}
+          onCheckedChange={toggleAdvanced}
+          data-regions-advanced=""
+        />
+      </div>
     </div>
   );
 }

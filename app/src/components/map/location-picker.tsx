@@ -24,7 +24,7 @@ import {
   REGION_SHOWN_BOX,
   showRegion,
 } from "./location-map";
-import { searchPlaces, type PlaceMatch } from "./region-placer";
+import { searchPlaces, type PlaceMatch } from "./place-search";
 
 /** The physical address the form holds, read when the map opens. */
 export interface AddressForLookup {
@@ -35,6 +35,35 @@ export interface AddressForLookup {
   /** The region's name, shown beside the address. */
   regionName: string | null;
 }
+
+/**
+ * What the dialog places: a unit at its address, or a region at its centre (owner 2026-11-26,
+ * 5yxn4w: the Regions list shows and edits a region's centre with the unit's dialog). For a
+ * region the first card holds its name, which is what the lookup searches for, and there is no
+ * region card beside it.
+ */
+export type PickerSubject = "unit" | "region";
+
+const SUBJECT_WORDING: Record<PickerSubject, { card: string; none: string; lookUp: string; editTitle: string; showTitle: string; editHelp: string; showHelp: string }> = {
+  unit: {
+    card: "Address",
+    none: "No address",
+    lookUp: "Look up the address",
+    editTitle: "Edit the location on the map",
+    showTitle: "The location on the map",
+    editHelp: "Look up the address, or find a place, then click the map or drag the pin to the unit's place.",
+    showHelp: "The unit's point and its region's centre.",
+  },
+  region: {
+    card: "Region",
+    none: "No name",
+    lookUp: "Look up the region",
+    editTitle: "Edit the region's centre on the map",
+    showTitle: "The region's centre on the map",
+    editHelp: "Look up the region, or find a place, then click the map or drag the pin to the region's centre.",
+    showHelp: "The region's centre.",
+  },
+};
 
 export type { PointValues };
 
@@ -57,6 +86,7 @@ export function LocationPicker({
   address,
   onClose,
   onUse,
+  subject = "unit",
 }: {
   open: boolean;
   /** Whether the point can be moved; else the map only shows it. */
@@ -66,7 +96,8 @@ export function LocationPicker({
   /** The address the form holds now, read when the map opens. */
   address: () => AddressForLookup;
   onClose: () => void;
-  onUse: (values: PointValues) => void;
+  onUse: (values: PointValues) => void | Promise<void>;
+  subject?: PickerSubject;
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -80,6 +111,7 @@ export function LocationPicker({
             address={address}
             onClose={onClose}
             onUse={onUse}
+            subject={subject}
           />
         )}
       </DialogContent>
@@ -94,14 +126,18 @@ function PickerBody({
   address,
   onClose,
   onUse,
+  subject,
 }: {
   editing: boolean;
   values: PointValues;
   regionCentre: { latitude: number | null; longitude: number | null } | null;
   address: () => AddressForLookup;
   onClose: () => void;
-  onUse: (values: PointValues) => void;
+  onUse: (values: PointValues) => void | Promise<void>;
+  subject: PickerSubject;
 }) {
+  const words = SUBJECT_WORDING[subject];
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<PointValues>(values);
   const [shownAddress] = useState<AddressForLookup>(address);
   const [start] = useState(() =>
@@ -239,14 +275,10 @@ function PickerBody({
     <>
       <DialogHeader>
         <DialogTitle>
-          {isEditing
-            ? "Edit the location on the map"
-            : "The location on the map"}
+          {isEditing ? words.editTitle : words.showTitle}
         </DialogTitle>
         <DialogDescription className={isEditing ? undefined : "sr-only"}>
-          {isEditing
-            ? "Look up the address, or find a place, then click the map or drag the pin to the unit's place."
-            : "The unit's point and its region's centre."}
+          {isEditing ? words.editHelp : words.showHelp}
         </DialogDescription>
       </DialogHeader>
       {/* The address stays in view while the point is judged; the region stands at its right as
@@ -257,11 +289,11 @@ function PickerBody({
       >
         <div className="flex-1 rounded border bg-gray-50 px-3 py-2">
           <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            Address
+            {words.card}
           </span>
           <p>
             {shownAddress.line || (
-              <span className="text-gray-500">No address</span>
+              <span className="text-gray-500">{words.none}</span>
             )}
           </p>
         </div>
@@ -320,7 +352,7 @@ function PickerBody({
               data-location-picker-lookup=""
             >
               <Search className="mr-1.5 h-4 w-4" />
-              Look up the address
+              {words.lookUp}
             </Button>
             <form
               className="relative min-w-60 flex-1"
@@ -411,10 +443,21 @@ function PickerBody({
               </Button>
               <Button
                 type="button"
-                onClick={() => onUse(draft)}
+                onClick={async () => {
+                  setSaving(true);
+                  setError(null);
+                  try {
+                    await onUse(draft);
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : String(e));
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={saving}
                 data-location-picker-use=""
               >
-                Use this point
+                {subject === "region" ? "Save the centre" : "Use this point"}
               </Button>
             </>
           ) : (

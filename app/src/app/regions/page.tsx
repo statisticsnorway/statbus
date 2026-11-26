@@ -6,34 +6,23 @@ import TablePagination from "../../components/table/table-pagination";
 import RegionTable from "./region-table";
 import useRegion from "./use-region";
 import TableFilters from "./region-table-filters";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 
 export default function RegionPage() {
   const { data, pagination, setPagination, queries, setQueries, refresh } = useRegion();
-  // One switch for the page (5yxn4w): Advanced adds the centre's latitude, longitude and altitude.
+  // One switch for the page (5yxn4w): Advanced adds the regions' coordinates and their filter.
   const [advanced, setAdvanced] = useState(false);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
       <RegionsHeader view="list" />
       <section className="space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <TableFilters
-            setQueries={setQueries}
-            setPagination={setPagination}
-            queries={queries}
-          />
-          <div className="flex h-9 items-center gap-2 px-1">
-            <Label htmlFor="regions-advanced">Advanced</Label>
-            <Switch
-              id="regions-advanced"
-              checked={advanced}
-              onCheckedChange={setAdvanced}
-              data-regions-advanced=""
-            />
-          </div>
-        </div>
+        <TableFilters
+          setQueries={setQueries}
+          setPagination={setPagination}
+          queries={queries}
+          advanced={advanced}
+          setAdvanced={setAdvanced}
+        />
         <div className="rounded-md border overflow-hidden">
           <RegionTable regions={data?.regions ?? []} onChanged={refresh} advanced={advanced} />
         </div>
