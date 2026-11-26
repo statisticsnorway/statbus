@@ -40,7 +40,7 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 - [x] The app (search export, unit history, maps) and docs (data-model, import-system, API reference) use the new names: rg finds none of the old coordinate names outside migrations
 - [ ] An independent reviewer (neither the implementer nor hibiscus) checked every hunk of git diff origin/master -- test/expected against the rename and its migration, and found no change beyond the rename (no changed value, row count, order, or appearing or vanishing error); its findings and their fixes are recorded in this task
 - [x] Region uploads with center_* headers and unit imports with physical_* coordinate headers are refused with a message naming latitude, longitude, altitude; a SQL test asserts it
-- [ ] A region file or a unit import file with old coordinate headers (center_* or physical_* latitude/longitude/altitude) is refused with a message naming the new headers latitude, longitude, altitude; a SQL test asserts both refusals
+- [x] A region file or a unit import file with old coordinate headers (center_* or physical_* latitude/longitude/altitude) is refused with a message naming the new headers latitude, longitude, altitude; a SQL test asserts both refusals
 
 ## Questions
 - 2026-11-23T11:47 question 1 by hibiscus to jhf:
@@ -69,6 +69,7 @@ check 4: commit 3bf2dbc6f, ./dev.sh test fast: All 146 tests passed (tmp/test-fa
 check 5: test/sql/415: legal unit import with latitude/longitude/altitude -> location physical row and statistical_unit legal_unit+enterprise carry 59.913868/10.752245/23.0; postal_location step has no coordinate data columns
 check 6: rg outside migrations/tmp finds old names only in the refusal code, its tests (415, upload-csv-check), its doc/db page, the historical backlog doc, and 402/404 expected hunks of pre-existing drift
 check 8: test/sql/415: region_upload with center_latitude/longitude/altitude refused (column does not exist; 0 regions stored), and the upload page answers 'retired coordinate columns ... Name them latitude, longitude, altitude' (upload-csv-check.test.ts); unit upload with physical_* refused by admin.import_job_keep_ignored_columns: 'The file has retired coordinate columns: physical_altitude, physical_latitude, physical_longitude. Name them latitude, longitude, altitude'
+check 9: test/sql/415: region_upload with center_latitude/longitude/altitude refused (column does not exist; 0 regions stored), and the upload page answers 'retired coordinate columns ... Name them latitude, longitude, altitude' (upload-csv-check.test.ts); unit upload with physical_* refused by admin.import_job_keep_ignored_columns: 'The file has retired coordinate columns: physical_altitude, physical_latitude, physical_longitude. Name them latitude, longitude, altitude'
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
