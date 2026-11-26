@@ -38,7 +38,7 @@ Owner request 1 (2026-11-26 21:15). Image paste-1540.png (jo.statbus.org/establi
 - [ ] ~~Verify Counting issue in jo.statbus.org~~ (not relevant: replaced by checks 2-5 from the owner's request 1, rabbit, 2026-11-26)
 - [x] [Owner] plays the ticket back and approves the plan before work starts; answer recorded in Notes
 - [x] A SQL test reproduces jo's case for both Employees and Turnover: it fails on master and passes after the fix
-- [ ] An import row whose birth_date is in a later year than its valid_from is refused with an error naming both dates; a birth_date later in the same year is accepted
+- [x] An import row whose birth_date is in a later year than its valid_from is refused with an error naming both dates; a birth_date later in the same year is accepted
 - [ ] On a copy of jo's data, Drill Down Norway AS's legal unit total equals its own value plus its existing establishments' values for Frame 2023
 
 ## Requests
@@ -58,6 +58,7 @@ Owner 2026-11-26 21:24: counting needs both: valid_from (validity) and, where a 
 Owner 2026-11-26 21:46, design for counting (one source of the rule): (1) birth_date and death_date are timepoints, so timeline rows split there; (2) used_for_counting in each timeline means 'counts in this period' = status flag AND within unit_existence_from(valid_from, birth_date) .. unit_existence_until(valid_until, death_date), written once as one function; (3) the legal unit's and enterprise's Σ and the report facets read only used_for_counting; the facets drop their own existence expression. Sent to lobster (branch counting/birth-date-and-lu-es-rollup).
 Owner 2026-11-26 23:58: the later-year birth_date rule stays an error. Demo rows are fixed (13 establishments get valid_from 2024-01-01 and keep birth 2024-11-01), plus one dedicated test that a later-year birth_date row is refused. Sent to lobster.
 check 3: test/sql/415 (branch counting/birth-date-and-lu-es-rollup, aa4fac490): jo's shape LU-JO; on master (RED, tmp/415_counting.RED.out) LU 2023..inf showed 23/20023 for the whole period with ES-JO-86 (born 2024-11-01) never split; GREEN: 23/20023 until ES-JO-89's birth 2023-11-01, 23/20046 to 2024-11-01, 25/20066 from 2024-11-01 for legal unit and enterprise. No birth date: whole validity (13). Born before valid_from: from valid_from (10 then 13). 415.3b: report facets' establishment count and employees equal the totals' included establishments and added employees at four dates. 351 (STATBUS-460) passes.
+check 4: test/sql/416: RED on master (tmp/416_import.RED.out: all 4 rows processed); GREEN: row born 2024-11-01 with valid_from 2023-01-01 is error/skip with a message naming both dates under birth_date_raw and valid_from_raw; same-year (2023-11-01), earlier-year and no-birth rows import. 350 (STATBUS-461) and 369 (STATBUS-580) keep their behaviour; C13/F02 now refused as later-year.
 ## History
 - 2026-11-26T21:15 request 1 by jhf
 - 2026-11-26T21:15 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
