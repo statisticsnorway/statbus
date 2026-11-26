@@ -10,7 +10,7 @@ group: ""
 rank: "zzzzzzzzh"
 created: 2026-11-23
 updated: 2026-11-23
-stage: "depends"
+stage: "ready"
 ---
 
 ## Goal
