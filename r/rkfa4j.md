@@ -1,8 +1,6 @@
 ---
 id: "rkfa4j"
-title: >-
-  drain-before-upgrade: the upgrade lets the worker finish its sentence —
-  bounded drain, falling back to the now-safe interruption
+title: "Upgrade lets the worker finish its current task before stopping it"
 state: "todo"
 assignee: []
 labels:
@@ -25,19 +23,22 @@ stage: "design"
 ---
 
 ## Goal
+An upgrade stops the worker after its current task ends, within a bounded wait, then proceeds as today if the wait runs out.
 
-AWAITING THE KING'S RULING (his question, 2026-08-27, leaving for the evening: "we can't run the upgrade now because work is pending — or what is a principal way to handle this?"). Architect's design, prepared for the evening walkthrough:
 
-THE ANSWER: his instinct is right, and its principled form is FINISH the work, not refuse the upgrade. Refusing is the wrong shape three ways (a long import makes a box permanently un-upgradeable; a recurring refusal invites a bypass flag on an upgrade guard; the box's own work would prevent its maintenance) — and decisively, refusing doesn't work: check-then-stop is a race, and making it reliable requires first stopping intake, i.e. quiescing — at which point you may as well proceed. Option (a) done properly BECOMES option (b).
+## Purpose
+What we have today (checked in code 2026-11-26): the upgrade runs 'docker compose stop app worker rest' (cli/internal/upgrade/service.go, step 3). The worker container has no stop_grace_period, so Docker sends SIGTERM and kills it after 10 s. The worker's SIGTERM handler (cli/src/worker.cr handle_shutdown_signal) stops claiming new tasks and waits only 5 s for running fibers, then exits. A task running longer (an import batch, a derive) is cut off mid-transaction: PostgreSQL rolls it back, and on the next start worker.reset_abandoned_processing_tasks() puts it back to pending (STATBUS-264, which since retries and is exempt from the upgrade's read-only guard, STATBUS-265). So interruption is safe: no data is lost or half-written, the task is redone after the upgrade. What this would add: the interrupted task's work is not thrown away and redone, the upgrade observes a quiet box, and the operator sees 'Finishing current work…' instead of a task that silently restarts.
 
-THE DESIGN: drain, bounded, falling back to what we have. (1) Worker finishes current tasks, claims nothing new; (2) bounded wait; (3) drained → upgrade a genuinely quiet box; (4) bound expires → proceed anyway, because interruption is now safe by construction (264+265). No state exists where a box refuses maintenance; worst case is today's behaviour, which is safe.
+## Principle
+Finish, never refuse: an upgrade is never blocked by pending work. The wait is bounded; when it runs out, today's safe interruption happens. No new protocol if a timeout is enough: first measure whether raising the worker's own 5 s fiber wait and Docker's stop timeout already gives a clean finish.
 
-VERIFY BEFORE BUILDING — we may already own most of it: the upgrade runs docker compose stop (service.go:5834), which is graceful SIGTERM + timeout-kill. Questions: does the worker's shutdown handler finish its current task or abandon it (264 is shutdown-aware — something is there)? Is the ~10s default stop timeout simply too short for minute-long tasks? If the handler drains and only the timeout is short, this whole design is A TIMEOUT VALUE AND A VERIFICATION, not a new protocol.
+## Details
+Pieces it would touch: (1) cli/src/worker.cr: the shutdown wait (5 s) becomes the drain bound, and a running task is allowed to commit before exit; (2) docker-compose.worker.yml: stop_grace_period for worker, above the drain bound (db already has 120 s); (3) cli/internal/upgrade/service.go step 3: a progress line 'Finishing current work (up to N s)…' and the stop of worker before app and rest; (4) a test that SIGTERM during a long task lets it commit and the task ends 'completed', not 'pending'. Complexity added: one timeout value per side and an ordering of stops; no new state, no refusal path. Cost: an upgrade can take up to the drain bound longer. Priority: low; safety is already there (264, 265), this buys less redone work and a cleaner operator message. Origin: architect's design 2026-08-27 for the owner's question 'we can't run the upgrade while work is pending, what is the principled way?'.
 
-OPERATOR SURFACE (the deciding argument in the King's frame): "Finishing current work before upgrading…" is what any competent person would do and needs no explanation; "Cannot upgrade: work is pending" alarms and strands; "your import will be redone" invites a support question.
-
-HONEST PRIORITY: worth doing, NOT urgent — the wedge is closed by 264+265; this buys cleanliness (no manufactured interrupted work, faster convergence, unambiguous canary observation), honestly labelled as such. Nothing is at risk in waiting until after the stable ships.
-
+## Acceptance
+- [ ] [Owner] decides: build it, or drop it as not worth the added wait; recorded in Notes
+- [ ] A test sends SIGTERM to the worker during a task that takes longer than 5 s but less than the drain bound: the task ends completed and is not reset to pending on restart
+- [ ] An upgrade in a real guest with a running import shows 'Finishing current work' and the import's batch completes before the worker stops
 
 ## Questions
 - 2026-11-22T23:31 question 1 by hibiscus to jhf:
@@ -53,3 +54,4 @@ HONEST PRIORITY: worth doing, NOT urgent — the wedge is closed by 264+265; thi
 - 2026-11-26T21:39 request 1 by jhf
 - 2026-11-26T21:39 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-26T21:39 request 1 acknowledged by rabbit
+- 2026-11-26T21:40 request 1 in progress by rabbit: hug task set rkfa4j
