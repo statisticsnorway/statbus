@@ -1,16 +1,20 @@
 ---
 id: jbc5bs
 title: "Coordinates are named latitude, longitude, altitude; no postal coordinates"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["slot-b-coords"]
 labels: ["maps"]
 group: ""
 rank: "zzzzzzzzh"
 created: 2026-11-23
 updated: 2026-11-23
-stage: "ready"
+stage: "active"
+doing_since: "2026-11-26T21:49"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_b"
 ---
 
 ## Goal
@@ -60,3 +64,4 @@ Dep on z2qt08 removed to start building on master per owner-agreed ORDER: branch
   Refuse old headers with a message naming the new ones; a clean cut (owner 2026-11-26 20:41).
 - 2026-11-26T21:42 answer 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-26T21:42 answer 1 acknowledged by rabbit
+- 2026-11-26T21:49 todo/ready -> doing/active (take)
