@@ -34,7 +34,7 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 ## Acceptance
 - [x] [Owner] Decides whether region upload files with the old center_* headers are refused with a message naming the new headers, or accepted for one release; recorded here
 - [x] public.region, region_upload and the upload's upsert use latitude, longitude, altitude; the fast SQL suite passes with regenerated doc/db and app types
-- [ ] Uploading a region file with the new headers stores each region's point; a SQL test asserts the stored values
+- [x] Uploading a region file with the new headers stores each region's point; a SQL test asserts the stored values
 - [ ] statistical_unit and the timeline views carry latitude, longitude and altitude (no physical_ prefix) and no postal coordinate columns; the fast SQL suite passes with regenerated doc/db and app types
 - [ ] The import's physical location step takes latitude, longitude, altitude; the postal location step takes no coordinates; an import of a unit with a point stores it, a SQL test asserts it
 - [ ] The app (search export, unit history, maps) and docs (data-model, import-system, API reference) use the new names: rg finds none of the old coordinate names outside migrations
@@ -64,6 +64,7 @@ Owner 2026-11-26 20:50: the expected-output changes of this rename are too large
 Check 6's sweep for old names excludes the refusal code and its tests, which must name the old headers to detect them.
 Slow tests 402 and 404 drift on master, separately from this rename (expected files from 2026-11-23, before ca6dk5 and later RLS changes): 402 shows WITH CHECK (true) vs (edit_by_user_id = auth.uid()), analytics completed 37 vs 36, a sector added_count key; 404 shows the enterprise/establishment employees aggregate (count 8583 -> 5686, sum 590893 -> 391133). On this branch only the rename hunks of 402/404 were taken into the expected files (tmp/coords/take_rename_hunks.py); the drift hunks keep master's expected text and still fail, and need their own ticket.
 check 2: commit 3bf2dbc6f, ./dev.sh test fast: All 146 tests passed (tmp/test-fast.log), doc/db and database.types.ts regenerated
+check 3: test/sql/415: region file with latitude,longitude,altitude stores 59.913868/10.752245/23.0 (and a point without altitude)
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
