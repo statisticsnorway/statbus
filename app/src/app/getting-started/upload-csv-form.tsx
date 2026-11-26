@@ -52,7 +52,8 @@ const UploadFormButtons = ({
 
 /**
  * A check of a chosen file before it is stored: given the file as CSV text, it shows what the
- * upload would do and whether it can be stored (5yxn4w, the Regions upload).
+ * upload would do and whether there is anything to store (5yxn4w, the Regions upload). `canStore`
+ * is false for a file with errors and for one that changes nothing.
  */
 export type UploadPreview = (csv: string) => Promise<{ summary: React.ReactNode; canStore: boolean }>;
 
@@ -109,19 +110,31 @@ export const UploadCSVForm = ({
       formAction(formData);
       return;
     }
-    if (!preview && !isExcelFile(file)) {
+    if (!isExcelFile(file)) {
       formAction(formData);
       return;
     }
     setReading(true);
     try {
+      const data = new FormData();
+      data.set(filename, asCsvFile(file.name, await fileAsCsvText(file)));
+      formAction(data);
+    } catch (e) {
+      setReadError(`${file.name} could not be read: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setReading(false);
+    }
+  };
+
+  // With a check, a chosen file is checked at once (owner 2026-11-26): what it would do shows as
+  // soon as it is picked, and Store is the one step left.
+  const check = async (file: File | undefined) => {
+    setReadError(null);
+    setChecked(null);
+    if (!preview || !file) return;
+    setReading(true);
+    try {
       const csv = await fileAsCsvText(file);
-      if (!preview) {
-        const data = new FormData();
-        data.set(filename, asCsvFile(file.name, csv));
-        formAction(data);
-        return;
-      }
       const { summary, canStore } = await preview(csv);
       setChecked({ name: file.name, csv, summary, canStore });
     } catch (e) {
@@ -152,9 +165,10 @@ export const UploadCSVForm = ({
         name={filename}
         accept=".csv,.xlsx,.xls"
         className="mb-4 bg-white"
-        onChange={() => setChecked(null)}
-        disabled={checked !== null}
+        onChange={(e) => void check(e.target.files?.[0])}
+        disabled={checked !== null || reading}
       />
+      {reading && preview && <p className="mb-4 text-sm text-gray-600">Checking the file…</p>}
       {readError && (
         <ErrorBox>
           <span className="text-sm">{readError}</span>
@@ -172,11 +186,18 @@ export const UploadCSVForm = ({
             Choose another file
           </Button>
         </div>
+      ) : preview && !checked ? (
+        // Nothing to store until a file is chosen and checked; Skip goes on without one.
+        <div className="space-x-3">
+          <Link href={nextPage} className={buttonVariants({ variant: "outline" })}>
+            Skip
+          </Link>
+        </div>
       ) : (
         <UploadFormButtons
           error={state.error}
           nextPage={nextPage}
-          label={reading ? "Reading the file…" : checked ? "Store" : preview ? "Check the file" : "Upload"}
+          label={reading ? "Reading the file…" : checked ? "Store" : "Upload"}
           onCancel={checked ? cancel : undefined}
         />
       )}

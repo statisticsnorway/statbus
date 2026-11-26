@@ -43,13 +43,15 @@ function ChangeList({ title, rows, show }: { title: string; rows: RegionChange[]
 /**
  * The check step (owner 2026-11-26, 5yxn4w): what a chosen file would do to the regions stored
  * now, before anything is stored. A file with errors cannot be stored; the rows to fix are named
- * by line.
+ * by line. A file that changes nothing has nothing to store.
  */
 const checkRegionFile: UploadPreview = async (csv) => {
   const records = parseCsvRecords(csv);
   const [header, ...rows] = records;
   const preview = previewRegionUpload(header?.fields ?? [], rows, await fetchStoredRegions());
-  const canStore = preview.errors.length === 0 && preview.rows > 0;
+  const changes =
+    preview.added.length + preview.renamed.length + preview.coordinatesSet.length + preview.coordinatesMoved.length;
+  const canStore = preview.errors.length === 0 && changes > 0;
   const summary = (
     <div className="space-y-2" data-region-upload-check="">
       <ul className="space-y-1">
@@ -88,8 +90,10 @@ const checkRegionFile: UploadPreview = async (csv) => {
           {preview.errors.length > 20 && <p>and {(preview.errors.length - 20).toLocaleString()} more.</p>}
         </div>
       )}
-      {canStore && preview.added.length + preview.renamed.length + preview.coordinatesSet.length + preview.coordinatesMoved.length === 0 && (
-        <p className="text-gray-600">The file changes nothing.</p>
+      {preview.errors.length === 0 && changes === 0 && (
+        <p className="text-gray-600" data-region-upload-no-change="">
+          The file changes nothing: every region in it is already as the file says.
+        </p>
       )}
     </div>
   );
@@ -160,8 +164,9 @@ export default function UploadRegionsPage() {
     <section className="space-y-8">
       <h1 className="text-center text-2xl">Upload Regions</h1>
       <p>
-        Upload a CSV or Excel file with the regions you use in your analysis. The file is checked
-        first: you see what it would add and change, and nothing is stored until you press Store.
+        Upload a CSV or Excel file with the regions you use in your analysis. A chosen file is
+        checked at once: you see what it would add and change, and nothing is stored until you
+        press Store.
       </p>
       <Suspense fallback={<RegionsCountSkeleton />}>
         <RegionsCountDisplay />
