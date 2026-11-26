@@ -147,6 +147,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.location_type`**: `physical`, `postal`
 - **`public.person_sex`**: `Male`, `Female`
 - **`public.power_group_root_status`**: `single`, `cycle`, `multi`
+- **`public.quality_rule`**: `missing_region`, `missing_activity_category`, `missing_physical_location`, `establishment_activity_differs`, `establishments_above_legal_unit`, `legal_unit_above_establishments`
 - **`public.release_builds_status_type`**: `building`, `ready`, `failed`
 - **`public.release_status_type`**: `commit`, `prerelease`, `release`
 - **`public.reset_scope`**: `units`, `getting-started`, `customisation`
@@ -206,18 +207,19 @@ A sparse delta table holds only changes: `statistical_history_facet_delta` per c
 - `statistical_history_facet(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, name_change_count, legal_form_id, physical_country_id, unit_size_id, status_id, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, unit_size_change_count, status_change_count, stats_summary, exists_moved_in_count, exists_moved_out_count, countable_moved_in_count, countable_moved_out_count)`
   - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
 
-### Quality: checks that list units to look at (xz3jej)
-Quality is the area of checks that list units to look at, as reports count them. Each check is a table `quality_<check>`, filled by the reports phase's step `worker.derive_quality` after statistical_unit is published, and joined from it one-to-one by a NOT ENFORCED foreign key, so the dashboard's Data quality card and the search (`?quality=<check>`) use the same inner embed.
+### Quality: checks that list units to look at (xz3jej, 05pe0x)
+Quality is the area of checks that list units to look at, as reports count them. A check is a rule of the enum `quality_rule` and, for a rule per summed variable, that variable; `quality_check` lists the checks of the installation and `quality_check_switched_off` the ones an admin has switched off. The units each check lists are rows of `quality_finding`, filled by the reports phase's step `worker.derive_quality` after statistical_unit is published, with each row's existence dates, so the dashboard counts every check in one query and the search lists a check through `statistical_unit_quality()`.
 
-- `quality_establishment_activity_differs(unit_type, unit_id, legal_unit_activity_category_id, primary_establishment_id, primary_establishment_activity_category_id, valid_from, valid_until, valid_range)` (temporal) — **derived**
-  - Key FKs: unit_id, unit_type, valid_range.
-  - Enums: `unit_type` (`public.statistical_unit_type`).
-- `quality_establishments_above_legal_unit(unit_type, unit_id, valid_from, valid_until, valid_range, stats)` (temporal) — **derived**
-  - Key FKs: unit_id, unit_type, valid_range.
-  - Enums: `unit_type` (`public.statistical_unit_type`).
-- `quality_legal_unit_above_establishments(unit_type, unit_id, valid_from, valid_until, valid_range, stats)` (temporal) — **derived**
-  - Key FKs: unit_id, unit_type, valid_range.
-  - Enums: `unit_type` (`public.statistical_unit_type`).
+- `quality_finding(unit_type, stat_definition_id, unit_id, valid_from, valid_until, valid_range, rule, existence_from, existence_until, detail)` (temporal) — **derived**
+  - Key FKs: stat_definition_id, unit_id, unit_type, valid_range.
+  - Enums: `rule` (`public.quality_rule`), `unit_type` (`public.statistical_unit_type`).
+- `quality_check_switched_off(stat_definition_id, rule)` — **configuration**
+  - Key FKs: stat_definition_id.
+  - Enums: `rule` (`public.quality_rule`).
+- `quality_check(stat_definition_id, rule, on_dashboard, priority)`
+  - Enums: `rule` (`public.quality_rule`).
+- `quality_finding_def(unit_type, stat_definition_id, unit_id, valid_from, valid_until, rule, detail)` (temporal)
+  - Enums: `rule` (`public.quality_rule`), `unit_type` (`public.statistical_unit_type`).
 - `legal_unit_establishment_stat_comparison(unit_type, stat_code, legal_unit_value, establishments_with_value, unit_id, valid_from, valid_until, establishment_count, establishments_sum)` (temporal)
   - Enums: `unit_type` (`public.statistical_unit_type`).
 

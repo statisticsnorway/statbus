@@ -5,14 +5,12 @@ CREATE OR REPLACE PROCEDURE worker.derive_quality(IN payload jsonb, INOUT p_info
  SET search_path TO 'public', 'worker', 'pg_temp'
 AS $procedure$
 BEGIN
-    PERFORM public.quality_establishment_activity_differs_derive();
-    PERFORM public.quality_legal_unit_establishments_derive();
+    PERFORM public.quality_finding_derive();
 
-    p_info := jsonb_build_object('checks', jsonb_build_array(
-        'quality_establishment_activity_differs',
-        'quality_establishments_above_legal_unit',
-        'quality_legal_unit_above_establishments'
-    ));
+    p_info := (
+        SELECT jsonb_build_object('findings', jsonb_object_agg(f.rule, f.findings))
+        FROM (SELECT qf.rule, count(*) AS findings FROM public.quality_finding AS qf GROUP BY qf.rule) AS f
+    );
 END;
 $procedure$
 ```

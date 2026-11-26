@@ -140,10 +140,11 @@ DECLARE
             '{"schema": "public", "name": "statistical_history", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "statistical_history_facet", "type": "VIEW"}'::jsonb
         )),
-        (4, 2, 5, 'Quality: checks that list units to look at (xz3jej)', 'Quality is the area of checks that list units to look at, as reports count them. Each check is a table `quality_<check>`, filled by the reports phase''s step `worker.derive_quality` after statistical_unit is published, and joined from it one-to-one by a NOT ENFORCED foreign key, so the dashboard''s Data quality card and the search (`?quality=<check>`) use the same inner embed.', jsonb_build_array(
-            '{"schema": "public", "name": "quality_establishment_activity_differs", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "quality_establishments_above_legal_unit", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "quality_legal_unit_above_establishments", "class": "derived"}'::jsonb,
+        (4, 2, 5, 'Quality: checks that list units to look at (xz3jej, 05pe0x)', 'Quality is the area of checks that list units to look at, as reports count them. A check is a rule of the enum `quality_rule` and, for a rule per summed variable, that variable; `quality_check` lists the checks of the installation and `quality_check_switched_off` the ones an admin has switched off. The units each check lists are rows of `quality_finding`, filled by the reports phase''s step `worker.derive_quality` after statistical_unit is published, with each row''s existence dates, so the dashboard counts every check in one query and the search lists a check through `statistical_unit_quality()`.', jsonb_build_array(
+            '{"schema": "public", "name": "quality_finding", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "quality_check_switched_off", "class": "configuration"}'::jsonb,
+            '{"schema": "public", "name": "quality_check", "type": "VIEW"}'::jsonb,
+            '{"schema": "public", "name": "quality_finding_def", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "legal_unit_establishment_stat_comparison", "type": "VIEW"}'::jsonb
         )),
         (4, 2, 6, 'Pipeline Weights', 'Configuration for pipeline step ordering and progress tracking.', jsonb_build_array(

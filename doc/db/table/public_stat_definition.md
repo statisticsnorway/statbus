@@ -16,6 +16,8 @@ Indexes:
     "stat_definition_code_key" UNIQUE CONSTRAINT, btree (code)
     "stat_definition_enabled_priority_key" UNIQUE, btree (priority) WHERE enabled
 Referenced by:
+    TABLE "quality_check_switched_off" CONSTRAINT "quality_check_switched_off_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE CASCADE
+    TABLE "quality_finding" CONSTRAINT "quality_finding_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE CASCADE
     TABLE "stat_for_unit" CONSTRAINT "stat_for_unit_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE RESTRICT
 Policies:
     POLICY "stat_definition_admin_user_manage"

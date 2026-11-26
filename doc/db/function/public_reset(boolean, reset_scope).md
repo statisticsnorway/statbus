@@ -48,12 +48,11 @@ BEGIN
         SELECT COUNT(*) FROM public.image INTO _image_count;
         SELECT COUNT(*) FROM public.unit_notes INTO _unit_notes_count;
 
-        -- statistical_unit is emptied together with the quality checks (public.quality_*), which
+        -- statistical_unit is emptied together with public.quality_finding, which
         -- references it by a NOT ENFORCED foreign key: TRUNCATE refuses such a key without CASCADE,
         -- even with both tables listed. CASCADE is kept to this statement so that a new enforced
         -- key to any table in the list below still stops reset instead of emptying its table.
-        TRUNCATE public.statistical_unit, public.quality_establishment_activity_differs,
-                 public.quality_establishments_above_legal_unit, public.quality_legal_unit_above_establishments CASCADE;
+        TRUNCATE public.statistical_unit, public.quality_finding CASCADE;
 
         TRUNCATE
             public.activity,
@@ -564,6 +563,18 @@ BEGIN
 
     -- public.activity_category_standard rows are never deleted: they are the
     -- system's standards, restored above to their factory defaults.
+
+    CASE WHEN scope = 'customisation' THEN
+        -- quality_check_switched_off: every check switched on again, as shipped.
+        WITH deleted AS (
+            DELETE FROM public.quality_check_switched_off WHERE true -- every row: shipped with none
+            RETURNING 1
+        )
+        SELECT jsonb_build_object('quality_check_switched_off', jsonb_build_object(
+            'deleted_count', (SELECT count(*) FROM deleted)
+        )) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
 
     RETURN result;
 END;

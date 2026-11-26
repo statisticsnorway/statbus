@@ -1,0 +1,266 @@
+BEGIN;
+
+\i test/setup.sql
+
+-- 05pe0x: every data-quality check is a row of one catalogue, and its failing units are
+-- rows of one table.
+--
+-- public.quality_rule (enum) names the kinds of check. A per-variable rule
+-- (public.quality_rule_per_stat) is a check for each enabled summed statistical variable
+-- (stat_definition of type int or float); every other rule is one check.
+-- public.quality_check lists the checks with on_dashboard; only switched-off checks are
+-- stored (public.quality_check_switched_off), so a new variable's checks start on.
+-- public.quality_finding holds each check's units, filled by worker.derive_quality, with
+-- the statistical_unit row's existence dates for counting at an instant.
+--
+-- The fixture, demo settings (installation country UN), legal units valid from 2020:
+--   LU-LESS    employees own 5, establishments 4 + 3            -> establishments above legal unit
+--   LU-GAP     employees own 12, establishments 4 + 3            -> legal unit above establishments
+--   LU-EQUAL   employees own 9, establishments 5 + 4             -> no comparison finding
+--   LU-NOREGION   located in UN without a region                 -> missing region (with its establishment)
+--   LU-ABROAD     located in SE without a region                 -> no finding: abroad has no UN region
+--   LU-NOWHERE    no physical location                           -> missing physical location
+--   LU-DIFFERS    legal unit activity A, primary establishment B -> establishment activity differs
+-- Every unit but LU-DIFFERS and its establishment has no activity -> missing activity category.
+-- A second summed variable 'members' (int) gives LU-LESS a finding for it too; a variable that is
+-- not summed, 'listed' (bool), gets no checks.
+
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+\o /dev/null
+\set ECHO none
+\i samples/demo/getting-started.sql
+\o
+\set ECHO all
+
+SELECT id AS user_id FROM auth.user LIMIT 1 \gset
+SELECT id AS active_id FROM public.status WHERE code = 'active' LIMIT 1 \gset
+SELECT id AS employees_id FROM public.stat_definition WHERE code = 'employees' \gset
+SELECT id AS un_id FROM public.country WHERE iso_2 = 'UN' \gset
+SELECT id AS se_id FROM public.country WHERE iso_2 = 'SE' \gset
+SELECT id AS region_id FROM public.region ORDER BY path LIMIT 1 \gset
+SELECT id AS activity_a_id FROM public.activity_category WHERE enabled ORDER BY path LIMIT 1 \gset
+SELECT id AS activity_b_id FROM public.activity_category WHERE enabled ORDER BY path OFFSET 1 LIMIT 1 \gset
+
+SET client_min_messages TO WARNING;
+INSERT INTO public.stat_definition (code, type, frequency, name, priority)
+VALUES ('members', 'int', 'yearly', 'Members', 30),
+       ('listed', 'bool', 'yearly', 'Listed on an exchange', 40);
+RESET client_min_messages;
+SELECT id AS members_id FROM public.stat_definition WHERE code = 'members' \gset
+
+CREATE TEMP TABLE pattern (lu text, own int, est_values int[], members_own int, members_est int[], country text, with_region boolean) ON COMMIT DROP;
+INSERT INTO pattern VALUES
+    ('LU-LESS',     5,    ARRAY[4, 3],    1,    ARRAY[2, 2], 'UN', true),
+    ('LU-GAP',      12,   ARRAY[4, 3],    NULL, NULL,        'UN', true),
+    ('LU-EQUAL',    9,    ARRAY[5, 4],    NULL, NULL,        'UN', true),
+    ('LU-NOREGION', NULL, ARRAY[1],       NULL, NULL,        'UN', false),
+    ('LU-ABROAD',   NULL, ARRAY[1],       NULL, NULL,        'SE', false),
+    ('LU-NOWHERE',  NULL, ARRAY[1],       NULL, NULL,        NULL, false),
+    ('LU-DIFFERS',  NULL, ARRAY[1],       NULL, NULL,        'UN', true);
+
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
+SELECT 'EN-' || p.lu, :user_id, '05pe0x test enterprise' FROM pattern AS p;
+
+INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, p.lu, en.id, true, :active_id, :user_id, '05pe0x test legal unit'
+FROM pattern AS p JOIN public.enterprise AS en ON en.short_name = 'EN-' || p.lu;
+
+INSERT INTO public.establishment (valid_from, name, legal_unit_id, primary_for_legal_unit, status_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, p.lu || '-es' || e.n, lu.id, e.n = 1, :active_id, :user_id, '05pe0x test establishment'
+FROM pattern AS p
+JOIN public.legal_unit AS lu ON lu.name = p.lu
+CROSS JOIN LATERAL generate_subscripts(p.est_values, 1) AS e(n);
+
+-- Physical locations: the legal unit and its establishments in the pattern's country.
+INSERT INTO public.location (valid_from, valid_to, type, address_part1, region_id, country_id, legal_unit_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'infinity'::date, 'physical', 'Street 1',
+       CASE WHEN p.with_region THEN :region_id END,
+       CASE p.country WHEN 'UN' THEN :un_id ELSE :se_id END,
+       lu.id, :user_id, '05pe0x test location'
+FROM pattern AS p JOIN public.legal_unit AS lu ON lu.name = p.lu
+WHERE p.country IS NOT NULL;
+
+INSERT INTO public.location (valid_from, valid_to, type, address_part1, region_id, country_id, establishment_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'infinity'::date, 'physical', 'Street 2',
+       CASE WHEN p.with_region THEN :region_id END,
+       CASE p.country WHEN 'UN' THEN :un_id ELSE :se_id END,
+       es.id, :user_id, '05pe0x test location'
+FROM pattern AS p
+CROSS JOIN LATERAL generate_subscripts(p.est_values, 1) AS e(n)
+JOIN public.establishment AS es ON es.name = p.lu || '-es' || e.n
+WHERE p.country IS NOT NULL;
+
+-- LU-DIFFERS: the legal unit's primary activity is A, its primary establishment's is B.
+INSERT INTO public.activity (valid_from, valid_to, type, category_id, legal_unit_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'infinity'::date, 'primary', :activity_a_id, lu.id, :user_id, '05pe0x test activity'
+FROM public.legal_unit AS lu WHERE lu.name = 'LU-DIFFERS';
+INSERT INTO public.activity (valid_from, valid_to, type, category_id, establishment_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'infinity'::date, 'primary', :activity_b_id, es.id, :user_id, '05pe0x test activity'
+FROM public.establishment AS es WHERE es.name = 'LU-DIFFERS-es1';
+
+INSERT INTO public.stat_for_unit (stat_definition_id, valid_from, legal_unit_id, value_int, edit_by_user_id, edit_comment)
+SELECT :employees_id, '2020-01-01'::date, lu.id, p.own, :user_id, '05pe0x own value'
+FROM pattern AS p JOIN public.legal_unit AS lu ON lu.name = p.lu
+WHERE p.own IS NOT NULL
+UNION ALL
+SELECT :members_id, '2020-01-01'::date, lu.id, p.members_own, :user_id, '05pe0x own value'
+FROM pattern AS p JOIN public.legal_unit AS lu ON lu.name = p.lu
+WHERE p.members_own IS NOT NULL;
+
+INSERT INTO public.stat_for_unit (stat_definition_id, valid_from, establishment_id, value_int, edit_by_user_id, edit_comment)
+SELECT :employees_id, '2020-01-01'::date, es.id, p.est_values[e.n], :user_id, '05pe0x establishment value'
+FROM pattern AS p
+CROSS JOIN LATERAL generate_subscripts(p.est_values, 1) AS e(n)
+JOIN public.establishment AS es ON es.name = p.lu || '-es' || e.n
+WHERE p.own IS NOT NULL
+UNION ALL
+SELECT :members_id, '2020-01-01'::date, es.id, p.members_est[e.n], :user_id, '05pe0x establishment value'
+FROM pattern AS p
+CROSS JOIN LATERAL generate_subscripts(p.members_est, 1) AS e(n)
+JOIN public.establishment AS es ON es.name = p.lu || '-es' || e.n;
+
+CALL worker.process_tasks(p_queue => 'analytics');
+
+-- The fixture's units, by name, for reading findings: enterprises too, so a rule that listed an
+-- enterprise would show (every rule lists legal units or establishments only).
+CREATE TEMP VIEW fixture_unit AS
+SELECT 'legal_unit'::public.statistical_unit_type AS unit_type, lu.id AS unit_id, lu.name
+FROM public.legal_unit AS lu WHERE lu.name LIKE 'LU-%'
+UNION ALL
+SELECT 'establishment', es.id, es.name
+FROM public.establishment AS es WHERE es.name LIKE 'LU-%'
+UNION ALL
+SELECT 'enterprise', en.id, en.short_name
+FROM public.enterprise AS en WHERE en.short_name LIKE 'EN-LU-%';
+
+\echo
+\echo "411.1 the rules, and which of them are a check per summed statistical variable"
+SELECT r.rule, public.quality_rule_per_stat(r.rule) AS per_stat
+FROM unnest(enum_range(NULL::public.quality_rule)) AS r(rule)
+ORDER BY r.rule;
+
+\echo
+\echo "411.2 the checks: each rule once, each per-variable rule once per enabled summed variable; all on"
+SELECT qc.rule, sd.code AS stat_code, qc.on_dashboard
+FROM public.quality_check AS qc
+LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
+ORDER BY qc.rule, sd.priority;
+
+\echo
+\echo "411.3 each check's findings on the fixture, with the numbers the per-variable rules compare"
+SELECT f.rule, sd.code AS stat_code, u.unit_type, u.name,
+       CASE WHEN f.rule = 'establishment_activity_differs' THEN NULL ELSE f.detail END AS compared
+FROM public.quality_finding AS f
+JOIN fixture_unit AS u USING (unit_type, unit_id)
+LEFT JOIN public.stat_definition AS sd ON sd.id = f.stat_definition_id
+ORDER BY f.rule, sd.priority, u.unit_type, u.name;
+
+\echo
+\echo "411.3b activity differs names the primary establishment and both activities: LU-DIFFERS has A, its establishment B"
+SELECT u.name AS legal_unit,
+       es.name AS primary_establishment,
+       (f.detail->>'legal_unit_activity_category_id')::int = :activity_a_id AS legal_unit_has_a,
+       (f.detail->>'primary_establishment_activity_category_id')::int = :activity_b_id AS establishment_has_b
+FROM public.quality_finding AS f
+JOIN fixture_unit AS u USING (unit_type, unit_id)
+JOIN public.establishment AS es ON es.id = (f.detail->>'primary_establishment_id')::int
+WHERE f.rule = 'establishment_activity_differs';
+
+\echo
+\echo "411.4 a finding carries the existence dates of its statistical_unit row"
+SELECT count(*) AS findings,
+       count(*) FILTER (WHERE f.existence_from = public.existence_from(su)
+                          AND f.existence_until = public.existence_until(su)) AS same_dates
+FROM public.quality_finding AS f
+JOIN public.statistical_unit AS su
+  ON su.unit_type = f.unit_type AND su.unit_id = f.unit_id AND su.valid_range = f.valid_range
+JOIN fixture_unit AS u ON u.unit_type = f.unit_type AND u.unit_id = f.unit_id;
+
+\echo
+\echo "411.5 each check's dashboard count at 2026-05-24 equals the units public.statistical_unit_quality lists for the search"
+SELECT qc.rule, sd.code AS stat_code,
+       (SELECT count(*) FROM public.quality_finding AS f
+         JOIN fixture_unit AS u USING (unit_type, unit_id)
+         WHERE f.rule = qc.rule
+           AND COALESCE(f.stat_definition_id, 0) = COALESCE(qc.stat_definition_id, 0)
+           AND f.existence_from <= '2026-05-24' AND '2026-05-24' < f.existence_until) AS card,
+       (SELECT count(*) FROM public.statistical_unit_quality(
+                quality_rule => qc.rule, valid_on => '2026-05-24', quality_stat_definition_id => qc.stat_definition_id) AS su
+         JOIN fixture_unit AS u ON u.unit_type = su.unit_type AND u.unit_id = su.unit_id) AS list
+FROM public.quality_check AS qc
+LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
+ORDER BY qc.priority;
+
+\echo
+\echo "411.6 switching off: a switched-off check shows on_dashboard false; the others stay on"
+INSERT INTO public.quality_check_switched_off (rule, stat_definition_id)
+VALUES ('missing_activity_category', NULL), ('legal_unit_above_establishments', :members_id);
+SELECT qc.rule, sd.code AS stat_code, qc.on_dashboard
+FROM public.quality_check AS qc
+LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
+WHERE NOT qc.on_dashboard
+ORDER BY qc.rule;
+\echo "411.6 a switched-off check keeps its findings, so switching it on shows its number at once"
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT count(*) AS missing_activity_findings
+FROM public.quality_finding AS f JOIN fixture_unit AS u USING (unit_type, unit_id)
+WHERE f.rule = 'missing_activity_category';
+
+\echo
+\echo "411.7 the shape is the database's: a per-variable rule needs its variable, no other rule has one"
+SAVEPOINT before_wrong_shape;
+\set ON_ERROR_STOP off
+INSERT INTO public.quality_check_switched_off (rule, stat_definition_id) VALUES ('establishments_above_legal_unit', NULL);
+ROLLBACK TO SAVEPOINT before_wrong_shape;
+INSERT INTO public.quality_check_switched_off (rule, stat_definition_id) VALUES ('missing_region', :employees_id);
+ROLLBACK TO SAVEPOINT before_wrong_shape;
+INSERT INTO public.quality_finding (rule, stat_definition_id, unit_type, unit_id, valid_from, valid_until, existence_from, existence_until)
+SELECT 'legal_unit_above_establishments', NULL, 'legal_unit', lu.id, '2020-01-01', 'infinity', '2020-01-01', 'infinity'
+FROM public.legal_unit AS lu WHERE lu.name = 'LU-GAP';
+ROLLBACK TO SAVEPOINT before_wrong_shape;
+INSERT INTO public.quality_check_switched_off (rule, stat_definition_id) VALUES ('missing_activity_category', NULL);
+ROLLBACK TO SAVEPOINT before_wrong_shape;
+\set ON_ERROR_STOP on
+\echo "411.7 the four refusals above: two CHECKs on switches, one on findings, and a check switched off twice (the unique key)"
+SELECT count(*) AS switched_off_rows FROM public.quality_check_switched_off;
+
+\echo
+\echo "411.8 disabling a variable removes its checks; its switch is kept for when it comes back"
+SET client_min_messages TO WARNING;
+UPDATE public.stat_definition SET enabled = false WHERE code = 'members';
+RESET client_min_messages;
+SELECT qc.rule, sd.code AS stat_code, qc.on_dashboard
+FROM public.quality_check AS qc
+LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
+WHERE public.quality_rule_per_stat(qc.rule)
+ORDER BY qc.rule, sd.priority;
+SELECT qs.rule, sd.code AS stat_code FROM public.quality_check_switched_off AS qs
+LEFT JOIN public.stat_definition AS sd ON sd.id = qs.stat_definition_id ORDER BY 1;
+
+\echo
+\echo "411.9 enabling it again brings its checks back, the switched-off one still off"
+SET client_min_messages TO WARNING;
+UPDATE public.stat_definition SET enabled = true WHERE code = 'members';
+RESET client_min_messages;
+SELECT qc.rule, sd.code AS stat_code, qc.on_dashboard
+FROM public.quality_check AS qc
+LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
+WHERE public.quality_rule_per_stat(qc.rule)
+ORDER BY qc.rule, sd.priority;
+
+\echo
+\echo "411.10 deleting a variable removes its checks, its switches and its findings"
+DELETE FROM public.stat_for_unit WHERE stat_definition_id = :members_id;
+SET client_min_messages TO WARNING;
+DELETE FROM public.stat_definition WHERE code = 'members';
+RESET client_min_messages;
+SELECT qc.rule, sd.code AS stat_code
+FROM public.quality_check AS qc
+LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
+WHERE public.quality_rule_per_stat(qc.rule)
+ORDER BY qc.rule, sd.priority;
+SELECT count(*) AS members_switches FROM public.quality_check_switched_off WHERE stat_definition_id = :members_id;
+SELECT count(*) AS members_findings FROM public.quality_finding WHERE stat_definition_id = :members_id;
+
+ROLLBACK;

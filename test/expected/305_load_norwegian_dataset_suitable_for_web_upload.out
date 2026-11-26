@@ -3566,6 +3566,9 @@ reset_customisation
     },
     "activity_category_standard": {
         "changed_count": 0
+    },
+    "quality_check_switched_off": {
+        "deleted_count": 0
     }
 }
 (1 row)

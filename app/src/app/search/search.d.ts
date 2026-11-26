@@ -7,6 +7,8 @@ export type SearchFilterOption = {
   readonly humanReadableValue?: string;
   readonly className?: string;
   readonly icon?: React.ReactNode;
+  /** A control shown after the option's label in the list only (e.g. an ⓘ), never in its chip. */
+  readonly info?: React.ReactNode;
 };
 
 export interface SearchOrder {

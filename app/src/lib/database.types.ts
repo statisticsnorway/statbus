@@ -3060,92 +3060,64 @@ export type Database = {
           }
         ]
       },
-      quality_establishment_activity_differs: {
+      quality_check_switched_off: {
         Row: {
-          legal_unit_activity_category_id: number | null
-          primary_establishment_activity_category_id: number | null
-          primary_establishment_id: number
-          unit_id: number
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-          valid_from: string
-          valid_range: string
-          valid_until: string
+          rule: Database["public"]["Enums"]["quality_rule"]
+          stat_definition_id: number | null
         },
         Insert: {
-          legal_unit_activity_category_id?: number | null
-          primary_establishment_activity_category_id?: number | null
-          primary_establishment_id: number
-          unit_id: number
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-          valid_from: string
-          valid_range: string
-          valid_until: string
+          rule: Database["public"]["Enums"]["quality_rule"]
+          stat_definition_id?: number | null
         },
         Update: {
-          legal_unit_activity_category_id?: number | null
-          primary_establishment_activity_category_id?: number | null
-          primary_establishment_id?: number
-          unit_id?: number
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
-          valid_from?: string
-          valid_range?: string
-          valid_until?: string
+          rule?: Database["public"]["Enums"]["quality_rule"]
+          stat_definition_id?: number | null
         },
         Relationships: [
           {
-            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "statistical_unit"
-            referencedColumns: ["unit_id", "unit_type", "valid_range"]
-          },
-          {
-            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "activity_category_used_def"
+            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "country_used_def"
+            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_check"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_finding_def"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition_enabled"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "data_source_used_def"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "legal_form_used_def"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "region_used_def"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quality_establishment_activity_differs_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "sector_used_def"
+            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition_ordered"
             referencedColumns: ["id"]
           }
         ]
       },
-      quality_establishments_above_legal_unit: {
+      quality_finding: {
         Row: {
-          stats: Json
+          detail: Json | null
+          existence_from: string
+          existence_until: string
+          rule: Database["public"]["Enums"]["quality_rule"]
+          stat_definition_id: number | null
           unit_id: number
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           valid_from: string
@@ -3153,7 +3125,11 @@ export type Database = {
           valid_until: string
         },
         Insert: {
-          stats: Json
+          detail?: Json | null
+          existence_from: string
+          existence_until: string
+          rule: Database["public"]["Enums"]["quality_rule"]
+          stat_definition_id?: number | null
           unit_id: number
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           valid_from: string
@@ -3161,7 +3137,11 @@ export type Database = {
           valid_until: string
         },
         Update: {
-          stats?: Json
+          detail?: Json | null
+          existence_from?: string
+          existence_until?: string
+          rule?: Database["public"]["Enums"]["quality_rule"]
+          stat_definition_id?: number | null
           unit_id?: number
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
           valid_from?: string
@@ -3170,129 +3150,87 @@ export type Database = {
         },
         Relationships: [
           {
-            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            foreignKeyName: "quality_finding_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_finding_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "statistical_unit"
             referencedColumns: ["unit_id", "unit_type", "valid_range"]
           },
           {
-            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            foreignKeyName: "quality_finding_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            foreignKeyName: "quality_finding_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "country_used_def"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            foreignKeyName: "quality_finding_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "data_source_used_def"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            foreignKeyName: "quality_finding_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "legal_form_used_def"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            foreignKeyName: "quality_finding_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_check"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "quality_finding_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_finding_def"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "quality_finding_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_establishments_above_legal_unit_statistical_unit_fkey"
+            foreignKeyName: "quality_finding_statistical_unit_fkey"
             columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "sector_used_def"
             referencedColumns: ["id"]
-          }
-        ]
-      },
-      quality_legal_unit_above_establishments: {
-        Row: {
-          stats: Json
-          unit_id: number
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-          valid_from: string
-          valid_range: string
-          valid_until: string
-        },
-        Insert: {
-          stats: Json
-          unit_id: number
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-          valid_from: string
-          valid_range: string
-          valid_until: string
-        },
-        Update: {
-          stats?: Json
-          unit_id?: number
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
-          valid_from?: string
-          valid_range?: string
-          valid_until?: string
-        },
-        Relationships: [
-          {
-            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "statistical_unit"
-            referencedColumns: ["unit_id", "unit_type", "valid_range"]
           },
           {
-            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "activity_category_used_def"
+            foreignKeyName: "quality_finding_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition_enabled"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "country_used_def"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "data_source_used_def"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "legal_form_used_def"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "region_used_def"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quality_legal_unit_above_establishments_statistical_unit_fkey"
-            columns: ["unit_id", "unit_type", "valid_range"]
-            isOneToOne: true
-            referencedRelation: "sector_used_def"
+            foreignKeyName: "quality_finding_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition_ordered"
             referencedColumns: ["id"]
           }
         ]
@@ -3921,6 +3859,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "legal_unit__for_portion_of_valid"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_check"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_finding_def"
+            referencedColumns: ["stat_definition_id"]
           },
           {
             foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
@@ -9363,77 +9315,86 @@ export type Database = {
           }
         ]
       },
-      quality_establishment_activity_differs_def: {
+      quality_check: {
         Row: {
-          legal_unit_activity_category_id: number | null
-          primary_establishment_activity_category_id: number | null
-          primary_establishment_id: number | null
-          unit_id: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from: string | null
-          valid_until: string | null
+          on_dashboard: boolean | null
+          priority: number | null
+          rule: Database["public"]["Enums"]["quality_rule"] | null
+          stat_definition_id: number | null
         },
         Insert: {
-          legal_unit_activity_category_id?: number | null
-          primary_establishment_activity_category_id?: number | null
-          primary_establishment_id?: number | null
-          unit_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from?: string | null
-          valid_until?: string | null
+          on_dashboard?: boolean | null
+          priority?: number | null
+          rule?: Database["public"]["Enums"]["quality_rule"] | null
+          stat_definition_id?: number | null
         },
         Update: {
-          legal_unit_activity_category_id?: number | null
-          primary_establishment_activity_category_id?: number | null
-          primary_establishment_id?: number | null
-          unit_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from?: string | null
-          valid_until?: string | null
+          on_dashboard?: boolean | null
+          priority?: number | null
+          rule?: Database["public"]["Enums"]["quality_rule"] | null
+          stat_definition_id?: number | null
         },
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_check"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_finding_def"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_check_switched_off_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition_ordered"
+            referencedColumns: ["id"]
+          }
+        ]
       },
-      quality_establishments_above_legal_unit_def: {
+      quality_finding_def: {
         Row: {
-          stats: Json | null
+          detail: Json | null
+          rule: Database["public"]["Enums"]["quality_rule"] | null
+          stat_definition_id: number | null
           unit_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_from: string | null
           valid_until: string | null
         },
         Insert: {
-          stats?: Json | null
+          detail?: Json | null
+          rule?: Database["public"]["Enums"]["quality_rule"] | null
+          stat_definition_id?: number | null
           unit_id?: number | null
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_from?: string | null
           valid_until?: string | null
         },
         Update: {
-          stats?: Json | null
-          unit_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from?: string | null
-          valid_until?: string | null
-        },
-        Relationships: []
-      },
-      quality_legal_unit_above_establishments_def: {
-        Row: {
-          stats: Json | null
-          unit_id: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from: string | null
-          valid_until: string | null
-        },
-        Insert: {
-          stats?: Json | null
-          unit_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from?: string | null
-          valid_until?: string | null
-        },
-        Update: {
-          stats?: Json | null
+          detail?: Json | null
+          rule?: Database["public"]["Enums"]["quality_rule"] | null
+          stat_definition_id?: number | null
           unit_id?: number | null
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_from?: string | null
@@ -9949,6 +9910,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "legal_unit__for_portion_of_valid"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_check"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_finding_def"
+            referencedColumns: ["stat_definition_id"]
           },
           {
             foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
@@ -15360,13 +15335,15 @@ export type Database = {
           isSetofReturn: true
         }
       },
-      quality_establishment_activity_differs_derive: {
+      quality_finding_derive: {
         Args: Record<string, never>
         Returns: unknown
       },
-      quality_legal_unit_establishments_derive: {
-        Args: Record<string, never>
-        Returns: unknown
+      quality_rule_per_stat: {
+        Args: {
+          rule?: Database["public"]["Enums"]["quality_rule"]
+        }
+        Returns: boolean
       },
       range: {
         Args: Record<string, never>
@@ -15721,6 +15698,14 @@ export type Database = {
           p_unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
         }
         Returns: Json
+      },
+      statistical_unit_quality: {
+        Args: {
+          quality_rule?: Database["public"]["Enums"]["quality_rule"]
+          valid_on?: string
+          quality_stat_definition_id?: number
+        }
+        Returns: Database["public"]["Tables"]["statistical_unit"]["Row"][]
       },
       statistical_unit_stats: {
         Args: {
@@ -16188,6 +16173,13 @@ export type Database = {
       location_type: "physical" | "postal",
       person_sex: "Male" | "Female",
       power_group_root_status: "single" | "cycle" | "multi",
+      quality_rule: 
+          | "missing_region"
+          | "missing_activity_category"
+          | "missing_physical_location"
+          | "establishment_activity_differs"
+          | "establishments_above_legal_unit"
+          | "legal_unit_above_establishments",
       release_builds_status_type: "building" | "ready" | "failed",
       release_status_type: "commit" | "prerelease" | "release",
       reset_scope: "units" | "getting-started" | "customisation",
@@ -16443,6 +16435,14 @@ export const Constants = {
       location_type: ["physical", "postal"],
       person_sex: ["Male", "Female"],
       power_group_root_status: ["single", "cycle", "multi"],
+      quality_rule: [
+        "missing_region",
+        "missing_activity_category",
+        "missing_physical_location",
+        "establishment_activity_differs",
+        "establishments_above_legal_unit",
+        "legal_unit_above_establishments"
+      ],
       release_builds_status_type: ["building", "ready", "failed"],
       release_status_type: ["commit", "prerelease", "release"],
       reset_scope: ["units", "getting-started", "customisation"],

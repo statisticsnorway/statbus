@@ -1,6 +1,8 @@
 import { generateFTSQuery } from "@/app/search/generate-fts-query";
 import { SearchAction, Condition, ConditionalValue } from "../search";
 import { Tables } from "@/lib/database.types";
+import { parseQualityCheckParam, qualityCheckParam } from "@/lib/quality-checks";
+import { QUALITY_CHECK_PARAM } from "@/app/search/quality-search";
 
 // Each filter below becomes a PostgREST condition on statistical_unit (api_param_name, api_param_value).
 // Every such condition is served by a statistical_unit index built on exactly that expression,
@@ -293,47 +295,13 @@ export function lastEditByUserDeriveStateUpdateFromValues(
   return result;
 }                               
 
-// Quality (xz3jej): checks that list units to look at. Each check is a table public.quality_<check>,
-// joined one-to-one from statistical_unit by a NOT ENFORCED foreign key (see the table's COMMENT).
-// The app parameter quality=<check> becomes the inner embed of that table, which keeps only the
-// statistical_unit rows the check lists and adds no field to a row. QUALITY_CHECKS names every
-// check the search knows; any other value is ignored.
+// Quality (05pe0x): the app parameter quality=<rule>[:<stat code>] names one check of
+// public.quality_check (lib/quality-checks.ts). It becomes the API parameter quality_check, which
+// search-requests.ts resolves before the request: the check's count at the time frame chooses
+// whether the list is read from the check's findings (rpc/statistical_unit_quality) or from
+// statistical_unit in the page's order with the findings embedded (app/search/quality-search.ts).
+// A value that names no rule is ignored.
 export const QUALITY = "quality";
-
-export const QUALITY_CHECKS = {
-  establishment_activity_differs: {
-    label: "Primary establishment has another activity",
-    shortLabel: "Activity differs",
-  },
-  // ca6dk5: a legal unit's values cover its establishments (public.jsonb_stats_covers); these two
-  // list where the levels disagree (see each table's COMMENT).
-  establishments_above_legal_unit: {
-    label: "Establishments add up to more than their legal unit",
-    shortLabel: "Establishments above legal unit",
-  },
-  legal_unit_above_establishments: {
-    label: "Legal unit above its establishments, all with values",
-    shortLabel: "Legal unit above establishments",
-  },
-} as const;
-
-export type QualityCheck = keyof typeof QUALITY_CHECKS;
-
-export function isQualityCheck(value: string | null): value is QualityCheck {
-  return value !== null && Object.prototype.hasOwnProperty.call(QUALITY_CHECKS, value);
-}
-
-export function qualitySelect(check: QualityCheck): string {
-  return `*,quality_${check}!inner()`;
-}
-
-/**
- * The Statistical Units list a Data quality card for a check on legal units opens: the legal units
- * the check lists, the same set the card counts (LegalUnitQualityCheckCard).
- */
-export function qualityCheckHref(check: QualityCheck): string {
-  return `/search?unit_type=legal_unit&${QUALITY}=${check}`;
-}
 
 export function qualityDeriveStateUpdateFromSearchParams(
   urlSearchParams: URLSearchParams
@@ -342,14 +310,15 @@ export function qualityDeriveStateUpdateFromSearchParams(
 }
 
 export function qualityDeriveStateUpdateFromValues(value: string | null): SearchAction {
-  const check = isQualityCheck(value) ? value : null;
+  const check = parseQualityCheckParam(value);
+  const param = check ? qualityCheckParam(check.rule, check.statCode) : null;
   return {
     type: "set_query",
     payload: {
       app_param_name: QUALITY,
-      api_param_name: "select",
-      api_param_value: check ? qualitySelect(check) : null,
-      app_param_values: check ? [check] : [],
+      api_param_name: QUALITY_CHECK_PARAM,
+      api_param_value: param,
+      app_param_values: param ? [param] : [],
     },
   } as SearchAction;
 }

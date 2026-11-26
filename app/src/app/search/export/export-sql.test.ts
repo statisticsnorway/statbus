@@ -242,29 +242,37 @@ describe("composeExportSql", () => {
     expect(countSql).toContain("< '150'::jsonb");
   });
 
-  it("keeps the rows a quality check keeps (xz3jej)", () => {
+  it("keeps the rows a quality check lists at the time frame (05pe0x)", () => {
     const params = new URLSearchParams({
-      select: "*,quality_establishment_activity_differs!inner()",
+      quality_check: "establishments_above_legal_unit:employees",
       unit_type: "in.(legal_unit)",
+      existence_from: "lte.2026-11-24",
+      existence_until: "gt.2026-11-24",
     });
     const { selectSql, countSql } = composeExportSql(params, config);
-    const condition = `EXISTS (SELECT 1 FROM public."quality_establishment_activity_differs" AS q
-    WHERE q.unit_type = su.unit_type AND q.unit_id = su.unit_id AND q.valid_range = su.valid_range)`;
-    expect(whereConditions(params)).toEqual([
-      condition,
-      `su."unit_type" = ANY('{"legal_unit"}')`,
-    ]);
+    const condition = `EXISTS (SELECT 1 FROM public.quality_finding AS f
+    WHERE f.rule = 'establishments_above_legal_unit' AND f.stat_definition_id = (SELECT sd.id FROM public.stat_definition AS sd WHERE sd.code = 'employees')
+      AND f.existence_from <= '2026-11-24' AND '2026-11-24' < f.existence_until
+      AND f.unit_type = su.unit_type AND f.unit_id = su.unit_id AND f.valid_range = su.valid_range)`;
+    expect(whereConditions(params)).toContain(condition);
     expect(selectSql).toContain(condition);
     expect(countSql).toContain(condition);
   });
 
-  it("reads select=* as every row and refuses any other select, an unknown quality check too", () => {
+  it("names no variable for a check that has none", () => {
+    const conditions = whereConditions(
+      new URLSearchParams({ quality_check: "missing_region", existence_from: "lte.2026-11-24", existence_until: "gt.2026-11-24" })
+    );
+    expect(conditions[0]).toContain("f.rule = 'missing_region' AND f.stat_definition_id IS NULL");
+  });
+
+  it("reads select=* as every row and refuses any other select, and an unknown quality check", () => {
     expect(whereConditions(new URLSearchParams({ select: "*" }))).toEqual([]);
     expect(() =>
       whereConditions(new URLSearchParams({ select: "name" }))
     ).toThrow(ExportQueryError);
     expect(() =>
-      whereConditions(new URLSearchParams({ select: "*,quality_unknown_check!inner()" }))
+      whereConditions(new URLSearchParams({ quality_check: "unknown_check", existence_from: "lte.2026-11-24" }))
     ).toThrow(ExportQueryError);
   });
 });

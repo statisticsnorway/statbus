@@ -6,6 +6,7 @@ import {
   BarChart3,
   ChevronRight,
   Database,
+  Gauge,
   Hash,
   Power,
   Proportions,
@@ -56,6 +57,12 @@ export default function AdminPage() {
       description: "Configure activity category standards",
       href: "/admin/activity-category-settings",
       icon: ScrollText,
+    },
+    {
+      title: "Data Quality Checks",
+      description: "Choose which data quality checks the dashboard shows",
+      href: "/admin/quality-checks",
+      icon: Gauge,
     },
   ];
 

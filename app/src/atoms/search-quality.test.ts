@@ -27,47 +27,39 @@ import {
   qualityDeriveStateUpdateFromSearchParams,
 } from "../app/search/filters/url-search-params";
 
-// xz3jej: a Data quality card links to /search?unit_type=legal_unit&quality=<check>. The search
-// turns that parameter into the inner embed of the check's table public.quality_<check>, the
-// same one the card counts with.
+// 05pe0x: a Data quality card links to /search?unit_type=...&quality=<rule>[:<stat code>]. The search
+// carries the check as the API parameter quality_check, which search-requests.ts resolves by the
+// check's count into the PostgREST resource (app/search/quality-search.ts, its own tests).
 describe("quality search filter", () => {
-  it("reads a known check from the URL", () => {
+  it("reads a check without a variable from the URL", () => {
     const action = qualityDeriveStateUpdateFromSearchParams(
-      new URLSearchParams(
-        "unit_type=legal_unit&quality=establishment_activity_differs"
-      )
+      new URLSearchParams("unit_type=legal_unit&quality=establishment_activity_differs")
     );
     expect(action).toEqual({
       type: "set_query",
       payload: {
         app_param_name: QUALITY,
-        api_param_name: "select",
-        api_param_value: "*,quality_establishment_activity_differs!inner()",
+        api_param_name: "quality_check",
+        api_param_value: "establishment_activity_differs",
         app_param_values: ["establishment_activity_differs"],
       },
     });
   });
 
-  it.each([
-    "establishments_above_legal_unit",
-    "legal_unit_above_establishments",
-  ])(
-    "reads the legal unit and establishment check %s as its table's inner embed (ca6dk5)",
-    (check) => {
-      const action = qualityDeriveStateUpdateFromSearchParams(
-        new URLSearchParams(`unit_type=legal_unit&quality=${check}`)
-      );
-      expect(action).toEqual({
-        type: "set_query",
-        payload: {
-          app_param_name: QUALITY,
-          api_param_name: "select",
-          api_param_value: `*,quality_${check}!inner()`,
-          app_param_values: [check],
-        },
-      });
-    }
-  );
+  it("reads a per-variable check with its variable code from the URL", () => {
+    const action = qualityDeriveStateUpdateFromSearchParams(
+      new URLSearchParams("unit_type=legal_unit&quality=establishments_above_legal_unit:employees")
+    );
+    expect(action).toEqual({
+      type: "set_query",
+      payload: {
+        app_param_name: QUALITY,
+        api_param_name: "quality_check",
+        api_param_value: "establishments_above_legal_unit:employees",
+        app_param_values: ["establishments_above_legal_unit:employees"],
+      },
+    });
+  });
 
   it("ignores a check it does not know", () => {
     const action = qualityDeriveStateUpdateFromSearchParams(
@@ -77,33 +69,32 @@ describe("quality search filter", () => {
       type: "set_query",
       payload: {
         app_param_name: QUALITY,
-        api_param_name: "select",
+        api_param_name: "quality_check",
         api_param_value: null,
         app_param_values: [],
       },
     });
   });
 
-  it("sends the check's inner embed to PostgREST with the other filters", () => {
+  it("sends the check with the other filters and the time frame", () => {
     const store = createStore();
     store.set(filtersAtom, {
-      unit_type: ["legal_unit"],
-      [QUALITY]: ["establishment_activity_differs"],
+      unit_type: ["legal_unit", "establishment"],
+      [QUALITY]: ["missing_region"],
     });
     const params = store.get(derivedApiSearchParamsAtom);
-    expect(params.get("select")).toBe(
-      "*,quality_establishment_activity_differs!inner()"
-    );
-    expect(params.get("unit_type")).toBe("in.(legal_unit)");
+    expect(params.get("quality_check")).toBe("missing_region");
+    expect(params.has("select")).toBe(false);
+    expect(params.get("unit_type")).toBe("in.(legal_unit,establishment)");
     expect(params.get("existence_from")).toBe("lte.2026-11-18");
     expect(params.get("existence_until")).toBe("gt.2026-11-18");
   });
 
-  it("sends no select once the check is cleared", () => {
+  it("sends no check once it is cleared", () => {
     const store = createStore();
     store.set(filtersAtom, { unit_type: ["legal_unit"], [QUALITY]: [] });
     const params = store.get(derivedApiSearchParamsAtom);
-    expect(params.has("select")).toBe(false);
+    expect(params.has("quality_check")).toBe(false);
     expect(params.get("unit_type")).toBe("in.(legal_unit)");
   });
 });

@@ -93,6 +93,7 @@ export function OptionsFilter({
                   ) : null}
                   {option.icon}
                   <span>{option.label}</span>
+                  {option.info}
                 </CommandItem>
               ))}
             </CommandGroup>

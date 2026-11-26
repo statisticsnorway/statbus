@@ -34,7 +34,8 @@
  * what silently dropped 29,470 rows in Phase 1).
  */
 
-import { isQualityCheck } from "@/app/search/filters/url-search-params";
+import { parseQualityCheckParam } from "@/lib/quality-checks";
+import { QUALITY_CHECK_PARAM } from "@/app/search/quality-search";
 
 export class ExportQueryError extends Error {
   constructor(message: string) {
@@ -70,21 +71,32 @@ export interface ExportSql {
 const IGNORED_PARAMS = new Set(["limit", "offset", "format"]);
 
 /**
- * The search page's `select` values and the row filter each one means. The search sends no
- * select (PostgREST's `*`) unless a quality check adds the inner embed of its table
- * (quality=<check>), which keeps only the statistical_unit rows the check lists; the export keeps
- * the same rows with the same join. Any other select is refused, so an export never ignores a
- * filter the list used.
+ * The search page sends no select (PostgREST's `*`); any other select is refused, so an export never
+ * ignores a filter the list used.
  */
 function selectFilter(value: string): string | null {
   if (value === "*") return null;
-  const check = /^\*,quality_([a-z_]+)!inner\(\)$/.exec(value)?.[1] ?? null;
-  if (check && isQualityCheck(check)) {
-    const table = quoteIdent(`quality_${check}`);
-    return `EXISTS (SELECT 1 FROM public.${table} AS q
-    WHERE q.unit_type = su.unit_type AND q.unit_id = su.unit_id AND q.valid_range = su.valid_range)`;
-  }
   throw new ExportQueryError(`Unsupported export select: ${value}`);
+}
+
+/**
+ * The rows a quality search lists (quality_check=<rule>[:<stat code>], app/search/quality-search.ts):
+ * the statistical_unit rows the check's findings name at the export's time frame, the same set the
+ * search page lists by either of its two paths. The time frame is the existence filter's instant,
+ * which the export also applies to statistical_unit.
+ */
+function qualityCheckFilter(value: string, params: URLSearchParams): string {
+  const check = parseQualityCheckParam(value);
+  if (!check) throw new ExportQueryError(`Unknown quality check: ${value}`);
+  const validOn = /^lte\.(.+)$/.exec(params.get("existence_from") ?? "")?.[1];
+  if (!validOn) throw new ExportQueryError("A quality export needs the time frame (existence_from)");
+  const variable = check.statCode
+    ? `f.stat_definition_id = (SELECT sd.id FROM public.stat_definition AS sd WHERE sd.code = ${quoteLiteral(check.statCode)})`
+    : "f.stat_definition_id IS NULL";
+  return `EXISTS (SELECT 1 FROM public.quality_finding AS f
+    WHERE f.rule = ${quoteLiteral(check.rule)} AND ${variable}
+      AND f.existence_from <= ${quoteLiteral(validOn)} AND ${quoteLiteral(validOn)} < f.existence_until
+      AND f.unit_type = su.unit_type AND f.unit_id = su.unit_id AND f.valid_range = su.valid_range)`;
 }
 
 /**
@@ -445,6 +457,10 @@ export function whereConditions(params: URLSearchParams): string[] {
     if (key === "select") {
       const condition = selectFilter(value);
       if (condition) conditions.push(condition);
+      continue;
+    }
+    if (key === QUALITY_CHECK_PARAM) {
+      conditions.push(qualityCheckFilter(value, params));
       continue;
     }
     conditions.push(filterCondition(key, value));
