@@ -15,11 +15,7 @@ origin: "backlog:STATBUS-550"
 aliases: ["STATBUS-550"]
 type: "feature"
 created: "2026-06-16 08:04"
-design_question: "This task is the rc.03 finalize step (revert defer-checkout, cut a config-drift-only RC); releases have since moved on to v2026.11.6 stable. Drop it as done by later releases, or is any of its three checks still open?"
-design_for: "jhf"
-design_since: "2026-11-22T23:31"
-design_asked_by: "hibiscus"
-stage: "design"
+stage: "ready"
 ---
 
 ## Goal
@@ -62,6 +58,8 @@ git revert 2f52f3b7f + bb4848dd4 (keep f29e03a60 unless King says otherwise) →
 ## Questions
 - 2026-11-22T23:31 question 1 by hibiscus to jhf:
   This task is the rc.03 finalize step (revert defer-checkout, cut a config-drift-only RC); releases have since moved on to v2026.11.6 stable. Drop it as done by later releases, or is any of its three checks still open?
+  answered 2026-11-26T22:57 by jhf:
+    I agree, drop this as done
 
 
 ## Requests
@@ -77,3 +75,6 @@ git revert 2f52f3b7f + bb4848dd4 (keep f29e03a60 unless King says otherwise) →
 - 2026-11-26T22:53 request 1 acknowledged by rabbit
 - 2026-11-26T22:54 request 1 in progress by rabbit: hug task set y9jbvp
 - 2026-11-26T22:54 resolved request 1 by rabbit
+- 2026-11-26T22:57 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
+  > This task is the rc.03 finalize step (revert defer-checkout, cut a config-drift-only RC); releases have since moved on to v2026.11.6 stable. Drop it as done by later releases, or is any of its three checks still open?
+  I agree, drop this as done
