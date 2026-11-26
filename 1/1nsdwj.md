@@ -12,10 +12,13 @@ created: 2026-11-22
 updated: 2026-11-22
 doing_since: "2026-11-26T21:28"
 doing_with: "ca6dk5"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+waiting_asked_by: "rabbit"
+waiting_on: "rc.02 reaching Norway (owner: the Norway gate is the real-guest check)"
+waiting_since: "2026-11-27T00:00"
 ---
 
 ## Goal
@@ -56,3 +59,4 @@ landed 182a7bf on master 2026-11-26: test: 002 and the security report list sql_
 check 7: Fast SQL suite passes on 1.15: CI run on 182a7bfb7, Fast Tests success (the first run on 7e99979ed failed only on 002 and the security report, which list sql_saga's catalog; regenerated in 182a7bfb7). All other workflows green.
 ## History
 - 2026-11-26T21:28 todo -> doing/active (take with ca6dk5)
+- 2026-11-27T00:00 doing/active -> doing/waiting (wait)
