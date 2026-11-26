@@ -21,7 +21,7 @@ worktree: "/Users/jhf/ssb/statbus_b"
 Coordinates are named latitude, longitude and altitude everywhere, for regions and units, and postal addresses carry none.
 
 ## Purpose
-Owner 2026-11-23 (his boss's decision): the center_ and physical_ prefixes over-communicate, and a postal address needs no coordinates; one plain name lets map code and API users read one field.
+Owner 2026-11-23 and 2026-11-26: coordinates exist only for physical locations, so the physical_ prefix names no real distinction and center_ over-communicates; postal addresses need none. One set of names lets map code and API users read the same fields everywhere.
 
 ## Principle
 One forward migration with no lasting aliases; postal coordinate columns are dropped, not renamed; an outline, if it ever comes, is a geometry of its own (e.g. boundary).
