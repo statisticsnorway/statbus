@@ -1,17 +1,16 @@
 ---
 id: zamdqe
 title: "Unit pages use the width they need, not always the full screen"
-state: "doing"
+state: "todo"
 type: feature
 priority: ""
-assignee: ["ladybug"]
+assignee: []
 labels: []
 group: ""
 rank: "zzzzzzzzzzzz"
 created: 2026-11-26
 updated: 2026-11-26
-doing_since: "2026-11-26T11:05"
-stage: "active"
+stage: "ready"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
@@ -40,3 +39,4 @@ Hedda's change: details-page-layout.tsx max-w removed, address parts in one row 
 2026-11-26 10:38 rabbit takes over from ladybug (stopped: one directory per agent); its uncommitted edits in ~/ssb/statbus are the starting point.
 ## History
 - 2026-11-26T11:05 todo -> doing/active (take)
+- 2026-11-26T11:38 doing/active -> todo/ready (give back; was assignee: ladybug); was doing_since: 2026-11-26T11:05
