@@ -8,11 +8,17 @@ import { restClientAtom } from "@/atoms/rest-client";
 import { RegionPlacer } from "@/components/map/region-placer";
 
 /**
- * The regions with their centre. A region without one shows "Not set", and an admin, who may
- * change regions, gets "Place on map" there: an OpenStreetMap search by the region's name to
- * check on the map and save (owner 2026-11-23, z2qt08).
+ * The regions: code, name and level, the columns every country needs (owner 2026-11-22, 5yxn4w).
+ * `advanced` adds the optional centre: latitude, longitude and altitude. A region without a centre
+ * shows "Not set", and an admin, who may change regions, gets "Place on map" there: an
+ * OpenStreetMap search by the region's name to check on the map and save (owner 2026-11-23,
+ * z2qt08).
  */
-const RegionTable = ({ regions, onChanged }: RegionTableProps & { onChanged?: () => void }) => {
+const RegionTable = ({
+  regions,
+  onChanged,
+  advanced,
+}: RegionTableProps & { onChanged?: () => void; advanced: boolean }) => {
   const { canAccessAdminTools } = usePermission();
   const client = useAtomValue(restClientAtom);
   // The installation's country narrows the place search to it.
@@ -36,40 +42,57 @@ const RegionTable = ({ regions, onChanged }: RegionTableProps & { onChanged?: ()
       <TableHeader className="bg-gray-50">
         <TableRow>
           <TableCell>Code</TableCell>
-          <TableCell>Path</TableCell>
           <TableCell>Name</TableCell>
-          <TableCell className="text-right">Latitude</TableCell>
-          <TableCell className="text-right">Longitude</TableCell>
+          <TableCell className="text-right">Level</TableCell>
+          {advanced ? (
+            <>
+              <TableCell className="text-right">Latitude</TableCell>
+              <TableCell className="text-right">Longitude</TableCell>
+              <TableCell className="text-right">Altitude</TableCell>
+            </>
+          ) : (
+            <TableCell className="text-right">Centre</TableCell>
+          )}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {regions.map(({ id, code, path, name, center_latitude, center_longitude }) => (
-          <TableRow key={id} data-region-row={String(path)}>
-            <TableCell className="py-3 lg:w-36">{code}</TableCell>
-            <TableCell className="py-3 lg:w-36">{String(path)}</TableCell>
-            <TableCell className="py-3 overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-72 max-w-52">
-              {name}
-            </TableCell>
-            {center_latitude != null && center_longitude != null ? (
-              <>
-                <TableCell className="py-3 text-right tabular-nums">{center_latitude}</TableCell>
-                <TableCell className="py-3 text-right tabular-nums">{center_longitude}</TableCell>
-              </>
-            ) : (
-              <TableCell colSpan={2} className="py-2 text-right">
-                {canAccessAdminTools && client ? (
-                  <RegionPlacer
-                    region={{ name, path: String(path), latitude: null, longitude: null }}
-                    countryCode={countryCode ?? null}
-                    onSave={(point) => saveCentre(id, point)}
-                  />
-                ) : (
-                  <span className="text-gray-500">Not set</span>
-                )}
+        {regions.map(({ id, code, path, name, level, center_latitude, center_longitude, center_altitude }) => {
+          const placed = center_latitude != null && center_longitude != null;
+          return (
+            <TableRow key={id} data-region-row={String(path)}>
+              <TableCell className="py-3 lg:w-36">{code}</TableCell>
+              <TableCell className="py-3 overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-72 max-w-52">
+                {name}
               </TableCell>
-            )}
-          </TableRow>
-        ))}
+              <TableCell className="py-3 text-right tabular-nums">{level}</TableCell>
+              {placed ? (
+                advanced ? (
+                  <>
+                    <TableCell className="py-3 text-right tabular-nums">{center_latitude}</TableCell>
+                    <TableCell className="py-3 text-right tabular-nums">{center_longitude}</TableCell>
+                    <TableCell className="py-3 text-right tabular-nums">
+                      {center_altitude ?? <span className="text-gray-500">Not set</span>}
+                    </TableCell>
+                  </>
+                ) : (
+                  <TableCell className="py-3 text-right">Set</TableCell>
+                )
+              ) : (
+                <TableCell colSpan={advanced ? 3 : 1} className="py-2 text-right">
+                  {canAccessAdminTools && client ? (
+                    <RegionPlacer
+                      region={{ name, path: String(path), latitude: null, longitude: null }}
+                      countryCode={countryCode ?? null}
+                      onSave={(point) => saveCentre(id, point)}
+                    />
+                  ) : (
+                    <span className="text-gray-500">Not set</span>
+                  )}
+                </TableCell>
+              )}
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
