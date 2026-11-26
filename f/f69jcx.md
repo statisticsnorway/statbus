@@ -1,15 +1,21 @@
 ---
 id: f69jcx
 title: "Download menu states the row count once; a finished download is a notification"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzn"
 created: 2026-11-26
 updated: 2026-11-26
+doing_since: "2026-11-26T11:50"
+doing_with: "ca6dk5"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -32,3 +38,7 @@ Search: app/src/app/search/components/search-export-csv-link.tsx and export/use-
 - [ ] Unit history and import data downloads show the same menu shape and the same toast
 
 ## Notes
+
+
+## History
+- 2026-11-26T11:50 todo -> doing/active (take with ca6dk5)
