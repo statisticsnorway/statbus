@@ -34,7 +34,7 @@ Inputs that decide counting today, to enumerate: statistical_unit.used_for_count
 ## Acceptance
 - [x] A note on this task names the commit(s) that changed the birth/death condition, with the before and after SQL, the ticket and model trailer, and the test whose expected output changed with it
 - [x] A note states today's complete counting rule as the code implements it, input by input, with the defining function names
-- [ ] [Owner] reads the findings and decides whether to restore the old rule; recorded in Notes
+- [x] [Owner] reads the findings and decides whether to restore the old rule; recorded in Notes
 
 ## Notes
 
@@ -45,5 +45,6 @@ TODAY'S COUNTING INPUTS: (a) status.used_for_counting (renamed from include_unit
 check 1: Notes: the existence rule (a64f4ad38, test 351) is intact; no commit removed birth/death; the gap is rollups never applying it; nearest change 6561172b7 ca6dk5 claude-opus-5-5/high with before/after SQL and expected outputs 109/302/303/306/309/310
 check 2: Note 'TODAY'S COUNTING INPUTS' lists each input with defining function
 Rabbit's sharpened question answered: the establishment aggregation behind a LU total (timeline_legal_unit_def(_for) CTE establishment_aggs) and the enterprise/power-group aggregations NEVER applied the existence rule. Evidence: a64f4ad38 (STATBUS-460) touches no timeline_*_def / establishment_aggs (0 matches in its up migration); across every migration commit touching establishment_aggs/timeline_legal_unit_def/timeline_enterprise_def, no added or removed line compares tes/tlu birth_date/death_date or calls unit_existence_from/until on a child. Nothing was dropped: STATBUS-460 never reached the rollups. statistical_unit's own counting columns (used_for_counting, included_/excluded_*_ids) also do not apply existence: they come from status (st.used_for_counting) and child validity overlap (from_until_overlaps) only; existence is applied by readers (cards, list, history deltas, drilldown, establishment_hierarchy/Links tree, quality).
+check 3: Owner 2026-11-26 21:46: no restore needed (nothing was dropped). The rule (STATBUS-460, test 351) is applied to the timelines' used_for_counting instead, with birth and death as timepoints, so the rollups follow it (f2gx3m, lobster).
 ## History
 - 2026-11-26T22:28 todo -> doing/active (take)
