@@ -10,10 +10,6 @@ group: ""
 rank: "zzzzzzzzh"
 created: 2026-11-23
 updated: 2026-11-23
-design_for: "jhf"
-design_since: "2026-11-23T11:47"
-design_asked_by: "hibiscus"
-design_question: "Old headers in upload files: region files with center_latitude/longitude/altitude and unit files with physical_latitude/longitude/altitude (Erik's coordinate files use those) stop matching after the rename. Refuse them with a message naming the new headers, or accept them for one release before refusing?"
 stage: "depends"
 ---
 
@@ -43,6 +39,8 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 ## Questions
 - 2026-11-23T11:47 question 1 by hibiscus to jhf:
   Old headers in upload files: region files with center_latitude/longitude/altitude and unit files with physical_latitude/longitude/altitude (Erik's coordinate files use those) stop matching after the rename. Refuse them with a message naming the new headers, or accept them for one release before refusing?
+  answered 2026-11-26T21:42 by hibiscus:
+    Refuse old headers with a message naming the new ones; a clean cut (owner 2026-11-26 20:41).
 
 ## Notes
 
@@ -51,3 +49,6 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
+- 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
+  > Old headers in upload files: region files with center_latitude/longitude/altitude and unit files with physical_latitude/longitude/altitude (Erik's coordinate files use those) stop matching after the rename. Refuse them with a message naming the new headers, or accept them for one release before refusing?
+  Refuse old headers with a message naming the new ones; a clean cut (owner 2026-11-26 20:41).
