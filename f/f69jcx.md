@@ -33,12 +33,13 @@ Search: app/src/app/search/components/search-export-csv-link.tsx and export/use-
 ## Depends on
 
 ## Acceptance
-- [ ] On /search the Download menu shows the row count once above CSV and Excel (.xlsx), observed in a driven browser on the Norway copy
+- [x] On /search the Download menu shows the row count once above CSV and Excel (.xlsx), observed in a driven browser on the Norway copy
 - [ ] After a completed download a toast says 'Downloaded N rows in Ts' and the Download button carries no completion text
 - [ ] Unit history and import data downloads show the same menu shape and the same toast
 
 ## Notes
 
 
+check 1: Owner approved in Firefox 2026-11-26 12:25 on the Norway copy (local slot): search Download shows '11 010 rows' once above CSV and Excel (.xlsx).
 ## History
 - 2026-11-26T11:50 todo -> doing/active (take with ca6dk5)
