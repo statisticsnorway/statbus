@@ -1,19 +1,21 @@
 ---
 id: zamdqe
 title: "Unit pages use the width they need, not always the full screen"
-state: "todo"
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzz"
 created: 2026-11-26
 updated: 2026-11-26
-stage: "ready"
+stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+doing_since: "2026-11-26T11:38"
+doing_with: "ca6dk5"
 ---
 
 ## Goal
@@ -40,3 +42,4 @@ Hedda's change: details-page-layout.tsx max-w removed, address parts in one row 
 ## History
 - 2026-11-26T11:05 todo -> doing/active (take)
 - 2026-11-26T11:38 doing/active -> todo/ready (give back; was assignee: ladybug); was doing_since: 2026-11-26T11:05
+- 2026-11-26T11:38 todo/ready -> doing/active (take with ca6dk5)
