@@ -29,7 +29,7 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 
 - z2qt08
 ## Acceptance
-- [ ] /regions shows code, name and level; with Advanced on it also shows centre latitude, longitude and altitude; shown in a driven browser run (screenshot in the task) with the columns and one region's values
+- [x] /regions shows code, name and level; with Advanced on it also shows centre latitude, longitude and altitude; shown in a driven browser run (screenshot in the task) with the columns and one region's values
 - [ ] The region upload page shows the plain columns in its instructions and example, and the centre columns under Advanced; shown in a driven browser run for both views
 - [x] Uploading a region file with centre coordinates stores them; a SQL test asserts the stored values
 - [ ] /regions filters All, With coordinates and Without coordinates; the counts shown match the region table (SQL count recorded in the task)
@@ -60,6 +60,7 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 check 3: test/sql/100_regions_with__itudes.sql uploads regions through public.region_upload with center_latitude/longitude/altitude and asserts the stored values (expected/100 lines 121-122: Oslo 59.913868 10.752245 23.0; Rogaland 58.969975 5.733107 50.0); also rejects out-of-range values. Existing test, part of the fast suite.
 Owner 2026-11-26 12:24: next, after the list's view/edit lands: the region upload must show how to add coordinates in batch (upload with center_latitude/longitude/altitude). Later, region kind (5necw2) says which regions get no coordinates.
 Owner 2026-11-26 12:44 approved the Regions list: Code, Name, Level; Coordinates switch (right-aligned, on when any region has a centre, limit-1 existence check); coordinate filter as dropdown; one 'Coordinates (lat, lon)' column with Show and Edit (unit's LocationPicker, subject region; Edit for admins saves centre). Map button only in coordinates mode with a centre. Commits e00013a2c, ceb45c2d4, 242bccf77. Checked in tab 61 on the test slot: opens on (393 of 417 have centres), switch stays at x=1447 on and off, Show/Edit dialogs read back.
+check 1: Owner approved 2026-11-26 12:44 (wording now: Coordinates switch instead of Advanced, one 'Coordinates (lat, lon)' column with altitude when set). Driven run in tab 61, test slot: switch off shows Code | Name | Level; on shows Code | Name | Level | Coordinates (lat, lon), e.g. Eigersund 58.463409, 5.975909.
 ## History
 - 2026-11-23T13:58 todo -> todo/depends (ask)
 - 2026-11-23T16:12 answered design, by jhf, for hibiscus (todo/depends -> todo/depends):
