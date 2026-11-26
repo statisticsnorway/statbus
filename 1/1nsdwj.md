@@ -22,7 +22,7 @@ worktree: "/Users/jhf/ssb/statbus"
 Every StatBus database runs sql_saga 1.15, upgraded from 1.6, with edit_by_user_id and edit_at as provenance columns.
 
 ## Purpose
-sql_saga 1.12 brings provenance columns for edit_by_user_id and edit_at (k5q120) and fixes numeric rounding in temporal_merge before 1.11. Message from the sql_saga agent 2026-11-22, relayed by the owner.
+sql_saga 1.9/1.10 bring provenance columns, so edit_by_user_id and edit_at are stamped per changed piece (k5q120); 1.11 stores numeric values exactly; 1.13-1.15 add era drop protection, one natural key value per entity and safe concurrent merges.
 
 ## Principle
 One direct upgrade script from any release since 1.0; per database: new package, restart PostgreSQL, ALTER EXTENSION sql_saga UPDATE, SELECT sql_saga.check_integrity().
