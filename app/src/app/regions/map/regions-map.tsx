@@ -605,7 +605,7 @@ export function RegionsMap({
               <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">Not on the map</h2>
               {selection === "" && world.domesticWithoutRegion > 0 && (
                 <SearchRow
-                  href={searchHref({ quality: "domestic_without_region" })}
+                  href={searchHref({ quality: "missing_region" })}
                   title={`View and download the units in ${nameOf("")} without a region`}
                   data-count="units-without-region"
                 >

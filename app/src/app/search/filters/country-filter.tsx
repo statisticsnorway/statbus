@@ -7,8 +7,9 @@ import { SearchFilterOption } from "../search.d";
 
 /**
  * The countries units are located in (z2qt08), from country_used: only countries that have
- * units. The Regions map's "View and download" for a foreign country opens the search with
- * this filter set, so it shows here as the country's name.
+ * units. The toolbar shows it with the Country column, and always while it narrows the search
+ * (FilterWrapper), so the Regions map's "View and download" for a foreign country lands on a
+ * list that names the country.
  */
 export default function CountryFilter() {
   const { allCountries } = useSearchPageData();
