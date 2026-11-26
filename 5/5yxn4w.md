@@ -30,7 +30,7 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 - z2qt08
 ## Acceptance
 - [x] /regions shows code, name and level; with Advanced on it also shows centre latitude, longitude and altitude; shown in a driven browser run (screenshot in the task) with the columns and one region's values
-- [ ] The region upload page shows the plain columns in its instructions and example, and the centre columns under Advanced; shown in a driven browser run for both views
+- [x] The region upload page shows the plain columns in its instructions and example, and the centre columns under Advanced; shown in a driven browser run for both views
 - [x] Uploading a region file with centre coordinates stores them; a SQL test asserts the stored values
 - [ ] /regions filters All, With coordinates and Without coordinates; the counts shown match the region table (SQL count recorded in the task)
 - [ ] An admin's Place on map for a region without a centre searches OpenStreetMap by its name, puts the pin on the chosen match, and Save stores the region's centre; one is saved in a driven browser run and read back from public.region
@@ -65,6 +65,7 @@ Owner 2026-11-26 13:06 approved editing a region's centre on the Regions map (pe
 2026-11-26 20:23 d6ef87936: region upload changes only what a file gives (migration 20261126201306; test 414 red on the old function, green on the new; 100 and data-model.md updated). Upload Regions Advanced explains batch coordinates, offers the current regions as CSV (region_upload, checked: 200 with path,name,center_*) and a coordinates-only example. Awaiting owner's read of the page.
 2026-11-26 20:37 owner: on this branch now: a Coordinates switch on Upload Regions (as on the list), Excel (.xlsx) uploads and examples, and a check step that shows what an upload will do before it is stored. Dropped: complete-list vs add-and-change (AI through the UI can do it). The coordinate rename to latitude/longitude/altitude is jbc5bs, built after this branch lands (agent ox, statbus_b).
 2026-11-26 21:14 built and checked in Firefox: Excel uploads on all getting-started steps and examples as CSV+Excel; Upload Regions check step (shows new/renamed/coordinates set/moved/unchanged/not-in-file and bad rows by line; Store only after the check; a file with errors cannot be stored); Coordinates switch (on when any centre exists). Evidence in the commit message; jest 606/606. Awaiting owner review.
+check 2: Upload Regions shows path and name with Coordinates off, and adds center_latitude/longitude/altitude, the coordinates example and the regions as CSV/Excel with it on (owner's 2026-11-26 design: a switch, not Advanced). Driven in Firefox tab 61 on the test slot: off -> examples [regions_demo], no centre columns; on -> [regions_demo, regions_with_centre_demo] + regions download. Awaiting the owner's look.
 ## History
 - 2026-11-23T13:58 todo -> todo/depends (ask)
 - 2026-11-23T16:12 answered design, by jhf, for hibiscus (todo/depends -> todo/depends):
