@@ -1,15 +1,21 @@
 ---
 id: bysgyd
 title: "Demo file legal_units_with_source_dates has garbled Gøta Kanal"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzy"
 created: 2026-11-26
 updated: 2026-11-26
+doing_since: "2026-11-26T10:17"
+doing_with: "ca6dk5"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -31,3 +37,7 @@ Rows 15-16: physical_postplace 'GÃ¸te Kanal' (one round of UTF-8 read as Windo
 - [ ] SQL tests 309 and 310, which load this file, pass
 
 ## Notes
+
+
+## History
+- 2026-11-26T10:17 todo -> doing/active (take with ca6dk5)
