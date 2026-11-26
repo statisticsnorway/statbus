@@ -57,5 +57,10 @@ git revert 2f52f3b7f + bb4848dd4 (keep f29e03a60 unless King says otherwise) →
   This task is the rc.03 finalize step (revert defer-checkout, cut a config-drift-only RC); releases have since moved on to v2026.11.6 stable. Drop it as done by later releases, or is any of its three checks still open?
 
 
+## Requests
+- 2026-11-26T22:53 request 1 by jhf:
+  Can you just this ticket is not clear to me it's it's too many details and not enough like why are we having this discussion what is this about what's the point of it Yeah, help me here
+
 ## History
 - 2026-11-22T23:31 todo -> todo/design (ask)
+- 2026-11-26T22:53 request 1 by jhf
