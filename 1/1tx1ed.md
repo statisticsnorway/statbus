@@ -35,7 +35,7 @@ Today: public.quality_check_switched_off (05pe0x), reset's customisation scope e
 ## Acceptance
 - [x] [Owner] approves the starting set, recorded on this task
 - [ ] On a fresh install the dashboard shows exactly the starting set; Admin > Data quality checks lists the rest switched off
-- [ ] An upgraded installation keeps the checks it showed before the upgrade
+- [x] An upgraded installation keeps the checks it showed before the upgrade
 
 ## Notes
 
@@ -44,5 +44,6 @@ check 1: Owner agreed 2026-11-26 12:16: starting set on = missing region, missin
 Owner 2026-11-26 20:10: the starting set on = missing region, missing activity category, secondary activity equals primary (qjy2eg, on by default). All others start off.
 
 
+check 3: test/sql/414 replays the shipped down/up of 20261126202817 with 3 checks switched off: visible_before 8 = visible_after 8, same_checks_visible t; RED (relation switched_on missing) and GREEN logs in tmp/. Norway copy on slot a kept all 7 checks on after migrating.
 ## History
 - 2026-11-26T21:22 todo -> doing/active (take with qjy2eg)
