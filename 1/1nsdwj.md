@@ -28,7 +28,7 @@ sql_saga 1.12 brings provenance columns for edit_by_user_id and edit_at (k5q120)
 One direct upgrade script from any release since 1.0; per database: new package, restart PostgreSQL, ALTER EXTENSION sql_saga UPDATE, SELECT sql_saga.check_integrity().
 
 ## Details
-Today: postgres/Dockerfile ARG sql_saga_release=v1.6; the test slot reports extversion 1.6. cli/internal/migrate/extensions.go and the restore table (release first migration -> sql_saga version) must learn 1.12. Rounding check: before 1.11 temporal_merge could round large or high-precision numeric values (12345678901234567890.123 -> 12345678901234567000), unrepairable after the fact. StatBus's numeric columns on temporal tables are legal_relationship.percentage numeric(5,2), location.altitude numeric(6,1), latitude and longitude numeric(9,6): all far below the precision where rounding occurs, so no data check is needed. Details per version: doc/upgrade.md in the sql_saga repo.
+Today: postgres/Dockerfile ARG sql_saga_release=v1.6; every slot runs 1.6. Target v1.15 (7011af1, 2026-11-25), confirmed by the owner 2026-11-26. cli/cmd/db_restore_extensions.go (sqlSagaImagePins) gets 1.15 for the release after v2026.11.7-rc.01, whose first migration is 20261124114235; the migrate runner's extension step (cli/internal/migrate/extensions.go) updates 1.6 databases directly with sql_saga.check_integrity(). 1.9/1.10 add provenance columns: register edit_by_user_id and edit_at on every era so a changed piece records its writer and time. 1.15 changes temporal_merge (one natural key value per entity, ambiguous identity refused, entity locks); StatBus passes no delete_mode and no removed argument. Numeric rounding before 1.11 does not affect StatBus's numeric columns (percentage numeric(5,2), altitude numeric(6,1), lat/lng numeric(9,6)). Details per version: doc/upgrade.md in the sql_saga repo.
 
 ## Depends on
 
@@ -37,6 +37,10 @@ Today: postgres/Dockerfile ARG sql_saga_release=v1.6; the test slot reports extv
 - [ ] The fast SQL suite passes on 1.12
 - [ ] A real-guest upgrade from the last release to a build with 1.12 succeeds (install/upgrade testing guide)
 - [x] [Owner] Confirms the target version (1.12 as the sql_saga agent said, or 1.13 tagged since); recorded here, and the other checks use that version
+- [ ] The postgres image builds with sql_saga v1.15; a database upgraded from the last release reports extversion 1.15 and SELECT sql_saga.check_integrity() reports no problem
+- [ ] A regular user's edit through a for_portion_of view stamps edit_by_user_id and edit_at on the changed pieces only (SQL test)
+- [ ] The fast SQL suite passes on 1.15
+- [ ] A real-guest upgrade from the last release to a build with 1.15 succeeds (install/upgrade testing guide)
 
 ## Notes
 
