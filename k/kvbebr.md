@@ -37,7 +37,7 @@ PR #327: migration 20261114090337_rename_location_latitude_longitude (up/down) a
 ## Acceptance
 - [x] [Owner] Decides the naming (rename as proposed, or another fix for the map code); the answer is recorded in the notes
 - [x] With the agreed change, the fast SQL suite passes with updated expected outputs, and doc/db and app types are regenerated
-- [ ] Import definitions, samples and docs that name the coordinate columns use the agreed names (rg finds no old name)
+- [x] Import definitions, samples and docs that name the coordinate columns use the agreed names (rg finds no old name)
 - [x] PR #327 is merged or closed on GitHub as decided, with a comment that links this task
 
 ## Notes
@@ -56,5 +56,6 @@ check 4: PR #327 closed 2026-11-26 with the owner-approved reply (tmp/pr327-repl
 
 
 check 2: Shipped with jbc5bs, commit 3bf2dbc6f on feat/coordinates-named-latitude: fast suite All 146 tests passed, doc/db and app types regenerated
+check 3: Same commit: import definitions (source/data columns), samples/demo script, app/public/demo CSVs, test data, data-model.md, import-system.md, api-reference.md renamed; rg finds old names only in the refusal code and its tests
 ## History
 - 2026-11-26T21:50 todo -> doing/active (take with jbc5bs)
