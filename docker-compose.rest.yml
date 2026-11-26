@@ -39,6 +39,10 @@ services:
       PGRST_DB_CONFIG: "true"
       # Add pre-request function for API key revocation check
       PGRST_DB_PRE_REQUEST: auth.check_api_key_revocation
+      # A request may ask to be rolled back with the header Prefer: tx=rollback: it runs with
+      # every check, trigger and error of a real one and leaves nothing stored, so a client tries
+      # an upload or edit before making it (owner 2026-11-26; doc/integration/api-reference.md).
+      PGRST_DB_TX_END: commit-allow-override
     ports:
       - "${REST_BIND_ADDRESS:?REST_BIND_ADDRESS must be set in the generated .env}:3000"
       # Admin server — loopback-only (127.0.0.1:<slot offset+6>). Internal /ready

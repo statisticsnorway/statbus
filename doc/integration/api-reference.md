@@ -242,6 +242,14 @@ https://ma.statbus.org/rest/activity_category_enabled?select=path,code,name,stan
 https://ma.statbus.org/rest/region_used?select=path,code,name&limit=20&order=path.asc
 ```
 
+**Upload regions — `POST /rest/region_upload`.** Send a CSV file whose header names the columns: `path` and `name`, and optionally `center_latitude`, `center_longitude` and `center_altitude`. Each row adds or changes one region by `path`. A new region needs a name; columns a row leaves out or empty keep what is stored, so a file of path and centre columns adds centres to the regions you have. A row that matches what is stored changes nothing. One bad row rejects the whole request, and the error names the row. `GET /rest/region_upload` returns the regions in the same columns, as CSV with `Accept: text/csv`.
+
+```bash
+curl -X POST -H "Authorization: Bearer YOUR_API_KEY" \
+     -H "Content-Type: text/csv" --data-binary @regions.csv \
+     "https://ma.statbus.org/rest/region_upload"
+```
+
 ### Legal forms
 
 | Endpoint | Description |
@@ -368,6 +376,19 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 ```
 
 The response header `Content-Range: 0-0/1234` tells you there are 1234 matching rows.
+
+### Trying a change without storing it
+
+Add `Prefer: tx=rollback` to any request that writes (an upload, an edit, a function call). It runs exactly as it would for real, with every check and error, and is then rolled back, so nothing is stored. Use it to test a file or a script before running it:
+
+```bash
+curl -X POST -H "Authorization: Bearer YOUR_API_KEY" \
+     -H "Content-Type: text/csv" -H "Prefer: tx=rollback" \
+     --data-binary @regions.csv \
+     "https://ma.statbus.org/rest/region_upload"
+```
+
+A success status means the request would be accepted; an error says what is wrong. The response carries `Preference-Applied: tx=rollback` when the rollback was honoured. Generated ids are used up even when rolled back, so a later id may skip numbers.
 
 ---
 
