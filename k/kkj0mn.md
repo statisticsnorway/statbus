@@ -38,6 +38,7 @@ Filed by Hibiscus (map agent, z2qt08) on 2026-11-24 17:11, after its branch feat
 ## Notes
 
 
+Owner 2026-11-26 20:21: handed to Hibiscus, who filed it; the owner decides with Hibiscus whether to build it or drop it.
 ## History
 - 2026-11-26T21:16 request 1 by jhf
 - 2026-11-26T21:16 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
