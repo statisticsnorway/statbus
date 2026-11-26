@@ -1,7 +1,7 @@
 ---
 id: c2b1an
 title: "Search table: names stored double-encoded show garbled (010 IDÃ‰LAB)"
-state: todo
+state: "dropped"
 type: feature
 priority: ""
 assignee: []
@@ -10,6 +10,8 @@ group: ""
 rank: "zzzzzzzzzzzx"
 created: 2026-11-26
 updated: 2026-11-26
+dropped_reason: "covered: the owner's plan to recreate the Norway database and re-import; the upload check (e1z8va) blocks such files now"
+dropped_at: "2026-11-26T10:44"
 ---
 
 ## Goal
@@ -31,3 +33,7 @@ Norway copy in statbus_test slot. Check BRREG's own value for org 928148424, and
 - [ ] Stored garbled names are repaired or a re-import plan is approved
 
 ## Notes
+
+
+## History
+- 2026-11-26T10:44 todo -> dropped (drop)
