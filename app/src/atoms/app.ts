@@ -45,6 +45,14 @@ export const selectedTimeFrameAtom = atomWithStorage<Tables<"time_frame"> | null
 // Atom to track if search state has been initialized from URL params
 export const searchStateInitializedAtom = atom(false);
 
+/**
+ * Set by a step that is a place of its own in the browser's history (5nq78t: going into or out of a
+ * region on the search's map, as on the Regions map), so Back returns to the step before. The next
+ * URL sync pushes a history entry instead of replacing it, then clears this. Filter edits in the
+ * toolbar keep replacing, as the list always did.
+ */
+export const searchUrlPushNextAtom = atom(false);
+
 // Atom to track if the client is mounted. Useful for preventing hydration issues.
 export const clientMountedAtom = atom(false);
 

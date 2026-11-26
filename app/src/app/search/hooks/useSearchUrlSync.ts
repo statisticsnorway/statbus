@@ -3,6 +3,7 @@
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue, useAtom } from "jotai";
 import { useRouter } from "next/navigation";
+import { useRef } from "react";
 
 import type { Tables } from "@/lib/database.types";
 import {
@@ -13,7 +14,7 @@ import {
   queryAtom,
   filtersAtom,
 } from "@/atoms/search";
-import { searchStateInitializedAtom } from "@/atoms/app";
+import { searchStateInitializedAtom, searchUrlPushNextAtom } from "@/atoms/app";
 import {
   externalIdentTypesAtom,
   statDefinitionsAtom,
@@ -99,6 +100,9 @@ const deriveUrlFromState = (
 export function useSearchUrlSync() {
   const router = useRouter();
   const [isInitialized, setInitialized] = useAtom(searchStateInitializedAtom);
+  const [pushNext, setPushNext] = useAtom(searchUrlPushNextAtom);
+  // The last URL this hook asked the router for, until the address bar shows it.
+  const requestedUrl = useRef<string | null>(null);
 
   const query = useAtomValue(queryAtom);
   const filters = useAtomValue(filtersAtom);
@@ -210,13 +214,31 @@ export function useSearchUrlSync() {
     currentWindowUrlParams.sort();
     const currentWindowUrlParamsString = currentWindowUrlParams.toString();
     
-    if (urlFromState !== currentWindowUrlParamsString) {
-      router.replace(urlFromState ? `?${urlFromState}` : window.location.pathname, {
-        scroll: false,
-      });
+    if (urlFromState !== currentWindowUrlParamsString && urlFromState !== requestedUrl.current) {
+      // A step the user can go Back from (searchUrlPushNextAtom) adds a history entry; any other
+      // change replaces the current one. The URL asked for is remembered: the router updates the
+      // address bar after a moment, and asking again for the same URL in between (as this effect
+      // does when pushNext clears) would replace the pending push and lose the history entry.
+      const target = urlFromState ? `?${urlFromState}` : window.location.pathname;
+      requestedUrl.current = urlFromState;
+      if (pushNext) router.push(target, { scroll: false });
+      else router.replace(target, { scroll: false });
     }
+    if (pushNext) setPushNext(false);
     
-  }, [query, filters, pagination, sorting, router, isInitialized, externalIdentTypes, statDefinitions], 'useSearchUrlSync:sync');
+  }, [query, filters, pagination, sorting, router, isInitialized, externalIdentTypes, statDefinitions, pushNext, setPushNext], 'useSearchUrlSync:sync');
+
+  // Effect 1b: Back and Forward within the page. The URL is the state's source when it changes
+  // without the state having changed it (a history step): the page reads it again, as on a fresh
+  // visit, through SearchResults' one URL -> state reader.
+  useGuardedEffect(() => {
+    const onPopState = () => {
+      requestedUrl.current = null;
+      setInitialized(false);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [setInitialized], 'useSearchUrlSync:popstate');
 
   // Effect 2: Reset initialization status on unmount.
   // This is critical for ensuring that if the user navigates away from the search

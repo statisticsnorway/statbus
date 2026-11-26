@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
+import { searchUrlPushNextAtom } from "@/atoms/app";
 import useSWR from "swr";
 import { restClientAtom } from "@/atoms/rest-client";
 import { useBaseData } from "@/atoms/base-data";
@@ -91,6 +92,7 @@ export default function SearchMapPageClient({
 function SearchMap() {
   const client = useAtomValue(restClientAtom);
   const { filters, updateFilters } = useSearchFilters();
+  const setPushNext = useSetAtom(searchUrlPushNextAtom);
   const searchParams = useSearchParams();
   const { query } = useSearchQuery();
   const {
@@ -285,6 +287,8 @@ function SearchMap() {
   // the country's own). The other filters stay as they are.
   const onSelect = useCallback(
     (next: MapSelection) => {
+      // Each step in or out is a history entry, so Back returns to the place before.
+      setPushNext(true);
       const out: Record<string, unknown> = {
         ...filters,
         [REGION]: [],
@@ -300,7 +304,7 @@ function SearchMap() {
       }
       updateFilters(out);
     },
-    [filters, updateFilters, idOfIso]
+    [filters, updateFilters, idOfIso, setPushNext]
   );
   const onUnitTypes = useCallback(
     (types: MapUnitType[]) =>

@@ -61,14 +61,17 @@ export function SearchResults({
     fetchSearchPageData();
   }, [searchPageDataReady, fetchSearchPageData], 'SearchResults:fetchLookupData');
 
-  // Effect 2: One-time URL initialization (guarded by isInitialized)
-  // This only runs once to parse URL params into state, avoiding overwrites on navigation.
+  // Effect 2: URL -> state, on arrival and again after a Back or Forward within the page
+  // (useSearchUrlSync clears isInitialized on popstate). The URL the browser shows is the source: on
+  // arrival it is the one the server rendered with; after a history step, the step's own.
   useGuardedEffect(() => {
     if (isInitialized) {
       return;
     }
 
-    const initialUrlSearchParams = new URLSearchParams(initialUrlSearchParamsString);
+    const initialUrlSearchParams = new URLSearchParams(
+      typeof window === "undefined" ? initialUrlSearchParamsString : window.location.search
+    );
     const { _initialPagination, _initialSorting, _initialQuery, _initialFilters } =
       deriveStateFromUrl(initialUrlSearchParams, externalIdentTypes, statDefinitions);
 
