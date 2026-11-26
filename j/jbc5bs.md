@@ -70,6 +70,7 @@ check 5: test/sql/415: legal unit import with latitude/longitude/altitude -> loc
 check 6: rg outside migrations/tmp finds old names only in the refusal code, its tests (415, upload-csv-check), its doc/db page, the historical backlog doc, and 402/404 expected hunks of pre-existing drift
 check 8: test/sql/415: region_upload with center_latitude/longitude/altitude refused (column does not exist; 0 regions stored), and the upload page answers 'retired coordinate columns ... Name them latitude, longitude, altitude' (upload-csv-check.test.ts); unit upload with physical_* refused by admin.import_job_keep_ignored_columns: 'The file has retired coordinate columns: physical_altitude, physical_latitude, physical_longitude. Name them latitude, longitude, altitude'
 check 9: test/sql/415: region_upload with center_latitude/longitude/altitude refused (column does not exist; 0 regions stored), and the upload page answers 'retired coordinate columns ... Name them latitude, longitude, altitude' (upload-csv-check.test.ts); unit upload with physical_* refused by admin.import_job_keep_ignored_columns: 'The file has retired coordinate columns: physical_altitude, physical_latitude, physical_longitude. Name them latitude, longitude, altitude'
+Checks 8 and 9 say the same thing (added twice, by me and by hibiscus); both ticked with one piece of evidence.
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
