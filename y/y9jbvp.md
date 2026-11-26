@@ -37,7 +37,7 @@ What happened since (checked 2026-11-26): the defer-checkout change was not reve
 ## Acceptance
 - [ ] ~~King ruled on revert / quota / 057~~ (not relevant: settled by later work: gfvfwe (recovery fix, shipped since v2026.06.0-rc.04), 8jv43w (test suite limit), wpz2b6 (image cleanup), rabbit, 2026-11-26)
 - [ ] ~~Clean config-drift-only RC cut + 0-happy green on it~~ (not relevant: settled by later work: gfvfwe (recovery fix, shipped since v2026.06.0-rc.04), 8jv43w (test suite limit), wpz2b6 (image cleanup), rabbit, 2026-11-26)
-- [ ] defer-checkout/preswap-recovery work tracked in STATBUS-061 (rc.04)
+- [ ] ~~defer-checkout/preswap-recovery work tracked in STATBUS-061 (rc.04)~~ (not relevant: settled by later work: gfvfwe (recovery fix, shipped since v2026.06.0-rc.04), 8jv43w (test suite limit), wpz2b6 (image cleanup), rabbit, 2026-11-26)
 - [ ] [Owner] confirms nothing remains and the task is dropped as superseded by gfvfwe, 8jv43w and wpz2b6; recorded in Notes
 
 ## State
