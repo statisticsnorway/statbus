@@ -52,5 +52,6 @@ Today: postgres/Dockerfile ARG sql_saga_release=v1.6; every slot runs 1.6. Targe
 check 4: Owner 2026-11-26 20:33: target is sql_saga v1.15 (7011af1, 2026-11-25), the latest release. Preflight of 1.15 on the local slot's Norway copy (2.3 M units): no refusals, only the derived grants it carries over (tmp/1nsdwj/preflight-norway.log).
 check 5: Image builds with sql_saga v1.15 (docker compose build db, 9 min). Local slot's Norway copy upgraded by ./sb migrate up: 'Extension sql_saga: 1.6 -> 1.15', extversion 1.15, db.extension_upgrade row 1.6->1.15, check_integrity clean, ~2 min (tmp/1nsdwj/migrate-up-norway.log). Pushed 7e99979ed.
 landed 7e99979 on master 2026-11-26: postgres: pin sql_saga v1.15 (1nsdwj)
+landed 182a7bf on master 2026-11-26: test: 002 and the security report list sql_saga 1.15's catalog (1nsdwj)
 ## History
 - 2026-11-26T21:28 todo -> doing/active (take with ca6dk5)
