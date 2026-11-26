@@ -1,7 +1,7 @@
 ---
 id: r69fpr
 title: "How a unit's counting rule changed: find when birth date stopped deciding"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["jcode-r69fpr"]
@@ -10,11 +10,10 @@ group: ""
 rank: "zzzzzzzzzzzz"
 created: 2026-11-26
 updated: 2026-11-26
-doing_since: "2026-11-26T22:28"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+done_at: "2026-11-26T22:50"
 ---
 
 ## Goal
@@ -48,3 +47,4 @@ Rabbit's sharpened question answered: the establishment aggregation behind a LU 
 check 3: Owner 2026-11-26 21:46: no restore needed (nothing was dropped). The rule (STATBUS-460, test 351) is applied to the timelines' used_for_counting instead, with birth and death as timepoints, so the rollups follow it (f2gx3m, lobster).
 ## History
 - 2026-11-26T22:28 todo -> doing/active (take)
+- 2026-11-26T22:50 doing/active -> done (done); was doing_since: 2026-11-26T22:28
