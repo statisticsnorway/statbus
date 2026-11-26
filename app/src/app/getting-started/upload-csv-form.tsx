@@ -46,7 +46,10 @@ const UploadFormButtons = ({
         <Button disabled={pending} type="submit" data-upload-submit="">
           {label}
         </Button>
-        <Link href={nextPage} className={buttonVariants({ variant: "outline" })}>
+        <Link
+          href={nextPage}
+          className={buttonVariants({ variant: "outline" })}
+        >
           Skip
         </Link>
       </div>
@@ -59,7 +62,9 @@ const UploadFormButtons = ({
  * upload would do and whether there is anything to store (5yxn4w, the Regions upload). `canStore`
  * is false for a file with errors and for one that changes nothing.
  */
-export type UploadPreview = (csv: string) => Promise<{ summary: React.ReactNode; canStore: boolean }>;
+export type UploadPreview = (
+  csv: string
+) => Promise<{ summary: React.ReactNode; canStore: boolean }>;
 
 /**
  * The getting-started upload of a CSV or Excel file (owner 2026-11-26: everybody uses Excel). An
@@ -90,20 +95,31 @@ export const UploadCSVForm = ({
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   // The checked file, as CSV, while its summary is shown and the person decides.
-  const [checked, setChecked] = useState<{ name: string; csv: string; summary: React.ReactNode; canStore: boolean } | null>(null);
+  const [checked, setChecked] = useState<{
+    name: string;
+    csv: string;
+    summary: React.ReactNode;
+    canStore: boolean;
+  } | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
 
-  useGuardedEffect(() => {
-    if (state.success) {
-      router.push(nextPage);
-      refreshRelevantCounts();
-    }
-  }, [state.success, router, nextPage, refreshRelevantCounts], 'UploadCSVForm:redirectOnSuccess');
+  useGuardedEffect(
+    () => {
+      if (state.success) {
+        router.push(nextPage);
+        refreshRelevantCounts();
+      }
+    },
+    [state.success, router, nextPage, refreshRelevantCounts],
+    "UploadCSVForm:redirectOnSuccess"
+  );
 
   // The file as the server action takes it: CSV, whatever was chosen.
   const asCsvFile = (name: string, csv: string) =>
-    new File([csv], name.replace(/\.(xlsx|xls)$/i, ".csv"), { type: "text/csv" });
+    new File([csv], name.replace(/\.(xlsx|xls)$/i, ".csv"), {
+      type: "text/csv",
+    });
 
   const submit = async (formData: FormData) => {
     setReadError(null);
@@ -128,7 +144,9 @@ export const UploadCSVForm = ({
       data.set(filename, asCsvFile(file.name, await fileAsCsvText(file)));
       formAction(data);
     } catch (e) {
-      setReadError(`${file.name} could not be read: ${e instanceof Error ? e.message : String(e)}`);
+      setReadError(
+        `${file.name} could not be read: ${e instanceof Error ? e.message : String(e)}`
+      );
     } finally {
       setReading(false);
     }
@@ -146,7 +164,9 @@ export const UploadCSVForm = ({
       const { summary, canStore } = await preview(csv);
       setChecked({ name: file.name, csv, summary, canStore });
     } catch (e) {
-      setReadError(`${file.name} could not be read: ${e instanceof Error ? e.message : String(e)}`);
+      setReadError(
+        `${file.name} could not be read: ${e instanceof Error ? e.message : String(e)}`
+      );
     } finally {
       setReading(false);
     }
@@ -161,7 +181,11 @@ export const UploadCSVForm = ({
   const picked = checked !== null || readError !== null;
 
   return (
-    <form action={submit} className="bg-ssb-light p-6" data-upload-form={uploadView}>
+    <form
+      action={submit}
+      className="bg-ssb-light p-6"
+      data-upload-form={uploadView}
+    >
       <Label
         className="block mb-4 ml-1 text-sm font-semibold"
         htmlFor={filename}
@@ -179,14 +203,19 @@ export const UploadCSVForm = ({
         onChange={(e) => void check(e.target.files?.[0])}
         disabled={reading}
       />
-      {reading && preview && <p className="mb-4 text-sm text-gray-600">Checking the file…</p>}
+      {reading && preview && (
+        <p className="mb-4 text-sm text-gray-600">Checking the file…</p>
+      )}
       {readError && (
         <ErrorBox>
           <span className="text-sm">{readError}</span>
         </ErrorBox>
       )}
       {checked && (
-        <div className="mb-4 rounded border bg-white p-4 text-sm" data-upload-preview="">
+        <div
+          className="mb-4 rounded border bg-white p-4 text-sm"
+          data-upload-preview=""
+        >
           <p className="mb-2 font-medium">What {checked.name} would do</p>
           {checked.summary}
         </div>
@@ -198,17 +227,27 @@ export const UploadCSVForm = ({
         <div className="space-y-3">
           {state.error && (
             <ErrorBox>
-              <span className="text-sm">Failed to upload file: {state.error}</span>
+              <span className="text-sm">
+                Failed to upload file: {state.error}
+              </span>
             </ErrorBox>
           )}
           <div className="space-x-3">
             {checked?.canStore && <StoreButton />}
             {picked ? (
-              <Button type="button" variant="outline" onClick={cancel} disabled={reading}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={cancel}
+                disabled={reading}
+              >
                 Cancel
               </Button>
             ) : canSkip ? (
-              <Link href={nextPage} className={buttonVariants({ variant: "outline" })}>
+              <Link
+                href={nextPage}
+                className={buttonVariants({ variant: "outline" })}
+              >
                 Skip
               </Link>
             ) : null}
