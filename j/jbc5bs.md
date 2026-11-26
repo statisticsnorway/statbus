@@ -26,7 +26,6 @@ One forward migration with no lasting aliases; postal coordinate columns are dro
 Regions: public.region center_latitude/center_longitude/center_altitude and their CHECK constraints, public.region_upload, admin.region_upload_upsert. Units: statistical_unit physical_latitude/longitude/altitude -> latitude/longitude/altitude; postal_latitude/longitude/altitude dropped (0 units carry them; location already forbids coordinates on postal rows); the timeline views (timeline_legal_unit_def, timeline_establishment_def, timeline_enterprise_def, timeline_power_group_def, statistical_unit_def, timeline_enterprise) and 15 doc/db views/functions naming them; import steps physical_location (physical_latitude/_raw, ...) and postal_location (its coordinate columns dropped) and the import definitions using them. App: search export (export-sql.ts, xlsx-stream.ts), unit-history-table.tsx, the hierarchy types, the map work on feat/units-on-map (z2qt08). Docs: data-model.md, import-system.md, integration/api-reference.md. Tests: test/sql/100_regions_with__itudes and expected outputs printing these columns. Others' tasks to align: kvbebr (decided here), Rabbit's 5yxn4w, s2wvf7, dbmsxy, 8p81cc, r39dqb (Erik's files use physical_latitude headers).
 
 ## Depends on
-- z2qt08
 
 ## Acceptance
 - [x] [Owner] Decides whether region upload files with the old center_* headers are refused with a message naming the new headers, or accepted for one release; recorded here
