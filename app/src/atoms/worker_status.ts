@@ -387,5 +387,6 @@ export const COMMAND_LABELS: Record<string, string> = {
   'derive_reports': 'Computing reports',
   'derive_statistical_unit_facet': 'Computing search facets',
   'statistical_unit_facet_reduce': 'Merging search facets',
+  'derive_quality': 'Checking data quality',
   'statistical_history_facet_delta_reduce': 'Merging history changes',
 };

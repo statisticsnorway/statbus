@@ -23,6 +23,7 @@ import {
   parseAsInteger,
 } from "nuqs";
 import { COMMAND_LABELS } from "@/atoms/worker_status";
+import { parseQualityCheckParam, qualityCheckName } from "@/lib/quality-checks";
 import {
   Dialog,
   DialogContent,
@@ -203,6 +204,17 @@ const formatInfo = (task: WorkerTask): string | null => {
         parts.push(`${state}`);
       return parts.join(", ");
     }
+  }
+
+  // derive_quality: the findings per check (worker.derive_quality), keyed by the check's ?quality=
+  // value, named as on the dashboard.
+  if (task.command === "derive_quality" && info.findings && typeof info.findings === "object") {
+    const parts = Object.entries(info.findings as Record<string, number>).map(([key, count]) => {
+      const check = parseQualityCheckParam(key);
+      const name = check ? qualityCheckName(check.rule, check.statCode) : key;
+      return `${count.toLocaleString()} ${name.charAt(0).toLowerCase()}${name.slice(1)}`;
+    });
+    return parts.length > 0 ? parts.join(", ") : "no findings";
   }
 
   // Command-aware filtering: only show relevant keys for known command families
