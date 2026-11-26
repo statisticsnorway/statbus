@@ -65,6 +65,11 @@ export const QUALITY_RULE_WORDING: Record<QualityRule, QualityRuleWording> = {
       `Legal units whose own ${variable(statName).toLowerCase()} is larger than their establishments' sum while every establishment has a value. Nothing explains the rest: often an establishment, such as the head office, is missing.`,
     guideHref: COUNTING_GUIDE_HREF,
   },
+  secondary_activity_equals_primary: {
+    name: () => "Secondary activity equals primary",
+    explanation: () =>
+      "Legal units and establishments whose secondary activity category is the same as their primary one for some period. A secondary activity is another activity than the primary, so it should be changed or removed.",
+  },
 };
 
 /** The name of a check, with its variable's stat_definition.name for a per-variable rule. */
@@ -96,6 +101,7 @@ export const QUALITY_RULE_UNIT_TYPES: Record<QualityRule, readonly ("legal_unit"
   establishment_activity_differs: ["legal_unit"],
   establishments_above_legal_unit: ["legal_unit"],
   legal_unit_above_establishments: ["legal_unit"],
+  secondary_activity_equals_primary: ["legal_unit", "establishment"],
 };
 
 /**

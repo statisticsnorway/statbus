@@ -18,7 +18,7 @@ Indexes:
 Check constraints:
     "stat_definition_code_is_csv_column_name" CHECK (code::text ~ '^[a-z0-9_]+$'::text)
 Referenced by:
-    TABLE "quality_check_switched_off" CONSTRAINT "quality_check_switched_off_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE CASCADE
+    TABLE "quality_check_switched_on" CONSTRAINT "quality_check_switched_on_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE CASCADE
     TABLE "quality_finding" CONSTRAINT "quality_finding_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE CASCADE
     TABLE "stat_for_unit" CONSTRAINT "stat_for_unit_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE RESTRICT
 Policies:

@@ -23,8 +23,8 @@ View definition:
         )
  SELECT rule,
     stat_definition_id,
-    NOT (EXISTS ( SELECT 1
-           FROM quality_check_switched_off qs
+    (EXISTS ( SELECT 1
+           FROM quality_check_switched_on qs
           WHERE qs.rule = c.rule AND COALESCE(qs.stat_definition_id, 0) = COALESCE(c.stat_definition_id, 0))) AS on_dashboard,
     row_number() OVER (ORDER BY rule, stat_priority, stat_definition_id) AS priority
    FROM check_of c;
@@ -32,4 +32,4 @@ Options: security_invoker=on
 
 ```
 
-**Comment:** Every data-quality check of this installation (05pe0x): each rule that is not per variable once, and each per-variable rule once per enabled summed statistical variable (stat_definition of type int or float), so adding, disabling or enabling a variable adds or removes its checks with no other step. on_dashboard is false when the check is in public.quality_check_switched_off. priority orders the checks: by rule (the enum's order), then by the variable's priority. The dashboard and the search's Quality filter show the checks with on_dashboard; Admin > Data quality checks lists them all.
+**Comment:** Every data-quality check of this installation (05pe0x): each rule that is not per variable once, and each per-variable rule once per enabled summed statistical variable (stat_definition of type int or float), so adding, disabling or enabling a variable adds or removes its checks with no other step. on_dashboard is true when the check is in public.quality_check_switched_on (1tx1ed): a check starts off. priority orders the checks: by rule (the enum's order), then by the variable's priority. The dashboard and the search's Quality filter show the checks with on_dashboard; Admin > Data quality checks lists them all.

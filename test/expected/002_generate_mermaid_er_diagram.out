@@ -600,7 +600,7 @@ erDiagram
 		integer edit_by_user_id
 		timestamp_with_time_zone edit_at
 	}
-	quality_check_switched_off["quality_check_switched_off"] {
+	quality_check_switched_on["quality_check_switched_on"] {
 		quality_rule rule
 		integer stat_definition_id
 	}
@@ -1796,7 +1796,7 @@ erDiagram
 	power_root }o--|| legal_unit : power_root_derived_root_legal_unit_id_valid
 	power_root }o--o| legal_unit : power_root_custom_root_legal_unit_id_valid
 	power_root }|--|| power_group : power_root_power_group_id_fkey
-	quality_check_switched_off }|--o| stat_definition : quality_check_switched_off_stat_definition_id_fkey
+	quality_check_switched_on }|--o| stat_definition : quality_check_switched_on_stat_definition_id_fkey
 	quality_finding }|--o| stat_definition : quality_finding_stat_definition_id_fkey
 	quality_finding }o--|| statistical_unit : quality_finding_statistical_unit_fkey
 	quality_finding }o--|| statistical_unit : quality_finding_statistical_unit_fkey

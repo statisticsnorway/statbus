@@ -147,7 +147,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.location_type`**: `physical`, `postal`
 - **`public.person_sex`**: `Male`, `Female`
 - **`public.power_group_root_status`**: `single`, `cycle`, `multi`
-- **`public.quality_rule`**: `missing_region`, `missing_activity_category`, `missing_physical_location`, `establishment_activity_differs`, `establishments_above_legal_unit`, `legal_unit_above_establishments`
+- **`public.quality_rule`**: `missing_region`, `missing_activity_category`, `missing_physical_location`, `establishment_activity_differs`, `establishments_above_legal_unit`, `legal_unit_above_establishments`, `secondary_activity_equals_primary`
 - **`public.release_builds_status_type`**: `building`, `ready`, `failed`
 - **`public.release_status_type`**: `commit`, `prerelease`, `release`
 - **`public.reset_scope`**: `units`, `getting-started`, `customisation`
@@ -208,12 +208,12 @@ A sparse delta table holds only changes: `statistical_history_facet_delta` per c
   - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
 
 ### Quality: checks that list units to look at (xz3jej, 05pe0x)
-Quality is the area of checks that list units to look at, as reports count them. A check is a rule of the enum `quality_rule` and, for a rule per summed variable, that variable; `quality_check` lists the checks of the installation and `quality_check_switched_off` the ones an admin has switched off. The units each check lists are rows of `quality_finding`, filled by the reports phase's step `worker.derive_quality` after statistical_unit is published, with each row's existence dates, so the dashboard counts every check in one query and the search lists a check through `statistical_unit_quality()`.
+Quality is the area of checks that list units to look at, as reports count them. A check is a rule of the enum `quality_rule` and, for a rule per summed variable, that variable; `quality_check` lists the checks of the installation and `quality_check_switched_on` the ones switched on (a check starts off; a new installation holds the starting set of `quality_check_starting_set()`, 1tx1ed). The units each check lists are rows of `quality_finding`, filled by the reports phase's step `worker.derive_quality` after statistical_unit is published, with each row's existence dates, so the dashboard counts every check in one query and the search lists a check through `statistical_unit_quality()`.
 
 - `quality_finding(unit_type, stat_definition_id, unit_id, valid_from, valid_until, valid_range, rule, existence_from, existence_until, detail)` (temporal) — **derived**
   - Key FKs: stat_definition_id, unit_id, unit_type, valid_range.
   - Enums: `rule` (`public.quality_rule`), `unit_type` (`public.statistical_unit_type`).
-- `quality_check_switched_off(stat_definition_id, rule)` — **configuration**
+- `quality_check_switched_on(stat_definition_id, rule)` — **configuration**
   - Key FKs: stat_definition_id.
   - Enums: `rule` (`public.quality_rule`).
 - `quality_check(stat_definition_id, rule, on_dashboard, priority)`

@@ -1817,11 +1817,12 @@ NOTICE:  Created indices for stat_definition turnover
          "changed_count": 0,        +
          "deleted_count": 0         +
      },                             +
+     "quality_check_switched_on": { +
+         "deleted_count": 3,        +
+         "inserted_count": 3        +
+     },                             +
      "activity_category_standard": {+
          "changed_count": 0         +
-     },                             +
-     "quality_check_switched_off": {+
-         "deleted_count": 0         +
      }                              +
  }
 (1 row)

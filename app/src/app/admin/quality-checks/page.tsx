@@ -13,7 +13,7 @@ import AdminPageLayout from "../page-layout";
 
 /**
  * Admin > Data quality checks: every check of public.quality_check with a switch. Switching a check
- * off writes its row in public.quality_check_switched_off, switching it on deletes it; the dashboard
+ * on writes its row in public.quality_check_switched_on, switching it off deletes it; the dashboard
  * and the search's Quality filter read the same view, so they follow at their next read.
  */
 export default function QualityChecksPage() {
@@ -28,16 +28,16 @@ export default function QualityChecksPage() {
     setSaveError(null);
     const client = await getBrowserRestClient();
     const result = on
-      ? await (check.statDefinitionId === null
-          ? client.from("quality_check_switched_off").delete().eq("rule", check.rule).is("stat_definition_id", null)
+      ? await client
+          .from("quality_check_switched_on")
+          .insert({ rule: check.rule, stat_definition_id: check.statDefinitionId })
+      : await (check.statDefinitionId === null
+          ? client.from("quality_check_switched_on").delete().eq("rule", check.rule).is("stat_definition_id", null)
           : client
-              .from("quality_check_switched_off")
+              .from("quality_check_switched_on")
               .delete()
               .eq("rule", check.rule)
-              .eq("stat_definition_id", check.statDefinitionId))
-      : await client
-          .from("quality_check_switched_off")
-          .insert({ rule: check.rule, stat_definition_id: check.statDefinitionId });
+              .eq("stat_definition_id", check.statDefinitionId));
     setSaving(null);
     if (result.error) {
       setSaveError(`${qualityCheckName(check.rule, check.statName)}: ${result.error.message}`);
@@ -49,7 +49,7 @@ export default function QualityChecksPage() {
   return (
     <AdminPageLayout
       title="Data quality checks"
-      subtitle="Choose which data quality checks the dashboard and the search's Quality filter show. Every check starts on; a switched-off check is still computed, so switching it on shows its number at once."
+      subtitle="Choose which data quality checks the dashboard and the search's Quality filter show. A new installation shows a starting set: units missing region, units missing activity category and secondary activity equals primary. Every other check starts off; a switched-off check is still computed, so switching it on shows its number at once."
     >
       {error && <p className="text-sm text-orange-700">The data quality checks could not be read.</p>}
       {saveError && <p className="text-sm text-orange-700">{saveError}</p>}
