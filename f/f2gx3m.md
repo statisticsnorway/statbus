@@ -4,7 +4,7 @@ title: "Totals that do not add up on jo: a unit counted before its birth date"
 state: "doing"
 type: feature
 priority: ""
-assignee: ["lobster"]
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "00000000000f"
@@ -59,3 +59,4 @@ Owner 2026-11-26 21:24: counting needs both: valid_from (validity) and, where a 
 - 2026-11-26T21:15 request 1 in progress by rabbit: hug task set f2gx3m
 - 2026-11-26T21:15 resolved request 1 by rabbit
 - 2026-11-26T22:22 todo -> doing/active (take)
+- 2026-11-26T22:24 handed to rabbit: lobster's session went silent (last seen 2026-11-19 16:38)
