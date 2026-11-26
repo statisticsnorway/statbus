@@ -38,7 +38,7 @@ export default async function LegalUnitHistoryPage(props: {
   }
 
   return (
-    <DetailsPage title="History" subtitle="Statistical history for the unit">
+    <DetailsPage wide title="History" subtitle="Statistical history for the unit">
       {historyHighcharts.series.length > 0 && (
         <HistoryChart historyHighcharts={historyHighcharts} />
       )}

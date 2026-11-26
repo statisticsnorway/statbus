@@ -4,6 +4,7 @@ import * as highcharts from "highcharts";
 import type { Chart } from "highcharts";
 import { chart } from "highcharts";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { HISTORY_CHART_MAX_COLUMN_PX, historyChartMaxWidth } from "./history-chart-width";
 
 const CHART_COLORS = [
   "#1A3A70",
@@ -103,6 +104,7 @@ export const HistoryChart = ({
           },
           column: {
             borderWidth: 0,
+            maxPointWidth: HISTORY_CHART_MAX_COLUMN_PX,
           },
         },
 
@@ -136,5 +138,8 @@ export const HistoryChart = ({
     "HistoryChart:updateChart"
   );
 
-  return <div ref={_ref} />;
+  // As wide as the observations need (history-chart-width.ts), not the page: one year is a small
+  // chart, many years fill the readable maximum (owner 2026-11-26).
+  const observations = Math.max(0, ...historyHighcharts.series.map((s) => s.data.length));
+  return <div ref={_ref} className="w-full" style={{ maxWidth: historyChartMaxWidth(observations) }} />;
 };

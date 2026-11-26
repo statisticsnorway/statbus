@@ -120,7 +120,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         <div className="flex flex-col gap-4">
           <span className="font-medium">Physical Location</span>
 
-          <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
+          <div className="grid lg:grid-cols-3 gap-4">
             <DisplayFormField
               name="address_part1"
               label="Address Part 1"
