@@ -58,6 +58,7 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 
 2026-11-23 (hibiscus) Owner's answer on Playwright: browser tests only as a systematic suite for most of the app, in its own ticket, created as m1gadc. Checks 1, 2, 4 and 5 now ask for driven-browser and SQL evidence instead of Playwright tests.
 check 3: test/sql/100_regions_with__itudes.sql uploads regions through public.region_upload with center_latitude/longitude/altitude and asserts the stored values (expected/100 lines 121-122: Oslo 59.913868 10.752245 23.0; Rogaland 58.969975 5.733107 50.0); also rejects out-of-range values. Existing test, part of the fast suite.
+Owner 2026-11-26 12:24: next, after the list's view/edit lands: the region upload must show how to add coordinates in batch (upload with center_latitude/longitude/altitude). Later, region kind (5necw2) says which regions get no coordinates.
 ## History
 - 2026-11-23T13:58 todo -> todo/depends (ask)
 - 2026-11-23T16:12 answered design, by jhf, for hibiscus (todo/depends -> todo/depends):
