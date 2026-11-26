@@ -33,7 +33,7 @@ Owner decision 2026-11-26. Columns: stat_definition.code, external_ident_type.co
 
 ## Acceptance
 - [x] SQL test RED before and GREEN after migration
-- [ ] Migration with up/down and COMMENT ON each constraint; types and doc/db regenerated
+- [x] Migration with up/down and COMMENT ON each constraint; types and doc/db regenerated
 - [ ] No 'Failed to parse form data' in app; browser shows useful messages on empty Add statistical variable
 - [ ] tsc, lint, jest, SQL fast suite pass; pushed; CI checked
 
@@ -43,5 +43,6 @@ Owner decision 2026-11-26. Columns: stat_definition.code, external_ident_type.co
 landed 8096787 on master 2026-11-26: db: codes are CSV column names, CHECK ^[a-z0-9_]+$ on stat_definition and…
 landed ba23420 on master 2026-11-26: app: a refused admin form names the fields to fix, not 'Failed to parse form…
 check 1: test 412: RED tmp/test-412-red.out accepts 'Demo Variable'; GREEN after 20261126094102 refuses it via the CHECK (809678734)
+check 2: migration 20261126094102_codes_are_csv_column_names up/down with COMMENT ON each constraint; types and doc/db regenerated, no deletions (809678734)
 ## History
 - 2026-11-26T10:28 todo -> doing/active (take)
