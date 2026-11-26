@@ -32,11 +32,12 @@ public.activity rows of type primary and secondary for the same unit with the sa
 ## Depends on
 
 ## Acceptance
-- [ ] Test 411 (or a new test) asserts a unit with secondary = primary is listed and one with different categories is not, for legal unit and establishment
+- [x] Test 411 (or a new test) asserts a unit with secondary = primary is listed and one with different categories is not, for legal unit and establishment
 - [ ] On the Norway copy the card equals its search list, observed in a browser
 
 ## Notes
 
 
+check 1: test/sql/411 §411.3c on branch quality/default-off-secondary-equals-primary (0fe3b95e1): LU-SECSAME and LU-SECSAME-es1 listed, LU-SECDIFF and -es1 not; RED tmp/test-qjy2eg-1tx1ed-RED.log (invalid enum value), GREEN tmp/test-qjy2eg-1tx1ed-GREEN.log
 ## History
 - 2026-11-26T21:22 todo -> doing/active (take)
