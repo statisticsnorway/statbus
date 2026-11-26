@@ -1,15 +1,20 @@
 ---
 id: svpafa
 title: "Codes are CSV column names: DB CHECK, and admin forms name fields to fix"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["hamster"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzz"
 created: 2026-11-26
 updated: 2026-11-26
+doing_since: "2026-11-26T10:28"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -33,3 +38,7 @@ Owner decision 2026-11-26. Columns: stat_definition.code, external_ident_type.co
 - [ ] tsc, lint, jest, SQL fast suite pass; pushed; CI checked
 
 ## Notes
+
+
+## History
+- 2026-11-26T10:28 todo -> doing/active (take)
