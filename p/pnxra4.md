@@ -31,3 +31,5 @@ Tables with a custom flag: data_source, unit_size, status, legal_form, sector, a
 - [ ] The admin pages show built-in entries without an edit control, observed in a browser
 
 ## Notes
+
+Duplicate of mna899 (Shipped classification rows can be enabled or disabled, not changed), which holds the owner's design from 2026-11-22: a read-only factory twin per shipped table with a foreign key over every column except enabled. Found via Hibiscus.
