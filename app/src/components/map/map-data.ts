@@ -61,10 +61,13 @@ export interface RegionCountRow {
 
 /** A region of the region table, with its centre if it has one. */
 export interface MapRegion {
+  /** The region's row, so the Regions map can edit its centre where it is seen (5yxn4w). */
+  id: number;
   path: string;
   name: string;
   center_latitude: number | null;
   center_longitude: number | null;
+  center_altitude: number | null;
 }
 
 /** Units per region path at one depth, split by unit type. */

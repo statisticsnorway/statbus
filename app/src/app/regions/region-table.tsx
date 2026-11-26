@@ -1,24 +1,10 @@
 "use client";
 import React, { useState } from "react";
-import { useAtomValue } from "jotai";
-import useSWR from "swr";
 import { Map as MapIcon, Pencil } from "lucide-react";
 import { Table, TableBody, TableHeader, TableRow, TableCell } from "@/components/ui/table";
 import { usePermission } from "@/atoms/auth";
-import { restClientAtom } from "@/atoms/rest-client";
-import { LocationPicker, type PointValues } from "@/components/map/location-picker";
 import type { Tables } from "@/lib/database.types";
-
-/** A stored coordinate as the picker's text, empty when not set. */
-const asText = (n: number | null) => (n == null ? "" : String(n));
-
-/** The picker's text back to a stored value: empty is not set, anything else must be a number. */
-function asNumber(text: string, label: string): number | null {
-  if (text.trim() === "") return null;
-  const n = Number(text);
-  if (!Number.isFinite(n)) throw new Error(`${label} is not a number: ${text}`);
-  return n;
-}
+import { RegionCentreDialog } from "./region-centre-dialog";
 
 /**
  * The regions: code, name and level, the columns every country needs. With `showCoordinates` on,
@@ -32,26 +18,7 @@ const RegionTable = ({
   showCoordinates,
 }: RegionTableProps & { onChanged?: () => void; showCoordinates: boolean }) => {
   const { canAccessAdminTools } = usePermission();
-  const client = useAtomValue(restClientAtom);
   const [opened, setOpened] = useState<{ region: Tables<"region">; editing: boolean } | null>(null);
-  // The installation's country narrows OpenStreetMap's place search to it.
-  const { data: countryCode } = useSWR(client && showCoordinates ? ["regions:country-code"] : null, async () => {
-    const { data, error } = await client!.from("settings").select("country(iso_2)").limit(1).single();
-    if (error) throw error;
-    return (data.country as { iso_2: string } | null)?.iso_2 ?? null;
-  });
-
-  const saveCentre = async (id: number, values: PointValues) => {
-    const centre = {
-      center_latitude: asNumber(values.latitude, "Latitude"),
-      center_longitude: asNumber(values.longitude, "Longitude"),
-      center_altitude: asNumber(values.altitude, "Altitude"),
-    };
-    const { error } = await client!.from("region").update(centre).eq("id", id);
-    if (error) throw new Error(error.message);
-    setOpened(null);
-    onChanged?.();
-  };
 
   return (
     <>
@@ -124,19 +91,14 @@ const RegionTable = ({
         </TableBody>
       </Table>
       {opened && (
-        <LocationPicker
-          open
-          subject="region"
+        <RegionCentreDialog
+          region={opened.region}
           editing={opened.editing}
-          values={{
-            latitude: asText(opened.region.center_latitude),
-            longitude: asText(opened.region.center_longitude),
-            altitude: asText(opened.region.center_altitude),
-          }}
-          regionCentre={null}
-          address={() => ({ line: opened.region.name, countryCode: countryCode ?? null, regionName: null })}
           onClose={() => setOpened(null)}
-          onUse={(values) => saveCentre(opened.region.id, values)}
+          onSaved={() => {
+            setOpened(null);
+            onChanged?.();
+          }}
         />
       )}
     </>

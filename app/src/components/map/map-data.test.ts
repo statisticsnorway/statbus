@@ -13,11 +13,11 @@ const rows: RegionCountRow[] = [
   { unit_type: "power_group", physical_region_path: "03.0301", count: 9 },
 ];
 const regions = [
-  { path: "03", name: "Oslo", center_latitude: 59.94, center_longitude: 10.77 },
-  { path: "46", name: "Vestland", center_latitude: 60.9, center_longitude: 6.0 },
-  { path: "25", name: "Utlandet", center_latitude: null, center_longitude: null },
-  { path: "46.4601", name: "Bergen", center_latitude: 60.39, center_longitude: 5.32 },
-  { path: "46.4602", name: "Kinn", center_latitude: 61.6, center_longitude: 5.0 },
+  { id: 1, path: "03", name: "Oslo", center_latitude: 59.94, center_longitude: 10.77, center_altitude: null },
+  { id: 2, path: "46", name: "Vestland", center_latitude: 60.9, center_longitude: 6.0, center_altitude: null },
+  { id: 3, path: "25", name: "Utlandet", center_latitude: null, center_longitude: null, center_altitude: null },
+  { id: 4, path: "46.4601", name: "Bergen", center_latitude: 60.39, center_longitude: 5.32, center_altitude: 12 },
+  { id: 5, path: "46.4602", name: "Kinn", center_latitude: 61.6, center_longitude: 5.0, center_altitude: null },
 ];
 
 describe("pathPrefix", () => {

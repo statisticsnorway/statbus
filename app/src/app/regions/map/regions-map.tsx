@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { X, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAtomValue } from "jotai";
 import useSWR from "swr";
@@ -18,6 +17,8 @@ import { ViewControl } from "@/components/map/view-control";
 import { RegionSpiders } from "./region-spiders";
 import { SearchRow, unitsIn } from "./open-in-search";
 import { ChildList, type ChildRow } from "./child-list";
+import { usePermission } from "@/atoms/auth";
+import { RegionCentreDialog } from "../region-centre-dialog";
 import {
   MAP_UNIT_TYPES,
   UNIT_TYPE_SWATCH,
@@ -239,14 +240,18 @@ export function RegionsMap({
   });
   const homeId = home?.id ?? null;
 
-  const { data: regions } = useSWR(client ? ["regions-map:regions"] : null, async () => {
+  const { data: regions, mutate: reloadRegions } = useSWR(client ? ["regions-map:regions"] : null, async () => {
     const { data, error } = await client!
       .from("region")
-      .select("path,name,center_latitude,center_longitude")
+      .select("id,path,name,center_latitude,center_longitude,center_altitude")
       .order("path");
     if (error) throw error;
     return (data ?? []) as MapRegion[];
   });
+  // The region whose centre is being edited where it is seen on the map (owner 2026-11-26, 5yxn4w).
+  const { canAccessAdminTools } = usePermission();
+  const [editingCentre, setEditingCentre] = useState<MapRegion | null>(null);
+  const regionByPath = useMemo(() => new Map((regions ?? []).map((r) => [r.path, r])), [regions]);
   const { data: countries } = useSWR(client ? ["regions-map:countries"] : null, async () => {
     const { data, error } = await client!.from("country").select("id,iso_2,name,latitude,longitude");
     if (error) throw error;
@@ -544,10 +549,11 @@ export function RegionsMap({
             {/* The selected place's name: a row whose only action is opening its units in the
                 search, so the whole row is that link, its arrow at the right edge in the same column
                 as the count rows' arrows (owner 2026-11-24). The X beside it goes up a level. */}
-            <h2 className={`font-medium ${selection !== null ? "mr-6" : ""}`}>
+            <h2 className={`flex items-center font-medium ${selection !== null ? "mr-6" : ""}`}>
               <SearchRow
                 href={selectionSearch}
                 title={selection === null ? "View and download all units" : unitsIn(nameOf(selection))}
+                className="min-w-0 flex-1"
                 data-regions-map-view-units=""
               >
                 <span className="flex-1">
@@ -555,6 +561,19 @@ export function RegionsMap({
                   {depth > 0 && <span className="ml-1.5 text-xs font-normal text-gray-500">{selection}</span>}
                 </span>
               </SearchRow>
+              {/* A selected region's centre, edited where it is seen (owner 2026-11-26, 5yxn4w). */}
+              {depth > 0 && canAccessAdminTools && regionByPath.get(selection ?? "") && (
+                <button
+                  type="button"
+                  className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
+                  onClick={() => setEditingCentre(regionByPath.get(selection ?? "") ?? null)}
+                  title="Edit the centre"
+                  aria-label={`Edit the centre of ${nameOf(selection)}`}
+                  data-regions-map-edit-centre=""
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
             </h2>
             {!rows ? (
               // No counts yet, or counting failed (its message stands over the map): no numbers, rather
@@ -623,21 +642,28 @@ export function RegionsMap({
                   </p>
                   <ul className="mt-0.5 space-y-0.5 pl-3 text-xs text-gray-600">
                     {withoutCentre.map((r) => (
-                      <li key={r.path} className="flex justify-between gap-2">
+                      <li key={r.path} className="flex items-center justify-between gap-2">
                         <span className="truncate" title={`${r.path} ${r.name}`}>
                           {r.path} {r.name}
                         </span>
-                        <span className="tabular-nums">{r.total.toLocaleString()}</span>
+                        <span className="flex shrink-0 items-center gap-1">
+                          <span className="tabular-nums">{r.total.toLocaleString()}</span>
+                          {canAccessAdminTools && regionByPath.get(r.path) && (
+                            <button
+                              type="button"
+                              className="rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
+                              onClick={() => setEditingCentre(regionByPath.get(r.path) ?? null)}
+                              title="Place on the map"
+                              aria-label={`Place ${r.name} on the map`}
+                              data-regions-map-place=""
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                          )}
+                        </span>
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-1 text-xs text-gray-500">
-                    An admin places a region on the{" "}
-                    <Link className="underline underline-offset-2" href="/regions">
-                      region list
-                    </Link>{" "}
-                    with Place on map.
-                  </p>
                 </div>
               )}
             </section>
@@ -654,6 +680,18 @@ export function RegionsMap({
           </div>
         </aside>
       </div>
+      {editingCentre && (
+        <RegionCentreDialog
+          region={editingCentre}
+          editing
+          onClose={() => setEditingCentre(null)}
+          onSaved={() => {
+            setEditingCentre(null);
+            // The circles are drawn from the regions' centres, so the region moves at once.
+            void reloadRegions();
+          }}
+        />
+      )}
     </main>
   );
 }
