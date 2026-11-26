@@ -15,25 +15,25 @@ const COORDINATE_CHOICES: { value: "all" | "with" | "without"; label: string }[]
 ];
 
 /**
- * The list's filters (owner 2026-11-26, 5yxn4w): code and name, Reset, then Advanced. Advanced on
- * shows the Coordinates column and a dropdown filter: all regions, those with a centre, or those
- * without one, which is where an admin edits one. Advanced off resets that filter, so no hidden
- * filter narrows the list.
+ * The list's filters (owner 2026-11-26, 5yxn4w): code and name, Reset, then the Coordinates switch,
+ * named as the column it shows. On, it shows the Coordinates column and a dropdown filter: all
+ * regions, those with a centre, or those without one, which is where an admin edits one. Off
+ * resets that filter, so no hidden filter narrows the list.
  */
 export default function RegionTableFilters({
   setQueries,
   setPagination,
   queries,
-  advanced,
-  setAdvanced,
+  showCoordinates,
+  setShowCoordinates,
 }: {
   readonly setQueries: Dispatch<SetStateAction<RegionQueries>>;
   readonly setPagination: Dispatch<
     SetStateAction<{ pageSize: number; pageNumber: number }>
   >;
   readonly queries: RegionQueries;
-  readonly advanced: boolean;
-  readonly setAdvanced: (on: boolean) => void;
+  readonly showCoordinates: boolean;
+  readonly setShowCoordinates: (on: boolean) => void;
 }) {
   const handleFilterChange = (filterName: string, value: string) => {
     setQueries((prev) => {
@@ -45,12 +45,12 @@ export default function RegionTableFilters({
     setQueries({ name: "", code: "", coordinates: "" });
     setPagination((prev) => ({ ...prev, pageNumber: 1 }));
   };
-  const toggleAdvanced = (on: boolean) => {
+  const toggleCoordinates = (on: boolean) => {
     if (!on && queries.coordinates !== "") handleFilterChange("coordinates", "");
-    setAdvanced(on);
+    setShowCoordinates(on);
   };
   return (
-    <div className="flex flex-wrap items-center p-1 lg:p-0 *:mb-2 *:mx-1">
+    <div className="flex w-full flex-wrap items-center gap-2 p-1 lg:p-0">
       <TableTextSearchFilter
         onFilterChange={handleFilterChange}
         value={queries["code"]}
@@ -61,7 +61,7 @@ export default function RegionTableFilters({
         value={queries["name"]}
         type="name"
       />
-      {advanced && (
+      {showCoordinates && (
         <Select
           value={queries.coordinates || "all"}
           onValueChange={(v) => handleFilterChange("coordinates", v === "all" ? "" : v)}
@@ -79,13 +79,14 @@ export default function RegionTableFilters({
         </Select>
       )}
       <ResetFilterButton onReset={handleResetFilter} />
-      <div className="flex h-9 items-center gap-2 px-1">
-        <Label htmlFor="regions-advanced">Advanced</Label>
+      {/* At the right edge, so it stays put when the coordinate filter appears beside the others. */}
+      <div className="ml-auto flex h-9 items-center gap-2 px-1">
+        <Label htmlFor="regions-show-coordinates">Coordinates</Label>
         <Switch
-          id="regions-advanced"
-          checked={advanced}
-          onCheckedChange={toggleAdvanced}
-          data-regions-advanced=""
+          id="regions-show-coordinates"
+          checked={showCoordinates}
+          onCheckedChange={toggleCoordinates}
+          data-regions-show-coordinates=""
         />
       </div>
     </div>

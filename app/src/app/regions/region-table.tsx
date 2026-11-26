@@ -21,21 +21,21 @@ function asNumber(text: string, label: string): number | null {
 }
 
 /**
- * The regions: code, name and level, the columns every country needs. With `advanced` on, one
- * Coordinates column sums up the region's centre (latitude, longitude, and the altitude when set)
+ * The regions: code, name and level, the columns every country needs. With `showCoordinates` on,
+ * one Coordinates column sums up the region's centre (latitude, longitude, and the altitude when set)
  * and offers Show, and Edit for those who may change regions (owner 2026-11-26, 5yxn4w). Both open
  * the location dialog the unit's form uses; Edit saves the centre to public.region.
  */
 const RegionTable = ({
   regions,
   onChanged,
-  advanced,
-}: RegionTableProps & { onChanged?: () => void; advanced: boolean }) => {
+  showCoordinates,
+}: RegionTableProps & { onChanged?: () => void; showCoordinates: boolean }) => {
   const { canAccessAdminTools } = usePermission();
   const client = useAtomValue(restClientAtom);
   const [opened, setOpened] = useState<{ region: Tables<"region">; editing: boolean } | null>(null);
   // The installation's country narrows OpenStreetMap's place search to it.
-  const { data: countryCode } = useSWR(client && advanced ? ["regions:country-code"] : null, async () => {
+  const { data: countryCode } = useSWR(client && showCoordinates ? ["regions:country-code"] : null, async () => {
     const { data, error } = await client!.from("settings").select("country(iso_2)").limit(1).single();
     if (error) throw error;
     return (data.country as { iso_2: string } | null)?.iso_2 ?? null;
@@ -61,7 +61,7 @@ const RegionTable = ({
             <TableCell>Code</TableCell>
             <TableCell>Name</TableCell>
             <TableCell className="text-right">Level</TableCell>
-            {advanced && <TableCell className="text-right">Coordinates</TableCell>}
+            {showCoordinates && <TableCell className="text-right">Coordinates</TableCell>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -75,7 +75,7 @@ const RegionTable = ({
                   {name}
                 </TableCell>
                 <TableCell className="py-3 text-right tabular-nums">{level}</TableCell>
-                {advanced && (
+                {showCoordinates && (
                   <TableCell className="py-1.5 text-right" data-region-coordinates="">
                     <span className="inline-flex items-center gap-1">
                       {placed ? (
