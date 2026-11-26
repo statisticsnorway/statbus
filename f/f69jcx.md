@@ -1,7 +1,7 @@
 ---
 id: f69jcx
 title: "Download menu states the row count once; a finished download is a notification"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["rabbit"]
@@ -10,12 +10,10 @@ group: ""
 rank: "zzzzzzzzzzzm"
 created: 2026-11-26
 updated: 2026-11-26
-doing_since: "2026-11-26T11:50"
-doing_with: "ca6dk5"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+done_at: "2026-11-26T21:52"
 ---
 
 ## Goal
@@ -47,3 +45,4 @@ Pushed to master 2026-11-26 18:25 (1c49640e0 / 37a8812b4).
 landed 1c49640 on master 2026-11-26: app: every Download menu states its rows once above CSV and Excel, and a…
 ## History
 - 2026-11-26T11:50 todo -> doing/active (take with ca6dk5)
+- 2026-11-26T21:52 doing/active -> done (done); was doing_since: 2026-11-26T11:50; doing_with: ca6dk5
