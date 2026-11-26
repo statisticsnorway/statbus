@@ -1,15 +1,20 @@
 ---
 id: qjy2eg
 title: "Quality check: secondary activity equals primary activity"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["opus-a"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzv"
 created: 2026-11-26
 updated: 2026-11-26
+doing_since: "2026-11-26T21:22"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "quality/default-off-secondary-equals-primary"
+worktree: "/Users/jhf/ssb/statbus_a"
 ---
 
 ## Goal
@@ -31,3 +36,7 @@ public.activity rows of type primary and secondary for the same unit with the sa
 - [ ] On the Norway copy the card equals its search list, observed in a browser
 
 ## Notes
+
+
+## History
+- 2026-11-26T21:22 todo -> doing/active (take)
