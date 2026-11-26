@@ -1,15 +1,20 @@
 ---
 id: r69fpr
 title: "How a unit's counting rule changed: find when birth date stopped deciding"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["jcode-r69fpr"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzz"
 created: 2026-11-26
 updated: 2026-11-26
+doing_since: "2026-11-26T22:28"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -32,3 +37,7 @@ Inputs that decide counting today, to enumerate: statistical_unit.used_for_count
 - [ ] [Owner] reads the findings and decides whether to restore the old rule; recorded in Notes
 
 ## Notes
+
+
+## History
+- 2026-11-26T22:28 todo -> doing/active (take)
