@@ -12,10 +12,13 @@ created: 2026-11-21
 updated: 2026-11-21
 doing_since: "2026-11-24T11:13"
 doing_with: "pkne34"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+waiting_asked_by: "rabbit"
+waiting_on: "lobster's counting branch (s465ff/f2gx3m)"
+waiting_since: "2026-11-27T00:00"
 ---
 
 ## Goal
@@ -67,3 +70,4 @@ Design agreed with owner 2026-11-24 19:19 (merges 217dx5 for Data quality): one 
 2026-11-24 20:31 owner approved the quality-check catalogue design; built under 05pe0x (taken with this task: ships in the same rc.02). Check 6 (rc.02) waits for 05pe0x.
 ## History
 - 2026-11-24T11:13 todo -> doing/active (take with pkne34)
+- 2026-11-27T00:00 doing/active -> doing/waiting (wait)
