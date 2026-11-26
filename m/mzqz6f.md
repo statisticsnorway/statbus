@@ -1,15 +1,20 @@
 ---
 id: mzqz6f
 title: "One Save click sends the edit twice and runs two derive cycles"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzv"
 created: 2026-11-26
 updated: 2026-11-26
+doing_since: "2026-11-27T00:01"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -31,3 +36,7 @@ Suspects: the capture submit listener in app/src/components/form/edit-metadata-c
 - [ ] A test fails before the fix and passes after it
 
 ## Notes
+
+
+## History
+- 2026-11-27T00:01 todo -> doing/active (take)
