@@ -9,7 +9,7 @@ labels:
 group: ""
 rank: ""
 dependencies: []
-priority: medium
+priority: "low"
 type: "feature"
 origin: "backlog:DRAFT-002"
 aliases: ["DRAFT-002"]
