@@ -37,5 +37,6 @@ Hedda's change: details-page-layout.tsx max-w removed, address parts in one row 
 ## Notes
 
 
+2026-11-26 10:38 rabbit takes over from ladybug (stopped: one directory per agent); its uncommitted edits in ~/ssb/statbus are the starting point.
 ## History
 - 2026-11-26T11:05 todo -> doing/active (take)
