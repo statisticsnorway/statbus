@@ -37,7 +37,7 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 - [x] Uploading a region file with the new headers stores each region's point; a SQL test asserts the stored values
 - [x] statistical_unit and the timeline views carry latitude, longitude and altitude (no physical_ prefix) and no postal coordinate columns; the fast SQL suite passes with regenerated doc/db and app types
 - [x] The import's physical location step takes latitude, longitude, altitude; the postal location step takes no coordinates; an import of a unit with a point stores it, a SQL test asserts it
-- [ ] The app (search export, unit history, maps) and docs (data-model, import-system, API reference) use the new names: rg finds none of the old coordinate names outside migrations
+- [x] The app (search export, unit history, maps) and docs (data-model, import-system, API reference) use the new names: rg finds none of the old coordinate names outside migrations
 - [ ] An independent reviewer (neither the implementer nor hibiscus) checked every hunk of git diff origin/master -- test/expected against the rename and its migration, and found no change beyond the rename (no changed value, row count, order, or appearing or vanishing error); its findings and their fixes are recorded in this task
 - [ ] Region uploads with center_* headers and unit imports with physical_* coordinate headers are refused with a message naming latitude, longitude, altitude; a SQL test asserts it
 - [ ] A region file or a unit import file with old coordinate headers (center_* or physical_* latitude/longitude/altitude) is refused with a message naming the new headers latitude, longitude, altitude; a SQL test asserts both refusals
@@ -67,6 +67,7 @@ check 2: commit 3bf2dbc6f, ./dev.sh test fast: All 146 tests passed (tmp/test-fa
 check 3: test/sql/415: region file with latitude,longitude,altitude stores 59.913868/10.752245/23.0 (and a point without altitude)
 check 4: commit 3bf2dbc6f, ./dev.sh test fast: All 146 tests passed (tmp/test-fast.log), doc/db and database.types.ts regenerated; information_schema has no physical_/postal_/center_ coordinate columns after migrate up
 check 5: test/sql/415: legal unit import with latitude/longitude/altitude -> location physical row and statistical_unit legal_unit+enterprise carry 59.913868/10.752245/23.0; postal_location step has no coordinate data columns
+check 6: rg outside migrations/tmp finds old names only in the refusal code, its tests (415, upload-csv-check), its doc/db page, the historical backlog doc, and 402/404 expected hunks of pre-existing drift
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
