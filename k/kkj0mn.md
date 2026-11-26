@@ -29,4 +29,12 @@ Options: let workflow_dispatch use the Images workflow's commit-tagged images wh
 ## Acceptance
 - [ ] A dispatched fast-tests run on a branch with migrations finishes with conclusion success, its Start services step under 3 minutes or its build step outside the test time limit
 
+## Requests
+- 2026-11-26T21:16 request 1 by jhf:
+  This ticket cannot be high priority. If it was, it would have been built while we needed it. Instead, you have to explain to me which agent reported it, where are the details, what would you do? How would it interact? How would it work with this status, status A, status B, and so forth? Why don't we push to have the CI run? Something is not computing for me.
+
 ## Notes
+
+
+## History
+- 2026-11-26T21:16 request 1 by jhf
