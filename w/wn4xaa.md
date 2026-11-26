@@ -46,5 +46,10 @@ Acceptance (post-ruling, for A): every workflow_run completion lands in the ledg
   ci-verdict-ledger proposes recording workflow verdicts on a git ref so nothing polls the GitHub API (after a rate-limit incident). Build it (then it gets acceptance checks), or drop it as solved otherwise?
 
 
+## Requests
+- 2026-11-26T21:40 request 1 by jhf:
+  So you're can it be more concrete the goal so what why how store in the repository where how like like too much text too little clarity please
+
 ## History
 - 2026-11-22T23:31 todo -> todo/design (ask)
+- 2026-11-26T21:40 request 1 by jhf
