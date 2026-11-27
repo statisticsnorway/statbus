@@ -42,5 +42,6 @@ Rule to field: missing_region and missing_physical_location to Contact/location;
 
 
 check 2: Norway copy, a9d45e1a2 (local, on quality 91ce3e04e): secondary set to 56.101 (= primary) through the page's edit; 14 s later the Secondary Activity field shows an amber mark whose popover reads the card's name and explanation 'Secondary activity equals primary' (tmp/b6f1pw-mark-appears.log, tmp/b6f1pw-mark.png); quality_check_count gives check 7 = 1. Also seen: LU 295204 marks Primary activity with 'Establishment has another activity'.
+2026-11-27 16:13 owner review in tab 65 (LU 146 Classifications): the amber triangle is sensible; placed after the field's fixed icons (ⓘ metadata, timeline) so those keep one position on every field. Done in a30acb540 (ui/unit-page-quality-marks-wt, on quality 127070849).
 ## History
 - 2026-11-27T01:12 todo -> doing/active (take with 0pn35h)
