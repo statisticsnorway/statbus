@@ -32,3 +32,5 @@ Additive only: no change to statistical_unit, quality_finding_def, legal_unit_es
 - [ ] Fast suite green; doc/db, types and the security report regenerated
 
 ## Notes
+
+file:0pn35h-architecture.md (18977 bytes, sha256:dba4c962) Measured design report (owner decided 2026-11-27)
