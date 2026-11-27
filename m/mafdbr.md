@@ -32,3 +32,5 @@ Seen 2026-11-26 by jhf on /search?physical_location=missing&physical_region_path
 - [ ] A regression test or recorded benchmark covers a filter combination that matches 0 rows
 
 ## Notes
+
+2026-11-27 22:28 (hibiscus) owner: in the Previous frame (2025), which has no units on the test slot (data starts 2026), the list takes several seconds to show no hits and the count takes many seconds. Measured as admin_user (tmp/prev-frame-list-timing.sql/.log), during a full derive: page (existence_from<=2025-12-31 AND existence_until>2025-12-31 ORDER BY name LIMIT 10) 2.08 s execution + 0.47 s planning; count(*) 1.58 s. Both a Parallel Seq Scan over 5.2 M rows (Rows Removed 1,743,663 x3), ~414k buffers, mostly read from disk. The only existence-date index is idx_statistical_unit_quality_check_count (partial: quality_check_ids <> '{}'), so a frame filter alone has no index. A (unit_existence_from, unit_existence_until) btree, or the facet's per-frame counts for the empty case, would answer 'no units in this frame' at once. The maps read statistical_unit_facet and answer in well under a second, so their loading state is rarely visible.
