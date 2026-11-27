@@ -39,3 +39,5 @@ Flow from the owner, 2026-11-18: Workflows page lists the workflows and which ar
 2026-11-18 14:54 the first workflow to build is 2gpcs7 (pick the primary unit by a variable); its result feeds the quality check xz3jej (on master 8aaf0262b, in the next release candidate). PR #328 closed with this explanation: https://github.com/statisticsnorway/statbus/pull/328
 
 2026-11-22 20:43 geocoding workflows (owner, z2qt08 answer 5) are their own task, nq8zqt, which depends on this one.
+
+2026-11-27 20:33 owner: a workflow is how a settled concept (such as the primary) is changed in bulk: the analysis proposes, the import job applies; imports themselves never override an existing primary. Imported rows must therefore carry existence-correct ranges (a primary range starting at the unit's birth date, not before it); the import refuses a birth_date in a later year than valid_from (test 418, f2gx3m).
