@@ -52,6 +52,8 @@ Pieces it would touch: (1) cli/src/worker.cr: the shutdown wait (5 s) becomes th
     Rewritten around what we have today, checked in code: the upgrade stops the worker with Docker's 10 s timeout; the worker waits 5 s for running fibers, so a longer task is cut off, rolled back by PostgreSQL and reset to pending on restart (STATBUS-264/265), which is why interruption is safe. Purpose now says what draining would add (no redone work, a quiet box, a clear 'Finishing current work' message); Principle: finish never refuse, bounded, try a timeout first; Details: the four pieces it touches (worker.cr shutdown wait, worker stop_grace_period, upgrade step 3 order and message, a SIGTERM test), the complexity (two timeouts and an order, no new state) and its cost (up to the bound longer). Title and goal shortened; three checks, the first your build-or-drop decision.
 - 2026-11-27T11:04 request 2 by jhf:
   Thinking about this ticket, I'm tempted to reject it. Why? Because then our current upgrade actually tests what we're doing. So I think that we either have to wait until the work finishes completely before we upgrade, meaning you have no in-progress things. But what if the upgrade fixes something that hangs? Or this behavior we have today is safe and exercises precisely rescuing something that will stall forever and making and it relies on and tests or semantics that are crash safe
+- 2026-11-27T11:05 request 3 by jhf:
+  But we have many tests, so if this is fully tested, because this brings some complexity, and how long would you wait then?
 
 ## History
 - 2026-11-22T23:31 todo -> todo/design (ask)
@@ -62,3 +64,4 @@ Pieces it would touch: (1) cli/src/worker.cr: the shutdown wait (5 s) becomes th
 - 2026-11-26T21:40 resolved request 1 by rabbit
 - 2026-11-27T11:04 request 2 by jhf
 - 2026-11-27T11:04 request 2 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-27T11:05 request 3 by jhf
