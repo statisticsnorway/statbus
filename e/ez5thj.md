@@ -30,5 +30,6 @@ Seen by jhf in Firefox on the test slot, throttled to regular 4G then 3G, while 
 - [ ] A table of every top-level page (dashboard, search list and map, reports, regions, unit pages, admin) with its transferred bytes, request count and time to content on the built app, throttled to 3G, recorded before and after
 - [ ] Each page shows its content within an agreed budget on 3G, measured with the same method
 - [ ] ~~A check in CI or a recorded benchmark script that reports each page's first-load bytes, so a regression is seen~~ (not relevant: one job per check: rewritten as check 4, hibiscus, 2026-11-27)
+- [ ] A recorded benchmark script reports each page's first-load bytes and time on the built app, run before and after, so a regression is seen
 
 ## Notes
