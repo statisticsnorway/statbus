@@ -42,5 +42,6 @@ statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_ri
 ## Notes
 
 
+2026-11-27 11:10 (hibiscus) Test design: a timing test cannot go red on a small test database (the planner prefers the name index only with ~millions of rows), so the SQL test asserts the cause directly as a signed-in role: the path filter on statistical_unit is planned with the region's own estimate (EXPLAIN shows the gist index or a row estimate of the matching rows for an empty path), red today, green after the fix. Alternatively assert the property the fix sets: either relrowsecurity false on statistical_unit, or proleakproof true for ltree_risparent/ltree_isparent/ltree_eq.
 ## History
 - 2026-11-27T12:05 todo -> todo/design (ask)
