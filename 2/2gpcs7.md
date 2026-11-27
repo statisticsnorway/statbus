@@ -33,6 +33,7 @@ Owner notes 2026-11-18: add support to calculate the primary activity for an ent
 - [ ] [Owner] Decides the configuration (the variable, the frame's period, how ties are broken) and whether the same workflow covers legal units within enterprises and establishments within legal units; the answer is recorded in the notes
 - [ ] A SQL test asserts which unit the workflow picks, including a tie and a unit missing the variable
 - [ ] Running the workflow produces an import job that changes the primary flags only where the pick differs from today, and after applying it the enterprise's primary activity is the picked unit's
+- [ ] Running the workflow for a period proposes a primary for every legal unit with no existing primary establishment in it (and every enterprise with no existing primary legal unit), e.g. jo's legal unit 89 in 2023
 
 ## Notes
 
