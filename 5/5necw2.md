@@ -44,6 +44,7 @@ Owner 2026-11-23 (review of z2qt08/5yxn4w): keep the official file; not in this 
 2026-11-27 14:37 (hibiscus) Owner's answer to the UN centre question (relayed by rabbit): put the United Nations at UN Headquarters in New York (about 40.7489, -73.9680), not at 0,0 and not without a centre. Hibiscus does it: dbseed/country/country_centres.csv plus a forward migration for installed data, test 408 updated.
 
 
+2026-11-27 16:18 (hibiscus) UN centre done as the owner answered: e52d18107 puts UN at 40.7489, -73.9680 (seed file + forward migration 20261127161436, data only). Test 408 red (0,0, tmp/5necw2-408-red.log) then green (tmp/5necw2-408-green.log); migrate down gives 0,0, up gives HQ. The task's region-kind work (checks 1-3) is unchanged and still open.
 ## History
 - 2026-11-27T14:47 todo -> todo/design (ask)
 - 2026-11-27T15:37 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
@@ -51,3 +52,4 @@ Owner 2026-11-23 (review of z2qt08/5yxn4w): keep the official file; not in this 
   Why don't we put it at the UN headquarters?
 - 2026-11-27T15:37 answer 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-27T15:37 answer 1 acknowledged by rabbit
+- 2026-11-27T17:18 hibiscus read the answer: hug task note 5necw2 "2026-11-27 16:18 (hibiscus) UN centre done as the owner answered: e52d18107 puts UN at 40.7489, -73.9680 (seed file + f…"
