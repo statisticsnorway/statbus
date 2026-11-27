@@ -32,13 +32,16 @@ Additive only: no change to statistical_unit, quality_finding_def, legal_unit_es
 ## Depends on
 
 ## Acceptance
-- [ ] A SQL test shows the Data source filter's plan uses idx_statistical_unit_data_source_ids after intarray is installed, and fails on the migration's parent
+- [x] A SQL test shows the Data source filter's plan uses idx_statistical_unit_data_source_ids after intarray is installed, and fails on the migration's parent
 - [ ] A SQL test lists the catalogue's ids for the row checks and one per summed variable per relation rule, and a new summed variable gets its ids
 - [ ] Fast suite green; doc/db, types and the security report regenerated
 
 ## Notes
 
 file:0pn35h-architecture.md (18977 bytes, sha256:dba4c962) Measured design report (owner decided 2026-11-27)
+
+
+check 1: test/sql/415 EXPLAIN shows Bitmap Index Scan on idx_statistical_unit_data_source_ids; on parent (migration down, intarray installed) Seq Scan: tmp/test-me96tn-415-on-parent.log. Commit 3ac36cfc9
 
 
 ## History
