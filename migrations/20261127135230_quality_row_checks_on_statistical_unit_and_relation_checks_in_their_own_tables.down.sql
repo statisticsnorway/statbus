@@ -1,4 +1,4 @@
--- Down Migration 20261127104238: quality row checks on statistical_unit and relation checks in their own tables
+-- Down Migration 20261127135230: quality row checks on statistical_unit and relation checks in their own tables
 BEGIN;
 
 CREATE OR REPLACE FUNCTION admin.apply_rls_to_all_tables()
@@ -692,10 +692,9 @@ BEGIN
         data_source_ids, data_source_codes, legal_form_id, legal_form_code, legal_form_name,
         physical_address_part1, physical_address_part2, physical_address_part3, physical_postcode, physical_postplace,
         physical_region_id, physical_region_path, physical_region_code, physical_country_id, physical_country_iso_2,
-        physical_latitude, physical_longitude, physical_altitude, domestic,
+        latitude, longitude, altitude, domestic,
         postal_address_part1, postal_address_part2, postal_address_part3, postal_postcode, postal_postplace,
         postal_region_id, postal_region_path, postal_region_code, postal_country_id, postal_country_iso_2,
-        postal_latitude, postal_longitude, postal_altitude,
         web_address, email_address, phone_number, landline, mobile_number, fax_number,
         unit_size_id, unit_size_code, status_id, status_code, used_for_counting,
         last_edit_comment, last_edit_by_user_id, last_edit_at, has_legal_unit,
@@ -1489,9 +1488,9 @@ AS $function$
          , physical_region_code
          , physical_country_id
          , physical_country_iso_2
-         , physical_latitude
-         , physical_longitude
-         , physical_altitude
+         , latitude
+         , longitude
+         , altitude
          --
          , domestic
          --
@@ -1505,9 +1504,6 @@ AS $function$
          , postal_region_code
          , postal_country_id
          , postal_country_iso_2
-         , postal_latitude
-         , postal_longitude
-         , postal_altitude
          --
          , web_address
          , email_address
@@ -1566,10 +1562,9 @@ BEGIN
             t.data_source_ids, t.data_source_codes, t.legal_form_id, t.legal_form_code, t.legal_form_name,
             t.physical_address_part1, t.physical_address_part2, t.physical_address_part3, t.physical_postcode, t.physical_postplace,
             t.physical_region_id, t.physical_region_path, t.physical_region_code, t.physical_country_id, t.physical_country_iso_2,
-            t.physical_latitude, t.physical_longitude, t.physical_altitude, t.domestic,
+            t.latitude, t.longitude, t.altitude, t.domestic,
             t.postal_address_part1, t.postal_address_part2, t.postal_address_part3, t.postal_postcode, t.postal_postplace,
             t.postal_region_id, t.postal_region_path, t.postal_region_code, t.postal_country_id, t.postal_country_iso_2,
-            t.postal_latitude, t.postal_longitude, t.postal_altitude,
             t.web_address, t.email_address, t.phone_number, t.landline, t.mobile_number, t.fax_number,
             t.unit_size_id, t.unit_size_code, t.status_id, t.status_code, t.used_for_counting,
             t.last_edit_comment, t.last_edit_by_user_id, t.last_edit_at, t.has_legal_unit,
@@ -1599,10 +1594,9 @@ BEGIN
             t.data_source_ids, t.data_source_codes, t.legal_form_id, t.legal_form_code, t.legal_form_name,
             t.physical_address_part1, t.physical_address_part2, t.physical_address_part3, t.physical_postcode, t.physical_postplace,
             t.physical_region_id, t.physical_region_path, t.physical_region_code, t.physical_country_id, t.physical_country_iso_2,
-            t.physical_latitude, t.physical_longitude, t.physical_altitude, t.domestic,
+            t.latitude, t.longitude, t.altitude, t.domestic,
             t.postal_address_part1, t.postal_address_part2, t.postal_address_part3, t.postal_postcode, t.postal_postplace,
             t.postal_region_id, t.postal_region_path, t.postal_region_code, t.postal_country_id, t.postal_country_iso_2,
-            t.postal_latitude, t.postal_longitude, t.postal_altitude,
             t.web_address, t.email_address, t.phone_number, t.landline, t.mobile_number, t.fax_number,
             t.unit_size_id, t.unit_size_code, t.status_id, t.status_code, t.used_for_counting,
             t.last_edit_comment, t.last_edit_by_user_id, t.last_edit_at, t.has_legal_unit,
@@ -1632,10 +1626,9 @@ BEGIN
             t.data_source_ids, t.data_source_codes, t.legal_form_id, t.legal_form_code, t.legal_form_name,
             t.physical_address_part1, t.physical_address_part2, t.physical_address_part3, t.physical_postcode, t.physical_postplace,
             t.physical_region_id, t.physical_region_path, t.physical_region_code, t.physical_country_id, t.physical_country_iso_2,
-            t.physical_latitude, t.physical_longitude, t.physical_altitude, t.domestic,
+            t.latitude, t.longitude, t.altitude, t.domestic,
             t.postal_address_part1, t.postal_address_part2, t.postal_address_part3, t.postal_postcode, t.postal_postplace,
             t.postal_region_id, t.postal_region_path, t.postal_region_code, t.postal_country_id, t.postal_country_iso_2,
-            t.postal_latitude, t.postal_longitude, t.postal_altitude,
             t.web_address, t.email_address, t.phone_number, t.landline, t.mobile_number, t.fax_number,
             t.unit_size_id, t.unit_size_code, t.status_id, t.status_code, t.used_for_counting,
             t.last_edit_comment, t.last_edit_by_user_id, t.last_edit_at, t.has_legal_unit,
@@ -1667,10 +1660,9 @@ BEGIN
             t.data_source_ids, t.data_source_codes, t.legal_form_id, t.legal_form_code, t.legal_form_name,
             t.physical_address_part1, t.physical_address_part2, t.physical_address_part3, t.physical_postcode, t.physical_postplace,
             t.physical_region_id, t.physical_region_path, t.physical_region_code, t.physical_country_id, t.physical_country_iso_2,
-            t.physical_latitude, t.physical_longitude, t.physical_altitude, t.domestic,
+            t.latitude, t.longitude, t.altitude, t.domestic,
             t.postal_address_part1, t.postal_address_part2, t.postal_address_part3, t.postal_postcode, t.postal_postplace,
             t.postal_region_id, t.postal_region_path, t.postal_region_code, t.postal_country_id, t.postal_country_iso_2,
-            t.postal_latitude, t.postal_longitude, t.postal_altitude,
             t.web_address, t.email_address, t.phone_number, t.landline, t.mobile_number, t.fax_number,
             t.unit_size_id, t.unit_size_code, t.status_id, t.status_code, t.used_for_counting,
             t.last_edit_comment, t.last_edit_by_user_id, t.last_edit_at, t.has_legal_unit,
