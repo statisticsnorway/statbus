@@ -1077,18 +1077,19 @@ function CountRow({
           />
         )}
         {label}
+        {href && (
+          // The List view of this same search, so the list icon (owner 2026-11-27 20:32: the box
+          // with an arrow out is for leaving for another page), after the label so the counts
+          // stay aligned at the right edge (owner 2026-11-27 22:04).
+          <List
+            className={`h-3.5 w-3.5 shrink-0 text-gray-500 ${toList ? "" : "invisible"}`}
+            aria-hidden
+          />
+        )}
       </span>
       <span className="tabular-nums text-gray-600">
         {value === null ? "…" : value.toLocaleString()}
       </span>
-      {href && (
-        // The List view of this same search, so the list icon (owner 2026-11-27 20:32: the box with
-        // an arrow out is for leaving for another page).
-        <List
-          className={`h-3.5 w-3.5 shrink-0 self-center text-gray-500 ${toList ? "" : "invisible"}`}
-          aria-hidden
-        />
-      )}
     </>
   );
   const row =
