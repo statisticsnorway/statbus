@@ -50,6 +50,7 @@ Owner 2026-11-23: in the footer, more subtle than the navbar. Footer: app/src/co
 
 check 2: c9647bde1: footer.test renders an installation in Mozambique with flag 🇲🇿 (aria-label Mozambique) and its name (red on the old footer, green now; tmp/p9-footer-red.log, -green.log). Headless on the test slot with settings.country_id set to MZ: footer shows 🇲🇿 local (tmp/p9xte6-footer-mozambique.log/.png); country restored to Norway.
 check 3: c9647bde1: footer.test 'with no country the footer shows the name only, with no empty flag': no role=img, text is the name only. (settings.country_id is NOT NULL, so this also covers an invented two-letter-less code via flagEmoji's null.)
+landed c9647bd on master 2026-11-27: app: the footer shows the installation's country flag and name (p9xte6)
 ## History
 - 2026-11-27T15:05 todo -> doing/active (take with j2g6wd)
 - 2026-11-27T15:09 doing/active -> doing/asked (ask)
