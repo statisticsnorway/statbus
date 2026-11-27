@@ -56,6 +56,8 @@ Today (code 2026-11-26): the upgrade runs 'docker compose stop app worker rest' 
     Purpose now weighs your point: today's interruption is crash-safe, every upgrade exercises that recovery, and it also rescues a task that would hang forever; a drain adds a wait and a second path to test. Your decision stays check 1.
 - 2026-11-27T11:05 request 3 by jhf:
   But we have many tests, so if this is fully tested, because this brings some complexity, and how long would you wait then?
+  resolved 2026-11-27T15:41 by rabbit:
+    Details now give the wait from measurement on the Norway copy: a bound covering every task is about 300 s (the full-refresh flush, 309 s), so an upgrade on a busy box could wait up to 5 min; 0.6 % of tasks exceed 60 s. Complexity listed: two timeouts and a stop order, plus a SIGTERM test.
 - 2026-11-27T15:39 request 4 by jhf:
   It seems hard to answer this without, for instance, measuring how long any task is on, say, the Norwegian installation, and because that's the bound on how long we have to wait, right
   resolved 2026-11-27T15:40 by rabbit:
@@ -81,3 +83,4 @@ Today (code 2026-11-26): the upgrade runs 'docker compose stop app worker rest' 
 - 2026-11-27T15:40 request 4 in progress by rabbit: hug task note rkfa4j "2026-11-27 rabbit, measured on the Norway copy (local slot), 6 858 worker tasks 2026-11-15..27 (tmp/rkfa4j-task-duratio…"
 - 2026-11-27T15:40 resolved request 4 by rabbit
 - 2026-11-27T15:41 resolved request 2 by rabbit
+- 2026-11-27T15:41 resolved request 3 by rabbit
