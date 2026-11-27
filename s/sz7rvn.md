@@ -10,14 +10,12 @@ group: ""
 rank: "zzzzzzzzzzzx"
 created: 2026-11-27
 updated: 2026-11-27
-stage: "review"
+stage: "active"
 doing_since: "2026-11-27T15:47"
 doing_with: "j2g6wd"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
-review_by: "rabbit"
-review_since: "2026-11-27T15:51"
 ---
 
 ## Goal
@@ -67,3 +65,6 @@ landed 9942b85 on master 2026-11-27: db: ltree comparisons are LEAKPROOF, so a s
 - 2026-11-27T15:51 doing/active -> doing/review (review: hibiscus ticked the last own check)
 - 2026-11-27T15:51 review 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-27T15:51 review 1 acknowledged by rabbit
+- 2026-11-27T15:52 answered review, by rabbit, for hibiscus (doing/review -> doing/active):
+  > review by rabbit
+  looks right. 9942b85c3: <@, @>, = marked LEAKPROOF (the search's path filters use only <@: app cd.path and export-sql), post_restore.sql re-marks them after a restore (the owner's dump/restore point, checked by clearing and migrating up), test 420 red then green. Measured on the Norway register as a signed-in role: 5-unit region >20 s -> 1 ms, unknown region 60 s -> 0.2 ms, gist plans. A later lquery (~) filter would need ltq_regex marked too.
