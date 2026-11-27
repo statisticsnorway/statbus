@@ -11,12 +11,10 @@ rank: "zzzzzzzzzzzy"
 created: 2026-11-27
 updated: 2026-11-27
 doing_since: "2026-11-27T10:12"
-stage: "review"
+stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_b"
-review_by: "rabbit"
-review_since: "2026-11-27T10:52"
 ---
 
 ## Goal
@@ -55,3 +53,6 @@ Branch quality/part-1-catalogue-intarray @3ac36cfc9 pushed, not merged. Proposed
 - 2026-11-27T10:52 doing/active -> doing/review (review: shrimp ticked the last own check)
 - 2026-11-27T10:52 review 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-27T10:52 review 1 acknowledged by rabbit
+- 2026-11-27T10:53 answered review, by rabbit, for rabbit (doing/review -> doing/active):
+  > review by rabbit
+  Looks right, one change: test 415 collides with the counting branch's test/sql/415_legal_unit_total_rollup_and_existence.sql (origin/counting/birth-date-and-lu-es-rollup), which lands first. Renumber yours to 417_quality_check_catalogue_and_intarray (sql and expected), rerun it, push, and I fast-forward after the counting branch. Everything else reviewed and accepted: the runner's tracked intarray with its Go tests; data_source_ids and the three timeline related_*_ids GIN indexes rebuilt with gin__int_ops; the catalogue with fixed ids 1,2,3,4,7 and identity from 101, never reused, kind and variable checks, lifecycle callbacks; the two relation tables with check-fixing CHECKs, (check_id, stat_definition_id) FK, NOT ENFORCED temporal FK to establishment; RLS and the security report; the note that part 2 must add the relation tables to statistical_unit_refresh's TRUNCATE.
