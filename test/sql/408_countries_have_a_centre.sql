@@ -1,6 +1,7 @@
 -- z2qt08: every shipped country has a centre where the Regions map's world level draws
 -- it, from dbseed/country/country_centres.csv: the United Nations, a demo installation's
--- country, at 0,0 and the US Minor Outlying Islands at Wake Island. A centre is a latitude and a
+-- country, at UN Headquarters in New York (5necw2) and the US Minor Outlying Islands at Wake
+-- Island. A centre is a latitude and a
 -- longitude together.
 BEGIN;
 
