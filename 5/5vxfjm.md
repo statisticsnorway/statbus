@@ -47,6 +47,8 @@ Plan: (1) Branch prototype/import-as-user-role. (2) In the worker's import task,
 ## Requests
 - 2026-11-27T11:06 request 1 by jhf:
   When either Statbus A or Statbus B is available, maybe this one could be scheduled independently in the master branch there. And if it works out, we can commit and push. If not, we will know what the problem is all recorded in this ticket
+  resolved 2026-11-27T11:07 by hibiscus:
+    Check 4 ticked with the owner's decision (build it). Title and goal now say build, on master; principle: in statbus_a or statbus_b, whichever is free, independent of the map work, prototype f4aedb8cf as base, the role is stamping and RLS, not containment. New checks 5 (migration with a red-then-green SQL test), 6 (Norway import as regular and admin user, timing), 8 (committed and pushed to master, CI green). Waits on a free slot; the z2qt08 wait is gone.
 
 ## Notes
 
@@ -66,3 +68,4 @@ check 4: Owner 2026-11-27 11:06 (request 1): build it. 'When either Statbus A or
 - 2026-11-27T11:06 request 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
 - 2026-11-27T11:07 request 1 acknowledged by hibiscus
 - 2026-11-27T11:07 request 1 in progress by hibiscus: hug task check 5vxfjm 4 "Owner 2026-11-27 11:06 (request 1): build it. 'When either Statbus A or Statbus B is available, maybe this one could be…"
+- 2026-11-27T11:07 resolved request 1 by hibiscus
