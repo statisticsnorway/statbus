@@ -209,28 +209,22 @@ A sparse delta table holds only changes: `statistical_history_facet_delta` per c
 - `statistical_history_facet(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, name_change_count, legal_form_id, physical_country_id, unit_size_id, status_id, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, unit_size_change_count, status_change_count, stats_summary, exists_moved_in_count, exists_moved_out_count, countable_moved_in_count, countable_moved_out_count)`
   - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
 
-### Quality: checks that list units to look at (xz3jej, 05pe0x)
-Quality is the area of checks that list units to look at, as reports count them. A check is a rule of the enum `quality_rule` and, for a rule per summed variable, that variable; `quality_check` lists the checks of the installation and `quality_check_switched_on` the ones switched on (a check starts off; a new installation holds the starting set of `quality_check_starting_set()`, 1tx1ed). The units each check lists are rows of `quality_finding`, filled by the reports phase's step `worker.derive_quality` after statistical_unit is published, with each row's existence dates, so the dashboard counts every check in one query and the search lists a check through `statistical_unit_quality()`.
+### Quality: checks that list units to look at (xz3jej, 05pe0x, h9mhxe)
+Quality is the area of checks that list units to look at, as reports count them. Each check is a row of `quality_check` with an integer id: a rule of the enum `quality_rule` and, for a rule per summed variable, that variable; `switched_on` says whether it shows (1tx1ed) and `in_use()` whether it applies now (bxt67q). A row check (missing region, missing activity category, missing physical location, secondary activity equals primary) is decided by one statistical_unit row and is an element of its generated `quality_check_ids`. A relation check compares a legal unit with its establishments and has its own table, filled from its `_def` view by the reports phase's step `worker.derive_quality` after statistical_unit is published. The dashboard counts every check with `quality_check_count()` and the search lists a check through `statistical_unit_quality()` or by its store.
 
-- `quality_finding(unit_type, stat_definition_id, unit_id, valid_from, valid_until, valid_range, rule, existence_from, existence_until, detail, hash_slot)` (temporal) — **derived**
-  - Key FKs: stat_definition_id, unit_id, unit_type, valid_range.
-  - Enums: `rule` (`public.quality_rule`), `unit_type` (`public.statistical_unit_type`).
-- `quality_check_switched_on(stat_definition_id, rule)` — **configuration**
-  - Key FKs: stat_definition_id.
-  - Enums: `rule` (`public.quality_rule`).
-- `quality_check_catalogue(id, stat_definition_id, rule, kind, priority)` — **configuration**
+- `quality_check(id, stat_definition_id, switched_on, rule, kind, priority)` — **configuration**
   - Key FKs: stat_definition_id.
   - Enums: `kind` (`public.quality_check_kind`), `rule` (`public.quality_rule`).
 - `quality_establishment_activity_differs(unit_type, check_id, unit_id, primary_establishment_id, legal_unit_activity_category_id, establishment_activity_category_id, valid_range, existence_from, existence_until, hash_slot)` — **derived**
-  - Key FKs: check_id, establishment_activity_category_id, legal_unit_activity_category_id, primary_establishment_id, valid_range.
+  - Key FKs: check_id, establishment_activity_category_id, legal_unit_activity_category_id, primary_establishment_id, unit_id, unit_type, valid_range, valid_range.
   - Enums: `unit_type` (`public.statistical_unit_type`).
 - `quality_legal_unit_establishment_stat(unit_type, legal_unit_value, check_id, unit_id, stat_definition_id, valid_range, existence_from, existence_until, hash_slot, establishments_sum, establishment_count)` — **derived**
-  - Key FKs: check_id, stat_definition_id, stat_definition_id.
+  - Key FKs: check_id, stat_definition_id, stat_definition_id, unit_id, unit_type, valid_range.
   - Enums: `unit_type` (`public.statistical_unit_type`).
-- `quality_check(stat_definition_id, rule, on_dashboard, priority)`
-  - Enums: `rule` (`public.quality_rule`).
-- `quality_finding_def(unit_type, stat_definition_id, unit_id, valid_from, valid_until, rule, detail, hash_slot)` (temporal)
-  - Enums: `rule` (`public.quality_rule`), `unit_type` (`public.statistical_unit_type`).
+- `quality_establishment_activity_differs_def(unit_type, check_id, unit_id, primary_establishment_id, legal_unit_activity_category_id, establishment_activity_category_id, valid_range, existence_from, existence_until, hash_slot)`
+  - Enums: `unit_type` (`public.statistical_unit_type`).
+- `quality_legal_unit_establishment_stat_def(unit_type, legal_unit_value, check_id, unit_id, stat_definition_id, valid_range, existence_from, existence_until, hash_slot, establishments_sum, establishment_count)`
+  - Enums: `unit_type` (`public.statistical_unit_type`).
 - `legal_unit_establishment_stat_comparison(unit_type, stat_code, legal_unit_value, establishments_with_value, unit_id, valid_from, valid_until, establishment_count, establishments_sum, hash_slot)` (temporal)
   - Enums: `unit_type` (`public.statistical_unit_type`).
 
