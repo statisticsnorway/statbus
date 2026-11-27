@@ -27,6 +27,7 @@ Catalogue: public.quality_check becomes a table (id int stable never reused, rul
 ## Depends on
 
 - f2gx3m
+- s465ff
 ## Acceptance
 - [ ] ~~x~~ (not relevant: placeholder, rabbit, 2026-11-27)
 - [ ] On the Norway copy: dashboard counts equal today's quality_finding counts per check at a date, and take under 100 ms
