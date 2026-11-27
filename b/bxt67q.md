@@ -1,7 +1,7 @@
 ---
 id: bxt67q
 title: "Disabling a summed variable leaves its quality findings until a recalculation"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["rabbit"]
@@ -10,11 +10,10 @@ group: ""
 rank: "zzzzzzzzzzzs"
 created: 2026-11-27
 updated: 2026-11-27
-doing_since: "2026-11-27T18:14"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+done_at: "2026-11-27T18:14"
 ---
 
 ## Goal
@@ -45,3 +44,4 @@ check 1: Test 144.7 on master 866d8e3fc (CI Fast Tests 46036172173 green): after
 
 ## History
 - 2026-11-27T18:14 todo -> doing/active (take)
+- 2026-11-27T18:14 doing/active -> done (done); was doing_since: 2026-11-27T18:14
