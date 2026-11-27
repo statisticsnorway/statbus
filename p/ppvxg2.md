@@ -1,6 +1,6 @@
 ---
 id: ppvxg2
-title: "Search map circles can be sized by a statistical variable"
+title: "Reports has a Map of statistical variables by region"
 state: todo
 type: feature
 priority: ""
@@ -13,7 +13,7 @@ updated: 2026-11-27
 ---
 
 ## Goal
-On the search map a region's circle can be sized by a statistical variable, such as employees, not only by its count of units.
+On Reports → Map a statistician sees each region's circle sized by units or a statistical variable, for the chosen unit types.
 
 ## Purpose
 Counting units shows where businesses are registered; sizing by employees or turnover shows where activity is. Raised with the owner during the 5nq78t map work.
@@ -22,7 +22,7 @@ Counting units shows where businesses are registered; sizing by employees or tur
 Sums come from the same filter and existence rule as the list; a variable that does not add up across units is not offered.
 
 ## Details
-Today circles are sized by unit count per region (5nq78t, regions-map.tsx). statistical_unit_facet carries stats_summary per facet; the live path aggregates statistical_unit. Owner has not yet decided whether this is wanted.
+Owner 2026-11-27 15:08-16:00: not on the search map (it has enough interaction); a focused Reports map beside the Regions map, unit map and search map. Name: Map, at /reports/map, last in the Reports menu. Interaction agreed: one circle per region at the current level (counties first) on the Regions map's look; 'Size by' Units or a variable from stat_definition_enabled that adds up; unit-type legend checkboxes; click goes in, trail above, eye and X as on the Regions map; list beside ranked by the measure with values, a row goes in; the page time frame; each region row links quietly to these units in Search. Reads statistical_unit_facet (count, stats_summary per region and time). Later, to see in use: distinct icons for the unit map and the variable map so each can jump to the other; from Drilldown to the unit map; from Variables Over Time to this map. Erik's PR #325 variable features (circle by variable, popup values, legend sums) land here; keep PR #325 open until then.
 
 ## Depends on
 
