@@ -52,6 +52,9 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_period'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.quality_finding'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.quality_check_switched_on'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.quality_check_catalogue'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.quality_establishment_activity_differs'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.quality_legal_unit_establishment_stat'::regclass);
     --
     -- ########### add_rls_regular_user_can_edit ###########
     PERFORM admin.add_rls_regular_user_can_edit('public.image'::regclass);

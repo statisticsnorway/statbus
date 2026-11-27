@@ -84,8 +84,8 @@
  stats_summary                    | jsonb                    |           |          |         | extended |             |              | 
 Indexes:
     "timeline_enterprise_pkey" PRIMARY KEY, btree (unit_type, unit_id, valid_from)
-    "idx_timeline_enterprise_related_establishment_ids" gin (related_establishment_ids)
-    "idx_timeline_enterprise_related_legal_unit_ids" gin (related_legal_unit_ids)
+    "idx_timeline_enterprise_related_establishment_ids" gin (related_establishment_ids gin__int_ops)
+    "idx_timeline_enterprise_related_legal_unit_ids" gin (related_legal_unit_ids gin__int_ops)
     "idx_timeline_enterprise_unit_daterange" gist (daterange(valid_from, valid_until, '[)'::text), unit_id)
     "idx_timeline_enterprise_valid_period" btree (valid_from, valid_until)
 Policies:

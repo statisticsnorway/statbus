@@ -3060,6 +3060,66 @@ export type Database = {
           }
         ]
       },
+      quality_check_catalogue: {
+        Row: {
+          id: number
+          kind: Database["public"]["Enums"]["quality_check_kind"]
+          priority: number
+          rule: Database["public"]["Enums"]["quality_rule"]
+          stat_definition_id: number | null
+        },
+        Insert: {
+          id?: number
+          kind: Database["public"]["Enums"]["quality_check_kind"]
+          priority: number
+          rule: Database["public"]["Enums"]["quality_rule"]
+          stat_definition_id?: number | null
+        },
+        Update: {
+          id?: number
+          kind?: Database["public"]["Enums"]["quality_check_kind"]
+          priority?: number
+          rule?: Database["public"]["Enums"]["quality_rule"]
+          stat_definition_id?: number | null
+        },
+        Relationships: [
+          {
+            foreignKeyName: "quality_check_catalogue_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_check_catalogue_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_check"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "quality_check_catalogue_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_finding_def"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "quality_check_catalogue_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_check_catalogue_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition_ordered"
+            referencedColumns: ["id"]
+          }
+        ]
+      },
       quality_check_switched_on: {
         Row: {
           rule: Database["public"]["Enums"]["quality_rule"]
@@ -3107,6 +3167,109 @@ export type Database = {
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "stat_definition_ordered"
+            referencedColumns: ["id"]
+          }
+        ]
+      },
+      quality_establishment_activity_differs: {
+        Row: {
+          check_id: number
+          establishment_activity_category_id: number
+          existence_from: string
+          existence_until: string
+          hash_slot: number | null
+          legal_unit_activity_category_id: number
+          primary_establishment_id: number
+          unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_range: string
+        },
+        Insert: {
+          check_id: number
+          establishment_activity_category_id: number
+          existence_from: string
+          existence_until: string
+          hash_slot?: number | null
+          legal_unit_activity_category_id: number
+          primary_establishment_id: number
+          unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_range: string
+        },
+        Update: {
+          check_id?: number
+          establishment_activity_category_id?: number
+          existence_from?: string
+          existence_until?: string
+          hash_slot?: number | null
+          legal_unit_activity_category_id?: number
+          primary_establishment_id?: number
+          unit_id?: number
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_range?: string
+        },
+        Relationships: [
+          {
+            foreignKeyName: "quality_establishment_activit_establishment_activity_categ_fkey"
+            columns: ["establishment_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_establishment_activit_legal_unit_activity_category_fkey"
+            columns: ["legal_unit_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_activity_differs_primary_establishment_fkey"
+            columns: ["primary_establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "quality_establishment_activity_differs_check_id_fkey"
+            columns: ["check_id"]
+            isOneToOne: false
+            referencedRelation: "quality_check_catalogue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_establishment_activit_establishment_activity_categ_fkey"
+            columns: ["establishment_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_establishment_activit_legal_unit_activity_category_fkey"
+            columns: ["legal_unit_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_establishment_activit_establishment_activity_categ_fkey"
+            columns: ["establishment_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_establishment_activit_legal_unit_activity_category_fkey"
+            columns: ["legal_unit_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_activity_differs_primary_establishment_fkey"
+            columns: ["primary_establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment__for_portion_of_valid"
             referencedColumns: ["id"]
           }
         ]
@@ -3231,6 +3394,91 @@ export type Database = {
           },
           {
             foreignKeyName: "quality_finding_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition_ordered"
+            referencedColumns: ["id"]
+          }
+        ]
+      },
+      quality_legal_unit_establishment_stat: {
+        Row: {
+          check_id: number
+          establishment_count: number
+          establishments_sum: number | null
+          existence_from: string
+          existence_until: string
+          hash_slot: number | null
+          legal_unit_value: number | null
+          stat_definition_id: number
+          unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_range: string
+        },
+        Insert: {
+          check_id: number
+          establishment_count: number
+          establishments_sum?: number | null
+          existence_from: string
+          existence_until: string
+          hash_slot?: number | null
+          legal_unit_value?: number | null
+          stat_definition_id: number
+          unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_range: string
+        },
+        Update: {
+          check_id?: number
+          establishment_count?: number
+          establishments_sum?: number | null
+          existence_from?: string
+          existence_until?: string
+          hash_slot?: number | null
+          legal_unit_value?: number | null
+          stat_definition_id?: number
+          unit_id?: number
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_range?: string
+        },
+        Relationships: [
+          {
+            foreignKeyName: "quality_legal_unit_establishment_stat_check_fkey"
+            columns: ["check_id", "stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_check_catalogue"
+            referencedColumns: ["id", "stat_definition_id"]
+          },
+          {
+            foreignKeyName: "quality_legal_unit_establishment_stat_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_legal_unit_establishment_stat_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_check"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "quality_legal_unit_establishment_stat_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "quality_finding_def"
+            referencedColumns: ["stat_definition_id"]
+          },
+          {
+            foreignKeyName: "quality_legal_unit_establishment_stat_stat_definition_id_fkey"
+            columns: ["stat_definition_id"]
+            isOneToOne: false
+            referencedRelation: "stat_definition_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_legal_unit_establishment_stat_stat_definition_id_fkey"
             columns: ["stat_definition_id"]
             isOneToOne: false
             referencedRelation: "stat_definition_ordered"
@@ -12130,6 +12378,25 @@ export type Database = {
         Args: Record<string, never>
         Returns: unknown
       },
+      boolop: {
+        Args: {
+          arg0?: number[]
+          arg1?: unknown
+        }
+        Returns: boolean
+      },
+      bqarr_in: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: unknown
+      },
+      bqarr_out: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: unknown
+      },
       bytea_to_text: {
         Args: {
           data?: string
@@ -12535,6 +12802,122 @@ export type Database = {
           until2?: unknown
         }
         Returns: boolean
+      },
+      g_int_compress: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: unknown
+      },
+      g_int_consistent: {
+        Args: {
+          arg0?: unknown
+          arg1?: number[]
+          arg2?: number
+          arg3?: number
+          arg4?: unknown
+        }
+        Returns: boolean
+      },
+      g_int_decompress: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: unknown
+      },
+      g_int_options: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: unknown
+      },
+      g_int_penalty: {
+        Args: {
+          arg0?: unknown
+          arg1?: unknown
+          arg2?: unknown
+        }
+        Returns: unknown
+      },
+      g_int_picksplit: {
+        Args: {
+          arg0?: unknown
+          arg1?: unknown
+        }
+        Returns: unknown
+      },
+      g_int_same: {
+        Args: {
+          arg0?: number[]
+          arg1?: number[]
+          arg2?: unknown
+        }
+        Returns: unknown
+      },
+      g_int_union: {
+        Args: {
+          arg0?: unknown
+          arg1?: unknown
+        }
+        Returns: number[]
+      },
+      g_intbig_compress: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: unknown
+      },
+      g_intbig_consistent: {
+        Args: {
+          arg0?: unknown
+          arg1?: number[]
+          arg2?: number
+          arg3?: number
+          arg4?: unknown
+        }
+        Returns: boolean
+      },
+      g_intbig_decompress: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: unknown
+      },
+      g_intbig_options: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: unknown
+      },
+      g_intbig_penalty: {
+        Args: {
+          arg0?: unknown
+          arg1?: unknown
+          arg2?: unknown
+        }
+        Returns: unknown
+      },
+      g_intbig_picksplit: {
+        Args: {
+          arg0?: unknown
+          arg1?: unknown
+        }
+        Returns: unknown
+      },
+      g_intbig_same: {
+        Args: {
+          arg0?: unknown
+          arg1?: unknown
+          arg2?: unknown
+        }
+        Returns: unknown
+      },
+      g_intbig_union: {
+        Args: {
+          arg0?: unknown
+          arg1?: unknown
+        }
+        Returns: unknown
       },
       gbt_bit_compress: {
         Args: {
@@ -14125,6 +14508,31 @@ export type Database = {
         }
         Returns: string
       },
+      ginint4_consistent: {
+        Args: {
+          arg0?: unknown
+          arg1?: number
+          arg2?: number[]
+          arg3?: number
+          arg4?: unknown
+          arg5?: unknown
+          arg6?: unknown
+          arg7?: unknown
+        }
+        Returns: boolean
+      },
+      ginint4_queryextract: {
+        Args: {
+          arg0?: number[]
+          arg1?: unknown
+          arg2?: number
+          arg3?: unknown
+          arg4?: unknown
+          arg5?: unknown
+          arg6?: unknown
+        }
+        Returns: unknown
+      },
       gist_translate_cmptype_btree: {
         Args: {
           arg0?: number
@@ -14432,6 +14840,12 @@ export type Database = {
         }
         Returns: boolean
       },
+      icount: {
+        Args: {
+          arg0?: number[]
+        }
+        Returns: number
+      },
       id_decode: {
         Args: {
           arg0?: string
@@ -14552,6 +14966,13 @@ export type Database = {
         }
         Returns: string
       },
+      idx: {
+        Args: {
+          arg0?: number[]
+          arg1?: number
+        }
+        Returns: number
+      },
       image_data: {
         Args: {
           id?: number
@@ -14628,12 +15049,53 @@ export type Database = {
         }
         Returns: number
       },
+      intarray_del_elem: {
+        Args: {
+          arg0?: number[]
+          arg1?: number
+        }
+        Returns: number[]
+      },
+      intarray_push_array: {
+        Args: {
+          arg0?: number[]
+          arg1?: number[]
+        }
+        Returns: number[]
+      },
+      intarray_push_elem: {
+        Args: {
+          arg0?: number[]
+          arg1?: number
+        }
+        Returns: number[]
+      },
       interval_dist: {
         Args: {
           arg0?: string
           arg1?: string
         }
         Returns: string
+      },
+      intset: {
+        Args: {
+          arg0?: number
+        }
+        Returns: number[]
+      },
+      intset_subtract: {
+        Args: {
+          arg0?: number[]
+          arg1?: number[]
+        }
+        Returns: number[]
+      },
+      intset_union_elem: {
+        Args: {
+          arg0?: number[]
+          arg1?: number
+        }
+        Returns: number[]
       },
       is_deriving_reports: {
         Args: Record<string, never>
@@ -15358,15 +15820,34 @@ export type Database = {
         }
         Returns: Json
       },
+      quality_rule_kind: {
+        Args: {
+          rule?: Database["public"]["Enums"]["quality_rule"]
+        }
+        Returns: Database["public"]["Enums"]["quality_check_kind"]
+      },
       quality_rule_per_stat: {
         Args: {
           rule?: Database["public"]["Enums"]["quality_rule"]
         }
         Returns: boolean
       },
+      querytree: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: string
+      },
       range: {
         Args: Record<string, never>
         Returns: string[]
+      },
+      rboolop: {
+        Args: {
+          arg0?: unknown
+          arg1?: number[]
+        }
+        Returns: boolean
       },
       recalculate_activity_category_codes: {
         Args: Record<string, never>
@@ -15609,6 +16090,31 @@ export type Database = {
         }
         Returns: boolean
       },
+      sort: {
+        Args: {
+          arg0?: number[]
+        }
+        Returns: number[]
+      }
+        | {
+        Args: {
+          arg0?: number[]
+          arg1?: string
+        }
+        Returns: number[]
+      },
+      sort_asc: {
+        Args: {
+          arg0?: number[]
+        }
+        Returns: number[]
+      },
+      sort_desc: {
+        Args: {
+          arg0?: number[]
+        }
+        Returns: number[]
+      },
       split_part: {
         Args: {
           arg0?: string
@@ -15815,6 +16321,21 @@ export type Database = {
         }
         Returns: number
       },
+      subarray: {
+        Args: {
+          arg0?: number[]
+          arg1?: number
+        }
+        Returns: number[]
+      }
+        | {
+        Args: {
+          arg0?: number[]
+          arg1?: number
+          arg2?: number
+        }
+        Returns: number[]
+      },
       subltree: {
         Args: {
           arg0?: string
@@ -15958,6 +16479,12 @@ export type Database = {
           arg1?: string
         }
         Returns: string
+      },
+      uniq: {
+        Args: {
+          arg0?: number[]
+        }
+        Returns: number[]
       },
       unit_existence_from: {
         Args: {
@@ -16192,6 +16719,7 @@ export type Database = {
       location_type: "physical" | "postal",
       person_sex: "Male" | "Female",
       power_group_root_status: "single" | "cycle" | "multi",
+      quality_check_kind: "row" | "relation",
       quality_rule: 
           | "missing_region"
           | "missing_activity_category"
@@ -16455,6 +16983,7 @@ export const Constants = {
       location_type: ["physical", "postal"],
       person_sex: ["Male", "Female"],
       power_group_root_status: ["single", "cycle", "multi"],
+      quality_check_kind: ["row", "relation"],
       quality_rule: [
         "missing_region",
         "missing_activity_category",

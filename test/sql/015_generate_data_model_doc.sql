@@ -143,6 +143,9 @@ DECLARE
         (4, 2, 5, 'Quality: checks that list units to look at (xz3jej, 05pe0x)', 'Quality is the area of checks that list units to look at, as reports count them. A check is a rule of the enum `quality_rule` and, for a rule per summed variable, that variable; `quality_check` lists the checks of the installation and `quality_check_switched_on` the ones switched on (a check starts off; a new installation holds the starting set of `quality_check_starting_set()`, 1tx1ed). The units each check lists are rows of `quality_finding`, filled by the reports phase''s step `worker.derive_quality` after statistical_unit is published, with each row''s existence dates, so the dashboard counts every check in one query and the search lists a check through `statistical_unit_quality()`.', jsonb_build_array(
             '{"schema": "public", "name": "quality_finding", "class": "derived"}'::jsonb,
             '{"schema": "public", "name": "quality_check_switched_on", "class": "configuration"}'::jsonb,
+            '{"schema": "public", "name": "quality_check_catalogue", "class": "configuration"}'::jsonb,
+            '{"schema": "public", "name": "quality_establishment_activity_differs", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "quality_legal_unit_establishment_stat", "class": "derived"}'::jsonb,
             '{"schema": "public", "name": "quality_check", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "quality_finding_def", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "legal_unit_establishment_stat_comparison", "type": "VIEW"}'::jsonb

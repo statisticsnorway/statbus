@@ -30,6 +30,8 @@ Referenced by:
     TABLE "activity_category_access" CONSTRAINT "activity_category_access_activity_category_id_fkey" FOREIGN KEY (activity_category_id) REFERENCES activity_category(id) ON DELETE CASCADE
     TABLE "activity" CONSTRAINT "activity_category_id_fkey" FOREIGN KEY (category_id) REFERENCES activity_category(id) ON DELETE CASCADE
     TABLE "activity_category" CONSTRAINT "activity_category_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES activity_category(id) ON DELETE RESTRICT
+    TABLE "quality_establishment_activity_differs" CONSTRAINT "quality_establishment_activit_establishment_activity_categ_fkey" FOREIGN KEY (establishment_activity_category_id) REFERENCES activity_category(id) ON DELETE CASCADE
+    TABLE "quality_establishment_activity_differs" CONSTRAINT "quality_establishment_activit_legal_unit_activity_category_fkey" FOREIGN KEY (legal_unit_activity_category_id) REFERENCES activity_category(id) ON DELETE CASCADE
 Policies:
     POLICY "activity_category_admin_user_manage"
       TO admin_user

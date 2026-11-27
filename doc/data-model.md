@@ -147,6 +147,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.location_type`**: `physical`, `postal`
 - **`public.person_sex`**: `Male`, `Female`
 - **`public.power_group_root_status`**: `single`, `cycle`, `multi`
+- **`public.quality_check_kind`**: `row`, `relation`
 - **`public.quality_rule`**: `missing_region`, `missing_activity_category`, `missing_physical_location`, `establishment_activity_differs`, `establishments_above_legal_unit`, `legal_unit_above_establishments`, `secondary_activity_equals_primary`
 - **`public.release_builds_status_type`**: `building`, `ready`, `failed`
 - **`public.release_status_type`**: `commit`, `prerelease`, `release`
@@ -216,6 +217,15 @@ Quality is the area of checks that list units to look at, as reports count them.
 - `quality_check_switched_on(stat_definition_id, rule)` — **configuration**
   - Key FKs: stat_definition_id.
   - Enums: `rule` (`public.quality_rule`).
+- `quality_check_catalogue(id, stat_definition_id, rule, kind, priority)` — **configuration**
+  - Key FKs: stat_definition_id.
+  - Enums: `kind` (`public.quality_check_kind`), `rule` (`public.quality_rule`).
+- `quality_establishment_activity_differs(unit_type, check_id, unit_id, primary_establishment_id, legal_unit_activity_category_id, establishment_activity_category_id, valid_range, existence_from, existence_until, hash_slot)` — **derived**
+  - Key FKs: check_id, establishment_activity_category_id, legal_unit_activity_category_id, primary_establishment_id, valid_range.
+  - Enums: `unit_type` (`public.statistical_unit_type`).
+- `quality_legal_unit_establishment_stat(unit_type, legal_unit_value, check_id, unit_id, stat_definition_id, valid_range, existence_from, existence_until, hash_slot, establishments_sum, establishment_count)` — **derived**
+  - Key FKs: check_id, stat_definition_id, stat_definition_id.
+  - Enums: `unit_type` (`public.statistical_unit_type`).
 - `quality_check(stat_definition_id, rule, on_dashboard, priority)`
   - Enums: `rule` (`public.quality_rule`).
 - `quality_finding_def(unit_type, stat_definition_id, unit_id, valid_from, valid_until, rule, detail, hash_slot)` (temporal)

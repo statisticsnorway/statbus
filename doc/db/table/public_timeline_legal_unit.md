@@ -89,7 +89,7 @@ Indexes:
     "idx_timeline_legal_unit_enterprise_id" btree (enterprise_id)
     "idx_timeline_legal_unit_legal_unit_id" btree (legal_unit_id) WHERE legal_unit_id IS NOT NULL
     "idx_timeline_legal_unit_primary_for_enterprise" btree (primary_for_enterprise) WHERE primary_for_enterprise = true
-    "idx_timeline_legal_unit_related_establishment_ids" gin (related_establishment_ids)
+    "idx_timeline_legal_unit_related_establishment_ids" gin (related_establishment_ids gin__int_ops)
     "idx_timeline_legal_unit_valid_period" btree (valid_from, valid_until)
 Policies:
     POLICY "timeline_legal_unit_admin_user_manage"

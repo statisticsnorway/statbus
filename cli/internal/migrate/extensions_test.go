@@ -14,7 +14,7 @@ import (
 // subprocess boundary with a fake psql that answers the two catalog queries
 // and logs every statement batch it receives.
 
-const fakeImageDefaults = "sql_saga=1.4\njsonb_stats=3.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\n"
+const fakeImageDefaults = "sql_saga=1.4\njsonb_stats=3.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\nintarray=1.5\n"
 
 // extensionFakePsql installs a fake psql that reports fakeImageDefaults as
 // the image defaults and installedVersions (same "name=version" line shape,
@@ -61,6 +61,7 @@ CREATE EXTENSION "sql_saga";`,
 		`CREATE EXTENSION "ltree";`,
 		`CREATE EXTENSION "citext";`,
 		`CREATE EXTENSION "btree_gist";`,
+		`CREATE EXTENSION "intarray";`,
 		// Audit receipt: creation records from_version NULL, to_version the
 		// image default.
 		`VALUES ('sql_saga', NULL, '1.4')`,
@@ -76,7 +77,7 @@ CREATE EXTENSION "sql_saga";`,
 }
 
 func TestEnsureTrackedExtensionsUpdatesOlderDirectlyToImageDefault(t *testing.T) {
-	logPath := extensionFakePsql(t, "sql_saga=1.0\njsonb_stats=2.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\n")
+	logPath := extensionFakePsql(t, "sql_saga=1.0\njsonb_stats=2.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\nintarray=1.5\n")
 	if err := EnsureTrackedExtensions(repoRootForPsql(t)); err != nil {
 		t.Fatalf("an older extension must update directly, got error: %v", err)
 	}
@@ -131,7 +132,7 @@ func TestEnsureTrackedExtensionsRefusesNewerWithoutDowngrading(t *testing.T) {
 }
 
 func TestEnsureTrackedExtensionsLeavesImageDefaultAlone(t *testing.T) {
-	logPath := extensionFakePsql(t, "sql_saga=1.4\njsonb_stats=3.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\n")
+	logPath := extensionFakePsql(t, "sql_saga=1.4\njsonb_stats=3.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\nintarray=1.5\n")
 	if err := EnsureTrackedExtensions(repoRootForPsql(t)); err != nil {
 		t.Fatal(err)
 	}
@@ -147,10 +148,10 @@ func TestHasExtensionDrift(t *testing.T) {
 		installed string
 		want      bool
 	}{
-		{"all at image default", "sql_saga=1.4\njsonb_stats=3.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\n", false},
+		{"all at image default", "sql_saga=1.4\njsonb_stats=3.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\nintarray=1.5\n", false},
 		{"absent is drift", "sql_saga=1.4\njsonb_stats=3.0.0\nltree=1.3\ncitext=1.8\n", true},
-		{"older is drift", "sql_saga=1.3\njsonb_stats=3.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\n", true},
-		{"newer is drift (runUp refuses it loudly)", "sql_saga=1.5\njsonb_stats=3.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\n", true},
+		{"older is drift", "sql_saga=1.3\njsonb_stats=3.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\nintarray=1.5\n", true},
+		{"newer is drift (runUp refuses it loudly)", "sql_saga=1.5\njsonb_stats=3.0.0\nltree=1.3\ncitext=1.8\nbtree_gist=1.8\nintarray=1.5\n", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_ = extensionFakePsql(t, tc.installed)

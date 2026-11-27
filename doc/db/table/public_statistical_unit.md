@@ -94,7 +94,7 @@ Indexes:
     "idx_gist_statistical_unit_primary_activity_category_path" gist (primary_activity_category_path)
     "idx_gist_statistical_unit_sector_path" gist (sector_path)
     "idx_gist_statistical_unit_tag_paths" gist (tag_paths)
-    "idx_statistical_unit_data_source_ids" gin (data_source_ids)
+    "idx_statistical_unit_data_source_ids" gin (data_source_ids gin__int_ops)
     "idx_statistical_unit_domestic" btree (domestic)
     "idx_statistical_unit_establishment_id" btree (unit_id)
     "idx_statistical_unit_hash_slot" btree (hash_slot) INCLUDE (unit_type, unit_id, used_for_counting, valid_from, valid_until, birth_date, death_date, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, stats_summary)
