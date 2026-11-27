@@ -1,16 +1,21 @@
 ---
 id: sz7rvn
 title: "A search on a path with few units hangs for signed-in users"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["hibiscus"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzx"
 created: 2026-11-27
 updated: 2026-11-27
-stage: "ready"
+stage: "active"
+doing_since: "2026-11-27T15:47"
+doing_with: "j2g6wd"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -52,3 +57,4 @@ statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_ri
 - 2026-11-27T15:38 answer 1 acknowledged by rabbit
 - 2026-11-27T15:47 hibiscus read the answer: hug task note sz7rvn "2026-11-27 14:47 Owner (in chat, after the measured comparison): LEAKPROOF on the ltree comparison operators; keep RLS,…"
 - 2026-11-27T15:47 outcome 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-27T15:47 todo/ready -> doing/active (take with j2g6wd)
