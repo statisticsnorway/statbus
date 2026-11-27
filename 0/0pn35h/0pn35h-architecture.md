@@ -251,3 +251,15 @@ Today there are two kinds of relation, so two tables:
 
 Each row is one check, so these tables carry a scalar `check_id int` and no array. The `int[]` with
 intarray stays where a row holds several checks at once: `statistical_unit.quality_check_ids`.
+
+### intarray and the existing data_source_ids index (verified, 08:55)
+
+`CREATE EXTENSION intarray` adds operators `&&`, `@>` and `<@` for `integer[]` in `public`. PostgreSQL
+chooses the operator whose argument types fit best, so `int[] && int[]` then means intarray's
+`_int_overlap` instead of the built-in `anyarray && anyarray`. The existing GIN index on
+`data_source_ids` (default `array_ops`) indexes only the built-in operator, so after the install the
+search's Data source filter (`data_source_ids=ov.{…}`) ran as a full scan
+(`tmp/0pn35h-intarray-operator.log`). Rebuilding that index with `gin__int_ops` restores the index
+scan (`tmp/0pn35h-intarray-fix.log`). The migration that installs intarray rebuilds every GIN index
+on an `int[]` column (today: `idx_statistical_unit_data_source_ids`), and a test asserts that the
+Data source filter's plan uses its index.
