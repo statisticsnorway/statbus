@@ -1,15 +1,20 @@
 ---
 id: me96tn
 title: "Quality part 1: intarray, check catalogue table, empty relation tables"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["jcode-b"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzy"
 created: 2026-11-27
 updated: 2026-11-27
+doing_since: "2026-11-27T10:12"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_b"
 ---
 
 ## Goal
@@ -34,3 +39,7 @@ Additive only: no change to statistical_unit, quality_finding_def, legal_unit_es
 ## Notes
 
 file:0pn35h-architecture.md (18977 bytes, sha256:dba4c962) Measured design report (owner decided 2026-11-27)
+
+
+## History
+- 2026-11-27T10:12 todo -> doing/active (take)
