@@ -33,3 +33,5 @@ Seen by jhf in Firefox on the test slot, throttled to regular 4G then 3G, while 
 - [ ] A recorded benchmark script reports each page's first-load bytes and time on the built app, run before and after, so a regression is seen
 
 ## Notes
+
+2026-11-27 22:31 owner: on the maps the remote base tiles (OpenFreeMap: style, fonts, vector tiles) will weigh more than our own results; measure them separately per map page. Serving the tiles from the installation is task a9168x.
