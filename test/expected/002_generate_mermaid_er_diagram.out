@@ -615,6 +615,7 @@ erDiagram
 		date existence_from
 		date existence_until
 		jsonb detail
+		integer hash_slot
 	}
 	region["region"] {
 		integer id
