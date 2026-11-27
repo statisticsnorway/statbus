@@ -15,8 +15,8 @@ stage: "waiting"
 model: "claude-opus-4"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
-waiting_on: "parked behind z2qt08 (units on a map), which the owner is reviewing page by page"
-waiting_since: "2026-11-23T12:14"
+waiting_on: "a free slot of its own (statbus_a or statbus_b) to build it on master, independent of the map work; owner request 1, 2026-11-27"
+waiting_since: "2026-11-27T11:07"
 waiting_asked_by: "hibiscus"
 ---
 
