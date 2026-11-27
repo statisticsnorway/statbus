@@ -31,3 +31,5 @@ Read-only on jo 2026-11-26 (tmp/f2gx3m/jo-unit.out): establishment 86 born 2024-
 - [ ] [Owner] chooses how the inconsistency is surfaced (quality check, page notice, or both); answer recorded here
 
 ## Notes
+
+2026-11-27 19:39 owner showed both frames on jo (tab 135). Live frame (2026): enterprise Statistics Norway O → legal unit Statistics Norway O (primary, *) → establishments Statbus Norway O (86, primary, *) and Drill Up Norway AS (89); Σ 29 = 25 + 2 + 2, all visible. Frame 2023: the enterprise has its primary legal unit, but the legal unit shows no primary establishment: 86 is the primary in the data but not born until 2024-11-01, so it is absent; only 89 (not primary) shows, and jo's v2026.11.6 Σ 25 still counts 86's 2 (fixed on master by f2gx3m). Owner: the legal unit should have had a primary establishment in 2023, as the enterprise has a primary legal unit.
