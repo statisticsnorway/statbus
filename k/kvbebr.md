@@ -43,6 +43,10 @@ PR #327: migration 20261114090337_rename_location_latitude_longitude (up/down) a
 - [x] Import definitions, samples and docs that name the coordinate columns use the agreed names (rg finds no old name)
 - [x] PR #327 is merged or closed on GitHub as decided, with a comment that links this task
 
+## Requests
+- 2026-11-27T11:06 request 1 by jhf:
+  Hibiscus, didn't you merge this work from aux? Why isn't this checked off?
+
 ## Notes
 
 2026-11-21: the map plan (z2qt08, doc/design/units-on-map.md on feat/units-on-map) reads statistical_unit.physical_latitude/longitude, which exist today; the map does not wait for this rename, only the Norway coordinate load (r39dqb) does.
@@ -64,3 +68,4 @@ check 3: Same commit: import definitions (source/data columns), samples/demo scr
 - 2026-11-26T21:50 todo -> doing/active (take with jbc5bs)
 - 2026-11-27T00:18 handed to rabbit: ox's session ended (closed 2026-11-26 23:16)
 - 2026-11-27T01:12 doing/active -> doing/waiting (wait)
+- 2026-11-27T11:06 request 1 by jhf
