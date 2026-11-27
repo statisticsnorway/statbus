@@ -46,6 +46,7 @@ export function OptionsFilter({
         <Button
           variant="outline"
           className={cn("space-x-2 border-dashed", className)}
+          data-filter-active={selectedValues.length ? "" : undefined}
         >
           <PlusCircle className="mr-2 h-4 w-4" />
           {title}

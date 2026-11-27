@@ -33,9 +33,28 @@ import {
   UNIT_SIZE,
 } from "../filters/url-search-params";
 
+/**
+ * How a filter in effect stands out from the ones not in use (owner 2026-11-27, look A of three
+ * tried): a solid dark border and a bold title on its button, and its value badges dark with white
+ * medium-weight text, heavy enough to read on the dark fill. Every filter button marks itself with
+ * data-filter-active while it has a value (OptionsFilter, ConditionalFilter, ExternalIdentFilter);
+ * this toolbar styles what the marker names, so the look is defined once. Quality's orange badge
+ * keeps its colour, which marks a quality finding.
+ */
+const ACTIVE_FILTER_LOOK = [
+  "[&_[data-filter-active]]:border-solid",
+  "[&_[data-filter-active]]:border-gray-700",
+  "[&_[data-filter-active]]:font-semibold",
+  "[&_[data-filter-active]_[data-slot=badge]:not([class*=bg-orange])]:bg-gray-700",
+  "[&_[data-filter-active]_[data-slot=badge]:not([class*=bg-orange])]:text-white",
+  "[&_[data-filter-active]_[data-slot=badge]:not([class*=bg-orange])]:font-medium",
+].join(" ");
+
 export default function TableToolbar() {
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-4 p-1 lg:p-0 w-full">
+    <div
+      className={`flex flex-wrap items-center gap-2 mb-4 p-1 lg:p-0 w-full ${ACTIVE_FILTER_LOOK}`}
+    >
       <FilterWrapper columnCode="name">
         <FullTextSearchFilter />
         <ExternalIdentFilter />
@@ -66,7 +85,10 @@ export default function TableToolbar() {
       >
         <PhysicalLocationFilter />
       </FilterWrapper>
-      <FilterWrapper columnCode="physical_country_iso_2" filterKeys={[PHYSICAL_COUNTRY]}>
+      <FilterWrapper
+        columnCode="physical_country_iso_2"
+        filterKeys={[PHYSICAL_COUNTRY]}
+      >
         <CountryFilter />
       </FilterWrapper>
       <FilterWrapper columnCode="status" filterKeys={[STATUS]}>
