@@ -1,7 +1,7 @@
 ---
 id: jbc5bs
 title: "Coordinates are named latitude, longitude, altitude; no postal coordinates"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["rabbit"]
@@ -10,14 +10,10 @@ group: ""
 rank: "zzzzzzzzh"
 created: 2026-11-23
 updated: 2026-11-23
-stage: "waiting"
-doing_since: "2026-11-26T21:49"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_b"
-waiting_on: "Hibiscus implements the rename; owner answered: refuse the old coordinate headers"
-waiting_since: "2026-11-27T01:11"
-waiting_asked_by: "rabbit"
+done_at: "2026-11-27T14:44"
 ---
 
 ## Goal
@@ -88,6 +84,7 @@ check 10: b534af8e5 test/sql/419: center_* region file refused (column does not 
 2026-11-27 12:41 (hibiscus) Rebased and finished in statbus_test as b534af8e5 on feat/coordinates-named-latitude (details in the commit). Local: jest 612/612, tsc, eslint, migrate down+up with \sf identical, fast suite all pass but 002/008 (local sql_saga 1.6 vs master's 1.15). CI Fast Tests 46000665092 running; merge to master by fast-forward when green.
 2026-11-27 12:42 (hibiscus) Headless on the test slot after the rename (tmp/rename-pages-headless.log): Regions list shows a region's coordinates (59.91333, 10.73897, ·), Regions map lists 17 regions on the map, search map draws, upload page names latitude, longitude, altitude; no /rest errors.
 2026-11-27 13:44 (hibiscus) On master: b534af8e5 (fast-forward). CI Fast Tests 46000665092 attempt 2: success (all 147 + 3 SQL, daemon floor, live-database tests); app build & lint success.
+Reflection (open, 2026-11-27, hibiscus): The handover worked; the gap was "Released migrations are immutable" without a rule for an unreleased migration on a branch rebased behind newer master migrations: I renamed its timestamp to come after master's newest and re-based the functions both branches changed on their current \sf.
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
@@ -98,3 +95,4 @@ check 10: b534af8e5 test/sql/419: center_* region file refused (column does not 
 - 2026-11-26T21:49 todo/ready -> doing/active (take)
 - 2026-11-27T00:18 handed to rabbit: ox's session ended (closed 2026-11-26 23:16)
 - 2026-11-27T01:11 doing/active -> doing/waiting (wait)
+- 2026-11-27T14:44 doing/waiting -> done (done); was doing_since: 2026-11-26T21:49; waiting_asked_by: rabbit; waiting_on: Hibiscus implements the rename; owner answered: refuse the old coordinate headers; waiting_since: 2026-11-27T01:11
