@@ -1,15 +1,21 @@
 ---
 id: p9xte6
 title: "The footer shows the installation's country flag and name"
-state: todo
+state: "doing"
 type: feature
 priority: "low"
-assignee: []
+assignee: ["hibiscus"]
 labels: []
 group: ""
 rank: "00000000000g"
 created: 2026-11-23
 updated: 2026-11-23
+doing_since: "2026-11-27T15:05"
+doing_with: "j2g6wd"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -32,3 +38,7 @@ Owner 2026-11-23: in the footer, more subtle than the navbar. Footer: app/src/co
 - [ ] With no country configured, the footer shows the name only and no empty flag; a test asserts it
 
 ## Notes
+
+
+## History
+- 2026-11-27T15:05 todo -> doing/active (take with j2g6wd)
