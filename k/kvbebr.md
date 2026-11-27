@@ -46,6 +46,8 @@ PR #327: migration 20261114090337_rename_location_latitude_longitude (up/down) a
 ## Requests
 - 2026-11-27T11:06 request 1 by jhf:
   Hibiscus, didn't you merge this work from aux? Why isn't this checked off?
+  resolved 2026-11-27T13:41 by hibiscus:
+    Its checks are all ticked, but the work was on ox's branch, never merged: feat/units-on-map had to land first. Today (12:20) feat/units-on-map went to master (c3726cdc2); then hibiscus rebased the rename onto it, applied your hard cut and renamed the map code too: b534af8e5 on feat/coordinates-named-latitude. CI Fast Tests 46000665092 is running; when green it fast-forwards master and kvbebr and jbc5bs are closed with that commit.
 
 ## Notes
 
@@ -70,3 +72,4 @@ check 3: Same commit: import definitions (source/data columns), samples/demo scr
 - 2026-11-27T01:12 doing/active -> doing/waiting (wait)
 - 2026-11-27T11:06 request 1 by jhf
 - 2026-11-27T11:06 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-27T13:41 resolved request 1 by hibiscus
