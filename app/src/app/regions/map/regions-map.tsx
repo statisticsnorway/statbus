@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronRight, Pencil, Search, X } from "lucide-react";
+import { Eye, Pencil, Search, X } from "lucide-react";
 import { useAtomValue } from "jotai";
 import useSWR from "swr";
 import type {
@@ -347,11 +347,25 @@ export function RegionsMap() {
           )}
         </span>
       ))}
+      {/* Back to the top at once, as on the search's map (owner 2026-11-27). */}
+      {at && (
+        <button
+          type="button"
+          className="ml-1 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-900"
+          title={`Back to ${countryName}`}
+          aria-label={`Back to ${countryName}`}
+          onClick={() => go("")}
+          data-regions-map-trail-clear=""
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
     </nav>
   );
 
-  // Each row ends in two fixed-width icon columns, the pencil then the chevron, kept even when
-  // empty so the icons line up down both lists (owner 2026-11-27).
+  // Each row ends in two fixed-width icon columns, the pencil then the eye, kept even when empty
+  // so the icons line up down both lists (owner 2026-11-27). A click on a row goes in where there
+  // are regions below it; the eye shows where it is on the map without going in.
   const editButton = (r: MapRegion, label: string) => (
     <span className="flex w-7 shrink-0 justify-center">
       {canAccessAdminTools && (
@@ -368,22 +382,36 @@ export function RegionsMap() {
       )}
     </span>
   );
-  const enterButton = (r: MapRegion) => (
+  const showButton = (r: MapRegion) => (
     <span className="flex w-7 shrink-0 justify-center">
-      {hasChildren.has(r.path) && (
+      {r.center_latitude != null && r.center_longitude != null && (
         <button
           type="button"
-          className="rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
-          title={`Go into ${r.name}`}
-          aria-label={`Go into ${r.name}`}
-          onClick={() => go(r.path)}
-          data-child-enter={r.path}
+          className={`rounded p-1 hover:bg-gray-200 hover:text-gray-900 ${r.path === picked ? "text-gray-900" : "text-gray-400"}`}
+          title={
+            r.path === picked
+              ? `Hide where ${r.name} is`
+              : `Show where ${r.name} is`
+          }
+          aria-label={
+            r.path === picked
+              ? `Hide where ${r.name} is`
+              : `Show where ${r.name} is`
+          }
+          aria-pressed={r.path === picked}
+          onClick={() => pick(r.path === picked ? null : r.path)}
+          data-child-show={r.path}
         >
-          <ChevronRight className="h-4 w-4" />
+          <Eye className="h-4 w-4" />
         </button>
       )}
     </span>
   );
+  // A row's own click: in, where there is something below; else where it is on the map.
+  const openRow = (r: MapRegion) => {
+    if (hasChildren.has(r.path)) go(r.path);
+    else if (r.center_latitude != null) pick(r.path === picked ? null : r.path);
+  };
 
   return (
     <main
@@ -519,11 +547,13 @@ export function RegionsMap() {
                       <button
                         type="button"
                         className="min-w-0 flex-1 truncate rounded px-1.5 py-1 text-left"
-                        // A click picks the region on the map; a double click goes in, as on its dot.
-                        onClick={() => pick(r.path === picked ? null : r.path)}
-                        onDoubleClick={() =>
-                          hasChildren.has(r.path) && go(r.path)
+                        onClick={() => openRow(r)}
+                        title={
+                          hasChildren.has(r.path)
+                            ? `Go into ${r.name}`
+                            : `Show where ${r.name} is`
                         }
+                        data-child-enter={r.path}
                       >
                         {r.name}
                         <span className="ml-1 text-xs text-gray-500">
@@ -531,7 +561,7 @@ export function RegionsMap() {
                         </span>
                       </button>
                       {canAccessAdminTools && <span className="w-7 shrink-0" />}
-                      {enterButton(r)}
+                      {showButton(r)}
                     </li>
                   ))}
                 </ul>
@@ -548,18 +578,26 @@ export function RegionsMap() {
                       key={r.path}
                       className="flex items-center gap-1 rounded hover:bg-gray-100"
                       data-region-without-centre={r.path}
-                      onDoubleClick={() =>
-                        hasChildren.has(r.path) && go(r.path)
-                      }
                     >
-                      <span className="min-w-0 flex-1 truncate px-1.5 py-1">
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 truncate rounded px-1.5 py-1 text-left disabled:cursor-default"
+                        onClick={() => openRow(r)}
+                        disabled={!hasChildren.has(r.path)}
+                        title={
+                          hasChildren.has(r.path)
+                            ? `Go into ${r.name}`
+                            : undefined
+                        }
+                        data-child-enter={r.path}
+                      >
                         {r.name}
                         <span className="ml-1 text-xs text-gray-500">
                           {r.code ?? r.path}
                         </span>
-                      </span>
+                      </button>
                       {editButton(r, "Place on the map")}
-                      {enterButton(r)}
+                      {showButton(r)}
                     </li>
                   ))}
                 </ul>

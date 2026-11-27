@@ -721,6 +721,20 @@ export function RegionsMap({
           )}
         </span>
       ))}
+      {/* Clears the whole place at once, back to the World (owner 2026-11-27: the panel's X steps
+          up one level; this one drops the place filter). */}
+      {selection !== null && (
+        <button
+          type="button"
+          className="ml-1 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-900"
+          title="Clear the place: show the World"
+          aria-label="Clear the place"
+          onClick={() => select(null)}
+          data-regions-map-trail-clear=""
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
     </nav>
   );
 

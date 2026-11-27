@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ChevronRight, Search, X } from "lucide-react";
+import { Eye, Search, X } from "lucide-react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import {
   UNIT_TYPE_LABEL,
@@ -25,10 +25,10 @@ export interface ChildRow {
 /**
  * The children of the search map's selection, as a list beside the map (owner 2026-11-24, as on a
  * unit's Map page): each row its name and the units of the picked types, largest first. A click on
- * a row picks it, as a click on its circle does: the row opens with its units per type, and the
- * circle is ringed. The picked row's button, or the
- * chevron at a row's end, goes in (a region at the lowest level is then shown alone); on the map a
- * double click on its circle does the same. The picked row scrolls into view when it is picked on
+ * a row goes into it, as the list's natural step (owner 2026-11-27; a region at the lowest level is
+ * then shown alone). The eye shows where it is without going in: its circle is ringed and brought
+ * into view, and the row opens with its units per type, as a click on the circle does. On the map
+ * a click picks and a double click goes in. The picked row scrolls into view when it is picked on
  * the map.
  */
 export function ChildList({
@@ -120,9 +120,9 @@ export function ChildList({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              // Enter picks the first match, as a click on its row would; Escape folds it away.
+              // Enter goes into the first match, as a click on its row would; Escape folds it away.
               if (e.key === "Enter" && needle && found[0])
-                onPick(found[0].path);
+                onEnter(found[0].path);
               if (e.key === "Escape") closeFind();
             }}
             placeholder="Find by name or code"
@@ -155,11 +155,11 @@ export function ChildList({
                 <button
                   type="button"
                   className="flex min-w-0 flex-1 items-baseline justify-between gap-2 rounded px-1.5 py-1 text-left"
-                  // A click picks the row (or unpicks it). Going in is the chevron, or the button
-                  // in the picked row, not a double click: a list does not suggest one (owner
-                  // 2026-11-24); on the map a double click on the circle still goes in.
-                  onClick={() => onPick(isPicked ? null : r.path)}
-                  aria-expanded={isPicked}
+                  onClick={() => onEnter(r.path)}
+                  title={
+                    r.canEnter ? `Go into ${r.name}` : `Show only ${r.name}`
+                  }
+                  data-child-enter={r.path}
                 >
                   <span className="truncate">
                     {r.name}
@@ -175,17 +175,22 @@ export function ChildList({
                 </button>
                 <button
                   type="button"
-                  className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
+                  className={`shrink-0 rounded p-1 hover:bg-gray-200 hover:text-gray-900 ${isPicked ? "text-gray-900" : "text-gray-400"}`}
                   title={
-                    r.canEnter ? `Go into ${r.name}` : `Show only ${r.name}`
+                    isPicked
+                      ? `Hide where ${r.name} is`
+                      : `Show where ${r.name} is`
                   }
                   aria-label={
-                    r.canEnter ? `Go into ${r.name}` : `Show only ${r.name}`
+                    isPicked
+                      ? `Hide where ${r.name} is`
+                      : `Show where ${r.name} is`
                   }
-                  onClick={() => onEnter(r.path)}
-                  data-child-enter={r.path}
+                  aria-pressed={isPicked}
+                  onClick={() => onPick(isPicked ? null : r.path)}
+                  data-child-show={r.path}
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <Eye className="h-4 w-4" />
                 </button>
               </div>
               {isPicked && (
@@ -205,17 +210,6 @@ export function ChildList({
                       </span>
                     </p>
                   ))}
-                  {/* Going in, said in words where the row is picked, so it is found without
-                      knowing the chevron or the map's double click (owner 2026-11-24). */}
-                  <button
-                    type="button"
-                    className="mt-1 flex w-full items-center justify-center gap-1 rounded border bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50"
-                    onClick={() => onEnter(r.path)}
-                    data-child-enter-button={r.path}
-                  >
-                    {r.canEnter ? `Go into ${r.name}` : `Show only ${r.name}`}
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
                 </div>
               )}
             </li>
