@@ -26,7 +26,6 @@ The region upload file says what each code is; nothing is hard-coded per country
 Owner 2026-11-23 (review of z2qt08/5yxn4w): keep the official file; not in this iteration. Proposal: a region kind column (place, no_place, unknown) in public.region and the region upload. no_place shows 'No place' in the coordinate column and gets no Place on map; unknown counts as a missing region in data quality (missing-region-card.tsx counts physical_region_path IS NULL today) and on the Regions map. Norway today: 23, 24, 25, 26, 27, 28 have no centre and 0 units; 99 and 99.99 Uoppgitt have 0 units (tmp/z2qt08-placeholder-regions.sql).
 
 ## Depends on
-
 - 5yxn4w
 ## Acceptance
 - [ ] The region upload accepts a kind per region and stores it; a SQL test asserts place, no_place and unknown rows
@@ -40,6 +39,9 @@ Owner 2026-11-23 (review of z2qt08/5yxn4w): keep the official file; not in this 
     Why don't we put it at the UN headquarters?
 
 ## Notes
+
+
+2026-11-27 14:37 (hibiscus) Owner's answer to the UN centre question (relayed by rabbit): put the United Nations at UN Headquarters in New York (about 40.7489, -73.9680), not at 0,0 and not without a centre. Hibiscus does it: dbseed/country/country_centres.csv plus a forward migration for installed data, test 408 updated.
 
 
 ## History
