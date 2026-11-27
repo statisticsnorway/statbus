@@ -54,6 +54,8 @@ Pieces it would touch: (1) cli/src/worker.cr: the shutdown wait (5 s) becomes th
   Thinking about this ticket, I'm tempted to reject it. Why? Because then our current upgrade actually tests what we're doing. So I think that we either have to wait until the work finishes completely before we upgrade, meaning you have no in-progress things. But what if the upgrade fixes something that hangs? Or this behavior we have today is safe and exercises precisely rescuing something that will stall forever and making and it relies on and tests or semantics that are crash safe
 - 2026-11-27T11:05 request 3 by jhf:
   But we have many tests, so if this is fully tested, because this brings some complexity, and how long would you wait then?
+- 2026-11-27T15:39 request 4 by jhf:
+  It seems hard to answer this without, for instance, measuring how long any task is on, say, the Norwegian installation, and because that's the bound on how long we have to wait, right
 
 ## History
 - 2026-11-22T23:31 todo -> todo/design (ask)
@@ -66,3 +68,4 @@ Pieces it would touch: (1) cli/src/worker.cr: the shutdown wait (5 s) becomes th
 - 2026-11-27T11:04 request 2 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-27T11:05 request 3 by jhf
 - 2026-11-27T11:05 request 3 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-27T15:39 request 4 by jhf
