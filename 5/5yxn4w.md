@@ -10,7 +10,7 @@ group: ""
 rank: "zzzzzzzq"
 created: 2026-11-23
 updated: 2026-11-23
-stage: "depends"
+stage: "ready"
 ---
 
 ## Goal
@@ -27,7 +27,6 @@ Owner 2026-11-22: show region latitude and longitude on /regions, with the same 
 
 ## Depends on
 
-- z2qt08
 ## Acceptance
 - [x] /regions shows code, name and level; with Advanced on it also shows centre latitude, longitude and altitude; shown in a driven browser run (screenshot in the task) with the columns and one region's values
 - [x] The region upload page shows the plain columns in its instructions and example, and the centre columns under Advanced; shown in a driven browser run for both views
