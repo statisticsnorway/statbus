@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, SquareArrowOutUpRight, X } from "lucide-react";
+import { Check, List, X } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useAtomValue } from "jotai";
@@ -1047,7 +1047,7 @@ function parseUnitTypes(types: string | null): MapUnitType[] {
  * handler it is one of the search's parts: ticked and shaded while its filter is in effect (set
  * here, in the list or in the toolbar), and a click turns it on in place of any other, or off. A
  * part the map cannot draw also has an href: turning it on opens those units in the List, its
- * arrow saying so; once on, a click turns it off here. Without either it is a plain count.
+ * list icon saying so; once on, a click turns it off here. Without either it is a plain count.
  */
 function CountRow({
   label,
@@ -1082,7 +1082,9 @@ function CountRow({
         {value === null ? "…" : value.toLocaleString()}
       </span>
       {href && (
-        <SquareArrowOutUpRight
+        // The List view of this same search, so the list icon (owner 2026-11-27 20:32: the box with
+        // an arrow out is for leaving for another page).
+        <List
           className={`h-3.5 w-3.5 shrink-0 self-center text-gray-500 ${toList ? "" : "invisible"}`}
           aria-hidden
         />
