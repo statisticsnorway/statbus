@@ -26,6 +26,10 @@ SELECT id AS active_id FROM public.status WHERE code = 'active' LIMIT 1 \gset
 SELECT id AS un_id FROM public.country WHERE iso_2 = 'UN' \gset
 SELECT id AS region_id FROM public.region ORDER BY path LIMIT 1 \gset
 SELECT id AS activity_a_id FROM public.activity_category WHERE enabled ORDER BY path LIMIT 1 \gset
+-- s465ff: the level-comparison checks apply to max variables, so employees takes the larger level here.
+SET client_min_messages TO WARNING;
+UPDATE public.stat_definition SET lu_es_rollup = 'max' WHERE code = 'employees';
+RESET client_min_messages;
 INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
 SELECT 'EN-' || n, :user_id, '0pn35h test enterprise'
 FROM unnest(ARRAY['LU-EDIT', 'LU-FIX', 'LU-3', 'LU-4', 'LU-5', 'LU-6']) AS n;
