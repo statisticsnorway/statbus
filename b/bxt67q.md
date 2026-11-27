@@ -27,10 +27,12 @@ stat_definition has only lifecycle callback triggers; no derive is enqueued. Tes
 ## Depends on
 
 ## Acceptance
-- [ ] Test 144.7 shows 0 employees findings after the variable is disabled with no unit edited
+- [x] Test 144.7 shows 0 employees findings after the variable is disabled with no unit edited
 
 ## Notes
 
 Closed by the design in h9mhxe (acceptance check 6).
 
 Design in h9mhxe (acceptance check 6) applies; this task stays todo until it lands.
+
+check 1: Test 144.7 on master 866d8e3fc (CI Fast Tests 46036172173 green): after disabling employees with no unit edited, quality_check_count counts 0 employees checks and statistical_unit_quality lists 0 units for them (public.in_use, h9mhxe); re-enabling restores them (144.8).
