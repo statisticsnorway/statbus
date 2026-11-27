@@ -22,8 +22,8 @@ BEGIN
     ORDER BY id DESC LIMIT 1;
 
     -- Every partition on a full recalculation (valid_from -infinity and valid_until infinity, see
-    -- worker.enqueue_derive_statistical_unit_all; a full statistical_unit refresh empties
-    -- quality_finding). Otherwise the partitions holding a changed unit: the cycle's changed units'
+    -- worker.enqueue_derive_statistical_unit_all; a full statistical_unit refresh empties the
+    -- relation tables). Otherwise the partitions holding a changed unit: the cycle's changed units'
     -- hash slots, recorded by worker.derive_statistical_unit and cleared by
     -- worker.statistical_history_facet_delta_reduce after this step.
     v_full := v_valid_from = '-infinity'::date AND v_valid_until = 'infinity'::date;

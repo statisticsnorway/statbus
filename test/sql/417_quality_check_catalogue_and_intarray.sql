@@ -21,7 +21,7 @@ RESET enable_seqscan;
 -- not per variable, and one id per summed variable for each per-variable rule.
 \echo -- The catalogue: row checks 1, 2, 3, 7; relation check 4; one check per summed variable per rule.
 SELECT qc.id, qc.rule, sd.code AS variable, qc.kind, qc.priority
-FROM public.quality_check_catalogue AS qc
+FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
 ORDER BY qc.priority;
 
@@ -33,7 +33,7 @@ INSERT INTO public.stat_definition (code, type, frequency, name, priority)
 VALUES ('assets', 'int', 'yearly', 'Assets', 30),
        ('note', 'string', 'yearly', 'Note', 40);
 SELECT qc.id, qc.rule, sd.code AS variable, qc.kind, qc.priority
-FROM public.quality_check_catalogue AS qc
+FROM public.quality_check AS qc
 JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
 WHERE sd.code IN ('assets', 'note')
 ORDER BY qc.priority;
@@ -41,7 +41,7 @@ ORDER BY qc.priority;
 \echo -- Editing a variable keeps the ids of its checks and moves their priority with it.
 UPDATE public.stat_definition SET priority = 35 WHERE code = 'assets';
 SELECT qc.id, qc.rule, sd.code AS variable, qc.priority
-FROM public.quality_check_catalogue AS qc
+FROM public.quality_check AS qc
 JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
 WHERE sd.code = 'assets'
 ORDER BY qc.priority;
@@ -49,7 +49,7 @@ ORDER BY qc.priority;
 \echo -- Deleting the variable removes its checks; the other checks keep their ids.
 DELETE FROM public.stat_definition WHERE code IN ('assets', 'note');
 SELECT qc.id, qc.rule, sd.code AS variable
-FROM public.quality_check_catalogue AS qc
+FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
 ORDER BY qc.priority;
 
@@ -57,15 +57,13 @@ ORDER BY qc.priority;
 INSERT INTO public.stat_definition (code, type, frequency, name, priority)
 VALUES ('assets', 'float', 'yearly', 'Assets', 30);
 SELECT qc.id, qc.rule, sd.code AS variable
-FROM public.quality_check_catalogue AS qc
+FROM public.quality_check AS qc
 JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
 WHERE sd.code = 'assets'
 ORDER BY qc.priority;
 
-\echo -- The relation tables exist, empty, readable by a regular user.
+\echo -- A regular user reads the catalogue.
 CALL test.set_user_from_email('test.regular@statbus.org');
-SELECT (SELECT count(*) FROM public.quality_establishment_activity_differs) AS activity_differs,
-       (SELECT count(*) FROM public.quality_legal_unit_establishment_stat) AS establishment_stat,
-       (SELECT count(*) FROM public.quality_check_catalogue) AS catalogue;
+SELECT count(*) AS catalogue FROM public.quality_check;
 
 ROLLBACK;

@@ -133,13 +133,13 @@ SELECT unit_type
 \x
 
 -- Quality (xz3jej): legal units whose primary establishment has another primary activity, as the
--- quality check establishment_activity_differs lists them in public.quality_finding after each
+-- quality check establishment_activity_differs lists them in public.quality_establishment_activity_differs after each
 -- recalculation (worker.derive_quality). Block 1 gives
 -- every legal unit a formal establishment with the same activity, so the list starts empty; the
 -- steps below give one establishment another activity, then its legal unit the same one.
 \echo "Quality: legal units with a primary establishment, and how many the check lists"
 SELECT count(*) AS legal_units_with_primary_establishment,
-       (SELECT count(*) FROM public.quality_finding WHERE rule = 'establishment_activity_differs') AS listed
+       (SELECT count(*) FROM public.quality_establishment_activity_differs) AS listed
 FROM public.statistical_unit AS su
 WHERE su.unit_type = 'legal_unit'
   AND EXISTS (SELECT 1 FROM public.timeline_establishment AS te
@@ -158,17 +158,16 @@ SELECT lu.name AS legal_unit,
        lu_ac.code AS legal_unit_activity,
        es.name AS primary_establishment,
        es_ac.code AS primary_establishment_activity
-FROM public.quality_finding AS r
-JOIN public.legal_unit AS lu ON lu.id = r.unit_id AND lu.valid_from <= r.valid_from AND r.valid_from < lu.valid_until
-JOIN public.establishment AS es ON es.id = (r.detail->>'primary_establishment_id')::integer AND es.valid_from <= r.valid_from AND r.valid_from < es.valid_until
-LEFT JOIN public.activity_category AS lu_ac ON lu_ac.id = (r.detail->>'legal_unit_activity_category_id')::integer
-LEFT JOIN public.activity_category AS es_ac ON es_ac.id = (r.detail->>'primary_establishment_activity_category_id')::integer
-WHERE r.rule = 'establishment_activity_differs'
+FROM public.quality_establishment_activity_differs AS r
+JOIN public.legal_unit AS lu ON lu.id = r.unit_id AND lu.valid_from <= lower(r.valid_range) AND lower(r.valid_range) < lu.valid_until
+JOIN public.establishment AS es ON es.id = r.primary_establishment_id AND es.valid_from <= lower(r.valid_range) AND lower(r.valid_range) < es.valid_until
+LEFT JOIN public.activity_category AS lu_ac ON lu_ac.id = r.legal_unit_activity_category_id
+LEFT JOIN public.activity_category AS es_ac ON es_ac.id = r.establishment_activity_category_id
 ORDER BY lu.name;
 
 \echo "Quality: the search's list (public.statistical_unit_quality) has the same legal units that exist today"
 SELECT su.name
-FROM public.statistical_unit_quality(quality_rule => 'establishment_activity_differs', valid_on => CURRENT_DATE) AS su
+FROM public.statistical_unit_quality(quality_check_id => 4, valid_on => CURRENT_DATE) AS su
 WHERE su.unit_type = 'legal_unit'
 ORDER BY su.name;
 
@@ -180,7 +179,7 @@ WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'EQUATOR GL
 CALL worker.process_tasks(p_queue => 'analytics');
 
 \echo "Quality: the check lists no legal unit again"
-SELECT count(*) AS listed FROM public.quality_finding WHERE rule = 'establishment_activity_differs';
+SELECT count(*) AS listed FROM public.quality_establishment_activity_differs;
 
 
 ROLLBACK TO before_loading_units;

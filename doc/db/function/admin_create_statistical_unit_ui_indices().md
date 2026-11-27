@@ -33,6 +33,13 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_gist_statistical_unit_primary_activity_category_path ON public.statistical_unit USING GIST (primary_activity_category_path);
     CREATE INDEX IF NOT EXISTS idx_gist_statistical_unit_tag_paths ON public.statistical_unit USING GIST (tag_paths);
 
+    -- Quality checks (h9mhxe): the search's Quality filter (quality_check_ids contains a check) and the
+    -- dashboard's count of every row check at an instant, which reads only the rows with a check.
+    CREATE INDEX IF NOT EXISTS idx_statistical_unit_quality_check_ids ON public.statistical_unit USING GIN (quality_check_ids public.gin__int_ops);
+    CREATE INDEX IF NOT EXISTS idx_statistical_unit_quality_check_count ON public.statistical_unit
+        (public.unit_existence_from(valid_from, birth_date), public.unit_existence_until(valid_until, death_date))
+        INCLUDE (quality_check_ids) WHERE quality_check_ids <> '{}';
+
     -- Search sorts: one index per direction, ending in the search's tie-break (unit_type, unit_id).
     -- The asc index also serves the column's equality filter (legal_form_code in (...)).
     CREATE INDEX IF NOT EXISTS su_sort_name_asc ON public.statistical_unit (name, unit_type, unit_id);

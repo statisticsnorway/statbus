@@ -19,8 +19,9 @@ Indexes:
     "quality_legal_unit_establishment_stat_hash_slot_idx" btree (hash_slot)
     "quality_legal_unit_establishment_stat_stat_definition_idx" btree (stat_definition_id)
 Foreign-key constraints:
-    "quality_legal_unit_establishment_stat_check_fkey" FOREIGN KEY (check_id, stat_definition_id) REFERENCES quality_check_catalogue(id, stat_definition_id) ON DELETE CASCADE
+    "quality_legal_unit_establishment_stat_check_fkey" FOREIGN KEY (check_id, stat_definition_id) REFERENCES quality_check(id, stat_definition_id) ON DELETE CASCADE
     "quality_legal_unit_establishment_stat_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE CASCADE
+    "quality_legal_unit_establishment_stat_statistical_unit_fkey" FOREIGN KEY (unit_type, unit_id, PERIOD valid_range) REFERENCES statistical_unit(unit_type, unit_id, PERIOD valid_range) NOT ENFORCED
 Policies:
     POLICY "quality_legal_unit_establishment_stat_admin_user_manage"
       TO admin_user
@@ -45,4 +46,4 @@ Access method: heap
 
 ```
 
-**Comment:** Findings of the per-variable checks establishments_above_legal_unit and legal_unit_above_establishments (h9mhxe): one row per check (a rule and summed variable) and legal unit's statistical_unit row it lists, with the comparison that decided it. One table serves both rules for every variable because they share one comparison. Filled by the relation step of worker.derive_quality (part 2 of h9mhxe); empty until then.
+**Comment:** Findings of the per-variable checks establishments_above_legal_unit and legal_unit_above_establishments (h9mhxe): one row per check (a rule and summed variable) and legal unit's statistical_unit row it lists, with the comparison that decided it. One table serves both rules for every variable because they share one comparison. Filled from public.quality_legal_unit_establishment_stat_def by public.quality_relation_derive per hash partition in worker.derive_quality.
