@@ -10,6 +10,11 @@ group: ""
 rank: "zzzzzzzzzzzx"
 created: 2026-11-27
 updated: 2026-11-27
+design_question: "Fix by dropping row-level security on statistical_unit (its three policies all allow everything, so it only costs speed; my recommendation), or by marking the ltree comparison operators LEAKPROOF in a migration?"
+design_for: "jhf"
+design_since: "2026-11-27T12:05"
+design_asked_by: "hibiscus"
+stage: "design"
 ---
 
 ## Goal
@@ -30,4 +35,12 @@ statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_ri
 - [ ] A SQL test as a signed-in role: an unknown region path and a region with fewer than 10 units each return in well under a second, red before the fix, green after
 - [ ] The search page with physical_region_path=46.4631 shows no units within a second on the test slot
 
+## Questions
+- 2026-11-27T12:05 question 1 by hibiscus to jhf:
+  Fix by dropping row-level security on statistical_unit (its three policies all allow everything, so it only costs speed; my recommendation), or by marking the ltree comparison operators LEAKPROOF in a migration?
+
 ## Notes
+
+
+## History
+- 2026-11-27T12:05 todo -> todo/design (ask)
