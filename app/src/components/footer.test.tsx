@@ -9,8 +9,19 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Provider, createStore } from "jotai";
 import { artifactSHAAtom, runningIdentityAtom } from "@/atoms/running-identity";
 
-const mockConfig = { fallbackVersion: "", fallbackCommit: "" };
+const mockConfig = {
+  fallbackVersion: "",
+  fallbackCommit: "",
+  deploymentSlotName: "",
+};
 jest.mock("@/lib/statbus-config", () => ({ statbusConfig: mockConfig }));
+const mockCountry: { current: { name: string; iso_2: string } | null } = {
+  current: null,
+};
+jest.mock("@/atoms/getting-started", () => {
+  const { atom } = require("jotai");
+  return { installationCountryAtom: atom(() => mockCountry.current) };
+});
 jest.mock(
   "@/components/command-palette/command-palette-trigger-button",
   () => ({ CommandPaletteTriggerButton: () => null })
@@ -73,3 +84,39 @@ test.each(["", "local"])(
     expect(text).not.toContain("unknown");
   }
 );
+
+// p9xte6: which installation this is, at a glance: the configured country's flag and the slot's
+// name, before the version.
+function installationHtml(
+  country: { name: string; iso_2: string } | null,
+  name: string
+): string {
+  mockCountry.current = country;
+  mockConfig.deploymentSlotName = name;
+  const html = renderToStaticMarkup(
+    <Provider store={createStore()}>
+      <Footer />
+    </Provider>
+  );
+  // The installation part: from its marker's tag up to the GitHub link that follows it.
+  const start = html.indexOf("data-installation");
+  if (start < 0) return "";
+  const end = html.lastIndexOf("<a", html.indexOf("Github Repository", start));
+  return html.slice(html.indexOf(">", start) + 1, end);
+}
+
+test("an installation in Mozambique shows its flag and its name", () => {
+  const html = installationHtml(
+    { name: "Mozambique", iso_2: "MZ" },
+    "Mozambique"
+  );
+  expect(html).toContain('aria-label="Mozambique"');
+  expect(html).toContain("🇲🇿");
+  expect(html.replace(/<[^>]+>/g, "")).toBe("🇲🇿Mozambique");
+});
+
+test("with no country the footer shows the name only, with no empty flag", () => {
+  const html = installationHtml(null, "Development");
+  expect(html).not.toContain('role="img"');
+  expect(html.replace(/<[^>]+>/g, "")).toBe("Development");
+});

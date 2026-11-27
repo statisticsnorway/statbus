@@ -12,6 +12,7 @@ import {
   atomWithStorage,
   atomWithRefresh,
   createJSONStorage,
+  unwrap,
 } from "jotai/utils";
 
 import { restClientAtom } from './rest-client'
@@ -66,6 +67,21 @@ export const settingsAtomAsync = atomWithRefresh(async (get) => {
     return null;
   }
   return settings?.[0] ?? null;
+});
+
+/**
+ * The installation's own country (settings.country_id) as the footer shows it (p9xte6): read
+ * without suspending, so pages render while it loads; null until signed in or when no country
+ * is set.
+ */
+const settingsAtomUnwrapped = unwrap(settingsAtomAsync, () => null);
+export const installationCountryAtom = atom((get) => {
+  const settings = get(settingsAtomUnwrapped);
+  const country = settings?.country as
+    | { name: string | null; iso_2: string | null }
+    | null
+    | undefined;
+  return country ?? null;
 });
 
 // Number of Regions

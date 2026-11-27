@@ -16,6 +16,8 @@ import {
   runningVersionLabel,
 } from "@/lib/running-identity";
 import { statbusConfig } from "@/lib/statbus-config";
+import { installationCountryAtom } from "@/atoms/getting-started";
+import { flagEmoji } from "@/lib/flag-emoji";
 
 export function FooterSkeleton() {
   return (
@@ -36,6 +38,11 @@ export default function Footer() {
   const artifactSHA = useAtomValue(artifactSHAAtom);
   const runningIdentity = useAtomValue(runningIdentityAtom);
   const refreshRunningIdentity = useSetAtom(refreshRunningIdentityAtom);
+  // Which installation this is, at a glance among many open tabs (p9xte6, owner 2026-11-23): the
+  // configured country's flag and the deployment slot's name, quietly in the footer.
+  const country = useAtomValue(installationCountryAtom);
+  const flag = flagEmoji(country?.iso_2);
+  const installationName = statbusConfig.deploymentSlotName;
 
   useGuardedEffect(
     () => {
@@ -87,6 +94,24 @@ export default function Footer() {
       <div className="mx-auto max-w-(--breakpoint-xl) p-6 lg:py-12 lg:px-24">
         <div className={`flex items-center space-x-2 ${justificationClass}`}>
           <div className="flex items-center justify-between space-x-3">
+            {(flag || installationName) && (
+              <span
+                className="flex items-center gap-1.5 text-xs text-gray-300"
+                title={country?.name ?? undefined}
+                data-installation=""
+              >
+                {flag && (
+                  <span
+                    className="text-base leading-none"
+                    aria-label={country?.name ?? undefined}
+                    role="img"
+                  >
+                    {flag}
+                  </span>
+                )}
+                {installationName && <span>{installationName}</span>}
+              </span>
+            )}
             <Link
               href="https://github.com/statisticsnorway/statbus/"
               aria-label="Github Repository"
