@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronRight, Pencil, X } from "lucide-react";
+import { ChevronRight, Pencil, Search, X } from "lucide-react";
 import { useAtomValue } from "jotai";
 import useSWR from "swr";
 import type {
@@ -60,6 +60,9 @@ export function RegionsMap() {
   const { canAccessAdminTools } = usePermission();
   const [editing, setEditing] = useState<MapRegion | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
+  // Narrows both lists to the regions whose name or code contains the text; a long level (a
+  // county's municipalities) is hard to scan otherwise (owner 2026-11-27, as on the earlier map).
+  const [query, setQuery] = useState("");
 
   const { data: country } = useSWR(
     client ? ["regions-map:country"] : null,
@@ -111,6 +114,16 @@ export function RegionsMap() {
   const unplaced = shown.filter(
     (r) => r.center_latitude == null || r.center_longitude == null
   );
+  // The lists as the find field narrows them; the map keeps every dot of the level. The picked
+  // region stays listed, so it can still be unpicked.
+  const needle = query.trim().toLocaleLowerCase();
+  const matches = (r: MapRegion) =>
+    !needle ||
+    r.path === picked ||
+    r.name.toLocaleLowerCase().includes(needle) ||
+    (r.code ?? r.path).toLocaleLowerCase().includes(needle);
+  const shownPlaced = placed.filter(matches);
+  const shownUnplaced = unplaced.filter(matches);
   const features = useMemo<
     GeoJSON.FeatureCollection<GeoJSON.Point, DotProperties>
   >(
@@ -132,6 +145,7 @@ export function RegionsMap() {
   const go = useCallback(
     (path: string) => {
       setPicked(null);
+      setQuery("");
       router.push(
         path ? `/regions/map?at=${encodeURIComponent(path)}` : "/regions/map",
         { scroll: false }
@@ -378,7 +392,7 @@ export function RegionsMap() {
       data-regions-map-page=""
     >
       <div className="mx-auto w-full max-w-5xl px-2 pt-8 md:pt-12">
-        <RegionsHeader view="map" breadcrumb={trail} />
+        <RegionsHeader view="map" />
       </div>
       <div className="flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
@@ -400,6 +414,9 @@ export function RegionsMap() {
           data-regions-map-side=""
         >
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+            {/* The trail stands right above the selected region, so the place and its way up
+                read together (owner 2026-11-27, as on the search's map). */}
+            {trail}
             {selected && (
               <section
                 className="relative rounded border-2 border-gray-900 bg-gray-50 p-3"
@@ -445,15 +462,55 @@ export function RegionsMap() {
                 </Link>
               </p>
             )}
+            {/* Finds a region by name or code in both lists below; Enter goes into the first match
+                that has regions below it, else picks it. */}
+            {children.length > 8 && (
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
+                  aria-hidden
+                />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    const first = [...shownPlaced, ...shownUnplaced][0];
+                    if (e.key === "Enter" && needle && first) {
+                      if (hasChildren.has(first.path)) go(first.path);
+                      else pick(first.path);
+                    }
+                    if (e.key === "Escape") setQuery("");
+                  }}
+                  placeholder="Find by name or code"
+                  aria-label="Find a region by name or code"
+                  className="w-full rounded border bg-white py-1 pl-7 pr-7 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  data-regions-map-find=""
+                />
+                {query && (
+                  <button
+                    type="button"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-900"
+                    title="Clear"
+                    aria-label="Clear the find field"
+                    onClick={() => setQuery("")}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
             {/* Each region once: those on the map here, those without a centre under Not on the map. */}
-            {children.length > 0 && placed.length > 0 && (
+            {shownPlaced.length > 0 && (
               <section data-regions-map-children="">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {placed.length.toLocaleString()}{" "}
+                  {needle
+                    ? `${shownPlaced.length.toLocaleString()} of ${placed.length.toLocaleString()}`
+                    : placed.length.toLocaleString()}{" "}
                   {at ? "subregions" : "regions"} on the map
                 </h2>
                 <ul className="mt-1 space-y-0.5">
-                  {placed.map((r) => (
+                  {shownPlaced.map((r) => (
                     <li
                       key={r.path}
                       className={`flex items-center gap-1 rounded ${r.path === picked ? "bg-gray-100" : "hover:bg-gray-100"}`}
@@ -462,7 +519,11 @@ export function RegionsMap() {
                       <button
                         type="button"
                         className="min-w-0 flex-1 truncate rounded px-1.5 py-1 text-left"
+                        // A click picks the region on the map; a double click goes in, as on its dot.
                         onClick={() => pick(r.path === picked ? null : r.path)}
+                        onDoubleClick={() =>
+                          hasChildren.has(r.path) && go(r.path)
+                        }
                       >
                         {r.name}
                         <span className="ml-1 text-xs text-gray-500">
@@ -476,17 +537,20 @@ export function RegionsMap() {
                 </ul>
               </section>
             )}
-            {unplaced.length > 0 && (
+            {shownUnplaced.length > 0 && (
               <section data-regions-not-on-map="">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">
                   Not on the map: no centre
                 </h2>
                 <ul className="mt-1 space-y-0.5 text-gray-700">
-                  {unplaced.map((r) => (
+                  {shownUnplaced.map((r) => (
                     <li
                       key={r.path}
                       className="flex items-center gap-1 rounded hover:bg-gray-100"
                       data-region-without-centre={r.path}
+                      onDoubleClick={() =>
+                        hasChildren.has(r.path) && go(r.path)
+                      }
                     >
                       <span className="min-w-0 flex-1 truncate px-1.5 py-1">
                         {r.name}
@@ -500,6 +564,11 @@ export function RegionsMap() {
                   ))}
                 </ul>
               </section>
+            )}
+            {needle && shownPlaced.length + shownUnplaced.length === 0 && (
+              <p className="text-gray-600">
+                No region here matches “{query.trim()}”.
+              </p>
             )}
           </div>
         </aside>
