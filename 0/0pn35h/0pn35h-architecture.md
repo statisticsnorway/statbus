@@ -232,3 +232,22 @@ few rows a GIN lookup finds is reliable (0.07 ms). The app already chooses by th
 3. The 11 min table rewrite at migration on Norway-sized installations.
 4. Order: after lobster's counting branch lands, because both change `statistical_unit_def` and the
    comparison view.
+
+### Correction (owner's question, 08:52): one table per kind of relation, not one shared table
+
+The shared relation table would hold each check's detail as `jsonb` keyed by check id. That loses
+what a table per relation gives: typed columns, foreign keys (the primary establishment, the
+activity categories, the variable) and indexes fitted to the check. The speed difference measured
+on Norway is negligible either way: a count takes 3 ms with one row per check, 7 ms with the shared array.
+
+Today there are two kinds of relation, so two tables:
+- `quality_establishment_activity_differs`: the legal unit row key and existence dates,
+  `primary_establishment_id` (FK), `legal_unit_activity_category_id` and
+  `establishment_activity_category_id` (FKs).
+- `quality_legal_unit_establishment_stat`: the legal unit row key and existence dates,
+  `stat_definition_id` (FK), `check_id` (FK to `quality_check`: above or below),
+  `legal_unit_value`, `establishments_sum`, `establishment_count`. This one table serves both
+  per-variable rules for every summed variable, because they share one comparison.
+
+Each row is one check, so these tables carry a scalar `check_id int` and no array. The `int[]` with
+intarray stays where a row holds several checks at once: `statistical_unit.quality_check_ids`.
