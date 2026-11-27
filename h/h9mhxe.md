@@ -27,6 +27,6 @@ Catalogue: public.quality_check becomes a table (id int stable never reused, rul
 ## Depends on
 
 ## Acceptance
-- [ ] x
+- [ ] ~~x~~ (not relevant: placeholder, rabbit, 2026-11-27)
 
 ## Notes
