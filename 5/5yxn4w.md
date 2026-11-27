@@ -1,7 +1,7 @@
 ---
 id: 5yxn4w
 title: "Regions show and upload their centre coordinates under Advanced"
-state: todo
+state: "doing"
 type: feature
 priority: "medium"
 assignee: ["hibiscus"]
@@ -10,7 +10,12 @@ group: ""
 rank: "zzzzzzzq"
 created: 2026-11-23
 updated: 2026-11-23
-stage: "ready"
+stage: "active"
+doing_since: "2026-11-27T13:21"
+doing_with: "z2qt08"
+model: "claude-opus-5-5"
+branch: "feat/units-on-map"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -95,3 +100,4 @@ landed 847de8c on master 2026-11-27: db: a region change re-derives only what it
   I'm not sure the playwright tests brings us that much, but if we're going to have a playwright test, I think we should have systematic tests of almost the entire app. And we should do that in another ticket where we not only do this for these details, but for general interaction in multiple places. But that will need to interact with the database, imports, and so on and so forth. This should be a separate discussion, I think, unless you really think it valuable
 - 2026-11-23T16:12 answer 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
 - 2026-11-23T16:21 hibiscus read the answer: hug task note 5yxn4w "2026-11-23 (hibiscus) Owner's answer on Playwright: browser tests only as a systematic suite for most of the app, in it…"
+- 2026-11-27T13:21 todo/ready -> doing/active (take with z2qt08)
