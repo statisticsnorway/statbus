@@ -6,6 +6,9 @@ import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { Tables } from "@/lib/database.types";
 import { useActionState } from "react";
 import { EditableFieldWithMetadata } from "@/components/form/editable-field-with-metadata";
+import { useUnitQualityMarks } from "@/components/statistical-unit-details/use-unit-quality-marks";
+import { QualityMark } from "@/components/statistical-unit-details/quality-mark";
+import { qualityMarkKey } from "@/lib/quality-marks";
 import { updateStatisticalVariables } from "../update-legal-unit-server-actions";
 import { InfoBox } from "@/components/info-box";
 import { useClientReady } from "@/hooks/use-client-ready";
@@ -17,6 +20,7 @@ export default function StatisticalVariablesForm({
   readonly id: string;
 }) {
   const { statDefinitions } = useBaseData();
+  const qualityMarks = useUnitQualityMarks(id, "legal_unit");
   const { data, isLoading, error, revalidate } = useStatisticalUnitDetails(
     id,
     "legal_unit"
@@ -70,6 +74,7 @@ export default function StatisticalVariablesForm({
               response={statsState}
               formAction={statsAction}
               hiddenFields={{ stat_definition_id: statDefinition.id! }}
+              qualityMark={<QualityMark findings={qualityMarks.get(qualityMarkKey({ field: "stat", statDefinitionId: statDefinition.id! }))} />}
               metadata={stat}
               editSource={{
                 table: "stat_for_unit",

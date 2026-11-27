@@ -5,6 +5,8 @@ import { updateActivity } from "@/app/legal-units/[id]/update-legal-unit-server-
 import { useActionState, useEffect } from "react";
 import { useDetailsPageData } from "@/atoms/edits";
 import { EditableSelectWithMetadata } from "@/components/form/editable-field-with-select";
+import { useUnitQualityMarks } from "@/components/statistical-unit-details/use-unit-quality-marks";
+import { QualityMark } from "@/components/statistical-unit-details/quality-mark";
 
 export default function ClassificationsInfoForm({
   id,
@@ -16,6 +18,7 @@ export default function ClassificationsInfoForm({
     "establishment"
   );
   const { activityCategories } = useDetailsPageData();
+  const qualityMarks = useUnitQualityMarks(id, "establishment");
   const [primaryActivityState, primaryActivityAction] = useActionState(
     updateActivity.bind(null, id, "establishment"),
     null
@@ -69,6 +72,7 @@ export default function ClassificationsInfoForm({
         metadata={primaryActivity}
         placeholder="Select an activity category"
         hiddenFields={{ type: "primary" }}
+        qualityMark={<QualityMark findings={qualityMarks.get("primary_activity")} />}
         editSource={{
           table: "activity",
           match: { establishment_id: parseInt(id, 10), type: "primary" },
@@ -90,6 +94,7 @@ export default function ClassificationsInfoForm({
         metadata={secondaryActivity}
         placeholder="Select an activity category"
         hiddenFields={{ type: "secondary" }}
+        qualityMark={<QualityMark findings={qualityMarks.get("secondary_activity")} />}
         editSource={{
           table: "activity",
           match: { establishment_id: parseInt(id, 10), type: "secondary" },
