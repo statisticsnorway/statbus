@@ -33,7 +33,7 @@ Owner 2026-11-27 15:08-16:00: not on the search map (it has enough interaction);
 
 ## Acceptance
 - [ ] ~~[Owner] Decides whether circles can be sized by a variable, and which variables; recorded here~~ (not relevant: settled by the owner 2026-11-27 15:08-16:00: Units or any summable variable of stat_definition_enabled (Goal, Details), hibiscus, 2026-11-27)
-- [ ] With a variable chosen, each circle's size follows the variable's sum for the region, equal to a SQL sum with the same filter (jest on the helper, SQL comparison recorded)
+- [ ] ~~With a variable chosen, each circle's size follows the variable's sum for the region, equal to a SQL sum with the same filter (jest on the helper, SQL comparison recorded)~~ (not relevant: split into one check per job: items 3 and 4, hibiscus, 2026-11-27)
 
 ## Notes
 
