@@ -1,15 +1,20 @@
 ---
 id: y0wqg9
 title: "The import picks the earliest-born establishment as primary, not the first row"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzy"
 created: 2026-11-27
 updated: 2026-11-27
+doing_since: "2026-11-27T21:43"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -40,3 +45,7 @@ Checked 2026-11-27: link_establishment_to_legal_unit is holistic (is_holistic = 
 2026-11-27 20:03 owner: the primary is chosen once, at import analysis, among the legal unit's establishments by existence: the one born first (existing earliest) is primary; a later-born one never becomes primary through birth alone, so the stored flag needs no per-stretch change and rows need no split. Example: A and B both valid from 2023-01-01, A born 2023-03-01, B born 2023-06-01 -> A is primary; before 2023-03-01 nothing exists, so there is no primary to show. On jo this would have chosen 89 (born 2023-11-01) over 86 (born 2024-11-01). Today the analysis ranks candidates by validity overlap and row order (analyse_link_establishment_to_legal_unit steps 8-11), not by birth date.
 
 2026-11-27 20:43 owner: option (a). Existing wrong primaries stay; the workflow 2gpcs7 settles them per period, including legal units with no existing primary (noted there). This task only fixes the import's ranking for new primaries, test first.
+
+
+## History
+- 2026-11-27T21:43 todo -> doing/active (take)
