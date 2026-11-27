@@ -76,3 +76,4 @@ Design agreed with owner 2026-11-24 19:19 (merges 217dx5 for Data quality): one 
 - 2026-11-24T11:13 todo -> doing/active (take with pkne34)
 - 2026-11-27T00:00 doing/active -> doing/waiting (wait)
 - 2026-11-27T11:07 request 1 by jhf
+- 2026-11-27T11:07 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
