@@ -27,7 +27,7 @@ Filed by Hibiscus (map agent, z2qt08) on 2026-11-24 17:11, after its branch feat
 ## Depends on
 
 ## Acceptance
-- [ ] A dispatched fast-tests run on a branch with migrations finishes with conclusion success, its Start services step under 3 minutes or its build step outside the test time limit
+- [ ] ~~A dispatched fast-tests run on a branch with migrations finishes with conclusion success, its Start services step under 3 minutes or its build step outside the test time limit~~ (not relevant: Replaced by checks 2 and 3: the owner decision first, then one done condition without the either-or (task review 2026-11-27), hibiscus, 2026-11-27)
 - [ ] [Owner] Decides whether branch runs should fit their time limit (build it) or branch evidence relies on master's CI after the fast-forward (drop this task); the answer is recorded in this task's notes
 - [ ] If built: a dispatched fast-tests run on a branch with migrations ends with conclusion success, and the image build does not count against the test job's 30-minute limit
 
