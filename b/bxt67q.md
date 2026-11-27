@@ -30,3 +30,5 @@ stat_definition has only lifecycle callback triggers; no derive is enqueued. Tes
 - [ ] Test 144.7 shows 0 employees findings after the variable is disabled with no unit edited
 
 ## Notes
+
+Closed by the design in h9mhxe (acceptance check 6).
