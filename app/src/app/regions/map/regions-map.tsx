@@ -336,19 +336,40 @@ export function RegionsMap() {
     </nav>
   );
 
-  const editButton = (r: MapRegion, label: string) =>
-    canAccessAdminTools && (
-      <button
-        type="button"
-        className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
-        onClick={() => setEditing(r)}
-        title={label}
-        aria-label={`${label}: ${r.name}`}
-        data-regions-map-edit-centre={r.path}
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </button>
-    );
+  // Each row ends in two fixed-width icon columns, the pencil then the chevron, kept even when
+  // empty so the icons line up down both lists (owner 2026-11-27).
+  const editButton = (r: MapRegion, label: string) => (
+    <span className="flex w-7 shrink-0 justify-center">
+      {canAccessAdminTools && (
+        <button
+          type="button"
+          className="rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
+          onClick={() => setEditing(r)}
+          title={label}
+          aria-label={`${label}: ${r.name}`}
+          data-regions-map-edit-centre={r.path}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </span>
+  );
+  const enterButton = (r: MapRegion) => (
+    <span className="flex w-7 shrink-0 justify-center">
+      {hasChildren.has(r.path) && (
+        <button
+          type="button"
+          className="rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
+          title={`Go into ${r.name}`}
+          aria-label={`Go into ${r.name}`}
+          onClick={() => go(r.path)}
+          data-child-enter={r.path}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      )}
+    </span>
+  );
 
   return (
     <main
@@ -448,18 +469,8 @@ export function RegionsMap() {
                           {r.code ?? r.path}
                         </span>
                       </button>
-                      {hasChildren.has(r.path) && (
-                        <button
-                          type="button"
-                          className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
-                          title={`Go into ${r.name}`}
-                          aria-label={`Go into ${r.name}`}
-                          onClick={() => go(r.path)}
-                          data-child-enter={r.path}
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-                      )}
+                      {canAccessAdminTools && <span className="w-7 shrink-0" />}
+                      {enterButton(r)}
                     </li>
                   ))}
                 </ul>
@@ -474,30 +485,17 @@ export function RegionsMap() {
                   {unplaced.map((r) => (
                     <li
                       key={r.path}
-                      className="flex items-center justify-between gap-2 px-1.5"
+                      className="flex items-center gap-1 rounded hover:bg-gray-100"
                       data-region-without-centre={r.path}
                     >
-                      <span className="truncate">
+                      <span className="min-w-0 flex-1 truncate px-1.5 py-1">
                         {r.name}
                         <span className="ml-1 text-xs text-gray-500">
                           {r.code ?? r.path}
                         </span>
                       </span>
-                      <span className="flex shrink-0 items-center">
-                        {editButton(r, "Place on the map")}
-                        {hasChildren.has(r.path) && (
-                          <button
-                            type="button"
-                            className="rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
-                            title={`Go into ${r.name}`}
-                            aria-label={`Go into ${r.name}`}
-                            onClick={() => go(r.path)}
-                            data-child-enter={r.path}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </button>
-                        )}
-                      </span>
+                      {editButton(r, "Place on the map")}
+                      {enterButton(r)}
                     </li>
                   ))}
                 </ul>
