@@ -66,4 +66,12 @@ SELECT es.name AS establishment, es.birth_date, es.primary_for_legal_unit
  WHERE lu.name = 'LU first file row later born'
  ORDER BY es.name;
 
+\echo "421.3 each imported legal unit is primary of its own new enterprise, whatever its file row"
+\echo "      (import.process_enterprise_link_for_legal_unit: an import never ranks legal units for an enterprise)"
+SELECT lu.name AS legal_unit, lu.primary_for_enterprise,
+       (SELECT count(*) FROM public.legal_unit AS o WHERE o.enterprise_id = lu.enterprise_id) AS legal_units_in_enterprise
+  FROM public.legal_unit AS lu
+ WHERE lu.name LIKE 'LU first file row%'
+ ORDER BY lu.name;
+
 ROLLBACK;
