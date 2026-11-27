@@ -549,6 +549,10 @@ export function RegionsMap({
           "text-radial-offset": 1.2,
           "text-justify": "auto",
           "text-allow-overlap": false,
+          // Where two labels would collide, the place with more units keeps its name (owner
+          // 2026-11-27: at World, Sweden's label stood on Norway's circle and Norway's was dropped,
+          // so Sweden read as the big one). MapLibre places lower sort keys first.
+          "symbol-sort-key": ["-", 0, ["get", "total"]],
         },
         paint: {
           "text-color": "#111827",
