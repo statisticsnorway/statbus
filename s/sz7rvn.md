@@ -52,6 +52,7 @@ statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_ri
 2026-11-27 14:47 Owner (in chat, after the measured comparison): LEAKPROOF on the ltree comparison operators; keep RLS, 'consistent with regards to security, an easy model to explain'. Build: migration marking ltree_risparent (<@), ltree_isparent (@>), ltree_eq (=) LEAKPROOF; a SQL test as a signed-in role asserting the gist plan for a small path (red before, green after); verify the setting survives dump/restore (the extension's functions).
 check 1: 9942b85c3: test 420 as the schema asserts ltree <@, @>, = LEAKPROOF: red before (f,f,f, tmp/sz7rvn-420-red.out), green after (t,t,t). Measured as a signed-in role on the Norway register: 5-unit region >20 s -> 1.0 ms, unknown region 60 s -> 0.2 ms, plans use the path's gist index (tmp/sz7rvn-after-migration.log).
 check 2: Firefox tab 145 on the test slot after 9942b85c3: /search?physical_region_path=22.11 (Jan Mayen) lists 'Showing 1-5 of total 5 results', statistical_unit requests 13-16 ms. The unknown path 46.4631 measures 0.2 ms (no units) in SQL.
+landed 9942b85 on master 2026-11-27: db: ltree comparisons are LEAKPROOF, so a signed-in search on a path uses its…
 ## History
 - 2026-11-27T12:05 todo -> todo/design (ask)
 - 2026-11-27T15:38 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
