@@ -1815,4 +1815,7 @@ BEGIN
 END;
 $function$;
 
+-- quality_finding starts empty: a full derive fills it (its quality step runs every partition).
+SELECT worker.enqueue_derive_statistical_unit_all();
+
 END;
