@@ -1,7 +1,7 @@
 ---
 id: kvbebr
 title: "Location coordinates have one name in the table and the API"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["rabbit"]
@@ -10,15 +10,10 @@ group: ""
 rank: "zx"
 created: 2026-11-18
 updated: 2026-11-18
-doing_since: "2026-11-26T21:50"
-doing_with: "jbc5bs"
-stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_b"
-waiting_on: "Hibiscus implements the rename with jbc5bs"
-waiting_since: "2026-11-27T01:12"
-waiting_asked_by: "rabbit"
+done_at: "2026-11-27T14:44"
 ---
 
 ## Goal
@@ -74,3 +69,4 @@ check 2: Shipped with jbc5bs on master b534af8e5; CI 46000665092 attempt 2 succe
 - 2026-11-27T11:06 request 1 by jhf
 - 2026-11-27T11:06 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-27T13:41 resolved request 1 by hibiscus
+- 2026-11-27T14:44 doing/waiting -> done (done); was doing_since: 2026-11-26T21:50; doing_with: jbc5bs; waiting_asked_by: rabbit; waiting_on: Hibiscus implements the rename with jbc5bs; waiting_since: 2026-11-27T01:12
