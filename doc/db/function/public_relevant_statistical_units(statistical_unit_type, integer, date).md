@@ -128,6 +128,7 @@ AS $function$
          , tag_paths
          , daterange(valid_from, valid_until) AS valid_range
          , hash_slot
+         , quality_check_ids
     FROM full_units;
 $function$
 ```

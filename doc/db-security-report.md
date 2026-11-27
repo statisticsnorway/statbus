@@ -111,14 +111,10 @@ each role can see and modify.
   - Policies: `power_group_type_factory_default_admin_user_read` (SELECT → admin_user), `power_group_type_factory_default_authenticated_read` (SELECT → authenticated), `power_group_type_factory_default_regular_user_read` (SELECT → regular_user)
 - **`power_root`** — RLS ON
   - Policies: `power_root_admin_user_manage` (ALL → admin_user), `power_root_authenticated_read` (SELECT → authenticated), `power_root_regular_user_manage` (ALL → regular_user)
-- **`quality_check_catalogue`** — RLS ON
-  - Policies: `quality_check_catalogue_admin_user_manage` (ALL → admin_user), `quality_check_catalogue_authenticated_read` (SELECT → authenticated), `quality_check_catalogue_regular_user_read` (SELECT → regular_user)
-- **`quality_check_switched_on`** — RLS ON
-  - Policies: `quality_check_switched_on_admin_user_manage` (ALL → admin_user), `quality_check_switched_on_authenticated_read` (SELECT → authenticated), `quality_check_switched_on_regular_user_read` (SELECT → regular_user)
+- **`quality_check`** — RLS ON
+  - Policies: `quality_check_admin_user_manage` (ALL → admin_user), `quality_check_authenticated_read` (SELECT → authenticated), `quality_check_regular_user_read` (SELECT → regular_user)
 - **`quality_establishment_activity_differs`** — RLS ON
   - Policies: `quality_establishment_activity_differs_admin_user_manage` (ALL → admin_user), `quality_establishment_activity_differs_authenticated_read` (SELECT → authenticated), `quality_establishment_activity_differs_regular_user_read` (SELECT → regular_user)
-- **`quality_finding`** — RLS ON
-  - Policies: `quality_finding_admin_user_manage` (ALL → admin_user), `quality_finding_authenticated_read` (SELECT → authenticated), `quality_finding_regular_user_read` (SELECT → regular_user)
 - **`quality_legal_unit_establishment_stat`** — RLS ON
   - Policies: `quality_legal_unit_establishment_stat_admin_user_manage` (ALL → admin_user), `quality_legal_unit_establishment_stat_authenticated_read` (SELECT → authenticated), `quality_legal_unit_establishment_stat_regular_user_read` (SELECT → regular_user)
 - **`region`** — RLS ON
@@ -270,8 +266,8 @@ auto-updatable) also require INSERT.
 - **`power_group_type_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`power_group_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`power_group_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`quality_check`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
-- **`quality_finding_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`quality_establishment_activity_differs_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`quality_legal_unit_establishment_stat_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`region_upload`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_version_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
