@@ -12,7 +12,7 @@ created: 2026-11-27
 updated: 2026-11-27
 doing_since: "2026-11-27T01:12"
 doing_with: "0pn35h"
-stage: "active"
+stage: "depends"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
@@ -32,6 +32,7 @@ Rule to field: missing_region and missing_physical_location to Contact/location;
 
 ## Depends on
 
+- h9mhxe
 ## Acceptance
 - [ ] Legal unit 146 on the Norway copy shows the secondary-equals-primary mark on its Classifications page, and the mark goes when the secondary activity changes
 
