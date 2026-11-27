@@ -120,7 +120,7 @@ Indexes:
     "idx_statistical_unit_physical_country_id" btree (physical_country_id)
     "idx_statistical_unit_physical_region_id" btree (physical_region_id)
     "idx_statistical_unit_primary_activity_category_id" btree (primary_activity_category_id)
-    "idx_statistical_unit_quality_check_count" btree (unit_existence_from(valid_from, birth_date), unit_existence_until(valid_until, death_date)) INCLUDE (quality_check_ids) WHERE quality_check_ids <> '{}'::integer[]
+    "idx_statistical_unit_quality_check_count" btree (unit_existence_from(valid_from, birth_date), unit_existence_until(valid_until, death_date)) INCLUDE (quality_check_ids, valid_from, birth_date, valid_until, death_date) WHERE quality_check_ids <> '{}'::integer[]
     "idx_statistical_unit_quality_check_ids" gin (quality_check_ids gin__int_ops)
     "idx_statistical_unit_search" gin (search)
     "idx_statistical_unit_secondary_activity_category_id" btree (secondary_activity_category_id)
