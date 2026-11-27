@@ -52,6 +52,7 @@ check 1: 9942b85c3: test 420 as the schema asserts ltree <@, @>, = LEAKPROOF: re
 check 2: Firefox tab 145 on the test slot after 9942b85c3: /search?physical_region_path=22.11 (Jan Mayen) lists 'Showing 1-5 of total 5 results', statistical_unit requests 13-16 ms. The unknown path 46.4631 measures 0.2 ms (no units) in SQL.
 landed 9942b85 on master 2026-11-27: db: ltree comparisons are LEAKPROOF, so a signed-in search on a path uses its…
 2026-11-27 14:52 (hibiscus) Rabbit's review: looks right. Noted for later: a future lquery (~) path filter would need ltq_regex marked LEAKPROOF too; the app sends only <@ today. Firefox, 46.4631 (check 2 as written): 'Showing 0-0 of total 0 results', requests 28 ms and 8 ms. Dump/restore: post_restore.sql re-marks the functions after every migrate up (checked by clearing the mark and migrating up). CI on 9942b85c3 pending.
+CI on 9942b85c3 all green: Fast Tests 46020276710, Images, app build & lint, Go Test, Harness Selftest.
 ## History
 - 2026-11-27T12:05 todo -> todo/design (ask)
 - 2026-11-27T15:38 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
