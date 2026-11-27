@@ -43,6 +43,10 @@ Rule (covers): legal unit total = greatest(own value, sum of its establishments'
 - [x] doc/METHODOLOGICAL_GUIDELINE.md explains how a legal unit's values relate to its establishments (covers), with references to the UN Guidelines on Statistical Business Registers and the Eurostat Business Registers Recommendations Manual, and the statistical variables admin page and the import of statistical variables link to that explanation
 - [ ] The next release candidate after v2026.11.7-rc.01 contains the covers rule and both quality checks; its tag and commit are recorded here
 
+## Requests
+- 2026-11-27T11:07 request 1 by jhf:
+  Aren't you merging the lobster branch? Keep the ticket up to date
+
 ## Notes
 
 
@@ -71,3 +75,4 @@ Design agreed with owner 2026-11-24 19:19 (merges 217dx5 for Data quality): one 
 ## History
 - 2026-11-24T11:13 todo -> doing/active (take with pkne34)
 - 2026-11-27T00:00 doing/active -> doing/waiting (wait)
+- 2026-11-27T11:07 request 1 by jhf
