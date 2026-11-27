@@ -46,6 +46,7 @@ file:0pn35h-architecture.md (18977 bytes, sha256:dba4c962) Measured design repor
 check 1: test/sql/415 EXPLAIN shows Bitmap Index Scan on idx_statistical_unit_data_source_ids; on parent (migration down, intarray installed) Seq Scan: tmp/test-me96tn-415-on-parent.log. Commit 3ac36cfc9
 check 2: test 415 lists ids 1,2,3,4,7 and 101-104 (2 summed vars x 2 rules); new int var gets 105/106, string var none, delete removes, re-add gets 107/108 (no reuse)
 check 3: migrate-and-test fast: 143/147 then the 4 generated tests (002/008/015/016) regenerated; 008 remaining diff only sql_saga 1.6 slot-image drift line kept as on master. doc/db, types, security report regenerated in 3ac36cfc9
+Branch quality/part-1-catalogue-intarray @3ac36cfc9 pushed, not merged. Proposed final table name: quality_check (replacing the view in part 2); staging name quality_check_catalogue. Relation tables have no FK to statistical_unit (TRUNCATE CASCADE in statistical_unit_refresh would cascade); part 2 must add them to that refresh truncate.
 
 
 ## History
