@@ -16,11 +16,7 @@ origin: "backlog:STATBUS-343"
 aliases: ["STATBUS-343"]
 backlog_type: "enhancement"
 created: "2026-09-02 12:43"
-design_question: "ci-verdict-ledger proposes recording workflow verdicts on a git ref so nothing polls the GitHub API (after a rate-limit incident). Build it (then it gets acceptance checks), or drop it as solved otherwise?"
-design_for: "jhf"
-design_since: "2026-11-22T23:31"
-design_asked_by: "hibiscus"
-stage: "design"
+stage: "ready"
 ---
 
 ## Goal
@@ -44,6 +40,8 @@ Example after a push of abc123: verdicts/abc123.jsonl on branch ci-verdicts hold
 ## Questions
 - 2026-11-22T23:31 question 1 by hibiscus to jhf:
   ci-verdict-ledger proposes recording workflow verdicts on a git ref so nothing polls the GitHub API (after a rate-limit incident). Build it (then it gets acceptance checks), or drop it as solved otherwise?
+  answered 2026-11-27T11:03 by jhf:
+    If this can be done by an extra agent without blocking our development and slowing everything down and creating bureaucracy, I would say implement it. But I'm not sure if it's worth it. I'm not sure the blocking will happen again. So I think it should wait for a week until one week has passed, and if we are blocked again, we implement it
 
 
 ## Requests
@@ -59,3 +57,6 @@ Example after a push of abc123: verdicts/abc123.jsonl on branch ci-verdicts hold
 - 2026-11-26T21:41 request 1 acknowledged by rabbit
 - 2026-11-26T21:41 request 1 in progress by rabbit: hug task set wn4xaa
 - 2026-11-26T21:41 resolved request 1 by rabbit
+- 2026-11-27T11:03 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
+  > ci-verdict-ledger proposes recording workflow verdicts on a git ref so nothing polls the GitHub API (after a rate-limit incident). Build it (then it gets acceptance checks), or drop it as solved otherwise?
+  If this can be done by an extra agent without blocking our development and slowing everything down and creating bureaucracy, I would say implement it. But I'm not sure if it's worth it. I'm not sure the blocking will happen again. So I think it should wait for a week until one week has passed, and if we are blocked again, we implement it
