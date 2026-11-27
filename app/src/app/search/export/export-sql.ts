@@ -81,9 +81,9 @@ function selectFilter(value: string): string | null {
 
 /**
  * The rows a quality search lists (quality_check=<rule>[:<stat code>], app/search/quality-search.ts):
- * the statistical_unit rows the check's findings name at the export's time frame, the same set the
- * search page lists by either of its two paths. The time frame is the existence filter's instant,
- * which the export also applies to statistical_unit.
+ * the statistical_unit rows public.statistical_unit_quality lists for the check at the export's time
+ * frame, the same set the search page lists by any of its paths. The time frame is the existence
+ * filter's instant, which the export also applies to statistical_unit.
  */
 function qualityCheckFilter(value: string, params: URLSearchParams): string {
   const check = parseQualityCheckParam(value);
@@ -91,11 +91,11 @@ function qualityCheckFilter(value: string, params: URLSearchParams): string {
   const validOn = /^lte\.(.+)$/.exec(params.get("existence_from") ?? "")?.[1];
   if (!validOn) throw new ExportQueryError("A quality export needs the time frame (existence_from)");
   const variable = check.statCode
-    ? `f.stat_definition_id = (SELECT sd.id FROM public.stat_definition AS sd WHERE sd.code = ${quoteLiteral(check.statCode)})`
-    : "f.stat_definition_id IS NULL";
-  return `EXISTS (SELECT 1 FROM public.quality_finding AS f
-    WHERE f.rule = ${quoteLiteral(check.rule)} AND ${variable}
-      AND f.existence_from <= ${quoteLiteral(validOn)} AND ${quoteLiteral(validOn)} < f.existence_until
+    ? `qc.stat_definition_id = (SELECT sd.id FROM public.stat_definition AS sd WHERE sd.code = ${quoteLiteral(check.statCode)})`
+    : "qc.stat_definition_id IS NULL";
+  return `EXISTS (SELECT 1 FROM public.quality_check AS qc
+    CROSS JOIN LATERAL public.statistical_unit_quality(quality_check_id => qc.id, valid_on => ${quoteLiteral(validOn)}) AS f
+    WHERE qc.rule = ${quoteLiteral(check.rule)} AND ${variable}
       AND f.unit_type = su.unit_type AND f.unit_id = su.unit_id AND f.valid_range = su.valid_range)`;
 }
 

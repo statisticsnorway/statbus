@@ -5,11 +5,13 @@ import { fetchWithAuth, fetchWithAuthRefresh, getServerRestClient } from '@/cont
 import { parseQualityCheckParam } from '@/lib/quality-checks';
 import { EXISTENCE_FROM, EXISTENCE_UNTIL } from '@/lib/unit-existence';
 import { QUALITY_CHECK_PARAM, qualitySearchResource, type QualitySearchResource } from './quality-search';
+import type { QualityCheckCount } from '@/app/dashboard/quality-checks-data';
 
 /**
  * The PostgREST path and parameters a search reads: statistical_unit, or for a quality search the
- * resource qualitySearchResource chooses by the check's count at the time frame, which is read from
- * quality_finding first (one count on its 14 MB index, milliseconds).
+ * resource qualitySearchResource chooses by the check's count at the time frame. The URL's
+ * rule[:code] is mapped to the check's id and kind through public.quality_check, and the count is
+ * read first from public.quality_check_count (milliseconds).
  */
 export async function resolveSearchResource(
   client: PostgrestClient<Database>,
@@ -24,30 +26,36 @@ export async function resolveSearchResource(
   if (!validOn || !params.get(EXISTENCE_UNTIL)) {
     throw new Error('A quality search needs the time frame');
   }
+  const abort = signal ?? new AbortController().signal;
   let statDefinitionId: number | null = null;
   if (parsed.statCode) {
     const { data, error } = await client
       .from('stat_definition')
       .select('id')
       .eq('code', parsed.statCode)
-      .abortSignal(signal ?? new AbortController().signal)
+      .abortSignal(abort)
       .maybeSingle();
     if (error) throw new Error(`Reading the variable ${parsed.statCode} failed: ${error.message}`);
     if (!data) throw new Error(`No statistical variable ${parsed.statCode}`);
     statDefinitionId = data.id;
   }
-  let count = client
-    .from('quality_finding')
-    .select('', { count: 'exact', head: true })
-    .eq('rule', parsed.rule)
-    .lte('existence_from', validOn)
-    .gt('existence_until', validOn);
-  count = statDefinitionId === null ? count.is('stat_definition_id', null) : count.eq('stat_definition_id', statDefinitionId);
-  const { count: units, error } = await count.abortSignal(signal ?? new AbortController().signal);
-  if (error || units === null) {
+  let checkQuery = client.from('quality_check').select('id,kind').eq('rule', parsed.rule);
+  checkQuery = statDefinitionId === null
+    ? checkQuery.is('stat_definition_id', null)
+    : checkQuery.eq('stat_definition_id', statDefinitionId);
+  const { data: check, error: checkError } = await checkQuery.abortSignal(abort).maybeSingle();
+  if (checkError) throw new Error(`Reading the check ${parsed.rule} failed: ${checkError.message}`);
+  if (!check) throw new Error(`No quality check ${parsed.rule}${parsed.statCode ? `:${parsed.statCode}` : ''}`);
+  const { data: counts, error } = await client
+    .rpc('quality_check_count', { valid_on: validOn })
+    .eq('check_id', check.id)
+    .abortSignal(abort);
+  if (error || !counts) {
     throw new Error(`Counting the check ${parsed.rule} failed: ${error?.message ?? 'no count'}`);
   }
-  return qualitySearchResource(params, { rule: parsed.rule, statDefinitionId }, units);
+  // A check not in use (public.in_use, bxt67q) is absent from the counts: it lists no units.
+  const units = (counts as unknown as QualityCheckCount[])[0]?.units ?? 0;
+  return qualitySearchResource(params, { id: check.id, rule: parsed.rule, kind: check.kind }, units);
 }
 
 function parseContentRangeCount(response: Response): number | null {

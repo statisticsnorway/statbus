@@ -17,7 +17,6 @@ import {
   type QualityRule,
 } from "@/lib/quality-checks";
 import {
-  qualityCheckKey,
   useQualityChecks,
   useQualityFindingCounts,
   type QualityCheckRow,
@@ -106,9 +105,9 @@ export function DataQualitySettingsLink() {
 }
 
 /**
- * The dashboard's Data quality cards: one per switched-on check of public.quality_check, in its
- * order, each counting the units the check lists at the selected time frame from one grouped
- * request (useQualityFindingCounts). Admins choose which checks show with the section's gear
+ * The dashboard's Data quality cards: one per switched-on check in use of public.quality_check, in
+ * its order, each counting the units the check lists at the selected time frame from one request
+ * (useQualityFindingCounts, rpc/quality_check_count). Admins choose which checks show with the section's gear
  * (DataQualitySettingsLink, Admin > Data quality checks).
  */
 export function DataQualityCards() {
@@ -128,9 +127,9 @@ export function DataQualityCards() {
     <>
       {shown.map((check) => (
         <QualityCheckCard
-          key={qualityCheckKey(check.rule, check.statDefinitionId)}
+          key={check.id}
           check={check}
-          count={counts ? counts.get(qualityCheckKey(check.rule, check.statDefinitionId)) ?? 0 : null}
+          count={counts ? counts.get(check.id) ?? 0 : null}
           failed={failed}
         />
       ))}
