@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAtomValue, useSetAtom } from "jotai";
 import { searchUrlPushNextAtom } from "@/atoms/app";
+import { useTimeFrame } from "@/atoms/app-derived";
 import useSWR from "swr";
 import { restClientAtom } from "@/atoms/rest-client";
 import { useBaseData } from "@/atoms/base-data";
@@ -278,7 +279,9 @@ function SearchMap() {
 
   // Going to a place writes the search's place filters, as the toolbar would: the country's own
   // units are Domestic Yes, a foreign country is its Country, a region is its Region (regions are
-  // the country's own). The other filters stay as they are.
+  // the country's own). A place replaces any of the panel's parts (abroad, no location, without a
+  // region; owner 2026-11-27: a part left behind kept narrowing the search unseen). The other
+  // filters stay as they are.
   const onSelect = useCallback(
     (next: MapSelection) => {
       // Each step in or out is a history entry, so Back returns to the place before.
@@ -288,6 +291,10 @@ function SearchMap() {
         [REGION]: [],
         [PHYSICAL_COUNTRY]: [],
         [DOMESTIC]: [],
+        [PHYSICAL_LOCATION]: [],
+        [QUALITY]: asList(filters[QUALITY]).filter(
+          (q) => q !== qualityCheckParam("missing_region", null)
+        ),
       };
       if (next === "") out[DOMESTIC] = ["true"];
       else if (next !== null) {
@@ -308,47 +315,126 @@ function SearchMap() {
       }),
     [filters, updateFilters]
   );
-  // A count in the panel narrows the search to its part, with the filter the toolbar has for it, so
-  // it shows in the bar and List lists the same units; a step of its own, so Back undoes it. The
-  // part in effect is read back from the filters, so the row and the toolbar always agree, and a
-  // click on it again turns its filter off.
+  // The three parts the panel counts besides the regions (owner 2026-11-27): units abroad, with no
+  // location, and in the country without a region. Which one is in effect is read from the
+  // filters, wherever they were set (the map, the list or the toolbar), so its row always shows it;
+  // a click on a row turns its part on, in place of any other, or off again. Abroad is drawn per
+  // country, so it stays on the map; the other two have no place on a map, so turning them on opens
+  // the List (listHrefFor). Each step is one of its own, so Back undoes it.
   const missingRegion = qualityCheckParam("missing_region", null);
+  const withoutRegionOn =
+    domestic === "true" && asList(filters[QUALITY]).includes(missingRegion);
   const activePart: RegionsMapControl["activePart"] =
-    domestic === "false"
-      ? "abroad"
-      : location === "missing"
-        ? "no-location"
-        : domestic === "true" &&
-            asList(filters[QUALITY]).includes(missingRegion)
-          ? "without-region"
+    location === "missing"
+      ? "no-location"
+      : withoutRegionOn
+        ? "without-region"
+        : domestic === "false"
+          ? "abroad"
           : null;
-  const onFilter = useCallback(
-    (part: "abroad" | "no-location" | "without-region") => {
-      setPushNext(true);
-      const out: Record<string, unknown> = { ...filters };
-      if (part === activePart) {
-        // Off again: back to where the part was picked from.
-        if (part === "abroad") out[DOMESTIC] = [];
-        if (part === "no-location") out[PHYSICAL_LOCATION] = [];
-        if (part === "without-region") out[QUALITY] = [];
-      } else {
-        Object.assign(out, {
-          [REGION]: [],
-          [PHYSICAL_COUNTRY]: [],
-          [DOMESTIC]: [],
-          [PHYSICAL_LOCATION]: [],
-        });
-        if (activePart === "without-region") out[QUALITY] = [];
-        if (part === "abroad") out[DOMESTIC] = ["false"];
-        if (part === "no-location") out[PHYSICAL_LOCATION] = ["missing"];
-        if (part === "without-region") {
-          out[DOMESTIC] = ["true"];
-          out[QUALITY] = [missingRegion];
-        }
+  // The filters with a part on (or, for the part in effect, off): the place filters and the other
+  // parts are cleared, the rest of the search stays.
+  const partFilters = useCallback(
+    (part: Exclude<RegionsMapControl["activePart"], null | undefined>) => {
+      const out: Record<string, unknown> = {
+        ...filters,
+        [REGION]: [],
+        [PHYSICAL_COUNTRY]: [],
+        [DOMESTIC]: [],
+        [PHYSICAL_LOCATION]: [],
+        [QUALITY]: asList(filters[QUALITY]).filter((q) => q !== missingRegion),
+      };
+      if (part === activePart) return out;
+      if (part === "abroad") out[DOMESTIC] = ["false"];
+      if (part === "no-location") out[PHYSICAL_LOCATION] = ["missing"];
+      if (part === "without-region") {
+        out[DOMESTIC] = ["true"];
+        out[QUALITY] = [missingRegion];
       }
-      updateFilters(out);
+      return out;
     },
-    [filters, updateFilters, setPushNext, activePart, missingRegion]
+    [filters, activePart, missingRegion]
+  );
+  const onFilter = useCallback(
+    (part: Exclude<RegionsMapControl["activePart"], null | undefined>) => {
+      setPushNext(true);
+      updateFilters(partFilters(part));
+    },
+    [partFilters, updateFilters, setPushNext]
+  );
+  // The List view with a part that is not on the map turned on: the same filters as onFilter
+  // writes, as the list reads them from its URL.
+  const listHrefFor = useCallback(
+    (part: "no-location" | "without-region") => {
+      const p = new URLSearchParams(searchParams?.toString() ?? "");
+      for (const k of [
+        "at",
+        "types",
+        "page",
+        REGION,
+        PHYSICAL_COUNTRY,
+        DOMESTIC,
+        PHYSICAL_LOCATION,
+        QUALITY,
+      ])
+        p.delete(k);
+      const out = partFilters(part);
+      for (const [k, v] of Object.entries(out))
+        if (
+          [
+            REGION,
+            PHYSICAL_COUNTRY,
+            DOMESTIC,
+            PHYSICAL_LOCATION,
+            QUALITY,
+          ].includes(k)
+        )
+          for (const x of asList(v)) p.append(k, x);
+      return `/search?${p}`;
+    },
+    [searchParams, partFilters]
+  );
+  // The units in the country without a region, as the missing_region quality check lists them (its
+  // findings), with the search's other filters: the number its row opens in the List, so the row
+  // and the list agree (owner 2026-11-27: the region count also held an enterprise the check does
+  // not list). Counted only while the map is at the country.
+  const { selectedTimeFrame } = useTimeFrame();
+  const validOnNow = selectedTimeFrame?.valid_on ?? null;
+  const { data: withoutRegionCount } = useSWR(
+    client && validOnNow && lookupsReady && selection === ""
+      ? ["search-map:without-region", filterOnly(null).toString(), validOnNow]
+      : null,
+    async () => {
+      // The list's own filter for this part (listHrefFor): the search's filters but the place,
+      // Domestic Yes and the check, translated as the list translates them.
+      const api = resolveQualityForCount(
+        searchFilterApiParams({
+          query,
+          filters: {
+            ...counted,
+            [DOMESTIC]: ["true"],
+            [QUALITY]: [qualityCheckParam("missing_region", null)],
+          },
+          validOn: validOnNow,
+          externalIdentTypes,
+          statDefinitions,
+          allDataSources,
+        }),
+        statIds
+      );
+      api.set("select", "unit_id,quality_finding!inner()");
+      api.set("limit", "0");
+      const base = client!.url.endsWith("/") ? client!.url : `${client!.url}/`;
+      const response = await fetchWithAuthRefresh(
+        new URL(`statistical_unit?${api}`, base).toString(),
+        { method: "HEAD", headers: { Prefer: "count=exact" } }
+      );
+      if (!response.ok)
+        throw new Error(
+          `Counting the units without a region failed (${response.status})`
+        );
+      return Number(response.headers.get("content-range")?.split("/")[1] ?? 0);
+    }
   );
   const control: RegionsMapControl = {
     selection,
@@ -357,6 +443,8 @@ function SearchMap() {
     onUnitTypes,
     onFilter,
     activePart,
+    listHrefFor,
+    withoutRegionCount,
     countryIds: selection === null && countryIds.length > 1 ? countryIds : null,
   };
 

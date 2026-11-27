@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, X } from "lucide-react";
+import { Check, SquareArrowOutUpRight, X } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useAtomValue } from "jotai";
 import useSWR from "swr";
@@ -91,13 +92,20 @@ export interface RegionsMapControl {
   /** Countries the page narrows the world to (the search's Country filter), framed together. */
   countryIds?: number[] | null;
   /**
-   * Narrows the search to a part the panel counts (owner 2026-11-27): units abroad (Domestic No),
-   * with no location (Physical Location missing), or in the country without a region (the quality
-   * check missing_region). The page writes it as the toolbar would, so List shows the same units.
+   * Turns one of the panel's parts on, in place of any other, or off when it is the one in effect
+   * (owner 2026-11-27): units abroad (drawn per country), with no location, or in the country
+   * without a region. The page writes the filters the toolbar has for each, so List shows them.
    */
   onFilter?: (part: "abroad" | "no-location" | "without-region") => void;
-  /** The part the search is narrowed to now, if any: its row shows as on, and a click turns it off. */
+  /** The part in effect, read from the search's filters wherever they were set: its row is on. */
   activePart?: "abroad" | "no-location" | "without-region" | null;
+  /**
+   * The List view with a part the map cannot draw turned on (owner 2026-11-27: not on the map, so
+   * in the list): units with no location, and units in the country without a region.
+   */
+  listHrefFor?: (part: "no-location" | "without-region") => string;
+  /** The units the missing_region quality check lists under the search's filters: its row's count. */
+  withoutRegionCount?: number;
 }
 
 export function RegionsMap({
@@ -858,6 +866,7 @@ export function RegionsMap({
                   onHome={() => select("")}
                   onFilter={control?.onFilter}
                   activePart={control?.activePart}
+                  listHrefFor={control?.listHrefFor}
                 />
               )}
               {selection === null && (
@@ -880,7 +889,10 @@ export function RegionsMap({
                     : isLeaf
                       ? "The lowest level: no regions below this one. X or the trail above goes back up."
                       : features.features.length === 0
-                        ? "No units of the picked types here."
+                        ? control?.activePart === "no-location" ||
+                          control?.activePart === "without-region"
+                          ? "These units have no place on the map: they are listed in List."
+                          : "No units of the picked types here."
                         : null}
               </p>
             </section>
@@ -905,13 +917,18 @@ export function RegionsMap({
                   {selection === "" && world.domesticWithoutRegion > 0 && (
                     <CountRow
                       label={`Units in ${nameOf("")} without a region`}
-                      value={world.domesticWithoutRegion}
+                      value={
+                        control
+                          ? (control.withoutRegionCount ?? null)
+                          : world.domesticWithoutRegion
+                      }
+                      href={control?.listHrefFor?.("without-region")}
                       onClick={
                         control?.onFilter &&
                         (() => control.onFilter!("without-region"))
                       }
                       active={control?.activePart === "without-region"}
-                      title="Narrow the search to the units without a region (Quality: missing region)"
+                      title="Open them in the list (Quality: missing region); they are not on the map"
                       count="units-without-region"
                     />
                   )}
@@ -1026,25 +1043,30 @@ function parseUnitTypes(types: string | null): MapUnitType[] {
 }
 
 /**
- * A count that narrows the search when clicked (owner 2026-11-27): a full-width row, its count at the
- * right. The one in effect is ticked and shaded, as a picked list row, and a click on it turns its
- * filter off again; the same filter shows in the toolbar. Without a handler it is a plain count.
+ * A count in the panel (owner 2026-11-27): a full-width row, its count at the right. With a
+ * handler it is one of the search's parts: ticked and shaded while its filter is in effect (set
+ * here, in the list or in the toolbar), and a click turns it on in place of any other, or off. A
+ * part the map cannot draw also has an href: turning it on opens those units in the List, its
+ * arrow saying so; once on, a click turns it off here. Without either it is a plain count.
  */
 function CountRow({
   label,
   value,
   onClick,
+  href,
   active = false,
   title,
   count,
 }: {
   label: ReactNode;
-  value: number;
+  value: number | null;
   onClick?: () => void;
+  href?: string;
   active?: boolean;
   title?: string;
   count: string;
 }) {
+  const toList = href && !active;
   const inner = (
     <>
       <span className="flex flex-1 items-center gap-1.5">
@@ -1057,14 +1079,33 @@ function CountRow({
         {label}
       </span>
       <span className="tabular-nums text-gray-600">
-        {value.toLocaleString()}
+        {value === null ? "…" : value.toLocaleString()}
       </span>
+      {href && (
+        <SquareArrowOutUpRight
+          className={`h-3.5 w-3.5 shrink-0 self-center text-gray-500 ${toList ? "" : "invisible"}`}
+          aria-hidden
+        />
+      )}
     </>
   );
+  const row =
+    "-mx-1.5 flex w-[calc(100%+0.75rem)] justify-between gap-2 rounded px-1.5 py-0.5 text-left";
+  if (toList)
+    return (
+      <Link
+        href={href}
+        className={`${row} hover:bg-gray-100`}
+        title={title}
+        data-count={count}
+      >
+        {inner}
+      </Link>
+    );
   return onClick ? (
     <button
       type="button"
-      className={`-mx-1.5 flex w-[calc(100%+0.75rem)] justify-between gap-2 rounded px-1.5 py-0.5 text-left ${active ? "bg-gray-200 font-medium" : "hover:bg-gray-100"}`}
+      className={`${row} ${active ? "bg-gray-200 font-medium" : "hover:bg-gray-100"}`}
       onClick={onClick}
       title={active ? "In effect: click to show all again" : title}
       aria-pressed={active}
@@ -1091,12 +1132,14 @@ function WorldSplit({
   onHome,
   onFilter,
   activePart,
+  listHrefFor,
 }: {
   world: ReturnType<typeof worldCounts>;
   homeName: string;
   onHome: () => void;
   onFilter?: RegionsMapControl["onFilter"];
   activePart?: RegionsMapControl["activePart"];
+  listHrefFor?: RegionsMapControl["listHrefFor"];
 }) {
   const abroadTotal = world.abroad.reduce((s, a) => s + a.count, 0);
   return (
@@ -1119,9 +1162,10 @@ function WorldSplit({
       <CountRow
         label="No location"
         value={world.noLocation}
+        href={listHrefFor?.("no-location")}
         onClick={onFilter && (() => onFilter("no-location"))}
         active={activePart === "no-location"}
-        title="Narrow the search to the units with no location (Physical Location: missing)"
+        title="Open the units with no location in the list (Physical Location: missing); they are not on the map"
         count="no-location"
       />
     </div>
