@@ -34,7 +34,7 @@ Checked 2026-11-27: link_establishment_to_legal_unit is holistic (is_holistic = 
 ## Acceptance
 - [ ] ~~On a copy of jo's data at Frame 2023, Drill Down Norway AS's page says which establishment is primary and that it does not exist in 2023~~ (not relevant: superseded: owner 20:33, the import ranks by existence; no page notice, rabbit, 2026-11-27)
 - [ ] ~~[Owner] chooses how the inconsistency is surfaced (quality check, page notice, or both); answer recorded here~~ (not relevant: decided 20:03-20:33: consistency at import, not a quality check or notice, rabbit, 2026-11-27)
-- [ ] A SQL test imports one legal unit with two establishments valid from the same day, the later-born one first in the file: the earlier-born one is primary, red on master 78c95b358 and green after
+- [x] A SQL test imports one legal unit with two establishments valid from the same day, the later-born one first in the file: the earlier-born one is primary, red on master 78c95b358 and green after
 - [ ] A SQL test: an import does not change a legal unit's stored primary when it brings an earlier-born establishment
 - [ ] The same ranking holds for a legal unit as its enterprise's primary, asserted in the same test
 
@@ -47,5 +47,6 @@ Checked 2026-11-27: link_establishment_to_legal_unit is holistic (is_holistic = 
 2026-11-27 20:43 owner: option (a). Existing wrong primaries stay; the workflow 2gpcs7 settles them per period, including legal units with no existing primary (noted there). This task only fixes the import's ranking for new primaries, test first.
 
 
+check 3: test 421.1 (3ec476fb4): red on master, June and April chosen (tmp/y0wqg9-421-RED.out); green after, March and no-birth-date chosen. Fast suite 147/147 passed.
 ## History
 - 2026-11-27T21:43 todo -> doing/active (take)
