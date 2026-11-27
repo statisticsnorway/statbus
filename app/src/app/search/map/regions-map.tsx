@@ -19,7 +19,7 @@ import { UnitMap, cssColour } from "@/components/map/unit-map";
 import { UnitTypeLegend } from "@/components/map/unit-type-legend";
 import { BASEMAP_FONT, BASEMAP_FONT_BOLD } from "@/components/map/basemap";
 import { ViewControl } from "@/components/map/view-control";
-import { MapEmptyNote, MapPanelSkeleton, MapRecalculatingNote } from "@/components/map/map-panel-states";
+import { MapEmptyNote, MapPanelSkeleton } from "@/components/map/map-panel-states";
 import { RegionSpiders } from "./region-spiders";
 import { ChildList, type ChildRow } from "./child-list";
 import {
@@ -793,7 +793,6 @@ export function RegionsMap({
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
             {summary}
             {control && trailNav}
-            <MapRecalculatingNote />
             {/* While the counts are read the panel pulses, as the list does; when the frame has no
                 units at all it says so, rather than showing a column of zeros that could be either
                 (owner 2026-11-27 22:25). */}
