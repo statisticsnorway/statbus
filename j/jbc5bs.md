@@ -10,11 +10,14 @@ group: ""
 rank: "zzzzzzzzh"
 created: 2026-11-23
 updated: 2026-11-23
-stage: "active"
+stage: "waiting"
 doing_since: "2026-11-26T21:49"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_b"
+waiting_on: "Hibiscus implements the rename; owner answered: refuse the old coordinate headers"
+waiting_since: "2026-11-27T01:11"
+waiting_asked_by: "rabbit"
 ---
 
 ## Goal
@@ -85,3 +88,4 @@ check 7: Independent read-only reviewer rat (neither ox nor hibiscus), 2026-11-2
 - 2026-11-26T21:42 answer 1 acknowledged by rabbit
 - 2026-11-26T21:49 todo/ready -> doing/active (take)
 - 2026-11-27T00:18 handed to rabbit: ox's session ended (closed 2026-11-26 23:16)
+- 2026-11-27T01:11 doing/active -> doing/waiting (wait)
