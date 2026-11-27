@@ -1,4 +1,4 @@
--- Migration 20261127161320: quality check catalogue with integer ids, relation tables and intarray gin indexes
+-- Migration 20261127162610: quality check catalogue with integer ids, relation tables and intarray gin indexes
 -- me96tn, part 1 of h9mhxe (design report 0pn35h). Additive: statistical_unit's columns,
 -- public.quality_finding_def, public.legal_unit_establishment_stat_comparison and worker.derive_quality
 -- are unchanged; existing readers keep working.

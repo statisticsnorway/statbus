@@ -1,4 +1,4 @@
--- Down Migration 20261127161330: quality row checks on statistical_unit and relation checks in their own tables
+-- Down Migration 20261127162620: quality row checks on statistical_unit and relation checks in their own tables
 BEGIN;
 
 CREATE OR REPLACE FUNCTION admin.apply_rls_to_all_tables()
