@@ -40,6 +40,10 @@ Plan: (1) Branch prototype/import-as-user-role. (2) In the worker's import task,
 - [x] Import time on the branch compared with master on the same sample, recorded here
 - [ ] [Owner] Reads the result (works, works with listed definer steps, or does not work) and decides whether to build it; the decision is recorded in this task's notes
 
+## Requests
+- 2026-11-27T11:06 request 1 by jhf:
+  When either Statbus A or Statbus B is available, maybe this one could be scheduled independently in the master branch there. And if it works out, we can commit and push. If not, we will know what the problem is all recorded in this ticket
+
 ## Notes
 
 
@@ -53,3 +57,4 @@ check 3: branch 81.4s/72.9s vs master 72.4s/74.2s
 - 2026-11-21T09:49 todo -> doing/active (take)
 - 2026-11-21T20:10 handed to hibiscus: buffalo's session ended (closed 2026-11-21 10:29)
 - 2026-11-23T12:14 doing/active -> doing/waiting (wait)
+- 2026-11-27T11:06 request 1 by jhf
