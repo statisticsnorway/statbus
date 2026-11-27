@@ -36,3 +36,5 @@ Catalogue: public.quality_check becomes a table (id int stable never reused, rul
 - [ ] Full derive and fast suite green; doc/db and types regenerated
 
 ## Notes
+
+file:0pn35h-architecture.md (18977 bytes, sha256:dba4c962) The measured comparison and the decided design
