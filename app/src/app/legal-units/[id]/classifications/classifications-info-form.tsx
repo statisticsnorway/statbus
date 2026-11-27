@@ -9,6 +9,8 @@ import {
 import { useDetailsPageData } from "@/atoms/edits";
 import { EditableSelectWithMetadata } from "@/components/form/editable-field-with-select";
 import { codeListOptions } from "@/components/form/code-list-options";
+import { useUnitQualityMarks } from "@/components/statistical-unit-details/use-unit-quality-marks";
+import { QualityMark } from "@/components/statistical-unit-details/quality-mark";
 
 export default function ClassificationsInfoForm({
   id,
@@ -20,6 +22,7 @@ export default function ClassificationsInfoForm({
     "legal_unit"
   );
   const { activityCategories, legalForms, sectors } = useDetailsPageData();
+  const qualityMarks = useUnitQualityMarks(id, "legal_unit");
   const [primaryActivityState, primaryActivityAction] = useActionState(
     updateActivity.bind(null, id,  "legal_unit"),
     null
@@ -93,6 +96,7 @@ export default function ClassificationsInfoForm({
         metadata={primaryActivity}
         placeholder="Select an activity category"
         hiddenFields={{ type: "primary" }}
+        qualityMark={<QualityMark findings={qualityMarks.get("primary_activity")} />}
         editSource={{
           table: "activity",
           match: { legal_unit_id: parseInt(id, 10), type: "primary" },
@@ -114,6 +118,7 @@ export default function ClassificationsInfoForm({
         metadata={secondaryActivity}
         placeholder="Select an activity category"
         hiddenFields={{ type: "secondary" }}
+        qualityMark={<QualityMark findings={qualityMarks.get("secondary_activity")} />}
         editSource={{
           table: "activity",
           match: { legal_unit_id: parseInt(id, 10), type: "secondary" },

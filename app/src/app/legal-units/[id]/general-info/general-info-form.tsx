@@ -18,6 +18,8 @@ import Loading from "@/components/statistical-unit-details/loading";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { EditableFieldWithMetadata } from "@/components/form/editable-field-with-metadata";
 import { EditableFieldGroup } from "@/components/form/editable-field-group";
+import { useUnitQualityMarks } from "@/components/statistical-unit-details/use-unit-quality-marks";
+import { QualityMark } from "@/components/statistical-unit-details/quality-mark";
 import { SelectFormField } from "@/components/form/select-form-field";
 import { useDetailsPageData } from "@/atoms/edits";
 import { countryOptions } from "@/components/form/country-options";
@@ -46,6 +48,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const { externalIdentTypes } = useBaseData();
   const { regions, countries, domesticCountryId } = useDetailsPageData();
 
+  const qualityMarks = useUnitQualityMarks(id, "legal_unit");
   const { data, isLoading, revalidate, error } = useStatisticalUnitDetails(
     id,
     "legal_unit"
@@ -140,6 +143,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
       <EditableFieldGroup
         key={physicalLocation?.id}
         fieldGroupId="physical-location"
+        qualityMark={<QualityMark findings={qualityMarks.get("physical_location")} />}
         title="Physical Location"
         action={locationAction}
         response={locationState}

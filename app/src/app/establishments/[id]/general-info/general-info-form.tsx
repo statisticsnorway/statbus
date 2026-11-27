@@ -20,6 +20,8 @@ import { useSWRConfig } from "swr";
 import { EditableFieldWithMetadata } from "@/components/form/editable-field-with-metadata";
 import { SelectFormField } from "@/components/form/select-form-field";
 import { EditableFieldGroup } from "@/components/form/editable-field-group";
+import { useUnitQualityMarks } from "@/components/statistical-unit-details/use-unit-quality-marks";
+import { QualityMark } from "@/components/statistical-unit-details/quality-mark";
 import { EditableImageFieldWithMetadata } from "@/components/form/editable-image-field-with-metadata";
 import { useClientReady } from "@/hooks/use-client-ready";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
@@ -43,6 +45,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const { externalIdentTypes } = useBaseData();
   const { regions, countries, domesticCountryId } = useDetailsPageData();
 
+  const qualityMarks = useUnitQualityMarks(id, "establishment");
   const { data, isLoading, revalidate, error } = useStatisticalUnitDetails(
     id,
     "establishment"
@@ -131,6 +134,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
       <EditableFieldGroup
         key={physicalLocation?.id}
         fieldGroupId="physical-location"
+        qualityMark={<QualityMark findings={qualityMarks.get("physical_location")} />}
         title="Physical Location"
         action={locationAction}
         response={locationState}

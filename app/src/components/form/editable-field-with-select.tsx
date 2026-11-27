@@ -51,6 +51,8 @@ interface EditableSelectWithMetadataProps {
   metadata?: Metadata;
   /** The rows this field shows over time; the edit then opens on the shown value's stretch. */
   editSource?: EditFieldSource;
+  /** The quality checks that flag this field, shown as a mark beside its label (b6f1pw). */
+  qualityMark?: React.ReactNode;
   hiddenFields?: Record<string, string | number>;
 }
 
@@ -66,6 +68,7 @@ export const EditableSelectWithMetadata = ({
   metadata,
   hiddenFields,
   editSource,
+  qualityMark,
 }: EditableSelectWithMetadataProps) => {
   const startEdit = useStartEdit();
 
@@ -119,6 +122,7 @@ export const EditableSelectWithMetadata = ({
           <div className="flex items-center h-10">
             <Label className="text-xs uppercase text-gray-600">{label}</Label>
             {/* The icons sit beside the label, not in it: a label passes hover and clicks to its first button. */}
+            {qualityMark}
             {metadata && <MetadataTooltip metadata={metadata} />}
             {editSource && (
               <FieldTimelineButton source={editSource} label={label} />

@@ -35,6 +35,8 @@ interface EditableFieldGroupProps {
   metadata?: Metadata;
   /** The rows this group shows over time; the edit then opens on the shown values' stretch. */
   editSource?: EditFieldSource;
+  /** The quality checks that flag this group, shown as a mark beside its title (b6f1pw). */
+  qualityMark?: React.ReactNode;
   /** The group's shown values by column, compared with editSource's rows. */
   shownValues?: object;
   /**
@@ -58,6 +60,7 @@ export function EditableFieldGroup({
   children,
   hiddenFields,
   editSource,
+  qualityMark,
   shownValues,
 }: EditableFieldGroupProps) {
   const startEdit = useStartEdit();
@@ -125,6 +128,7 @@ export function EditableFieldGroup({
       <div className="flex justify-between items-center h-8">
         <div className="flex items-center">
           <span className="font-medium">{title}</span>
+          {qualityMark}
           {metadata && <MetadataTooltip metadata={metadata} />}
           {editSource && (
             <FieldTimelineButton source={editSource} label={title} />
