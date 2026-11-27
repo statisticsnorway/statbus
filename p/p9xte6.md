@@ -52,6 +52,7 @@ check 2: c9647bde1: footer.test renders an installation in Mozambique with flag 
 check 3: c9647bde1: footer.test 'with no country the footer shows the name only, with no empty flag': no role=img, text is the name only. (settings.country_id is NOT NULL, so this also covers an invented two-letter-less code via flagEmoji's null.)
 landed c9647bd on master 2026-11-27: app: the footer shows the installation's country flag and name (p9xte6)
 2026-11-27 14:29 (hibiscus) CI on c9647bde1 (master) all success: Images, app build & lint, Go Test, Harness Selftest, Fast Tests. Waiting on check 1, the owner's verdict on the look (question asked).
+2026-11-27 14:38 (hibiscus) Owner: a tmp file is not a valid way to show the look; we look at it together in Firefox. Done at item 3 of today's walkthrough, in tab 145 (the footer is at the bottom of every page).
 ## History
 - 2026-11-27T15:05 todo -> doing/active (take with j2g6wd)
 - 2026-11-27T15:09 doing/active -> doing/asked (ask)
