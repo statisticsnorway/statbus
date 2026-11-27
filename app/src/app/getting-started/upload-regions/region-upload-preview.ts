@@ -76,11 +76,15 @@ export function previewRegionUpload(
   };
   const columns = header.map((h) => h.trim());
   const unknown = columns.filter((c) => !(COLUMNS as readonly string[]).includes(c));
+  // A file with a column it cannot name is read no further: its rows would be compared without
+  // that column, so a centre given under an old name would pass as unchanged (owner 2026-11-27
+  // 21:55: a center_* file showed 417 unchanged beside the error). The header is the one error.
   if (unknown.length > 0) {
     preview.errors.push({
       line: 1,
       message: `Unknown column${unknown.length > 1 ? "s" : ""} ${unknown.join(", ")}. The columns are ${COLUMNS.join(", ")}.`,
     });
+    return preview;
   }
   if (!columns.includes("path")) {
     preview.errors.push({ line: 1, message: "The file has no path column, which names each region." });

@@ -136,14 +136,15 @@ const checkRegionFile: UploadPreview = async (csv) => {
           data-region-upload-errors=""
         >
           <p className="font-medium">
-            {preview.errors.length.toLocaleString()}{" "}
-            {preview.errors.length === 1 ? "row needs" : "rows need"} fixing
-            before the file can be stored:
+            {/* A header problem is the file's columns, not a row (owner 2026-11-27 21:56). */}
+            {preview.errors.every((e) => e.line === 1)
+              ? "The file's columns need fixing before it can be stored:"
+              : `${preview.errors.length.toLocaleString()} ${preview.errors.length === 1 ? "row needs" : "rows need"} fixing before the file can be stored:`}
           </p>
           <ul className="mt-1 list-disc pl-5">
             {preview.errors.slice(0, 20).map((e) => (
               <li key={`${e.line}:${e.message}`}>
-                Line {e.line}: {e.message}
+                {e.line === 1 ? e.message : `Line ${e.line}: ${e.message}`}
               </li>
             ))}
           </ul>

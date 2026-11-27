@@ -126,4 +126,33 @@ describe("previewRegionUpload", () => {
         "Unknown column center_latitude. The columns are path, name, latitude, longitude, altitude.",
     });
   });
+
+  it("counts nothing while a column is unknown, so a file read without its coordinates is not called unchanged", () => {
+    // Owner 2026-11-27 21:55: a file with center_* columns showed 417 unchanged beside the error,
+    // though its coordinates were never read (a moved centre passed as unchanged).
+    const p = previewRegionUpload(
+      ["path", "name", "center_latitude", "center_longitude"],
+      rows(["03", "Oslo", "59.9", "10.7"]),
+      stored
+    );
+    expect({
+      rows: p.rows,
+      unchanged: p.unchanged,
+      added: p.added.length,
+      renamed: p.renamed.length,
+      coordinatesSet: p.coordinatesSet.length,
+      coordinatesMoved: p.coordinatesMoved.length,
+      notInFile: p.notInFile,
+      errors: p.errors.length,
+    }).toEqual({
+      rows: 1,
+      unchanged: 0,
+      added: 0,
+      renamed: 0,
+      coordinatesSet: 0,
+      coordinatesMoved: 0,
+      notInFile: 0,
+      errors: 1,
+    });
+  });
 });
