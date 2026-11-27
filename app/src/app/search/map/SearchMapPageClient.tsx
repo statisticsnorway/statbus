@@ -218,29 +218,10 @@ function SearchMap() {
     [location, domestic, homeId, countryKey, regionPath]
   );
 
-  const searchFilter = useMemo(() => {
-    // The search's own filters, without the list's page and sort, for the panel's links to the list:
-    // a link narrows to its place and keeps every other filter.
-    const p = new URLSearchParams(searchParams?.toString() ?? "");
-    for (const k of [
-      "page",
-      "order",
-      "at",
-      "types",
-      "unit_type",
-      "physical_region_path",
-      "physical_country",
-      "domestic",
-    ])
-      p.delete(k);
-    return p;
-  }, [searchParams]);
-
   const source: RegionsMapSource = useMemo(
     () => ({
       key: `${filterOnly(null).toString()}|${homeId ?? ""}|${codeIds.status.size}:${codeIds.legalForm.size}`,
       ready: homeId !== undefined && lookupsReady,
-      searchFilter,
       rowFilter: placeKept ? rowFilter : undefined,
       fetchRows: async (validOn: string): Promise<RegionCountRow[]> => {
         const api = resolveQualityForCount(filterOnly(validOn), statIds);
@@ -290,7 +271,6 @@ function SearchMap() {
       statIds,
       placeKept,
       rowFilter,
-      searchFilter,
     ]
   );
 

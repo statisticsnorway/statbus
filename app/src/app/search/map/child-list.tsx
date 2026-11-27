@@ -3,8 +3,12 @@
 import { useRef, useState } from "react";
 import { ChevronRight, Search, X } from "lucide-react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { UNIT_TYPE_LABEL, UNIT_TYPE_SWATCH, selectedTotal, type MapUnitType } from "@/components/map/map-data";
-import { OpenInSearch, unitsIn } from "./open-in-search";
+import {
+  UNIT_TYPE_LABEL,
+  UNIT_TYPE_SWATCH,
+  selectedTotal,
+  type MapUnitType,
+} from "@/components/map/map-data";
 
 /** One child of the selection as the list shows it: a region, or a country at the World level. */
 export interface ChildRow {
@@ -19,10 +23,10 @@ export interface ChildRow {
 }
 
 /**
- * The children of the Regions map's selection, as a list beside the map (owner 2026-11-24, as on a
+ * The children of the search map's selection, as a list beside the map (owner 2026-11-24, as on a
  * unit's Map page): each row its name and the units of the picked types, largest first. A click on
- * a row picks it, as a click on its circle does: the row opens with its units per type, the square
- * arrow opens them in the search, and the circle is ringed. The picked row's button, or the
+ * a row picks it, as a click on its circle does: the row opens with its units per type, and the
+ * circle is ringed. The picked row's button, or the
  * chevron at a row's end, goes in (a region at the lowest level is then shown alone); on the map a
  * double click on its circle does the same. The picked row scrolls into view when it is picked on
  * the map.
@@ -32,7 +36,6 @@ export function ChildList({
   rows,
   unitTypes,
   picked,
-  searchFor,
   onPick,
   onEnter,
 }: {
@@ -40,7 +43,6 @@ export function ChildList({
   rows: ChildRow[];
   unitTypes: readonly MapUnitType[];
   picked: string | null;
-  searchFor: (path: string) => string;
   onPick: (path: string | null) => void;
   onEnter: (path: string) => void;
 }) {
@@ -59,23 +61,37 @@ export function ChildList({
   useGuardedEffect(
     () => {
       if (picked === null) return;
-      listRef.current?.querySelector(`[data-child-row="${CSS.escape(picked)}"]`)?.scrollIntoView({ block: "nearest" });
+      listRef.current
+        ?.querySelector(`[data-child-row="${CSS.escape(picked)}"]`)
+        ?.scrollIntoView({ block: "nearest" });
     },
     [picked],
     "ChildList:scrollToPicked"
   );
-  const sorted = [...rows].sort((a, b) => selectedTotal(b.counts, unitTypes) - selectedTotal(a.counts, unitTypes) || a.name.localeCompare(b.name));
+  const sorted = [...rows].sort(
+    (a, b) =>
+      selectedTotal(b.counts, unitTypes) - selectedTotal(a.counts, unitTypes) ||
+      a.name.localeCompare(b.name)
+  );
   const needle = query.trim().toLocaleLowerCase();
-  const matches = (r: ChildRow) => r.name.toLocaleLowerCase().includes(needle) || (r.code ?? "").includes(needle);
+  const matches = (r: ChildRow) =>
+    r.name.toLocaleLowerCase().includes(needle) ||
+    (r.code ?? "").includes(needle);
   const found = needle ? sorted.filter(matches) : sorted;
   // The picked region stays in the list while finding another, so it can still be unpicked.
-  const shown = needle ? sorted.filter((r) => matches(r) || r.path === picked) : sorted;
+  const shown = needle
+    ? sorted.filter((r) => matches(r) || r.path === picked)
+    : sorted;
   return (
     <section data-regions-map-children="">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">{heading}</h2>
+        <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          {heading}
+        </h2>
         {needle ? (
-          <span className="text-xs text-gray-500">{found.length.toLocaleString()} found</span>
+          <span className="text-xs text-gray-500">
+            {found.length.toLocaleString()} found
+          </span>
         ) : (
           searchable &&
           !finding && (
@@ -94,7 +110,10 @@ export function ChildList({
       </div>
       {searchable && finding && (
         <div className="relative mt-1">
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" aria-hidden />
+          <Search
+            className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
+            aria-hidden
+          />
           <input
             type="text"
             autoFocus
@@ -102,7 +121,8 @@ export function ChildList({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
               // Enter picks the first match, as a click on its row would; Escape folds it away.
-              if (e.key === "Enter" && needle && found[0]) onPick(found[0].path);
+              if (e.key === "Enter" && needle && found[0])
+                onPick(found[0].path);
               if (e.key === "Escape") closeFind();
             }}
             placeholder="Find by name or code"
@@ -126,7 +146,11 @@ export function ChildList({
         {shown.map((r) => {
           const isPicked = r.path === picked;
           return (
-            <li key={r.path} className={`rounded ${isPicked ? "bg-gray-100" : "hover:bg-gray-100"}`} data-child-row={r.path}>
+            <li
+              key={r.path}
+              className={`rounded ${isPicked ? "bg-gray-100" : "hover:bg-gray-100"}`}
+              data-child-row={r.path}
+            >
               <div className="flex items-center gap-1">
                 <button
                   type="button"
@@ -139,16 +163,25 @@ export function ChildList({
                 >
                   <span className="truncate">
                     {r.name}
-                    {r.code && <span className="ml-1 text-xs text-gray-500">{r.code}</span>}
+                    {r.code && (
+                      <span className="ml-1 text-xs text-gray-500">
+                        {r.code}
+                      </span>
+                    )}
                   </span>
-                  <span className="tabular-nums text-gray-600">{selectedTotal(r.counts, unitTypes).toLocaleString()}</span>
+                  <span className="tabular-nums text-gray-600">
+                    {selectedTotal(r.counts, unitTypes).toLocaleString()}
+                  </span>
                 </button>
-                {isPicked && <OpenInSearch href={searchFor(r.path)} title={unitsIn(r.name)} data-child-search={r.path} />}
                 <button
                   type="button"
                   className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
-                  title={r.canEnter ? `Go into ${r.name}` : `Show only ${r.name}`}
-                  aria-label={r.canEnter ? `Go into ${r.name}` : `Show only ${r.name}`}
+                  title={
+                    r.canEnter ? `Go into ${r.name}` : `Show only ${r.name}`
+                  }
+                  aria-label={
+                    r.canEnter ? `Go into ${r.name}` : `Show only ${r.name}`
+                  }
                   onClick={() => onEnter(r.path)}
                   data-child-enter={r.path}
                 >
@@ -156,12 +189,20 @@ export function ChildList({
                 </button>
               </div>
               {isPicked && (
-                <div className="space-y-1 px-1.5 pb-2 pt-0.5 text-xs text-gray-600" data-child-detail={r.path}>
+                <div
+                  className="space-y-1 px-1.5 pb-2 pt-0.5 text-xs text-gray-600"
+                  data-child-detail={r.path}
+                >
                   {unitTypes.map((t) => (
                     <p key={t} className="flex items-center gap-2">
-                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${UNIT_TYPE_SWATCH[t]}`} aria-hidden />
+                      <span
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${UNIT_TYPE_SWATCH[t]}`}
+                        aria-hidden
+                      />
                       <span className="flex-1">{UNIT_TYPE_LABEL[t]}</span>
-                      <span className="tabular-nums">{r.counts[t].toLocaleString()}</span>
+                      <span className="tabular-nums">
+                        {r.counts[t].toLocaleString()}
+                      </span>
                     </p>
                   ))}
                   {/* Going in, said in words where the row is picked, so it is found without
