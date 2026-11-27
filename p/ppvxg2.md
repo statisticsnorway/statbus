@@ -1,15 +1,20 @@
 ---
 id: ppvxg2
 title: "Reports has a Map of statistical variables by region"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["hibiscus"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzy"
 created: 2026-11-27
 updated: 2026-11-27
+doing_since: "2026-11-27T17:05"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_test"
 ---
 
 ## Goal
@@ -33,3 +38,7 @@ Owner 2026-11-27 15:08-16:00: not on the search map (it has enough interaction);
 ## Notes
 
 2026-11-27 16:03 (hibiscus, from rabbit) Facet stats_summary per unit type follows lu_es_rollup after counting lands (jsonb_stats_merge_agg of statistical_unit.stats_summary, legal unit by jsonb_stats_lu_es_rollup): the map reads it and never recomputes. One unit type at a time is right (no total across types; enterprise is the top-level total). Build now; do not merge before counting is on master (rabbit DMs the SHA). On-screen words sum and max, never euphemisms.
+
+
+## History
+- 2026-11-27T17:05 todo -> doing/active (take)
