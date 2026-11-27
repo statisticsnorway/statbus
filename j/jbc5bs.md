@@ -87,6 +87,7 @@ check 10: b534af8e5 test/sql/419: center_* region file refused (column does not 
 Reflection (open, 2026-11-27, hibiscus): The handover worked; the gap was "Released migrations are immutable" without a rule for an unreleased migration on a branch rebased behind newer master migrations: I renamed its timestamp to come after master's newest and re-based the functions both branches changed on their current \sf.
 landed b534af8 on master 2026-11-27: db, app, test: coordinates are latitude, longitude, altitude; postal coordinates…
 2026-11-27 14:04 (hibiscus) Master runs for b534af8e5 all success: Images, app build & lint, Go Test, Harness Selftest, Fast Tests (master trigger).
+2026-11-27 14:34 (hibiscus) Whole-result check on master c9647bde1 (test slot, after restarting its dead dev server; journal): GET /rest/region_upload returns path, latitude, longitude, altitude (200); selecting center_latitude 400; POST a CSV with latitude,longitude under Prefer: tx=rollback 201, with center_latitude 400 PGRST204; region 03 unchanged after both. Upload page lists path,name,latitude,longitude,altitude; Regions list shows coordinates; Regions map 17 regions; unit map legend 1 legal unit + 2 establishments. tmp/whole-result-headless.log.
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
