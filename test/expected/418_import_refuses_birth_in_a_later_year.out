@@ -13,7 +13,7 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \o /dev/null
 \set ECHO none
 INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
-SELECT id, 'import_f2gx3m_lu', 'Test 416 legal units', 'Test 416 (f2gx3m)', false
+SELECT id, 'import_f2gx3m_lu', 'Test 418 legal units', 'Test 418 (f2gx3m)', false
 FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
 INSERT INTO public.import_f2gx3m_lu_upload (valid_from, valid_to, tax_ident, name, birth_date, death_date) VALUES
     ('2023-01-01', 'infinity',   '416000001', 'Born a later year',        '2024-11-01', NULL),
@@ -24,8 +24,8 @@ CALL worker.process_tasks(p_queue => 'import');
 NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo
 
-\echo "416.1 the job finishes; only the row born a later year is skipped"
-"416.1 the job finishes; only the row born a later year is skipped"
+\echo "418.1 the job finishes; only the row born a later year is skipped"
+"418.1 the job finishes; only the row born a later year is skipped"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_job_error
 FROM public.import_job WHERE slug = 'import_f2gx3m_lu';
        slug       |  state   | total_rows | imported_rows | has_job_error 
@@ -33,8 +33,8 @@ FROM public.import_job WHERE slug = 'import_f2gx3m_lu';
  import_f2gx3m_lu | finished |          4 |             3 | f
 (1 row)
 
-\echo "416.2 each row's state, action and errors, key and message"
-"416.2 each row's state, action and errors, key and message"
+\echo "418.2 each row's state, action and errors, key and message"
+"418.2 each row's state, action and errors, key and message"
 SELECT dt.row_id, dt.name_raw, dt.state, dt.action, e.key, e.value
 FROM public.import_f2gx3m_lu_data AS dt
 LEFT JOIN LATERAL jsonb_each_text(dt.errors) AS e(key, value) ON TRUE
