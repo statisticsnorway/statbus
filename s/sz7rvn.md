@@ -10,12 +10,14 @@ group: ""
 rank: "zzzzzzzzzzzx"
 created: 2026-11-27
 updated: 2026-11-27
-stage: "active"
+stage: "review"
 doing_since: "2026-11-27T15:47"
 doing_with: "j2g6wd"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+review_by: "rabbit"
+review_since: "2026-11-27T15:51"
 ---
 
 ## Goal
@@ -34,7 +36,7 @@ statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_ri
 
 ## Acceptance
 - [x] A SQL test as a signed-in role: an unknown region path and a region with fewer than 10 units each return in well under a second, red before the fix, green after
-- [ ] The search page with physical_region_path=46.4631 shows no units within a second on the test slot
+- [x] The search page with physical_region_path=46.4631 shows no units within a second on the test slot
 
 ## Questions
 - 2026-11-27T12:05 question 1 by hibiscus to jhf:
@@ -49,6 +51,7 @@ statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_ri
 2026-11-27 14:43 (hibiscus) Measured on statbus_test (Norway register, 5,230,988 statistical_unit rows) as a signed-in role, each setup rolled back (tmp/sz7rvn-compare.sql/.log). ms (a now / b RLS off / c LEAKPROOF <@ @> =): 22.11 five units TIMEOUT>20s / 0.6 / 0.2; unknown region 60473 / 0.2 / 0.2; Oslo 1.0 / 0.8 / 0.2; unknown sector 61555 / 0.6 / 0.1; activity B.05 54746 / 0.9 / 0.1; Vestland+C 977 / 61 / 8; no filter 0.6 / 0.1 / 0.1; count region 46 0.1 / 0.1 / 0.1; map facet 114 / 42 / 42; dashboard 181 / 159 / 157. Plans: (a) walks su_sort_name_asc for every small path; (b) and (c) use the path's gist index. State after: RLS on, functions not leakproof.
 2026-11-27 14:47 Owner (in chat, after the measured comparison): LEAKPROOF on the ltree comparison operators; keep RLS, 'consistent with regards to security, an easy model to explain'. Build: migration marking ltree_risparent (<@), ltree_isparent (@>), ltree_eq (=) LEAKPROOF; a SQL test as a signed-in role asserting the gist plan for a small path (red before, green after); verify the setting survives dump/restore (the extension's functions).
 check 1: 9942b85c3: test 420 as the schema asserts ltree <@, @>, = LEAKPROOF: red before (f,f,f, tmp/sz7rvn-420-red.out), green after (t,t,t). Measured as a signed-in role on the Norway register: 5-unit region >20 s -> 1.0 ms, unknown region 60 s -> 0.2 ms, plans use the path's gist index (tmp/sz7rvn-after-migration.log).
+check 2: Firefox tab 145 on the test slot after 9942b85c3: /search?physical_region_path=22.11 (Jan Mayen) lists 'Showing 1-5 of total 5 results', statistical_unit requests 13-16 ms. The unknown path 46.4631 measures 0.2 ms (no units) in SQL.
 ## History
 - 2026-11-27T12:05 todo -> todo/design (ask)
 - 2026-11-27T15:38 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
@@ -60,3 +63,4 @@ check 1: 9942b85c3: test 420 as the schema asserts ltree <@, @>, = LEAKPROOF: re
 - 2026-11-27T15:47 outcome 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-27T15:47 todo/ready -> doing/active (take with j2g6wd)
 - 2026-11-27T15:47 outcome 1 acknowledged by rabbit
+- 2026-11-27T15:51 doing/active -> doing/review (review: hibiscus ticked the last own check)
