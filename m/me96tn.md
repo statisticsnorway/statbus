@@ -53,3 +53,4 @@ check 3: migrate-and-test fast: 143/147 then the 4 generated tests (002/008/015/
 - 2026-11-27T10:33 handed to rabbit: shrimp's session went silent (last seen 2026-11-18 15:18)
 - 2026-11-27T10:52 doing/active -> doing/review (review: shrimp ticked the last own check)
 - 2026-11-27T10:52 review 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-27T10:52 review 1 acknowledged by rabbit
