@@ -16,7 +16,7 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \set ECHO all
 
 INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
-SELECT id, 'import_f2gx3m_lu', 'Test 416 legal units', 'Test 416 (f2gx3m)', false
+SELECT id, 'import_f2gx3m_lu', 'Test 418 legal units', 'Test 418 (f2gx3m)', false
 FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
 
 INSERT INTO public.import_f2gx3m_lu_upload (valid_from, valid_to, tax_ident, name, birth_date, death_date) VALUES
@@ -28,11 +28,11 @@ INSERT INTO public.import_f2gx3m_lu_upload (valid_from, valid_to, tax_ident, nam
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo
-\echo "416.1 the job finishes; only the row born a later year is skipped"
+\echo "418.1 the job finishes; only the row born a later year is skipped"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_job_error
 FROM public.import_job WHERE slug = 'import_f2gx3m_lu';
 
-\echo "416.2 each row's state, action and errors, key and message"
+\echo "418.2 each row's state, action and errors, key and message"
 SELECT dt.row_id, dt.name_raw, dt.state, dt.action, e.key, e.value
 FROM public.import_f2gx3m_lu_data AS dt
 LEFT JOIN LATERAL jsonb_each_text(dt.errors) AS e(key, value) ON TRUE
