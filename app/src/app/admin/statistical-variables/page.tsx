@@ -23,6 +23,11 @@ const columns: ColumnDefinition<Tables<"stat_definition">>[] = [
   { key: "frequency", header: "Frequency" },
   { key: "priority", header: "Priority" },
   {
+    key: "lu_es_rollup",
+    header: "Legal unit total",
+    render: (record) => (record.lu_es_rollup === "max" ? "Larger of" : "Add"),
+  },
+  {
     key: "enabled",
     header: "Enabled",
     render: (record) => <BooleanBadge value={record.enabled} />,

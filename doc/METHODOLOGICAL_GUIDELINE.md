@@ -97,9 +97,21 @@ the size of its labour force should equal the sum of theirs. A value such as the
 number of employees may be reported on the legal unit, on its establishments,
 or on both, and when it is on both it describes the same people.
 
-StatBus therefore counts a summed statistical variable (int, float) once per
-legal unit: **the legal unit's total is the larger of its own value and its
-establishments' sum**.
+Each summed statistical variable (int, float) chooses how a legal unit's total
+combines the two levels (Admin, Statistical Variables, "Legal unit total";
+`stat_definition.lu_es_rollup`):
+
+- **Add** (`sum`, the default): the legal unit's own value plus its
+  establishments' sum. For a value each unit reports on one level only.
+- **Larger of** (`max`): the larger of the legal unit's own value and its
+  establishments' sum, so a value both levels report about the same people
+  counts once. Norway's employees use this.
+
+The Links tree writes the total with how it was made: Σ 369 = 364 + 5 under
+Add, Σ 364 = max(364, 5) under Larger of. Changing the choice recalculates the
+stored totals.
+
+Under Larger of:
 
 | Reported on | Legal unit total |
 |---|---|
@@ -111,12 +123,14 @@ establishments' sum**.
 
 An enterprise adds its legal units, and a power group adds its enterprises:
 those units do not overlap. A value that is not summed (text, yes/no) keeps
-the legal unit's own value. The database implements the rule once, as
-`public.jsonb_stats_covers` (see its comment), used when a legal unit's
-timeline is built.
+the legal unit's own value. The database implements the choice once, as
+`public.jsonb_stats_lu_es_rollup` (adding with `public.jsonb_stats_merge`,
+taking the larger with `public.jsonb_stats_covers`; see their comments), used
+when a legal unit's timeline is built.
 
-Two Data quality checks list where the levels disagree (dashboard cards and
-the search's Quality filter):
+For a variable set to Larger of, two Data quality checks list where the levels
+disagree (dashboard cards and the search's Quality filter). Under Add the
+levels add up, so the checks do not apply:
 
 - **Establishments Above Legal Unit**: the establishments add up to more
   than the legal unit's own value. The parts exceed the whole, so one of the
