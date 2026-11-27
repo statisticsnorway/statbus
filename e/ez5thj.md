@@ -31,6 +31,7 @@ Seen by jhf in Firefox on the test slot, throttled to regular 4G then 3G, while 
 - [ ] Each page shows its content within an agreed budget on 3G, measured with the same method
 - [ ] ~~A check in CI or a recorded benchmark script that reports each page's first-load bytes, so a regression is seen~~ (not relevant: one job per check: rewritten as check 4, hibiscus, 2026-11-27)
 - [ ] A recorded benchmark script reports each page's first-load bytes and time on the built app, run before and after, so a regression is seen
+- [ ] [Owner] Sets the 3G time-to-content budget per page, recorded in Notes; the budget measurement compares against it, and a page over budget gets a fix before the task closes
 
 ## Notes
 
