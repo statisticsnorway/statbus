@@ -31,3 +31,5 @@ Owner 2026-11-27 15:08-16:00: not on the search map (it has enough interaction);
 - [ ] With a variable chosen, each circle's size follows the variable's sum for the region, equal to a SQL sum with the same filter (jest on the helper, SQL comparison recorded)
 
 ## Notes
+
+2026-11-27 16:03 (hibiscus, from rabbit) Facet stats_summary per unit type follows lu_es_rollup after counting lands (jsonb_stats_merge_agg of statistical_unit.stats_summary, legal unit by jsonb_stats_lu_es_rollup): the map reads it and never recomputes. One unit type at a time is right (no total across types; enterprise is the top-level total). Build now; do not merge before counting is on master (rabbit DMs the SHA). On-screen words sum and max, never euphemisms.
