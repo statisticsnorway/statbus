@@ -1,4 +1,4 @@
--- Down Migration 20261126214255: every legal unit total takes the larger level again
+-- Down Migration 20261127091335: every legal unit total takes the larger level again
 -- (public.jsonb_stats_covers), units count by validity alone, and the import accepts a birth in a
 -- later year. Totals recalculate once.
 BEGIN;
@@ -24,8 +24,8 @@ WITH (security_invoker = on) AS
         )
  SELECT rule,
     stat_definition_id,
-    NOT (EXISTS ( SELECT 1
-           FROM quality_check_switched_off qs
+    (EXISTS ( SELECT 1
+           FROM quality_check_switched_on qs
           WHERE qs.rule = c.rule AND COALESCE(qs.stat_definition_id, 0) = COALESCE(c.stat_definition_id, 0))) AS on_dashboard,
     row_number() OVER (ORDER BY rule, stat_priority, stat_definition_id) AS priority
    FROM check_of c;
@@ -33,7 +33,8 @@ WITH (security_invoker = on) AS
 CREATE OR REPLACE VIEW public.legal_unit_establishment_stat_comparison
 WITH (security_invoker = on) AS
  WITH establishment_values AS (
-         SELECT su_1.unit_id,
+         SELECT su_1.hash_slot,
+            su_1.unit_id,
             su_1.valid_from,
             sd.code AS stat_code,
             count(*) AS establishment_count,
@@ -43,7 +44,7 @@ WITH (security_invoker = on) AS
              JOIN timeline_establishment te ON te.legal_unit_id = su_1.unit_id AND te.used_for_counting AND te.valid_from <= su_1.valid_from AND su_1.valid_from < te.valid_until
              JOIN stat_definition sd ON sd.enabled AND (sd.type = ANY (ARRAY['int'::stat_type, 'float'::stat_type]))
           WHERE su_1.unit_type = 'legal_unit'::statistical_unit_type AND su_1.stats ? sd.code::text
-          GROUP BY su_1.unit_id, su_1.valid_from, sd.code
+          GROUP BY su_1.hash_slot, su_1.unit_id, su_1.valid_from, sd.code
         )
  SELECT su.unit_type,
     su.unit_id,
@@ -53,9 +54,10 @@ WITH (security_invoker = on) AS
     ((su.stats -> ev.stat_code::text) ->> 'value'::text)::numeric AS legal_unit_value,
     ev.establishment_count,
     ev.establishments_with_value,
-    ev.establishments_sum
+    ev.establishments_sum,
+    ev.hash_slot
    FROM statistical_unit su
-     JOIN establishment_values ev ON ev.unit_id = su.unit_id AND ev.valid_from = su.valid_from
+     JOIN establishment_values ev ON ev.hash_slot = su.hash_slot AND ev.unit_id = su.unit_id AND ev.valid_from = su.valid_from
   WHERE su.unit_type = 'legal_unit'::statistical_unit_type AND ev.establishments_with_value > 0;
 COMMENT ON VIEW public.legal_unit_establishment_stat_comparison IS
   'Per legal_unit row of statistical_unit and enabled summed stat (int, float) held both by the legal unit and by at least one counted establishment: the legal unit''s own value (statistical_unit.stats) and its counted establishments'' count, count with a value, and sum at the row''s valid_from. The quality rules establishments_above_legal_unit and legal_unit_above_establishments read it (public.quality_finding_def); a legal unit''s total takes the larger level (public.jsonb_stats_covers).';
