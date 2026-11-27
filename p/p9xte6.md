@@ -34,11 +34,12 @@ Owner 2026-11-23: in the footer, more subtle than the navbar. Footer: app/src/co
 
 ## Acceptance
 - [ ] [Owner] Approves the look (flag and name, size and placement) from a screenshot on the test slot; recorded here
-- [ ] On an installation configured for Mozambique, the footer shows the Mozambique flag and the installation name; a Playwright test asserts both
+- [x] On an installation configured for Mozambique, the footer shows the Mozambique flag and the installation name; a Playwright test asserts both
 - [ ] With no country configured, the footer shows the name only and no empty flag; a test asserts it
 
 ## Notes
 
 
+check 2: c9647bde1: footer.test renders an installation in Mozambique with flag 🇲🇿 (aria-label Mozambique) and its name (red on the old footer, green now; tmp/p9-footer-red.log, -green.log). Headless on the test slot with settings.country_id set to MZ: footer shows 🇲🇿 local (tmp/p9xte6-footer-mozambique.log/.png); country restored to Norway.
 ## History
 - 2026-11-27T15:05 todo -> doing/active (take with j2g6wd)
