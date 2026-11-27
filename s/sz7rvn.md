@@ -1,7 +1,7 @@
 ---
 id: sz7rvn
 title: "A search on a path with few units hangs for signed-in users"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["hibiscus"]
@@ -10,12 +10,10 @@ group: ""
 rank: "zzzzzzzzzzzx"
 created: 2026-11-27
 updated: 2026-11-27
-stage: "active"
-doing_since: "2026-11-27T15:47"
-doing_with: "j2g6wd"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+done_at: "2026-11-27T17:05"
 ---
 
 ## Goal
@@ -75,3 +73,4 @@ CI on 9942b85c3 all green: Fast Tests 46020276710, Images, app build & lint, Go 
 - 2026-11-27T15:52 outcome 2 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-27T15:52 outcome 2 acknowledged by rabbit
 - 2026-11-27T15:52 answer 2 acknowledged by hibiscus
+- 2026-11-27T17:05 doing/active -> done (done); was doing_since: 2026-11-27T15:47; doing_with: j2g6wd
