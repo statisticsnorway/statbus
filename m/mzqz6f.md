@@ -7,7 +7,7 @@ priority: ""
 assignee: ["rabbit"]
 labels: []
 group: ""
-rank: "zzzzzzzzzzzt"
+rank: "zzzzzzzzzzzo"
 created: 2026-11-26
 updated: 2026-11-26
 model: "claude-opus-5-5"

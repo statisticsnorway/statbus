@@ -1,0 +1,33 @@
+---
+id: sz7rvn
+title: "A search on a path with few units hangs for signed-in users"
+state: todo
+type: feature
+priority: ""
+assignee: []
+labels: []
+group: ""
+rank: "zzzzzzzzzzzx"
+created: 2026-11-27
+updated: 2026-11-27
+---
+
+## Goal
+A search on a region, sector or activity path answers within a second for a signed-in user, however few units match.
+
+## Purpose
+An old link to a region that a later upload removed, or any small region (22.11 has 5 units), leaves the list loading for over a minute and leaves the query running in the database; seen 2026-11-27 on the test slot, on master too.
+
+## Principle
+Fix the cause in the database by migration, not a timeout in the app; keep the row-level security that protects anything.
+
+## Details
+statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_risparent) is not LEAKPROOF, so for a non-superuser the planner may not use the column statistics: it estimates ~20-30k rows for any path and walks su_sort_name_asc, and LIMIT 10 never fills. Superuser plan uses the gist index (6 ms); with ltree_risparent LEAKPROOF in a rolled-back prototype 0.3 ms. Same plan for sector_path and primary_activity_category_path. Options: (1) drop RLS on statistical_unit, whose policies allow everything; (2) mark the ltree comparison operators LEAKPROOF (extension functions: check they stay so after dump/restore). Evidence in statbus_test: tmp/journal.md 2026-11-27, tmp/unknown-region-role.log, tmp/unknown-region-leakproof-proto.log, tmp/unknown-region-small2.log, tmp/unknown-path-other-filters.log.
+
+## Depends on
+
+## Acceptance
+- [ ] A SQL test as a signed-in role: an unknown region path and a region with fewer than 10 units each return in well under a second, red before the fix, green after
+- [ ] The search page with physical_region_path=46.4631 shows no units within a second on the test slot
+
+## Notes
