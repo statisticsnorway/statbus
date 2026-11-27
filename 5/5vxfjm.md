@@ -40,7 +40,7 @@ Owner 2026-11-27 (request 1): build it on master in a slot of its own, statbus_a
 - [x] Import time on the branch compared with master on the same sample, recorded here
 - [x] [Owner] Reads the result (works, works with listed definer steps, or does not work) and decides whether to build it; the decision is recorded in this task's notes
 - [ ] A migration on master makes admin.import_job_process run the analysis and processing phases as the job user's role (as prototype f4aedb8cf), removes set_import_job_user_context, and analyse_edit_info stamps auth.uid(); a SQL test fails on master before it and passes after: rows an import writes carry the job user's id
-- [ ] A full Norway sample import as a regular user and as an admin user stamps every written unit row with that user, with no refusals; import time compared with master on the same sample and recorded here
+- [ ] ~~A full Norway sample import as a regular user and as an admin user stamps every written unit row with that user, with no refusals; import time compared with master on the same sample and recorded here~~ (not relevant: Restated with its baseline as check 9 (task review 2026-11-27), hibiscus, 2026-11-27)
 - [ ] ~~Committed and pushed to master with CI green on its commit, or the failure that stopped it recorded in this task's notes~~ (not relevant: Restated as one done condition (task review 2026-11-27), hibiscus, 2026-11-27)
 - [ ] Committed and pushed to master with CI green on that commit
 
