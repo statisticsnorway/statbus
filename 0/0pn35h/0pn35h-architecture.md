@@ -130,3 +130,27 @@ relation checks can have their ids in the same array, written by the step that c
 unit with its establishments. That is worth one more prototype: whether writing a relation
 check into `statistical_unit` (an UPDATE of about 11 000 rows) is cheap enough, or whether those
 stay in small per-check tables.
+
+### Relation checks: into statistical_unit, or a small table?
+
+Measured on the Norway copy (`tmp/0pn35h-int-relation.log`), with the 11 038 legal-unit rows the
+three relation checks list:
+- Computing them: 15.6 s (the comparison over all legal units, as today).
+- **Writing them into `statistical_unit`** (UPDATE of 11 038 rows, all 45 indexes): **16.2 s.**
+- **Writing them into a small table:** **9 ms.**
+
+An UPDATE on `statistical_unit` rewrites the whole wide row and every one of its 45 indexes. A
+relation check therefore belongs in its own small table, keyed by the unit row, with its integer
+check id (and the detail it needs, such as the two sums). Only the row checks belong in the array,
+because there they cost nothing: they are computed while the row is written anyway.
+
+**Final shape I'd propose:**
+- `quality_check`: a catalogue table, with an integer `id`, the `rule` slug (enum), a
+  `stat_definition_id` for a per-variable check, and the switch.
+- `statistical_unit.quality_check_ids int[]`: generated, holding the row checks. It has a GIN
+  (`gin__int_ops`) index for the search and a partial covering index for the dashboard.
+- One small table per relation check (or one shared table with `check_id int`): its unit row key,
+  existence dates and detail, rederived by the existing per-partition step.
+- The dashboard counts the array (43-64 ms) plus the small tables. The search filter uses `@>` or
+  `&&` on the array, or a join to the small table. The unit page reads the array from the row it
+  already has, plus one lookup per small table.
