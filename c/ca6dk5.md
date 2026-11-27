@@ -46,6 +46,8 @@ Rule (covers): legal unit total = greatest(own value, sum of its establishments'
 ## Requests
 - 2026-11-27T11:07 request 1 by jhf:
   Aren't you merging the lobster branch? Keep the ticket up to date
+  resolved 2026-11-27T17:07 by rabbit:
+    Yes, merging now (owner OK 16:05; counting then quality, after the pre-merge suite). Ticket brought up to date: Principle now describes the per-variable sum/max rule actually built (s465ff) instead of the single covers rule; a note says what changed from this ticket's design and where Norway's max is set.
 
 ## Notes
 
@@ -78,3 +80,4 @@ Design agreed with owner 2026-11-24 19:19 (merges 217dx5 for Data quality): one 
 - 2026-11-27T00:00 doing/active -> doing/waiting (wait)
 - 2026-11-27T11:07 request 1 by jhf
 - 2026-11-27T11:07 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-27T17:07 resolved request 1 by rabbit
