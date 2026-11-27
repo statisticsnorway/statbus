@@ -43,6 +43,7 @@ Owner 2026-11-27 (request 1): build it on master in a slot of its own, statbus_a
 - [ ] ~~A full Norway sample import as a regular user and as an admin user stamps every written unit row with that user, with no refusals; import time compared with master on the same sample and recorded here~~ (not relevant: Restated with its baseline as check 9 (task review 2026-11-27), hibiscus, 2026-11-27)
 - [ ] ~~Committed and pushed to master with CI green on its commit, or the failure that stopped it recorded in this task's notes~~ (not relevant: Restated as one done condition (task review 2026-11-27), hibiscus, 2026-11-27)
 - [ ] Committed and pushed to master with CI green on that commit
+- [ ] A full Norway sample import as a regular user and as an admin user stamps every written unit row with that user, with no refusals; its time is recorded here beside the same import on master without the migration
 
 ## Requests
 - 2026-11-27T11:06 request 1 by jhf:
