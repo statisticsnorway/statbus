@@ -10,12 +10,15 @@ group: ""
 rank: "000000000004"
 created: 2026-11-18
 updated: 2026-11-18
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
 doing_since: "2026-11-22T23:23"
 doing_with: "5vxfjm"
+waiting_on: "hug still lints done tasks; the owner's walkthrough of today's items comes first (ppvxg2 now)"
+waiting_since: "2026-11-27T17:04"
+waiting_asked_by: "hibiscus"
 ---
 
 ## Goal
@@ -64,3 +67,4 @@ Installed: hug v0.7.84; hug upgrade reports nothing pending (applied 2026-11-19)
 - 2026-11-19T16:30 resolved request 1 by hibiscus
 - 2026-11-19T16:30 doing/waiting -> todo/ready (give back; was assignee: hibiscus); was doing_since: 2026-11-18T00:40; waiting_asked_by: hibiscus; waiting_on: the owner's decision on hug upgrade --apply (hug v0.7.53 is installed); waiting_since: 2026-11-18T00:40
 - 2026-11-22T23:23 todo/ready -> doing/active (take with 5vxfjm)
+- 2026-11-27T17:04 doing/active -> doing/waiting (wait)
