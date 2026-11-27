@@ -218,7 +218,9 @@ BEGIN
     EXECUTE v_sql;
     CREATE INDEX ON temp_errors (data_row_id);
 
-    -- Step 7: ResolvedLinks - Get resolved links with establishment info
+    -- Step 7: ResolvedLinks - Get resolved links with establishment info. est_exists_from is when the
+    -- establishment exists (y0wqg9): its birth date if the definition has one (date_consistency at
+    -- priority 12 has refused a birth in a later year than valid_from), else valid_from.
     v_sql := format($$
         CREATE TEMP TABLE temp_resolved_links ON COMMIT DROP AS
         SELECT DISTINCT ON (rc.data_row_id)
@@ -227,11 +229,16 @@ BEGIN
             dt.establishment_id AS current_establishment_id,
             dt.row_id AS original_data_table_row_id,
             dt.valid_from AS est_valid_from,
-            dt.valid_until AS est_valid_until
+            dt.valid_until AS est_valid_until,
+            public.unit_existence_from(dt.valid_from, %2$s) AS est_exists_from
         FROM temp_row_checks rc
         JOIN public.%1$I dt ON rc.data_row_id = dt.row_id
         WHERE rc.resolved_lu_id IS NOT NULL
-    $$, v_data_table_name);
+    $$, v_data_table_name,
+        CASE WHEN EXISTS (SELECT 1 FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') AS idc
+                           WHERE idc->>'column_name' = 'birth_date_raw' AND idc->>'purpose' = 'source_input')
+             THEN $b$(import.safe_cast_to_date(NULLIF(dt.birth_date_raw, ''))).p_value$b$
+             ELSE 'NULL::date' END);
     RAISE DEBUG '[Job %] Creating temp_resolved_links', p_job_id;
     EXECUTE v_sql;
     CREATE INDEX ON temp_resolved_links (data_row_id);
@@ -295,7 +302,8 @@ BEGIN
             pc.is_primary_candidate,
             ROW_NUMBER() OVER (
                 PARTITION BY pc.resolved_lu_id, ig.island_id
-                ORDER BY pc.original_data_table_row_id
+                -- The establishment that exists first is primary; the file row only breaks ties (y0wqg9).
+                ORDER BY pc.est_exists_from, pc.original_data_table_row_id
             ) as row_num
         FROM temp_primary_candidates pc
         LEFT JOIN temp_island_groups ig ON pc.data_row_id = ig.data_row_id
