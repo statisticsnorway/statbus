@@ -32,7 +32,7 @@ Catalogue: public.quality_check becomes a table (id int stable never reused, rul
 ## Acceptance
 - [ ] ~~x~~ (not relevant: placeholder, rabbit, 2026-11-27)
 - [x] On the Norway copy: dashboard counts equal today's quality_finding counts per check at a date, and take under 100 ms
-- [ ] Search for each check returns the same units as today's statistical_unit_quality, first page under 50 ms for checks of 2, 21 368 and 161 571 units
+- [x] Search for each check returns the same units as today's statistical_unit_quality, first page under 50 ms for checks of 2, 21 368 and 161 571 units
 - [x] A test asserts that the Data source filter's plan uses idx_statistical_unit_data_source_ids after intarray is installed
 - [x] A unit edit changes its quality_check_ids in the same transaction; test 144 covers a relation check following an establishment-only edit
 - [x] Disabling a summed variable removes its relation checks from dashboard and search with no unit edited (closes bxt67q)
@@ -57,3 +57,5 @@ Part 2 on quality/part-2-array-and-relation-tables @0a3b77d49 (on counting de9f8
 2026-11-27 rabbit, Norway copy (local slot), parts 1+2 on counting 2c8065ac1: part 1 migration 11.1 s, part 2 12 min 49 s (statistical_unit rewrite). Found: the migration left the relation tables empty and queued no derive, so check 4 and 101/103 read 0 until a full derive; added SELECT worker.enqueue_derive_statistical_unit_all() to up (shares counting's pending one) and to down (refills quality_finding). quality_relation_derive() 3 min 10 s. Counts at 2026-11-27 equal quality_finding's exactly: 1:2, 2:161571, 3:22446, 4:11010, 7:0, 101 employees:18, 103 employees:5 (tmp/h9mhxe-norway-counts.txt). Dashboard: idx_statistical_unit_quality_check_count with INCLUDE (quality_check_ids) only was a heap scan (expression keys need their columns to recheck), 350-500 ms; with INCLUDE (quality_check_ids, valid_from, birth_date, valid_until, death_date) Index Only Scan, Heap Fetches 0, quality_check_count 44-55 ms in 5 sessions (91 MB vs 70 MB); tmp/journal.md. Search first page by name as jorgen@veridit.no (RLS): check 1 (2 units, RPC) 16 ms, 101 (18, RPC) 9 ms, check 3 (22 446, cs.{3}) 9 ms, check 2 (161 571, cs.{2}) 6-30 ms, check 4 (11 010, inner embed) 115-315 ms: plan nests over all 11 010 table rows then sorts (tmp/h9mhxe-explain-rel.txt).
 
 check 2: Norway copy 2026-11-27 after parts 1+2 (91ce3e04e): quality_check_count equals quality_finding per check (1:2, 2:161571, 3:22446, 4:11010, 7:0, 101:18, 103:5); 44-55 ms per call as jorgen@veridit.no after the index-only fix; dashboard in tab 65 shows the same numbers (tmp/h9mhxe-norway-counts.txt, tmp/journal.md)
+
+check 3: First page by name as jorgen@veridit.no: 2 units (RPC) 16 ms, 21 368-class row check 3 (22 446, cs.{3}) 9 ms, 161 571 (cs.{2}) 6-30 ms; app in tab 65 lists missing_region's 2 units and establishment_activity_differs 1-10 of 11 010 (tmp/h9mhxe-norway-search-role.txt)
