@@ -41,6 +41,7 @@ statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_ri
 
 
 2026-11-27 11:10 (hibiscus) Test design: a timing test cannot go red on a small test database (the planner prefers the name index only with ~millions of rows), so the SQL test asserts the cause directly as a signed-in role: the path filter on statistical_unit is planned with the region's own estimate (EXPLAIN shows the gist index or a row estimate of the matching rows for an empty path), red today, green after the fix. Alternatively assert the property the fix sets: either relrowsecurity false on statistical_unit, or proleakproof true for ltree_risparent/ltree_isparent/ltree_eq.
+2026-11-27 14:43 (hibiscus) Measured on statbus_test (Norway register, 5,230,988 statistical_unit rows) as a signed-in role, each setup rolled back (tmp/sz7rvn-compare.sql/.log). ms (a now / b RLS off / c LEAKPROOF <@ @> =): 22.11 five units TIMEOUT>20s / 0.6 / 0.2; unknown region 60473 / 0.2 / 0.2; Oslo 1.0 / 0.8 / 0.2; unknown sector 61555 / 0.6 / 0.1; activity B.05 54746 / 0.9 / 0.1; Vestland+C 977 / 61 / 8; no filter 0.6 / 0.1 / 0.1; count region 46 0.1 / 0.1 / 0.1; map facet 114 / 42 / 42; dashboard 181 / 159 / 157. Plans: (a) walks su_sort_name_asc for every small path; (b) and (c) use the path's gist index. State after: RLS on, functions not leakproof.
 ## History
 - 2026-11-27T12:05 todo -> todo/design (ask)
 - 2026-11-27T15:38 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
