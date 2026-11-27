@@ -90,6 +90,12 @@ export interface RegionsMapControl {
   onUnitTypes: (types: MapUnitType[]) => void;
   /** Countries the page narrows the world to (the search's Country filter), framed together. */
   countryIds?: number[] | null;
+  /**
+   * Narrows the search to a part the panel counts (owner 2026-11-27): units abroad (Domestic No),
+   * with no location (Physical Location missing), or in the country without a region (the quality
+   * check missing_region). The page writes it as the toolbar would, so List shows the same units.
+   */
+  onFilter?: (part: "abroad" | "no-location" | "without-region") => void;
 }
 
 export function RegionsMap({
@@ -812,7 +818,12 @@ export function RegionsMap({
                   />
                 </div>
               ) : (
-                <WorldSplit world={world} homeName={nameOf("")} />
+                <WorldSplit
+                  world={world}
+                  homeName={nameOf("")}
+                  onHome={() => select("")}
+                  onFilter={control?.onFilter}
+                />
               )}
               {selection === null && (
                 <div className="mt-3 border-t pt-3">
@@ -857,17 +868,16 @@ export function RegionsMap({
                     Not on the map
                   </h2>
                   {selection === "" && world.domesticWithoutRegion > 0 && (
-                    <p
-                      className="flex justify-between gap-2"
-                      data-count="units-without-region"
-                    >
-                      <span className="flex-1">
-                        Units in {nameOf("")} without a region
-                      </span>
-                      <span className="tabular-nums text-gray-600">
-                        {world.domesticWithoutRegion.toLocaleString()}
-                      </span>
-                    </p>
+                    <CountRow
+                      label={`Units in ${nameOf("")} without a region`}
+                      value={world.domesticWithoutRegion}
+                      onClick={
+                        control?.onFilter &&
+                        (() => control.onFilter!("without-region"))
+                      }
+                      title="Narrow the search to the units without a region (Quality: missing region)"
+                      count="units-without-region"
+                    />
                   )}
                   {withoutCentre.length > 0 && (
                     <div data-regions-without-coordinates="">
@@ -949,42 +959,88 @@ function parseUnitTypes(types: string | null): MapUnitType[] {
 }
 
 /**
+ * A count that narrows the search when clicked (owner 2026-11-27): a full-width row, its count at the
+ * right, with the hover of the list's rows. Without a handler it is a plain count.
+ */
+function CountRow({
+  label,
+  value,
+  onClick,
+  title,
+  count,
+}: {
+  label: ReactNode;
+  value: number;
+  onClick?: () => void;
+  title?: string;
+  count: string;
+}) {
+  const inner = (
+    <>
+      <span className="flex-1">{label}</span>
+      <span className="tabular-nums text-gray-600">
+        {value.toLocaleString()}
+      </span>
+    </>
+  );
+  return onClick ? (
+    <button
+      type="button"
+      className="-mx-1.5 flex w-[calc(100%+0.75rem)] justify-between gap-2 rounded px-1.5 py-0.5 text-left hover:bg-gray-100"
+      onClick={onClick}
+      title={title}
+      data-count={count}
+    >
+      {inner}
+    </button>
+  ) : (
+    <p className="flex justify-between gap-2" data-count={count}>
+      {inner}
+    </p>
+  );
+}
+
+/**
  * The world selection's summary: the units in the installation's own country, abroad, and without
- * a location, as counts (owner 2026-11-27: the map and the list are one search, so nothing here
- * links out to it). The countries themselves, each pickable and enterable, are the list below it
- * (ChildList), as the regions are at the other levels.
+ * a location. A click on one narrows the search to it, so the map and List follow (owner
+ * 2026-11-27: the map and the list are one search). The countries themselves, each pickable and
+ * enterable, are the list below it (ChildList), as the regions are at the other levels.
  */
 function WorldSplit({
   world,
   homeName,
+  onHome,
+  onFilter,
 }: {
   world: ReturnType<typeof worldCounts>;
   homeName: string;
+  onHome: () => void;
+  onFilter?: RegionsMapControl["onFilter"];
 }) {
   const abroadTotal = world.abroad.reduce((s, a) => s + a.count, 0);
-  const rows = [
-    { key: "domestic", label: `In ${homeName}`, value: world.domestic },
-    {
-      key: "abroad",
-      label: `Abroad, in ${world.abroad.length.toLocaleString()} countries`,
-      value: abroadTotal,
-    },
-    { key: "no-location", label: "No location", value: world.noLocation },
-  ];
   return (
-    <div className="mt-2 space-y-1" data-regions-map-world="">
-      {rows.map((r) => (
-        <p
-          key={r.key}
-          className="flex justify-between gap-2"
-          data-count={r.key}
-        >
-          <span className="flex-1">{r.label}</span>
-          <span className="tabular-nums text-gray-600">
-            {r.value.toLocaleString()}
-          </span>
-        </p>
-      ))}
+    <div className="mt-2 space-y-0.5" data-regions-map-world="">
+      <CountRow
+        label={`In ${homeName}`}
+        value={world.domestic}
+        onClick={onHome}
+        title={`Go to ${homeName}`}
+        count="domestic"
+      />
+      <CountRow
+        label={`Abroad, in ${world.abroad.length.toLocaleString()} countries`}
+        value={abroadTotal}
+        onClick={onFilter && (() => onFilter("abroad"))}
+        title="Narrow the search to the units abroad (Domestic: No)"
+        count="abroad"
+      />
+      <CountRow
+        label="No location"
+        value={world.noLocation}
+        onClick={onFilter && (() => onFilter("no-location"))}
+        title="Narrow the search to the units with no location (Physical Location: missing)"
+        count="no-location"
+      />
     </div>
   );
 }

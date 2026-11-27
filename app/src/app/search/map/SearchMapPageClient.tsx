@@ -22,9 +22,11 @@ import {
   DOMESTIC,
   PHYSICAL_COUNTRY,
   PHYSICAL_LOCATION,
+  QUALITY,
   REGION,
   UNIT_TYPE,
 } from "@/app/search/filters/url-search-params";
+import { qualityCheckParam } from "@/lib/quality-checks";
 import {
   MAP_UNIT_TYPES,
   facetParams,
@@ -306,11 +308,33 @@ function SearchMap() {
       }),
     [filters, updateFilters]
   );
+  // A count in the panel narrows the search to its part, with the filter the toolbar has for it, so
+  // it shows in the bar and List lists the same units; a step of its own, so Back undoes it.
+  const onFilter = useCallback(
+    (part: "abroad" | "no-location" | "without-region") => {
+      setPushNext(true);
+      const out: Record<string, unknown> = {
+        ...filters,
+        [REGION]: [],
+        [PHYSICAL_COUNTRY]: [],
+        [DOMESTIC]: [],
+      };
+      if (part === "abroad") out[DOMESTIC] = ["false"];
+      if (part === "no-location") out[PHYSICAL_LOCATION] = ["missing"];
+      if (part === "without-region") {
+        out[DOMESTIC] = ["true"];
+        out[QUALITY] = [qualityCheckParam("missing_region", null)];
+      }
+      updateFilters(out);
+    },
+    [filters, updateFilters, setPushNext]
+  );
   const control: RegionsMapControl = {
     selection,
     unitTypes,
     onSelect,
     onUnitTypes,
+    onFilter,
     countryIds: selection === null && countryIds.length > 1 ? countryIds : null,
   };
 
