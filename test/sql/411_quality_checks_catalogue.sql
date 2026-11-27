@@ -2,17 +2,18 @@ BEGIN;
 
 \i test/setup.sql
 
--- 05pe0x: every data-quality check is a row of one catalogue, and its failing units are
--- rows of one table.
+-- 05pe0x, h9mhxe: every data-quality check is a row of the catalogue public.quality_check, with an
+-- integer id, and its failing units are stored where the check's kind fits.
 --
 -- public.quality_rule (enum) names the kinds of check. A per-variable rule
--- (public.quality_rule_per_stat) is a check for each enabled summed statistical variable
--- (stat_definition of type int or float); every other rule is one check.
--- public.quality_check lists the checks with on_dashboard; only switched-on checks are
--- stored (public.quality_check_switched_on, 1tx1ed), so a new variable's checks start off and
--- a fresh database shows the starting set only.
--- public.quality_finding holds each check's units, filled by worker.derive_quality, with
--- the statistical_unit row's existence dates for counting at an instant.
+-- (public.quality_rule_per_stat) is a check for each summed statistical variable (stat_definition of
+-- type int or float); public.in_use(quality_check) says whether it applies now (its variable enabled
+-- with lu_es_rollup max). Every other rule is one check. switched_on (1tx1ed) starts off, and a fresh
+-- database has the starting set on.
+-- A row check's units carry its id in statistical_unit.quality_check_ids, generated from the row. A
+-- relation check's units are rows of its own table (public.quality_establishment_activity_differs,
+-- public.quality_legal_unit_establishment_stat), filled by worker.derive_quality, with the
+-- statistical_unit row's existence dates for counting at an instant.
 --
 -- The fixture, demo settings (installation country UN), legal units valid from 2020:
 --   LU-LESS    employees own 5, establishments 4 + 3            -> establishments above legal unit
@@ -160,18 +161,42 @@ UNION ALL
 SELECT 'enterprise', en.id, en.short_name
 FROM public.enterprise AS en WHERE en.short_name LIKE 'EN-LU-%';
 
+-- Every check's listed statistical_unit rows, from the store of its kind, for reading them all alike.
+CREATE TEMP VIEW finding AS
+SELECT qc.id AS check_id, qc.rule, qc.stat_definition_id, su.unit_type, su.unit_id, su.valid_range,
+       public.existence_from(su) AS existence_from, public.existence_until(su) AS existence_until,
+       CASE WHEN qc.rule = 'secondary_activity_equals_primary'
+            THEN jsonb_build_object('activity_category_id', su.primary_activity_category_id) END AS detail
+FROM public.statistical_unit AS su
+JOIN public.quality_check AS qc ON qc.id = ANY (su.quality_check_ids)
+UNION ALL
+SELECT d.check_id, 'establishment_activity_differs', NULL, d.unit_type, d.unit_id, d.valid_range,
+       d.existence_from, d.existence_until,
+       jsonb_build_object('legal_unit_activity_category_id', d.legal_unit_activity_category_id,
+                          'primary_establishment_id', d.primary_establishment_id,
+                          'primary_establishment_activity_category_id', d.establishment_activity_category_id)
+FROM public.quality_establishment_activity_differs AS d
+UNION ALL
+SELECT s.check_id, qc.rule, s.stat_definition_id, s.unit_type, s.unit_id, s.valid_range,
+       s.existence_from, s.existence_until,
+       jsonb_build_object('legal_unit', s.legal_unit_value, 'establishments_sum', s.establishments_sum,
+                          'establishments', s.establishment_count)
+FROM public.quality_legal_unit_establishment_stat AS s
+JOIN public.quality_check AS qc ON qc.id = s.check_id;
+
 \echo
-\echo "411.1 the rules, and which of them are a check per summed statistical variable"
-SELECT r.rule, public.quality_rule_per_stat(r.rule) AS per_stat
+\echo "411.1 the rules, which are a check per summed statistical variable, and where each kind is stored"
+SELECT r.rule, public.quality_rule_per_stat(r.rule) AS per_stat, public.quality_rule_kind(r.rule) AS kind
 FROM unnest(enum_range(NULL::public.quality_rule)) AS r(rule)
 ORDER BY r.rule;
 
 \echo
-\echo "411.2 the checks: each rule once, each per-variable rule once per enabled summed variable; on a fresh database only the starting set is on (1tx1ed): missing region, missing activity category, secondary activity equals primary"
-SELECT qc.rule, sd.code AS stat_code, qc.on_dashboard
+\echo "411.2 the checks in use: each rule once, each per-variable rule once per enabled summed variable; on a fresh database only the starting set is on (1tx1ed): missing region, missing activity category, secondary activity equals primary"
+SELECT qc.id, qc.rule, sd.code AS stat_code, qc.switched_on
 FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
-ORDER BY qc.rule, sd.priority;
+WHERE public.in_use(qc)
+ORDER BY qc.priority;
 
 \echo
 \echo "411.3 each check's findings on the fixture, with the numbers the per-variable rules compare"
@@ -181,7 +206,7 @@ SELECT f.rule, sd.code AS stat_code, u.unit_type, u.name,
             WHEN f.rule = 'secondary_activity_equals_primary'
               THEN jsonb_build_object('activity_category_is_a', (f.detail->>'activity_category_id')::int = :activity_a_id)
             ELSE f.detail END AS compared
-FROM public.quality_finding AS f
+FROM finding AS f
 JOIN fixture_unit AS u USING (unit_type, unit_id)
 LEFT JOIN public.stat_definition AS sd ON sd.id = f.stat_definition_id
 ORDER BY f.rule, sd.priority, u.unit_type, u.name;
@@ -190,17 +215,16 @@ ORDER BY f.rule, sd.priority, u.unit_type, u.name;
 \echo "411.3b activity differs names the primary establishment and both activities: LU-DIFFERS has A, its establishment B"
 SELECT u.name AS legal_unit,
        es.name AS primary_establishment,
-       (f.detail->>'legal_unit_activity_category_id')::int = :activity_a_id AS legal_unit_has_a,
-       (f.detail->>'primary_establishment_activity_category_id')::int = :activity_b_id AS establishment_has_b
-FROM public.quality_finding AS f
+       d.legal_unit_activity_category_id = :activity_a_id AS legal_unit_has_a,
+       d.establishment_activity_category_id = :activity_b_id AS establishment_has_b
+FROM public.quality_establishment_activity_differs AS d
 JOIN fixture_unit AS u USING (unit_type, unit_id)
-JOIN public.establishment AS es ON es.id = (f.detail->>'primary_establishment_id')::int
-WHERE f.rule = 'establishment_activity_differs';
+JOIN public.establishment AS es ON es.id = d.primary_establishment_id;
 
 \echo
 \echo "411.3c secondary equals primary lists the legal unit and establishment of LU-SECSAME and not those of LU-SECDIFF"
 SELECT u.unit_type, u.name,
-       EXISTS (SELECT 1 FROM public.quality_finding AS f
+       EXISTS (SELECT 1 FROM finding AS f
                WHERE f.rule = 'secondary_activity_equals_primary'
                  AND f.unit_type = u.unit_type AND f.unit_id = u.unit_id) AS listed
 FROM fixture_unit AS u
@@ -208,90 +232,97 @@ WHERE u.name IN ('LU-SECSAME', 'LU-SECSAME-es1', 'LU-SECDIFF', 'LU-SECDIFF-es1')
 ORDER BY u.name, u.unit_type;
 
 \echo
-\echo "411.4 a finding carries the existence dates of its statistical_unit row"
+\echo "411.4 a relation finding carries the existence dates of its statistical_unit row"
 SELECT count(*) AS findings,
        count(*) FILTER (WHERE f.existence_from = public.existence_from(su)
                           AND f.existence_until = public.existence_until(su)) AS same_dates
-FROM public.quality_finding AS f
+FROM finding AS f
 JOIN public.statistical_unit AS su
   ON su.unit_type = f.unit_type AND su.unit_id = f.unit_id AND su.valid_range = f.valid_range
-JOIN fixture_unit AS u ON u.unit_type = f.unit_type AND u.unit_id = f.unit_id;
+JOIN fixture_unit AS u ON u.unit_type = f.unit_type AND u.unit_id = f.unit_id
+WHERE public.quality_rule_kind(f.rule) = 'relation';
 
 \echo
-\echo "411.5 each check's dashboard count at 2026-05-24 equals the units public.statistical_unit_quality lists for the search"
+\echo "411.5 each check's dashboard count at 2026-05-24 (public.quality_check_count) equals the units public.statistical_unit_quality lists for the search"
 SELECT qc.rule, sd.code AS stat_code,
-       (SELECT count(*) FROM public.quality_finding AS f
+       (SELECT count(*) FROM finding AS f
          JOIN fixture_unit AS u USING (unit_type, unit_id)
-         WHERE f.rule = qc.rule
-           AND COALESCE(f.stat_definition_id, 0) = COALESCE(qc.stat_definition_id, 0)
+         WHERE f.check_id = qc.id
            AND f.existence_from <= '2026-05-24' AND '2026-05-24' < f.existence_until) AS card,
-       (SELECT count(*) FROM public.statistical_unit_quality(
-                quality_rule => qc.rule, valid_on => '2026-05-24', quality_stat_definition_id => qc.stat_definition_id) AS su
+       (SELECT count(*) FROM public.statistical_unit_quality(quality_check_id => qc.id, valid_on => '2026-05-24') AS su
          JOIN fixture_unit AS u ON u.unit_type = su.unit_type AND u.unit_id = su.unit_id) AS list
 FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
+WHERE public.in_use(qc)
 ORDER BY qc.priority;
+SELECT count(*) AS checks_in_use,
+       count(*) FILTER (WHERE c.units = (SELECT count(*) FROM finding AS f
+                                         WHERE f.check_id = c.check_id
+                                           AND f.existence_from <= '2026-05-24' AND '2026-05-24' < f.existence_until)) AS same_as_findings
+FROM public.quality_check_count(valid_on => '2026-05-24') AS c;
 
 \echo
-\echo "411.6 switching: an admin switches a check on with its row and off by deleting it; the others keep their state"
-INSERT INTO public.quality_check_switched_on (rule, stat_definition_id)
-VALUES ('legal_unit_above_establishments', :members_id);
-DELETE FROM public.quality_check_switched_on WHERE rule = 'missing_activity_category';
-SELECT qc.rule, sd.code AS stat_code, qc.on_dashboard
+\echo "411.6 switching: an admin switches a check on and another off; the others keep their state"
+UPDATE public.quality_check SET switched_on = true WHERE rule = 'legal_unit_above_establishments' AND stat_definition_id = :members_id;
+UPDATE public.quality_check SET switched_on = false WHERE rule = 'missing_activity_category';
+SELECT qc.rule, sd.code AS stat_code, qc.switched_on
 FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
-WHERE qc.on_dashboard
+WHERE qc.switched_on
 ORDER BY qc.rule;
 \echo "411.6 a switched-off check keeps its findings, so switching it on shows its number at once"
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT count(*) AS missing_activity_findings
-FROM public.quality_finding AS f JOIN fixture_unit AS u USING (unit_type, unit_id)
+FROM finding AS f JOIN fixture_unit AS u USING (unit_type, unit_id)
 WHERE f.rule = 'missing_activity_category';
 
 \echo
-\echo "411.7 the shape is the database's: a per-variable rule needs its variable, no other rule has one"
+\echo "411.7 the shape is the database's: a per-variable check needs its variable, no other check has one, and a relation finding names its own check"
 SAVEPOINT before_wrong_shape;
 \set ON_ERROR_STOP off
-INSERT INTO public.quality_check_switched_on (rule, stat_definition_id) VALUES ('establishments_above_legal_unit', NULL);
+INSERT INTO public.quality_check (rule, stat_definition_id, kind, priority) VALUES ('establishments_above_legal_unit', NULL, 'relation', 1);
 ROLLBACK TO SAVEPOINT before_wrong_shape;
-INSERT INTO public.quality_check_switched_on (rule, stat_definition_id) VALUES ('missing_region', :employees_id);
+INSERT INTO public.quality_check (rule, stat_definition_id, kind, priority) VALUES ('missing_region', :employees_id, 'row', 1);
 ROLLBACK TO SAVEPOINT before_wrong_shape;
-INSERT INTO public.quality_finding (rule, stat_definition_id, unit_type, unit_id, valid_from, valid_until, existence_from, existence_until)
-SELECT 'legal_unit_above_establishments', NULL, 'legal_unit', lu.id, '2020-01-01', 'infinity', '2020-01-01', 'infinity'
-FROM public.legal_unit AS lu WHERE lu.name = 'LU-GAP';
+INSERT INTO public.quality_legal_unit_establishment_stat (check_id, unit_type, unit_id, valid_range, existence_from, existence_until, stat_definition_id, legal_unit_value, establishments_sum, establishment_count)
+SELECT qc.id, 'legal_unit', lu.id, daterange('2020-01-01', 'infinity'), '2020-01-01', 'infinity', :employees_id, 12, 7, 2
+FROM public.legal_unit AS lu, public.quality_check AS qc
+WHERE lu.name = 'LU-GAP' AND qc.rule = 'legal_unit_above_establishments' AND qc.stat_definition_id = :members_id;
 ROLLBACK TO SAVEPOINT before_wrong_shape;
-INSERT INTO public.quality_check_switched_on (rule, stat_definition_id) VALUES ('missing_region', NULL);
+INSERT INTO public.quality_check (rule, stat_definition_id, kind, priority) VALUES ('missing_region', NULL, 'row', 1);
 ROLLBACK TO SAVEPOINT before_wrong_shape;
 \set ON_ERROR_STOP on
-\echo "411.7 the four refusals above: two CHECKs on switches, one on findings, and a check switched on twice (the unique key)"
-SELECT count(*) AS switched_on_rows FROM public.quality_check_switched_on;
+\echo "411.7 the four refusals above: two CHECKs on checks, the finding's variable not its check's, and a check entered twice (the unique key)"
+SELECT count(*) AS checks FROM public.quality_check;
 
 \echo
-\echo "411.8 disabling a variable removes its checks; its switch is kept for when it comes back"
+\echo "411.8 disabling a variable takes its checks out of use; its switch is kept for when it comes back"
 SET client_min_messages TO WARNING;
 UPDATE public.stat_definition SET enabled = false WHERE code = 'members';
 RESET client_min_messages;
-SELECT qc.rule, sd.code AS stat_code, qc.on_dashboard
+SELECT qc.rule, sd.code AS stat_code, qc.switched_on, public.in_use(qc) AS in_use
 FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
 WHERE public.quality_rule_per_stat(qc.rule)
 ORDER BY qc.rule, sd.priority;
-SELECT qs.rule, sd.code AS stat_code FROM public.quality_check_switched_on AS qs
-LEFT JOIN public.stat_definition AS sd ON sd.id = qs.stat_definition_id ORDER BY 1;
+SELECT count(*) AS members_checks_counted
+FROM public.quality_check_count(valid_on => '2026-05-24') AS c
+JOIN public.quality_check AS qc ON qc.id = c.check_id
+WHERE qc.stat_definition_id = :members_id;
 
 \echo
 \echo "411.9 enabling it again brings its checks back, the switched-on one still on"
 SET client_min_messages TO WARNING;
 UPDATE public.stat_definition SET enabled = true WHERE code = 'members';
 RESET client_min_messages;
-SELECT qc.rule, sd.code AS stat_code, qc.on_dashboard
+SELECT qc.rule, sd.code AS stat_code, qc.switched_on, public.in_use(qc) AS in_use
 FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
 WHERE public.quality_rule_per_stat(qc.rule)
 ORDER BY qc.rule, sd.priority;
 
 \echo
-\echo "411.10 deleting a variable removes its checks, its switches and its findings"
+\echo "411.10 deleting a variable removes its checks, their switches and their findings"
 DELETE FROM public.stat_for_unit WHERE stat_definition_id = :members_id;
 SET client_min_messages TO WARNING;
 DELETE FROM public.stat_definition WHERE code = 'members';
@@ -301,17 +332,17 @@ FROM public.quality_check AS qc
 LEFT JOIN public.stat_definition AS sd ON sd.id = qc.stat_definition_id
 WHERE public.quality_rule_per_stat(qc.rule)
 ORDER BY qc.rule, sd.priority;
-SELECT count(*) AS members_switches FROM public.quality_check_switched_on WHERE stat_definition_id = :members_id;
-SELECT count(*) AS members_findings FROM public.quality_finding WHERE stat_definition_id = :members_id;
+SELECT count(*) AS members_checks FROM public.quality_check WHERE stat_definition_id = :members_id;
+SELECT count(*) AS members_findings FROM public.quality_legal_unit_establishment_stat WHERE stat_definition_id = :members_id;
 
 \echo
 \echo "411.11 reset's customisation scope restores the starting set: missing region, missing activity category, secondary activity equals primary"
 SET client_min_messages TO WARNING;
-SELECT public.reset(confirmed => true, scope => 'customisation') -> 'quality_check_switched_on' AS reset_switches;
+SELECT public.reset(confirmed => true, scope => 'customisation') -> 'quality_check' AS reset_switches;
 RESET client_min_messages;
-SELECT qc.rule, qc.on_dashboard
+SELECT qc.rule, qc.switched_on
 FROM public.quality_check AS qc
-WHERE NOT public.quality_rule_per_stat(qc.rule) OR qc.on_dashboard
+WHERE NOT public.quality_rule_per_stat(qc.rule) OR qc.switched_on
 ORDER BY qc.priority;
 
 ROLLBACK;

@@ -28,6 +28,8 @@ BEGIN
             WHEN r.indexname = 'idx_statistical_unit_unit_size_code' THEN 'Search filter: unit size (unit_size_code in ...).'
             WHEN r.indexname = 'idx_statistical_unit_search' THEN 'Search filter: free text (search, full-text query).'
             WHEN r.indexname = 'idx_statistical_unit_data_source_ids' THEN 'Search filter: data source (data_source_ids overlaps ...).'
+            WHEN r.indexname = 'idx_statistical_unit_quality_check_ids' THEN 'Search filter: Quality (quality_check_ids contains a row check''s id, h9mhxe).'
+            WHEN r.indexname = 'idx_statistical_unit_quality_check_count' THEN 'Dashboard: the count of every row check at an instant (public.quality_check_count), over the rows that have a check only.'
             WHEN r.indexname = 'idx_gist_statistical_unit_external_idents' THEN 'Identifier lookups by containment (external_idents @> ...).'
             WHEN r.indexname ~ '^idx_gist_statistical_unit_' THEN
                 format('Search filter: %s under a chosen code (ltree descendant, cd.).',

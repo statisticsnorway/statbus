@@ -48,11 +48,12 @@ BEGIN
         SELECT COUNT(*) FROM public.image INTO _image_count;
         SELECT COUNT(*) FROM public.unit_notes INTO _unit_notes_count;
 
-        -- statistical_unit is emptied together with public.quality_finding, which
-        -- references it by a NOT ENFORCED foreign key: TRUNCATE refuses such a key without CASCADE,
-        -- even with both tables listed. CASCADE is kept to this statement so that a new enforced
-        -- key to any table in the list below still stops reset instead of emptying its table.
-        TRUNCATE public.statistical_unit, public.quality_finding CASCADE;
+        -- statistical_unit is emptied together with the relation check tables, which reference it
+        -- by NOT ENFORCED foreign keys: TRUNCATE refuses such a key without CASCADE, even with the
+        -- tables listed. CASCADE is kept to this statement so that a new enforced key to any table
+        -- in the list below still stops reset instead of emptying its table.
+        TRUNCATE public.statistical_unit, public.quality_establishment_activity_differs,
+                 public.quality_legal_unit_establishment_stat CASCADE;
 
         TRUNCATE
             public.activity,
@@ -567,20 +568,19 @@ BEGIN
     -- system's standards, restored above to their factory defaults.
 
     CASE WHEN scope = 'customisation' THEN
-        -- quality_check_switched_on: the starting set again, as shipped (public.quality_check_starting_set).
-        WITH deleted AS (
-            DELETE FROM public.quality_check_switched_on WHERE true -- every row: the starting set is inserted below
-            RETURNING 1
+        -- quality_check.switched_on: the starting set again, as shipped (public.quality_check_starting_set).
+        WITH switched AS (
+            UPDATE public.quality_check AS qc
+            SET switched_on = (qc.stat_definition_id IS NULL
+                               AND qc.rule IN (SELECT s.rule FROM public.quality_check_starting_set() AS s(rule)))
+            WHERE qc.switched_on IS DISTINCT FROM (qc.stat_definition_id IS NULL
+                               AND qc.rule IN (SELECT s.rule FROM public.quality_check_starting_set() AS s(rule)))
+            RETURNING qc.switched_on
         )
-        SELECT jsonb_build_object('deleted_count', count(*)) FROM deleted INTO changed;
-        WITH inserted AS (
-            INSERT INTO public.quality_check_switched_on (rule, stat_definition_id)
-            SELECT s.rule, NULL FROM public.quality_check_starting_set() AS s(rule)
-            RETURNING 1
-        )
-        SELECT jsonb_build_object('quality_check_switched_on',
-                   changed || jsonb_build_object('inserted_count', count(*)))
-        FROM inserted INTO changed;
+        SELECT jsonb_build_object('quality_check', jsonb_build_object(
+                   'switched_on_count', count(*) FILTER (WHERE switched_on),
+                   'switched_off_count', count(*) FILTER (WHERE NOT switched_on)))
+        FROM switched INTO changed;
         result := result || changed;
     ELSE END CASE;
 

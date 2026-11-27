@@ -2,10 +2,12 @@ BEGIN;
 
 \i test/setup.sql
 
--- 0pn35h: the quality checks rederive only the changed units. worker.derive_quality spawns one
--- concurrent derive_quality_partition per hash partition: every partition on a full recalculation,
--- only the partitions holding a changed unit (public.statistical_unit_facet_dirty_hash_slots) on an
--- edit. A partial cycle must leave public.quality_finding exactly as a full rederive would.
+-- 0pn35h, h9mhxe: a row check follows its statistical_unit row (quality_check_ids, generated from the
+-- row, so an edit's partial flush rewrites it), and the relation checks rederive only the changed
+-- units. worker.derive_quality spawns one concurrent derive_quality_partition per hash partition: every
+-- partition on a full recalculation, only the partitions holding a changed unit
+-- (public.statistical_unit_facet_dirty_hash_slots) on an edit. A partial cycle must leave the relation
+-- tables exactly as a full rederive would.
 --
 -- Fixture: six legal units with one establishment each, valid from 2020, located in the demo
 -- installation's country with a region and with primary activity A. LU-EDIT gets secondary activity A
@@ -65,12 +67,40 @@ UNION ALL
 SELECT 'establishment', es.id, es.name
 FROM public.establishment AS es WHERE es.name LIKE 'LU-%';
 
+-- Every check's listed rows: row checks from statistical_unit.quality_check_ids, relation checks
+-- from their tables.
+CREATE TEMP VIEW finding AS
+SELECT qc.rule, qc.stat_definition_id, su.unit_type, su.unit_id, su.valid_range
+FROM public.statistical_unit AS su JOIN public.quality_check AS qc ON qc.id = ANY (su.quality_check_ids)
+UNION ALL
+SELECT 'establishment_activity_differs', NULL, d.unit_type, d.unit_id, d.valid_range
+FROM public.quality_establishment_activity_differs AS d
+UNION ALL
+SELECT qc.rule, s.stat_definition_id, s.unit_type, s.unit_id, s.valid_range
+FROM public.quality_legal_unit_establishment_stat AS s JOIN public.quality_check AS qc ON qc.id = s.check_id;
+
+-- The relation tables' rows, for comparing a partial cycle with a full rederive.
+CREATE TEMP VIEW relation_finding AS
+SELECT d.check_id, NULL::integer AS stat_definition_id, d.unit_type, d.unit_id, d.valid_range, d.existence_from, d.existence_until,
+       jsonb_build_object('p', d.primary_establishment_id, 'l', d.legal_unit_activity_category_id, 'e', d.establishment_activity_category_id) AS detail
+FROM public.quality_establishment_activity_differs AS d
+UNION ALL
+SELECT s.check_id, s.stat_definition_id, s.unit_type, s.unit_id, s.valid_range, s.existence_from, s.existence_until,
+       jsonb_build_object('l', s.legal_unit_value, 's', s.establishments_sum, 'n', s.establishment_count)
+FROM public.quality_legal_unit_establishment_stat AS s;
+
 \echo
 \echo "144.1 the first cycle derives the new units' partitions: the fixture has no finding"
 SELECT t.info->>'full' AS full_recalculation, (t.info->>'child_count')::int > 0 AS has_children
 FROM worker.tasks AS t WHERE t.command = 'derive_quality' ORDER BY t.id DESC LIMIT 1;
 SELECT count(*) AS fixture_findings
-FROM public.quality_finding AS f JOIN fixture_unit AS u USING (unit_type, unit_id);
+FROM finding AS f JOIN fixture_unit AS u USING (unit_type, unit_id);
+
+-- h9mhxe: the edit below goes through a partial cycle, whose flush MERGEs the edited rows into
+-- statistical_unit; quality_check_ids is generated there, so it follows the edit.
+CREATE TEMP TABLE row_checks_before AS
+SELECT u.name, su.quality_check_ids FROM public.statistical_unit AS su JOIN fixture_unit AS u USING (unit_type, unit_id)
+WHERE u.name IN ('LU-EDIT', 'LU-FIX');
 
 -- The edits: LU-EDIT's secondary activity equals its primary, LU-FIX's location loses its region.
 INSERT INTO public.activity (valid_from, valid_to, type, category_id, legal_unit_id, edit_by_user_id, edit_comment)
@@ -101,30 +131,16 @@ FROM worker.tasks AS t WHERE t.command = 'derive_quality' ORDER BY t.id DESC LIM
 \echo
 \echo "144.3 the edit's findings: LU-EDIT's secondary equals primary, LU-FIX's missing region"
 SELECT f.rule, u.unit_type, u.name
-FROM public.quality_finding AS f JOIN fixture_unit AS u USING (unit_type, unit_id)
+FROM finding AS f JOIN fixture_unit AS u USING (unit_type, unit_id)
 ORDER BY f.rule, u.unit_type, u.name;
 
 \echo
-\echo "144.4 a full rederive leaves every finding as the partial cycle left it"
-CREATE TEMP TABLE after_partial AS
-SELECT rule, stat_definition_id, unit_type, unit_id, valid_range, existence_from, existence_until, detail
-FROM public.quality_finding;
-SELECT public.quality_finding_derive() IS NOT NULL AS rederived;
-SELECT (SELECT count(*) FROM (
-          SELECT rule, stat_definition_id, unit_type, unit_id, valid_range, existence_from, existence_until, detail FROM after_partial
-          EXCEPT ALL
-          SELECT rule, stat_definition_id, unit_type, unit_id, valid_range, existence_from, existence_until, detail FROM public.quality_finding) AS x) AS only_partial,
-       (SELECT count(*) FROM (
-          SELECT rule, stat_definition_id, unit_type, unit_id, valid_range, existence_from, existence_until, detail FROM public.quality_finding
-          EXCEPT ALL
-          SELECT rule, stat_definition_id, unit_type, unit_id, valid_range, existence_from, existence_until, detail FROM after_partial) AS x) AS only_full;
-
-\echo
-\echo "144.5 the step's info counts the findings per check of the partitions it rederived"
-SELECT t.info->'secondary_activity_equals_primary' AS secondary_equals_primary,
-       t.info->'missing_region' AS missing_region
-FROM worker.tasks AS t WHERE t.command = 'derive_quality' AND NOT (t.info->>'full')::boolean
-ORDER BY t.id DESC LIMIT 1;
+\echo "144.3b the edited legal units' quality_check_ids, before and after the edit's partial flush: LU-EDIT gains 7 (secondary equals primary), LU-FIX 1 (missing region)"
+SELECT b.name, b.quality_check_ids AS before, su.quality_check_ids AS after
+FROM row_checks_before AS b
+JOIN fixture_unit AS u ON u.name = b.name
+JOIN public.statistical_unit AS su USING (unit_type, unit_id)
+ORDER BY b.name;
 
 -- A rule about a legal unit can turn on an edit of its establishment only: establishment activity
 -- differs compares the legal unit with its primary establishment.
@@ -134,9 +150,23 @@ WHERE establishment_id = (SELECT id FROM public.establishment WHERE name = 'LU-3
 CALL worker.process_tasks(p_queue => 'analytics');
 
 \echo
+\echo "144.4 a full rederive leaves every relation finding as the partial cycles left it"
+CREATE TEMP TABLE after_partial AS SELECT * FROM relation_finding;
+SELECT public.quality_relation_derive() IS NOT NULL AS rederived;
+SELECT (SELECT count(*) FROM after_partial) AS relation_findings,
+       (SELECT count(*) FROM (SELECT * FROM after_partial EXCEPT ALL SELECT * FROM relation_finding) AS x) AS only_partial,
+       (SELECT count(*) FROM (SELECT * FROM relation_finding EXCEPT ALL SELECT * FROM after_partial) AS x) AS only_full;
+
+\echo
+\echo "144.5 the step's info counts the relation findings per check of the partitions it rederived"
+SELECT t.info->'establishment_activity_differs' AS establishment_activity_differs
+FROM worker.tasks AS t WHERE t.command = 'derive_quality' AND NOT (t.info->>'full')::boolean
+ORDER BY t.id DESC LIMIT 1;
+
+\echo
 \echo "144.6 an edit of LU-3's establishment alone lists LU-3: its primary establishment has another activity"
 SELECT f.rule, u.unit_type, u.name
-FROM public.quality_finding AS f JOIN fixture_unit AS u USING (unit_type, unit_id)
+FROM finding AS f JOIN fixture_unit AS u USING (unit_type, unit_id)
 WHERE u.name LIKE 'LU-3%'
 ORDER BY f.rule, u.unit_type, u.name;
 
@@ -156,8 +186,15 @@ RESET client_min_messages;
 CALL worker.process_tasks(p_queue => 'analytics');
 
 \echo
-\echo "144.7 disabling employees, with no unit edited, rederives nothing: LU-4's employees finding stays until bxt67q schedules it"
-SELECT count(*) AS employees_findings FROM public.quality_finding WHERE stat_definition_id = :employees_id;
+\echo "144.7 disabling employees, with no unit edited, takes its checks out of use (bxt67q): no card counts them and the search lists nothing for them"
+SELECT count(*) AS employees_checks_counted
+FROM public.quality_check_count(valid_on => '2026-05-24') AS c
+JOIN public.quality_check AS qc ON qc.id = c.check_id
+WHERE qc.stat_definition_id = :employees_id;
+SELECT count(*) AS employees_units_listed
+FROM public.quality_check AS qc
+CROSS JOIN LATERAL public.statistical_unit_quality(quality_check_id => qc.id, valid_on => '2026-05-24') AS su
+WHERE qc.stat_definition_id = :employees_id;
 
 SET client_min_messages TO WARNING;
 UPDATE public.stat_definition SET enabled = true WHERE code = 'employees';
@@ -167,7 +204,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 \echo
 \echo "144.8 enabling it again lists LU-4 for employees: establishments above the legal unit"
 SELECT f.rule, sd.code AS stat_code, u.name
-FROM public.quality_finding AS f
+FROM finding AS f
 JOIN fixture_unit AS u USING (unit_type, unit_id)
 JOIN public.stat_definition AS sd ON sd.id = f.stat_definition_id
 ORDER BY f.rule, u.name;

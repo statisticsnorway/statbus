@@ -18,7 +18,7 @@ BEGIN;
 --   LU-LESS   own 5, establishments 4 + 3                        -> 7
 --   LU-GAP    own 12, establishments 4 + 3, both valued          -> 12
 --
--- The quality checks list what breaks the covers picture (public.quality_finding):
+-- The quality checks list what breaks the covers picture (public.quality_legal_unit_establishment_stat):
 --   establishments_above_legal_unit: LU-LESS (5 < 7);
 --   legal_unit_above_establishments: LU-GAP (12 > 7, every establishment valued).
 -- LU-MORE is larger too, but one establishment has no value, which its own value covers.
@@ -108,31 +108,37 @@ GROUP BY su.unit_type ORDER BY su.unit_type;
 
 \echo
 \echo "410.4 quality check: establishments above their legal unit lists exactly LU-LESS, with the values compared"
-SELECT lu.name, sd.code AS stat_code, q.detail
-FROM public.quality_finding AS q
+SELECT lu.name, sd.code AS stat_code,
+       jsonb_build_object('legal_unit', q.legal_unit_value, 'establishments_sum', q.establishments_sum, 'establishments', q.establishment_count) AS detail
+FROM public.quality_legal_unit_establishment_stat AS q
+JOIN public.quality_check AS qc ON qc.id = q.check_id
 JOIN public.legal_unit AS lu ON lu.id = q.unit_id
 JOIN public.stat_definition AS sd ON sd.id = q.stat_definition_id
-WHERE q.rule = 'establishments_above_legal_unit' AND q.unit_type = 'legal_unit' AND lu.name LIKE 'LU-%'
+WHERE qc.rule = 'establishments_above_legal_unit' AND q.unit_type = 'legal_unit' AND lu.name LIKE 'LU-%'
 ORDER BY lu.name;
 
 \echo
 \echo "410.5 quality check: legal unit above its establishments, every one valued, lists exactly LU-GAP"
-SELECT lu.name, sd.code AS stat_code, q.detail
-FROM public.quality_finding AS q
+SELECT lu.name, sd.code AS stat_code,
+       jsonb_build_object('legal_unit', q.legal_unit_value, 'establishments_sum', q.establishments_sum, 'establishments', q.establishment_count) AS detail
+FROM public.quality_legal_unit_establishment_stat AS q
+JOIN public.quality_check AS qc ON qc.id = q.check_id
 JOIN public.legal_unit AS lu ON lu.id = q.unit_id
 JOIN public.stat_definition AS sd ON sd.id = q.stat_definition_id
-WHERE q.rule = 'legal_unit_above_establishments' AND q.unit_type = 'legal_unit' AND lu.name LIKE 'LU-%'
+WHERE qc.rule = 'legal_unit_above_establishments' AND q.unit_type = 'legal_unit' AND lu.name LIKE 'LU-%'
 ORDER BY lu.name;
 
 \echo
 \echo "410.6 the search's list of each check (public.statistical_unit_quality) has the legal unit rows each check lists"
 SELECT 'establishments_above_legal_unit' AS check, su.name
-FROM public.statistical_unit_quality(quality_rule => 'establishments_above_legal_unit', valid_on => '2026-05-24', quality_stat_definition_id => :employees_id) AS su
-WHERE su.name LIKE 'LU-%'
+FROM public.quality_check AS qc
+CROSS JOIN LATERAL public.statistical_unit_quality(quality_check_id => qc.id, valid_on => '2026-05-24') AS su
+WHERE qc.rule = 'establishments_above_legal_unit' AND qc.stat_definition_id = :employees_id AND su.name LIKE 'LU-%'
 UNION ALL
 SELECT 'legal_unit_above_establishments', su.name
-FROM public.statistical_unit_quality(quality_rule => 'legal_unit_above_establishments', valid_on => '2026-05-24', quality_stat_definition_id => :employees_id) AS su
-WHERE su.name LIKE 'LU-%'
+FROM public.quality_check AS qc
+CROSS JOIN LATERAL public.statistical_unit_quality(quality_check_id => qc.id, valid_on => '2026-05-24') AS su
+WHERE qc.rule = 'legal_unit_above_establishments' AND qc.stat_definition_id = :employees_id AND su.name LIKE 'LU-%'
 ORDER BY 1, 2;
 
 ROLLBACK;
