@@ -56,6 +56,8 @@ Pieces it would touch: (1) cli/src/worker.cr: the shutdown wait (5 s) becomes th
   But we have many tests, so if this is fully tested, because this brings some complexity, and how long would you wait then?
 - 2026-11-27T15:39 request 4 by jhf:
   It seems hard to answer this without, for instance, measuring how long any task is on, say, the Norwegian installation, and because that's the bound on how long we have to wait, right
+  resolved 2026-11-27T15:40 by rabbit:
+    Measured on the Norway copy and noted: share of 6 858 tasks longer than 5/10/30/60/120/300/600 s is 30/12.5/2.6/0.6/0.09/0.03/0.01 %; longest are the full-refresh flush (309 s), derive_quality (690 s before partitioning, now 15 s), a quality partition (111 s), a refresh batch (87 s); import batches about 5-10 s. A drain bound covering every task is about 5 min.
 
 ## Notes
 2026-11-27 rabbit, measured on the Norway copy (local slot), 6 858 worker tasks 2026-11-15..27 (tmp/rkfa4j-task-durations.txt): share of tasks running longer than a bound: 5 s 30 %, 10 s 12.5 %, 30 s 2.6 %, 60 s 0.6 %, 120 s 0.09 % (6 tasks), 300 s 0.03 % (2), 600 s 0.01 % (1). Longest per command: derive_quality 690 s (before 0pn35h's partitioning; now 15 s with h9mhxe), statistical_unit_flush_staging 309 s (p95 185 s), derive_quality_partition 111 s, statistical_unit_refresh_batch 87 s (p50 8 s, 1 816 runs), history facet delta reduce 75 s. Imports: task rows are cleaned up, but import_job 9-11 (1.05 M rows each) processed in 610-1 349 s at 8 000 rows per batch, about 5-10 s per batch task. So today's 5 s fiber wait cuts off a third of all tasks; a bound that lets every task finish is about 5 min (the full-refresh flush), and even 2 min still interrupts the long derive steps. What this means for the decision: draining would make an upgrade wait up to ~5 min on a busy Norway box for the rare long task, against redoing at most that one task after the upgrade (interruption is crash-safe, STATBUS-264/265).
@@ -75,3 +77,4 @@ Pieces it would touch: (1) cli/src/worker.cr: the shutdown wait (5 s) becomes th
 - 2026-11-27T15:39 request 4 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-27T15:39 request 4 acknowledged by rabbit
 - 2026-11-27T15:40 request 4 in progress by rabbit: hug task note rkfa4j "2026-11-27 rabbit, measured on the Norway copy (local slot), 6 858 worker tasks 2026-11-15..27 (tmp/rkfa4j-task-duratio…"
+- 2026-11-27T15:40 resolved request 4 by rabbit
