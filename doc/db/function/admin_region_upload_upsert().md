@@ -2,6 +2,7 @@
 CREATE OR REPLACE FUNCTION admin.region_upload_upsert()
  RETURNS trigger
  LANGUAGE plpgsql
+ SET enable_seqscan TO 'off'
 AS $function$
 DECLARE
     new_jsonb JSONB := to_jsonb(NEW);
