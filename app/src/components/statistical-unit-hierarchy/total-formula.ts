@@ -12,12 +12,12 @@ export function legalUnitTotalFormula(
   own: number,
   total: number,
   establishmentValues: readonly number[]
-): string | undefined {
+): { readonly text: string; readonly rule: "sum" | "max" } | undefined {
   if (establishmentValues.length === 0) return undefined;
   const parts = establishmentValues.reduce((acc, v) => acc + v, 0);
   const n = (v: number) => v.toLocaleString("en-US").replace(/,/g, " ");
-  if (own + parts === total) return `${n(own)} + ${n(parts)}`;
-  if (Math.max(own, parts) === total) return `max(${n(own)}, ${n(parts)})`;
+  if (own + parts === total) return { text: `${n(own)} + ${n(parts)}`, rule: "sum" };
+  if (Math.max(own, parts) === total) return { text: `max(${n(own)}, ${n(parts)})`, rule: "max" };
   return undefined;
 }
 

@@ -22,21 +22,21 @@ export function StatisticalVariableCounting() {
       </p>
       <ul className="list-disc pl-5">
         <li>
-          <strong>Add</strong>: its own value plus its establishments&apos;
+          <strong>sum</strong>: its own value plus its establishments&apos;
           sum, for a value reported on one level only. In the Links tree:
           Σ 369 = 364 + 5.
         </li>
         <li>
-          <strong>Larger of</strong>: its own value or its establishments&apos;
-          sum, whichever is larger, for a value both levels report about the
+          <strong>max</strong>: the larger of its own value and its
+          establishments&apos; sum, for a value both levels report about the
           same people, so they count once. In the Links tree: Σ 364 = max(364, 5).
         </li>
       </ul>
-      <p>An enterprise adds its legal units.</p>
+      <p>An enterprise sums its legal units, and a power group its enterprises.</p>
       <p>
         This follows the UN Guidelines on Statistical Business Registers and the
         Eurostat Business Registers Recommendations Manual. For a variable set
-        to Larger of, where the two levels disagree, the Data quality checks
+        to max, where the two levels disagree, the Data quality checks
         Establishments Above Legal Unit and Legal Unit Above Establishments list
         the units to review.
       </p>

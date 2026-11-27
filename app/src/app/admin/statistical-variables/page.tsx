@@ -25,7 +25,7 @@ const columns: ColumnDefinition<Tables<"stat_definition">>[] = [
   {
     key: "lu_es_rollup",
     header: "Legal unit total",
-    render: (record) => (record.lu_es_rollup === "max" ? "Larger of" : "Add"),
+    render: (record) => record.lu_es_rollup,
   },
   {
     key: "enabled",

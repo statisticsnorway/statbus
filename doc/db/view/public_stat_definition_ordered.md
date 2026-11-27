@@ -1,15 +1,16 @@
 ```sql
                            View "public.stat_definition_ordered"
-   Column    |       Type        | Collation | Nullable | Default | Storage  | Description 
--------------+-------------------+-----------+----------+---------+----------+-------------
- id          | integer           |           |          |         | plain    | 
- code        | character varying |           |          |         | extended | 
- type        | stat_type         |           |          |         | plain    | 
- frequency   | stat_frequency    |           |          |         | plain    | 
- name        | character varying |           |          |         | extended | 
- description | text              |           |          |         | extended | 
- priority    | integer           |           |          |         | plain    | 
- enabled     | boolean           |           |          |         | plain    | 
+    Column    |       Type        | Collation | Nullable | Default | Storage  | Description 
+--------------+-------------------+-----------+----------+---------+----------+-------------
+ id           | integer           |           |          |         | plain    | 
+ code         | character varying |           |          |         | extended | 
+ type         | stat_type         |           |          |         | plain    | 
+ frequency    | stat_frequency    |           |          |         | plain    | 
+ name         | character varying |           |          |         | extended | 
+ description  | text              |           |          |         | extended | 
+ priority     | integer           |           |          |         | plain    | 
+ enabled      | boolean           |           |          |         | plain    | 
+ lu_es_rollup | lu_es_rollup      |           |          |         | plain    | 
 View definition:
  SELECT id,
     code,
@@ -18,7 +19,8 @@ View definition:
     name,
     description,
     priority,
-    enabled
+    enabled,
+    lu_es_rollup
    FROM stat_definition
   ORDER BY priority, code;
 Options: security_invoker=on

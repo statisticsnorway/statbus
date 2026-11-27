@@ -516,6 +516,7 @@ ORDER BY tpti.unit_type, tpti.tax_ident, tpti.timepoint;
  establishment | 895406732 | 2020-01-01
  establishment | 895406732 | infinity
  legal_unit    | 823573673 | 2010-01-01
+ legal_unit    | 823573673 | 2012-12-31
  legal_unit    | 823573673 | 2013-01-01
  legal_unit    | 921835809 | 2013-01-01
  legal_unit    | 921835809 | 2016-01-01
@@ -528,6 +529,7 @@ ORDER BY tpti.unit_type, tpti.tax_ident, tpti.timepoint;
  legal_unit    | 921835809 | 2020-01-01
  legal_unit    | 921835809 | infinity
  enterprise    | 823573673 | 2010-01-01
+ enterprise    | 823573673 | 2012-12-31
  enterprise    | 823573673 | 2013-01-01
  enterprise    | 921835809 | 2013-01-01
  enterprise    | 921835809 | 2016-01-01
@@ -539,7 +541,7 @@ ORDER BY tpti.unit_type, tpti.tax_ident, tpti.timepoint;
  enterprise    | 921835809 | 2019-11-01
  enterprise    | 921835809 | 2020-01-01
  enterprise    | 921835809 | infinity
-(35 rows)
+(37 rows)
 
 \echo "Checking timesegments."
 "Checking timesegments."
@@ -577,7 +579,8 @@ ORDER BY tsti.unit_type, tsti.tax_ident, tsti.valid_from;
  establishment | 895406732 | 2019-09-01 | 2019-11-01
  establishment | 895406732 | 2019-11-01 | 2020-01-01
  establishment | 895406732 | 2020-01-01 | infinity
- legal_unit    | 823573673 | 2010-01-01 | 2013-01-01
+ legal_unit    | 823573673 | 2010-01-01 | 2012-12-31
+ legal_unit    | 823573673 | 2012-12-31 | 2013-01-01
  legal_unit    | 921835809 | 2013-01-01 | 2016-01-01
  legal_unit    | 921835809 | 2016-01-01 | 2019-01-01
  legal_unit    | 921835809 | 2019-01-01 | 2019-03-01
@@ -587,7 +590,8 @@ ORDER BY tsti.unit_type, tsti.tax_ident, tsti.valid_from;
  legal_unit    | 921835809 | 2019-09-01 | 2019-11-01
  legal_unit    | 921835809 | 2019-11-01 | 2020-01-01
  legal_unit    | 921835809 | 2020-01-01 | infinity
- enterprise    | 823573673 | 2010-01-01 | 2013-01-01
+ enterprise    | 823573673 | 2010-01-01 | 2012-12-31
+ enterprise    | 823573673 | 2012-12-31 | 2013-01-01
  enterprise    | 921835809 | 2013-01-01 | 2016-01-01
  enterprise    | 921835809 | 2016-01-01 | 2019-01-01
  enterprise    | 921835809 | 2019-01-01 | 2019-03-01
@@ -597,7 +601,7 @@ ORDER BY tsti.unit_type, tsti.tax_ident, tsti.valid_from;
  enterprise    | 921835809 | 2019-09-01 | 2019-11-01
  enterprise    | 921835809 | 2019-11-01 | 2020-01-01
  enterprise    | 921835809 | 2020-01-01 | infinity
-(30 rows)
+(32 rows)
 
 \echo "Checking timesegments_years."
 "Checking timesegments_years."
@@ -609,11 +613,12 @@ ORDER BY year;
  year 
 ------
  2010
+ 2012
  2013
  2016
  2019
  2020
-(5 rows)
+(6 rows)
 
 \echo "Checking timeline_establishment data"
 "Checking timeline_establishment data"
@@ -742,7 +747,8 @@ FROM timeline_legal_unit_with_tax_ident AS tlut
 ORDER BY tlut.unit_type, tlut.tax_ident, tlut.valid_from, tlut.valid_until;
  unit_type  | tax_ident | valid_from |  valid_to  | valid_until |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths |     sector_path      | sector_code |        sector_name         | data_source_codes | legal_form_code |   legal_form_name   | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postcode | physical_postplace | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postcode | postal_postplace | postal_region_path | postal_country_iso_2 
 ------------+-----------+------------+------------+-------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+----------------------+-------------+----------------------------+-------------------+-----------------+---------------------+------------------------+------------------------+------------------------+-------------------+--------------------+----------------------+------------------------+----------------------+----------------------+----------------------+-----------------+------------------+--------------------+----------------------
- legal_unit | 823573673 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ legal_unit | 823573673 | 2010-01-01 | 2012-12-30 | 2012-12-31  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ legal_unit | 823573673 | 2012-12-31 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
  legal_unit | 921835809 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
  legal_unit | 921835809 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
  legal_unit | 921835809 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
@@ -752,7 +758,7 @@ ORDER BY tlut.unit_type, tlut.tax_ident, tlut.valid_from, tlut.valid_until;
  legal_unit | 921835809 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
  legal_unit | 921835809 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
  legal_unit | 921835809 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
-(10 rows)
+(11 rows)
 
 \x
 \echo "Checking timeline_legal_unit stats"
@@ -776,8 +782,8 @@ ORDER BY unit_type, tax_ident, valid_from, valid_until;
 unit_type     | legal_unit
 tax_ident     | 823573673
 valid_from    | 2010-01-01
-valid_to      | 2012-12-31
-valid_until   | 2013-01-01
+valid_to      | 2012-12-30
+valid_until   | 2012-12-31
 name          | KRANLØFT ENK
 stats         | {}
 stats_summary | {                                           +
@@ -810,6 +816,16 @@ stats_summary | {                                           +
               |     }                                       +
               | }
 -[ RECORD 2 ]-+---------------------------------------------
+unit_type     | legal_unit
+tax_ident     | 823573673
+valid_from    | 2012-12-31
+valid_to      | 2012-12-31
+valid_until   | 2013-01-01
+name          | KRANLØFT ENK
+stats         | {}
+stats_summary | {                                           +
+              | }
+-[ RECORD 3 ]-+---------------------------------------------
 unit_type     | legal_unit
 tax_ident     | 921835809
 valid_from    | 2013-01-01
@@ -846,7 +862,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 3 ]-+---------------------------------------------
+-[ RECORD 4 ]-+---------------------------------------------
 unit_type     | legal_unit
 tax_ident     | 921835809
 valid_from    | 2016-01-01
@@ -883,7 +899,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 4 ]-+---------------------------------------------
+-[ RECORD 5 ]-+---------------------------------------------
 unit_type     | legal_unit
 tax_ident     | 921835809
 valid_from    | 2019-01-01
@@ -920,7 +936,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 5 ]-+---------------------------------------------
+-[ RECORD 6 ]-+---------------------------------------------
 unit_type     | legal_unit
 tax_ident     | 921835809
 valid_from    | 2019-03-01
@@ -957,7 +973,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 6 ]-+---------------------------------------------
+-[ RECORD 7 ]-+---------------------------------------------
 unit_type     | legal_unit
 tax_ident     | 921835809
 valid_from    | 2019-05-01
@@ -994,7 +1010,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 7 ]-+---------------------------------------------
+-[ RECORD 8 ]-+---------------------------------------------
 unit_type     | legal_unit
 tax_ident     | 921835809
 valid_from    | 2019-07-01
@@ -1031,7 +1047,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 8 ]-+---------------------------------------------
+-[ RECORD 9 ]-+---------------------------------------------
 unit_type     | legal_unit
 tax_ident     | 921835809
 valid_from    | 2019-09-01
@@ -1068,7 +1084,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 9 ]-+---------------------------------------------
+-[ RECORD 10 ]+---------------------------------------------
 unit_type     | legal_unit
 tax_ident     | 921835809
 valid_from    | 2019-11-01
@@ -1105,7 +1121,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 10 ]+---------------------------------------------
+-[ RECORD 11 ]+---------------------------------------------
 unit_type     | legal_unit
 tax_ident     | 921835809
 valid_from    | 2020-01-01
@@ -1192,7 +1208,8 @@ FROM timeline_enterprise_with_tax_ident AS te
 ORDER BY te.unit_type, te.tax_ident, te.valid_from, te.valid_until;
  unit_type  | tax_ident | valid_from |  valid_to  | valid_until |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths |     sector_path      | sector_code |        sector_name         | data_source_codes | legal_form_code |   legal_form_name   | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postcode | physical_postplace | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postcode | postal_postplace | postal_region_path | postal_country_iso_2 
 ------------+-----------+------------+------------+-------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+----------------------+-------------+----------------------------+-------------------+-----------------+---------------------+------------------------+------------------------+------------------------+-------------------+--------------------+----------------------+------------------------+----------------------+----------------------+----------------------+-----------------+------------------+--------------------+----------------------
- enterprise | 823573673 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ enterprise | 823573673 | 2010-01-01 | 2012-12-30 | 2012-12-31  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ enterprise | 823573673 | 2012-12-31 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
  enterprise | 921835809 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
  enterprise | 921835809 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
  enterprise | 921835809 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
@@ -1202,7 +1219,7 @@ ORDER BY te.unit_type, te.tax_ident, te.valid_from, te.valid_until;
  enterprise | 921835809 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
  enterprise | 921835809 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
  enterprise | 921835809 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
-(10 rows)
+(11 rows)
 
 \x
 \echo "Checking timeline_enterprise stats"
@@ -1230,8 +1247,8 @@ ORDER BY unit_type, tax_ident, valid_from, valid_until;
 unit_type     | enterprise
 tax_ident     | 823573673
 valid_from    | 2010-01-01
-valid_to      | 2012-12-31
-valid_until   | 2013-01-01
+valid_to      | 2012-12-30
+valid_until   | 2012-12-31
 name          | KRANLØFT ENK
 stats_summary | {                                           +
               |     "type": "stats_agg",                    +
@@ -1263,6 +1280,15 @@ stats_summary | {                                           +
               |     }                                       +
               | }
 -[ RECORD 2 ]-+---------------------------------------------
+unit_type     | enterprise
+tax_ident     | 823573673
+valid_from    | 2012-12-31
+valid_to      | 2012-12-31
+valid_until   | 2013-01-01
+name          | KRANLØFT ENK
+stats_summary | {                                           +
+              | }
+-[ RECORD 3 ]-+---------------------------------------------
 unit_type     | enterprise
 tax_ident     | 921835809
 valid_from    | 2013-01-01
@@ -1298,7 +1324,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 3 ]-+---------------------------------------------
+-[ RECORD 4 ]-+---------------------------------------------
 unit_type     | enterprise
 tax_ident     | 921835809
 valid_from    | 2016-01-01
@@ -1334,7 +1360,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 4 ]-+---------------------------------------------
+-[ RECORD 5 ]-+---------------------------------------------
 unit_type     | enterprise
 tax_ident     | 921835809
 valid_from    | 2019-01-01
@@ -1370,7 +1396,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 5 ]-+---------------------------------------------
+-[ RECORD 6 ]-+---------------------------------------------
 unit_type     | enterprise
 tax_ident     | 921835809
 valid_from    | 2019-03-01
@@ -1406,7 +1432,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 6 ]-+---------------------------------------------
+-[ RECORD 7 ]-+---------------------------------------------
 unit_type     | enterprise
 tax_ident     | 921835809
 valid_from    | 2019-05-01
@@ -1442,7 +1468,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 7 ]-+---------------------------------------------
+-[ RECORD 8 ]-+---------------------------------------------
 unit_type     | enterprise
 tax_ident     | 921835809
 valid_from    | 2019-07-01
@@ -1478,7 +1504,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 8 ]-+---------------------------------------------
+-[ RECORD 9 ]-+---------------------------------------------
 unit_type     | enterprise
 tax_ident     | 921835809
 valid_from    | 2019-09-01
@@ -1514,7 +1540,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 9 ]-+---------------------------------------------
+-[ RECORD 10 ]+---------------------------------------------
 unit_type     | enterprise
 tax_ident     | 921835809
 valid_from    | 2019-11-01
@@ -1550,7 +1576,7 @@ stats_summary | {                                           +
               |         "coefficient_of_variation_pct": null+
               |     }                                       +
               | }
--[ RECORD 10 ]+---------------------------------------------
+-[ RECORD 11 ]+---------------------------------------------
 unit_type     | enterprise
 tax_ident     | 921835809
 valid_from    | 2020-01-01
@@ -1619,6 +1645,199 @@ SELECT valid_from
  FROM statistical_unit_ordered
  ORDER BY valid_from, valid_until, unit_type, tax_ident_for_ordering;
 -[ RECORD 1 ]---------+--------------------------------------------------------------------------------------
+valid_from            | 2010-01-01
+valid_to              | 2012-12-30
+valid_until           | 2012-12-31
+unit_type             | legal_unit
+external_idents       | {"tax_ident": "823573673"}
+statistical_unit_data | {                                                                                    +
+                      |     "name": "KRANLØFT ENK",                                                          +
+                      |     "search": "'enk':2 'kranløft':1",                                                +
+                      |     "altitude": null,                                                                +
+                      |     "domestic": true,                                                                +
+                      |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
+                      |     "tag_paths": [                                                                   +
+                      |     ],                                                                               +
+                      |     "birth_date": "2010-01-01",                                                      +
+                      |     "death_date": "2012-12-31",                                                      +
+                      |     "fax_number": null,                                                              +
+                      |     "sector_code": "2100",                                                           +
+                      |     "sector_name": "Private aksjeselskaper mv.",                                     +
+                      |     "sector_path": "innl.a_ikke_fin.2100",                                           +
+                      |     "status_code": "active",                                                         +
+                      |     "valid_range": "[2010-01-01,2012-12-31)",                                        +
+                      |     "valid_until": "2012-12-31",                                                     +
+                      |     "web_address": null,                                                             +
+                      |     "phone_number": null,                                                            +
+                      |     "email_address": null,                                                           +
+                      |     "mobile_number": null,                                                           +
+                      |     "has_legal_unit": true,                                                          +
+                      |     "unit_size_code": null,                                                          +
+                      |     "legal_form_code": "ENK",                                                        +
+                      |     "legal_form_name": "Enkeltpersonforetak",                                        +
+                      |     "postal_postcode": null,                                                         +
+                      |     "postal_postplace": null,                                                        +
+                      |     "data_source_codes": [                                                           +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
+                      |     ],                                                                               +
+                      |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
+                      |     "physical_postcode": "4347",                                                     +
+                      |     "used_for_counting": true,                                                       +
+                      |     "physical_postplace": "LYE",                                                     +
+                      |     "postal_region_code": null,                                                      +
+                      |     "postal_region_path": null,                                                      +
+                      |     "physical_region_code": "1121",                                                  +
+                      |     "physical_region_path": "11.21",                                                 +
+                      |     "postal_address_part1": null,                                                    +
+                      |     "postal_address_part2": null,                                                    +
+                      |     "postal_address_part3": null,                                                    +
+                      |     "postal_country_iso_2": null,                                                    +
+                      |     "physical_address_part1": "Vestlyvegen 219",                                     +
+                      |     "physical_address_part2": null,                                                  +
+                      |     "physical_address_part3": null,                                                  +
+                      |     "physical_country_iso_2": "NO",                                                  +
+                      |     "activity_category_paths": [                                                     +
+                      |         "H.49.4.1.0"                                                                 +
+                      |     ],                                                                               +
+                      |     "included_enterprise_count": null,                                               +
+                      |     "included_legal_unit_count": 1,                                                  +
+                      |     "included_establishment_count": 1,                                               +
+                      |     "primary_activity_category_code": "49.410",                                      +
+                      |     "primary_activity_category_path": "H.49.4.1.0",                                  +
+                      |     "secondary_activity_category_code": null,                                        +
+                      |     "secondary_activity_category_path": null                                         +
+                      | }
+stats                 | {                                                                                    +
+                      | }
+stats_summary         | {                                                                                    +
+                      |     "type": "stats_agg",                                                             +
+                      |     "turnover": {                                                                    +
+                      |         "max": 1500000,                                                              +
+                      |         "min": 1500000,                                                              +
+                      |         "sum": 1500000,                                                              +
+                      |         "mean": 1500000.00,                                                          +
+                      |         "type": "float_agg",                                                         +
+                      |         "count": 1,                                                                  +
+                      |         "stddev": null,                                                              +
+                      |         "sum_sq": 2250000000000,                                                     +
+                      |         "variance": null,                                                            +
+                      |         "sum_sq_diff": 0.00,                                                         +
+                      |         "coefficient_of_variation_pct": null                                         +
+                      |     },                                                                               +
+                      |     "employees": {                                                                   +
+                      |         "max": 1,                                                                    +
+                      |         "min": 1,                                                                    +
+                      |         "sum": 1,                                                                    +
+                      |         "mean": 1.00,                                                                +
+                      |         "type": "int_agg",                                                           +
+                      |         "count": 1,                                                                  +
+                      |         "stddev": null,                                                              +
+                      |         "sum_sq": 1,                                                                 +
+                      |         "variance": null,                                                            +
+                      |         "sum_sq_diff": 0.00,                                                         +
+                      |         "coefficient_of_variation_pct": null                                         +
+                      |     }                                                                                +
+                      | }
+-[ RECORD 2 ]---------+--------------------------------------------------------------------------------------
+valid_from            | 2010-01-01
+valid_to              | 2012-12-30
+valid_until           | 2012-12-31
+unit_type             | enterprise
+external_idents       | {"tax_ident": "823573673"}
+statistical_unit_data | {                                                                                    +
+                      |     "name": "KRANLØFT ENK",                                                          +
+                      |     "search": "'enk':2 'kranløft':1",                                                +
+                      |     "altitude": null,                                                                +
+                      |     "domestic": true,                                                                +
+                      |     "landline": null,                                                                +
+                      |     "latitude": null,                                                                +
+                      |     "longitude": null,                                                               +
+                      |     "tag_paths": [                                                                   +
+                      |     ],                                                                               +
+                      |     "birth_date": "2010-01-01",                                                      +
+                      |     "death_date": "2012-12-31",                                                      +
+                      |     "fax_number": null,                                                              +
+                      |     "sector_code": "2100",                                                           +
+                      |     "sector_name": "Private aksjeselskaper mv.",                                     +
+                      |     "sector_path": "innl.a_ikke_fin.2100",                                           +
+                      |     "status_code": "active",                                                         +
+                      |     "valid_range": "[2010-01-01,2012-12-31)",                                        +
+                      |     "valid_until": "2012-12-31",                                                     +
+                      |     "web_address": null,                                                             +
+                      |     "phone_number": null,                                                            +
+                      |     "email_address": null,                                                           +
+                      |     "mobile_number": null,                                                           +
+                      |     "has_legal_unit": true,                                                          +
+                      |     "unit_size_code": null,                                                          +
+                      |     "legal_form_code": "ENK",                                                        +
+                      |     "legal_form_name": "Enkeltpersonforetak",                                        +
+                      |     "postal_postcode": null,                                                         +
+                      |     "postal_postplace": null,                                                        +
+                      |     "data_source_codes": [                                                           +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
+                      |     ],                                                                               +
+                      |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
+                      |     "physical_postcode": "4347",                                                     +
+                      |     "used_for_counting": true,                                                       +
+                      |     "physical_postplace": "LYE",                                                     +
+                      |     "postal_region_code": null,                                                      +
+                      |     "postal_region_path": null,                                                      +
+                      |     "physical_region_code": "1121",                                                  +
+                      |     "physical_region_path": "11.21",                                                 +
+                      |     "postal_address_part1": null,                                                    +
+                      |     "postal_address_part2": null,                                                    +
+                      |     "postal_address_part3": null,                                                    +
+                      |     "postal_country_iso_2": null,                                                    +
+                      |     "physical_address_part1": "Vestlyvegen 219",                                     +
+                      |     "physical_address_part2": null,                                                  +
+                      |     "physical_address_part3": null,                                                  +
+                      |     "physical_country_iso_2": "NO",                                                  +
+                      |     "activity_category_paths": [                                                     +
+                      |         "H.49.4.1.0"                                                                 +
+                      |     ],                                                                               +
+                      |     "included_enterprise_count": 1,                                                  +
+                      |     "included_legal_unit_count": 1,                                                  +
+                      |     "included_establishment_count": 1,                                               +
+                      |     "primary_activity_category_code": "49.410",                                      +
+                      |     "primary_activity_category_path": "H.49.4.1.0",                                  +
+                      |     "secondary_activity_category_code": null,                                        +
+                      |     "secondary_activity_category_path": null                                         +
+                      | }
+stats                 | 
+stats_summary         | {                                                                                    +
+                      |     "type": "stats_agg",                                                             +
+                      |     "turnover": {                                                                    +
+                      |         "max": 1500000,                                                              +
+                      |         "min": 1500000,                                                              +
+                      |         "sum": 1500000,                                                              +
+                      |         "mean": 1500000.00,                                                          +
+                      |         "type": "float_agg",                                                         +
+                      |         "count": 1,                                                                  +
+                      |         "stddev": null,                                                              +
+                      |         "sum_sq": 2250000000000,                                                     +
+                      |         "variance": null,                                                            +
+                      |         "sum_sq_diff": 0.00,                                                         +
+                      |         "coefficient_of_variation_pct": null                                         +
+                      |     },                                                                               +
+                      |     "employees": {                                                                   +
+                      |         "max": 1,                                                                    +
+                      |         "min": 1,                                                                    +
+                      |         "sum": 1,                                                                    +
+                      |         "mean": 1.00,                                                                +
+                      |         "type": "int_agg",                                                           +
+                      |         "count": 1,                                                                  +
+                      |         "stddev": null,                                                              +
+                      |         "sum_sq": 1,                                                                 +
+                      |         "variance": null,                                                            +
+                      |         "sum_sq_diff": 0.00,                                                         +
+                      |         "coefficient_of_variation_pct": null                                         +
+                      |     }                                                                                +
+                      | }
+-[ RECORD 3 ]---------+--------------------------------------------------------------------------------------
 valid_from            | 2010-01-01
 valid_to              | 2012-12-31
 valid_until           | 2013-01-01
@@ -1723,8 +1942,8 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 2 ]---------+--------------------------------------------------------------------------------------
-valid_from            | 2010-01-01
+-[ RECORD 4 ]---------+--------------------------------------------------------------------------------------
+valid_from            | 2012-12-31
 valid_to              | 2012-12-31
 valid_until           | 2013-01-01
 unit_type             | legal_unit
@@ -1746,7 +1965,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                                     +
                       |     "sector_path": "innl.a_ikke_fin.2100",                                           +
                       |     "status_code": "active",                                                         +
-                      |     "valid_range": "[2010-01-01,2013-01-01)",                                        +
+                      |     "valid_range": "[2012-12-31,2013-01-01)",                                        +
                       |     "valid_until": "2013-01-01",                                                     +
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
@@ -1764,7 +1983,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_postcode": "4347",                                                     +
-                      |     "used_for_counting": true,                                                       +
+                      |     "used_for_counting": false,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -1782,7 +2001,7 @@ statistical_unit_data | {                                                       
                       |         "H.49.4.1.0"                                                                 +
                       |     ],                                                                               +
                       |     "included_enterprise_count": null,                                               +
-                      |     "included_legal_unit_count": 1,                                                  +
+                      |     "included_legal_unit_count": null,                                               +
                       |     "included_establishment_count": 1,                                               +
                       |     "primary_activity_category_code": "49.410",                                      +
                       |     "primary_activity_category_path": "H.49.4.1.0",                                  +
@@ -1792,36 +2011,9 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                                    +
                       | }
 stats_summary         | {                                                                                    +
-                      |     "type": "stats_agg",                                                             +
-                      |     "turnover": {                                                                    +
-                      |         "max": 1500000,                                                              +
-                      |         "min": 1500000,                                                              +
-                      |         "sum": 1500000,                                                              +
-                      |         "mean": 1500000.00,                                                          +
-                      |         "type": "float_agg",                                                         +
-                      |         "count": 1,                                                                  +
-                      |         "stddev": null,                                                              +
-                      |         "sum_sq": 2250000000000,                                                     +
-                      |         "variance": null,                                                            +
-                      |         "sum_sq_diff": 0.00,                                                         +
-                      |         "coefficient_of_variation_pct": null                                         +
-                      |     },                                                                               +
-                      |     "employees": {                                                                   +
-                      |         "max": 1,                                                                    +
-                      |         "min": 1,                                                                    +
-                      |         "sum": 1,                                                                    +
-                      |         "mean": 1.00,                                                                +
-                      |         "type": "int_agg",                                                           +
-                      |         "count": 1,                                                                  +
-                      |         "stddev": null,                                                              +
-                      |         "sum_sq": 1,                                                                 +
-                      |         "variance": null,                                                            +
-                      |         "sum_sq_diff": 0.00,                                                         +
-                      |         "coefficient_of_variation_pct": null                                         +
-                      |     }                                                                                +
                       | }
--[ RECORD 3 ]---------+--------------------------------------------------------------------------------------
-valid_from            | 2010-01-01
+-[ RECORD 5 ]---------+--------------------------------------------------------------------------------------
+valid_from            | 2012-12-31
 valid_to              | 2012-12-31
 valid_until           | 2013-01-01
 unit_type             | enterprise
@@ -1843,7 +2035,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                                     +
                       |     "sector_path": "innl.a_ikke_fin.2100",                                           +
                       |     "status_code": "active",                                                         +
-                      |     "valid_range": "[2010-01-01,2013-01-01)",                                        +
+                      |     "valid_range": "[2012-12-31,2013-01-01)",                                        +
                       |     "valid_until": "2013-01-01",                                                     +
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
@@ -1861,7 +2053,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_postcode": "4347",                                                     +
-                      |     "used_for_counting": true,                                                       +
+                      |     "used_for_counting": false,                                                      +
                       |     "physical_postplace": "LYE",                                                     +
                       |     "postal_region_code": null,                                                      +
                       |     "postal_region_path": null,                                                      +
@@ -1878,8 +2070,8 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                                     +
                       |         "H.49.4.1.0"                                                                 +
                       |     ],                                                                               +
-                      |     "included_enterprise_count": 1,                                                  +
-                      |     "included_legal_unit_count": 1,                                                  +
+                      |     "included_enterprise_count": null,                                               +
+                      |     "included_legal_unit_count": null,                                               +
                       |     "included_establishment_count": 1,                                               +
                       |     "primary_activity_category_code": "49.410",                                      +
                       |     "primary_activity_category_path": "H.49.4.1.0",                                  +
@@ -1888,35 +2080,8 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                                    +
-                      |     "type": "stats_agg",                                                             +
-                      |     "turnover": {                                                                    +
-                      |         "max": 1500000,                                                              +
-                      |         "min": 1500000,                                                              +
-                      |         "sum": 1500000,                                                              +
-                      |         "mean": 1500000.00,                                                          +
-                      |         "type": "float_agg",                                                         +
-                      |         "count": 1,                                                                  +
-                      |         "stddev": null,                                                              +
-                      |         "sum_sq": 2250000000000,                                                     +
-                      |         "variance": null,                                                            +
-                      |         "sum_sq_diff": 0.00,                                                         +
-                      |         "coefficient_of_variation_pct": null                                         +
-                      |     },                                                                               +
-                      |     "employees": {                                                                   +
-                      |         "max": 1,                                                                    +
-                      |         "min": 1,                                                                    +
-                      |         "sum": 1,                                                                    +
-                      |         "mean": 1.00,                                                                +
-                      |         "type": "int_agg",                                                           +
-                      |         "count": 1,                                                                  +
-                      |         "stddev": null,                                                              +
-                      |         "sum_sq": 1,                                                                 +
-                      |         "variance": null,                                                            +
-                      |         "sum_sq_diff": 0.00,                                                         +
-                      |         "coefficient_of_variation_pct": null                                         +
-                      |     }                                                                                +
                       | }
--[ RECORD 4 ]---------+--------------------------------------------------------------------------------------
+-[ RECORD 6 ]---------+--------------------------------------------------------------------------------------
 valid_from            | 2013-01-01
 valid_to              | 2015-12-31
 valid_until           | 2016-01-01
@@ -2021,7 +2186,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 5 ]---------+--------------------------------------------------------------------------------------
+-[ RECORD 7 ]---------+--------------------------------------------------------------------------------------
 valid_from            | 2013-01-01
 valid_to              | 2015-12-31
 valid_until           | 2016-01-01
@@ -2118,7 +2283,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 6 ]---------+--------------------------------------------------------------------------------------
+-[ RECORD 8 ]---------+--------------------------------------------------------------------------------------
 valid_from            | 2013-01-01
 valid_to              | 2015-12-31
 valid_until           | 2016-01-01
@@ -2214,7 +2379,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 7 ]---------+--------------------------------------------------------------------------------------
+-[ RECORD 9 ]---------+--------------------------------------------------------------------------------------
 valid_from            | 2016-01-01
 valid_to              | 2018-12-31
 valid_until           | 2019-01-01
@@ -2319,7 +2484,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 8 ]---------+--------------------------------------------------------------------------------------
+-[ RECORD 10 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2016-01-01
 valid_to              | 2018-12-31
 valid_until           | 2019-01-01
@@ -2416,7 +2581,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 9 ]---------+--------------------------------------------------------------------------------------
+-[ RECORD 11 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2016-01-01
 valid_to              | 2018-12-31
 valid_until           | 2019-01-01
@@ -2512,7 +2677,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 10 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 12 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-01-01
 valid_to              | 2019-02-28
 valid_until           | 2019-03-01
@@ -2617,7 +2782,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 11 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 13 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-01-01
 valid_to              | 2019-02-28
 valid_until           | 2019-03-01
@@ -2714,7 +2879,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 12 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 14 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-01-01
 valid_to              | 2019-02-28
 valid_until           | 2019-03-01
@@ -2810,7 +2975,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 13 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 15 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-03-01
 valid_to              | 2019-04-30
 valid_until           | 2019-05-01
@@ -2915,7 +3080,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 14 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 16 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-03-01
 valid_to              | 2019-04-30
 valid_until           | 2019-05-01
@@ -3012,7 +3177,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 15 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 17 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-03-01
 valid_to              | 2019-04-30
 valid_until           | 2019-05-01
@@ -3108,7 +3273,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 16 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 18 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-05-01
 valid_to              | 2019-06-30
 valid_until           | 2019-07-01
@@ -3213,7 +3378,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 17 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 19 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-05-01
 valid_to              | 2019-06-30
 valid_until           | 2019-07-01
@@ -3310,7 +3475,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 18 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 20 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-05-01
 valid_to              | 2019-06-30
 valid_until           | 2019-07-01
@@ -3406,7 +3571,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 19 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 21 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-07-01
 valid_to              | 2019-08-31
 valid_until           | 2019-09-01
@@ -3511,7 +3676,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 20 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 22 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-07-01
 valid_to              | 2019-08-31
 valid_until           | 2019-09-01
@@ -3608,7 +3773,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 21 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 23 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-07-01
 valid_to              | 2019-08-31
 valid_until           | 2019-09-01
@@ -3704,7 +3869,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 22 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 24 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-09-01
 valid_to              | 2019-10-31
 valid_until           | 2019-11-01
@@ -3809,7 +3974,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 23 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 25 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-09-01
 valid_to              | 2019-10-31
 valid_until           | 2019-11-01
@@ -3906,7 +4071,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 24 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 26 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-09-01
 valid_to              | 2019-10-31
 valid_until           | 2019-11-01
@@ -4002,7 +4167,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 25 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 27 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-11-01
 valid_to              | 2019-12-31
 valid_until           | 2020-01-01
@@ -4107,7 +4272,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 26 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 28 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-11-01
 valid_to              | 2019-12-31
 valid_until           | 2020-01-01
@@ -4204,7 +4369,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 27 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 29 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2019-11-01
 valid_to              | 2019-12-31
 valid_until           | 2020-01-01
@@ -4300,7 +4465,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 28 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 30 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2020-01-01
 valid_to              | infinity
 valid_until           | infinity
@@ -4405,7 +4570,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 29 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 31 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2020-01-01
 valid_to              | infinity
 valid_until           | infinity
@@ -4502,7 +4667,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": null                                         +
                       |     }                                                                                +
                       | }
--[ RECORD 30 ]--------+--------------------------------------------------------------------------------------
+-[ RECORD 32 ]--------+--------------------------------------------------------------------------------------
 valid_from            | 2020-01-01
 valid_to              | infinity
 valid_until           | infinity
@@ -14342,7 +14507,8 @@ statistical_unit_hierarchy
                                     "enabled": true,
                                     "priority": 10,
                                     "frequency": "yearly",
-                                    "description": "The number of people receiving an official salary with government reporting."
+                                    "description": "The number of people receiving an official salary with government reporting.",
+                                    "lu_es_rollup": "sum"
                                 }
                             },
                             {
@@ -14372,7 +14538,8 @@ statistical_unit_hierarchy
                                     "enabled": true,
                                     "priority": 20,
                                     "frequency": "yearly",
-                                    "description": "The amount (Local Currency)"
+                                    "description": "The amount (Local Currency)",
+                                    "lu_es_rollup": "sum"
                                 }
                             }
                         ],
@@ -14666,7 +14833,8 @@ statistical_unit_hierarchy
                                     "enabled": true,
                                     "priority": 10,
                                     "frequency": "yearly",
-                                    "description": "The number of people receiving an official salary with government reporting."
+                                    "description": "The number of people receiving an official salary with government reporting.",
+                                    "lu_es_rollup": "sum"
                                 }
                             },
                             {
@@ -14696,7 +14864,8 @@ statistical_unit_hierarchy
                                     "enabled": true,
                                     "priority": 20,
                                     "frequency": "yearly",
-                                    "description": "The amount (Local Currency)"
+                                    "description": "The amount (Local Currency)",
+                                    "lu_es_rollup": "sum"
                                 }
                             }
                         ],
@@ -14989,7 +15158,8 @@ statistical_unit_hierarchy
                                     "enabled": true,
                                     "priority": 10,
                                     "frequency": "yearly",
-                                    "description": "The number of people receiving an official salary with government reporting."
+                                    "description": "The number of people receiving an official salary with government reporting.",
+                                    "lu_es_rollup": "sum"
                                 }
                             },
                             {
@@ -15019,7 +15189,8 @@ statistical_unit_hierarchy
                                     "enabled": true,
                                     "priority": 20,
                                     "frequency": "yearly",
-                                    "description": "The amount (Local Currency)"
+                                    "description": "The amount (Local Currency)",
+                                    "lu_es_rollup": "sum"
                                 }
                             }
                         ],
