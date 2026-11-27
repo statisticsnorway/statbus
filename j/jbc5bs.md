@@ -44,6 +44,7 @@ Regions: public.region center_latitude/center_longitude/center_altitude and thei
 - [x] An independent reviewer (neither the implementer nor hibiscus) checked every hunk of git diff origin/master -- test/expected against the rename and its migration, and found no change beyond the rename (no changed value, row count, order, or appearing or vanishing error); its findings and their fixes are recorded in this task
 - [x] Region uploads with center_* headers and unit imports with physical_* coordinate headers are refused with a message naming latitude, longitude, altitude; a SQL test asserts it
 - [x] A region file or a unit import file with old coordinate headers (center_* or physical_* latitude/longitude/altitude) is refused with a message naming the new headers latitude, longitude, altitude; a SQL test asserts both refusals
+- [ ] Old coordinate headers meet the ordinary handling of an unknown column, with no code naming them: a region file with center_* is refused and stores nothing, a unit import keeps physical_* as ignored columns and stores no point from them; test/sql/419 asserts both
 
 ## Questions
 - 2026-11-23T11:47 question 1 by hibiscus to jhf:
