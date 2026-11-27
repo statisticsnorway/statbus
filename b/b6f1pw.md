@@ -25,7 +25,7 @@ A unit's edit page marks each field a switched-on quality check flags, in the re
 Owner 2026-11-26: the quality reports find the units, but someone opening the unit to fix it must see which field is wrong, such as the secondary activity when it equals the primary.
 
 ## Principle
-One wording source (QUALITY_RULE_WORDING); the unit page reads public.quality_finding for the unit and period shown, so it agrees with the reports. Done after the current rc.02 tasks.
+One wording source (QUALITY_RULE_WORDING); the unit page reads the unit's own quality_check_ids and relation-table rows for the period shown, so it agrees with the reports.
 
 ## Details
 Rule to field: missing_region and missing_physical_location to Contact/location; missing_activity_category, secondary_activity_equals_primary and establishment_activity_differs to Classifications; the per-variable rules to Statistical variables.
