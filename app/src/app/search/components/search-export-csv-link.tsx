@@ -122,7 +122,7 @@ export function ExportCSVLink() {
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(
-            buttonVariants({ variant: "secondary", size: "sm" }),
+            buttonVariants({ variant: "outline", size: "sm" }),
             "flex items-center space-x-2"
           )}
         >

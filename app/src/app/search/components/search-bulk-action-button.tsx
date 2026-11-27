@@ -28,9 +28,9 @@ export default function SearchBulkActionButton() {
       <PopoverTrigger asChild>
         <Button
           disabled={!selected.length}
-          variant="secondary"
+          variant="outline"
           size="sm"
-          className="space-x-2 border-dashed"
+          className="space-x-2"
         >
           <Settings className="mr-2 h-4 w-4" />
           {selected.length} {selected.length === 1 ? "unit" : "units"} selected
