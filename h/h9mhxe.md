@@ -59,3 +59,5 @@ Part 2 on quality/part-2-array-and-relation-tables @0a3b77d49 (on counting de9f8
 check 2: Norway copy 2026-11-27 after parts 1+2 (91ce3e04e): quality_check_count equals quality_finding per check (1:2, 2:161571, 3:22446, 4:11010, 7:0, 101:18, 103:5); 44-55 ms per call as jorgen@veridit.no after the index-only fix; dashboard in tab 65 shows the same numbers (tmp/h9mhxe-norway-counts.txt, tmp/journal.md)
 
 check 3: First page by name as jorgen@veridit.no: 2 units (RPC) 16 ms, 21 368-class row check 3 (22 446, cs.{3}) 9 ms, 161 571 (cs.{2}) 6-30 ms; app in tab 65 lists missing_region's 2 units and establishment_activity_differs 1-10 of 11 010 (tmp/h9mhxe-norway-search-role.txt)
+
+Full derive on Norway not yet run with part 2 (check 7): the migration now queues one; fast suite 150/150 on 91ce3e04e (counting 2c8065ac1 + part 1 + part 2 on master c3726cdc2). Pushed origin/quality/part-2-array-and-relation-tables 91ce3e04e. Waiting for owner's merge approval of counting first.
