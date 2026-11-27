@@ -30,6 +30,7 @@ Seen 2026-11-26 by jhf on /search?physical_location=missing&physical_region_path
 - [ ] The URL above (Live frame, Norway copy) returns its empty first page in under 1 s, EXPLAIN ANALYZE recorded before and after
 - [ ] A common search (unit_type=legal_unit, sorted by name) keeps its first page under 100 ms, measured before and after
 - [ ] ~~A regression test or recorded benchmark covers a filter combination that matches 0 rows~~ (not relevant: rewritten as check 4: one job, a regression test, hibiscus, 2026-11-27)
+- [ ] A SQL regression test runs a search whose filters match 0 rows (an empty time frame, and the region/no-location combination above) and asserts its first page and count return within the budget
 
 ## Notes
 
