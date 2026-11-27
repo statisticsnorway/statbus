@@ -26,9 +26,7 @@ Today location has latitude/longitude while statistical_unit and the hierarchy R
 A rename of a column the API exposes is a breaking change for API users and imports, so the owner decides the naming first. A migration follows the project's migration procedure: regenerated doc/db and types, updated test expectations, both directions tested.
 
 ## Relevant details
-Former goal: A location's coordinates are named the same in the location table and in what the API returns, as Erik's PR #327 proposes (latitude/longitude to physical_latitude/physical_longitude), so map code reads one name.
-
-PR #327: migration 20261114090337_rename_location_latitude_longitude (up/down) and 7 app files (general-info forms, validation, read-edit-range, hierarchy types). CI: the SQL suite FAILED, at least 10 tests: 002 ER diagram, 015 data-model doc, 016 types, 103, 104, 105, 106, 107, 109, 110; their expected outputs were not updated. The owner expects to adapt the work.
+PR #327 (Erik, 2026-11-14) proposed the opposite direction (location to physical_latitude); it is closed as superseded by jbc5bs, which gives every table and the API the plain names latitude, longitude, altitude and drops postal coordinates. Shipped on master b534af8e5 (2026-11-27). The owner's hard cut means no code names the old headers anywhere, so check 3's sweep finds them only in migrations and in tests that show an old header meeting the ordinary unknown-column handling.
 
 ## Depends on
 
