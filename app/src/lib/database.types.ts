@@ -9694,6 +9694,7 @@ export type Database = {
           enabled: boolean | null
           frequency: Database["public"]["Enums"]["stat_frequency"] | null
           id: number | null
+          lu_es_rollup: Database["public"]["Enums"]["lu_es_rollup"] | null
           name: string | null
           priority: number | null
           type: Database["public"]["Enums"]["stat_type"] | null
@@ -9704,6 +9705,7 @@ export type Database = {
           enabled?: boolean | null
           frequency?: Database["public"]["Enums"]["stat_frequency"] | null
           id?: number | null
+          lu_es_rollup?: Database["public"]["Enums"]["lu_es_rollup"] | null
           name?: string | null
           priority?: number | null
           type?: Database["public"]["Enums"]["stat_type"] | null
@@ -9714,6 +9716,7 @@ export type Database = {
           enabled?: boolean | null
           frequency?: Database["public"]["Enums"]["stat_frequency"] | null
           id?: number | null
+          lu_es_rollup?: Database["public"]["Enums"]["lu_es_rollup"] | null
           name?: string | null
           priority?: number | null
           type?: Database["public"]["Enums"]["stat_type"] | null
@@ -9727,6 +9730,7 @@ export type Database = {
           enabled: boolean | null
           frequency: Database["public"]["Enums"]["stat_frequency"] | null
           id: number | null
+          lu_es_rollup: Database["public"]["Enums"]["lu_es_rollup"] | null
           name: string | null
           priority: number | null
           type: Database["public"]["Enums"]["stat_type"] | null
@@ -9737,6 +9741,7 @@ export type Database = {
           enabled?: boolean | null
           frequency?: Database["public"]["Enums"]["stat_frequency"] | null
           id?: number | null
+          lu_es_rollup?: Database["public"]["Enums"]["lu_es_rollup"] | null
           name?: string | null
           priority?: number | null
           type?: Database["public"]["Enums"]["stat_type"] | null
@@ -9747,6 +9752,7 @@ export type Database = {
           enabled?: boolean | null
           frequency?: Database["public"]["Enums"]["stat_frequency"] | null
           id?: number | null
+          lu_es_rollup?: Database["public"]["Enums"]["lu_es_rollup"] | null
           name?: string | null
           priority?: number | null
           type?: Database["public"]["Enums"]["stat_type"] | null

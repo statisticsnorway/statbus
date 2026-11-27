@@ -101,17 +101,17 @@ Each summed statistical variable (int, float) chooses how a legal unit's total
 combines the two levels (Admin, Statistical Variables, "Legal unit total";
 `stat_definition.lu_es_rollup`):
 
-- **Add** (`sum`, the default): the legal unit's own value plus its
+- **sum** (the default): the legal unit's own value plus its
   establishments' sum. For a value each unit reports on one level only.
-- **Larger of** (`max`): the larger of the legal unit's own value and its
+- **max**: the larger of the legal unit's own value and its
   establishments' sum, so a value both levels report about the same people
   counts once. Norway's employees use this.
 
 The Links tree writes the total with how it was made: Σ 369 = 364 + 5 under
-Add, Σ 364 = max(364, 5) under Larger of. Changing the choice recalculates the
-stored totals.
+sum, Σ 364 = max(364, 5) under max, and an ⓘ after every Σ says how that
+unit's total is made. Changing the choice recalculates the stored totals.
 
-Under Larger of:
+Under max:
 
 | Reported on | Legal unit total |
 |---|---|
@@ -121,15 +121,15 @@ Under Larger of:
 | Both, the legal unit larger (the rest on the legal unit) | its own value, which covers the establishments |
 | Both, the establishments larger | their sum |
 
-An enterprise adds its legal units, and a power group adds its enterprises:
+An enterprise sums its legal units, and a power group sums its enterprises:
 those units do not overlap. A value that is not summed (text, yes/no) keeps
 the legal unit's own value. The database implements the choice once, as
 `public.jsonb_stats_lu_es_rollup` (adding with `public.jsonb_stats_merge`,
 taking the larger with `public.jsonb_stats_covers`; see their comments), used
 when a legal unit's timeline is built.
 
-For a variable set to Larger of, two Data quality checks list where the levels
-disagree (dashboard cards and the search's Quality filter). Under Add the
+For a variable set to max, two Data quality checks list where the levels
+disagree (dashboard cards and the search's Quality filter). Under sum the
 levels add up, so the checks do not apply:
 
 - **Establishments Above Legal Unit**: the establishments add up to more

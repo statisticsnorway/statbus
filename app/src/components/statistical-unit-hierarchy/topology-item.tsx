@@ -19,6 +19,8 @@ import { Badge } from "../ui/badge";
 import { usePermission } from "@/atoms/auth";
 import { SetPrimaryUnit } from "./set-primary-unit";
 import { establishmentValues, legalUnitTotalFormula } from "./total-formula";
+import { TotalRuleInfo, type TotalUnitType } from "./total-rule-info";
+import type { Enums } from "@/lib/database.types";
 
 interface TopologyItemProps {
   readonly active?: boolean;
@@ -164,6 +166,9 @@ export function TopologyItem({
                       value={type !== "enterprise" && formattedValue}
                       sum={thousandSeparator(statsSum)}
                       formula={formula}
+                      variableName={statDefinition.name ?? statDefinition.code ?? ""}
+                      totalUnitType={type === "establishment" ? undefined : type}
+                      rule={statDefinition.lu_es_rollup}
                       status={unit.status}
                     />
                   );
@@ -195,9 +200,16 @@ interface TopologyItemInfoProps {
   /**
    * How the total after Σ was made, written after "=": "364 + 5" for a variable that adds the
    * legal unit's own value to its establishments' sum, "max(364, 5)" for one that takes the larger
-   * (stat_definition.lu_es_rollup, s465ff). Absent when the total is a single level's value.
+   * (stat_definition.lu_es_rollup, s465ff), with the rule it applies. Absent when the total is a
+   * single level's value.
    */
-  formula?: string;
+  formula?: { readonly text: string; readonly rule: "sum" | "max" };
+  /** The variable's name, for the ⓘ after Σ. */
+  variableName?: string;
+  /** Whose total Σ is, which decides how it is made; an establishment has no total of its own. */
+  totalUnitType?: TotalUnitType;
+  /** The variable's legal unit rule (stat_definition.lu_es_rollup), for a legal unit's Σ. */
+  rule?: Enums<"lu_es_rollup"> | null;
   status?: Status;
 }
 
@@ -208,6 +220,9 @@ const TopologyItemInfo = ({
   className,
   sum,
   formula,
+  variableName,
+  totalUnitType,
+  rule,
   status,
 }: TopologyItemInfoProps) => (
   <div className={cn("flex flex-col space-y-0 text-left", className)}>
@@ -219,10 +234,15 @@ const TopologyItemInfo = ({
       {value ?? fallbackValue}
     </span>
     {sum && (
-      <div className="inline-flex items-baseline gap-1 whitespace-nowrap" data-total-formula={formula ?? ""}>
-        <span className="text-xs font-semibold">&#8721;</span>
+      <div className="inline-flex items-baseline gap-1 whitespace-nowrap" data-total-formula={formula?.text ?? ""}>
+        {/* Greek capital sigma (U+03A3), a letter on the text's baseline; the n-ary summation sign
+            U+2211 is a large operator that sits below the line beside the number. */}
+        <span className="text-sm font-semibold">&#931;</span>
         <span className="text-sm font-semibold">{sum}</span>
-        {formula && <span className="text-xs text-gray-500">= {formula}</span>}
+        {formula && <span className="text-xs text-gray-500">= {formula.text}</span>}
+        {totalUnitType && (
+          <TotalRuleInfo unitType={totalUnitType} variableName={variableName ?? title} rule={formula?.rule ?? rule ?? null} />
+        )}
       </div>
     )}
   </div>

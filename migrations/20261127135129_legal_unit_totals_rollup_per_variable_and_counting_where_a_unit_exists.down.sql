@@ -1175,6 +1175,20 @@ $function$
 
 DROP FUNCTION public.jsonb_stats_lu_es_rollup(jsonb, jsonb);
 DROP FUNCTION public.unit_counts_in(boolean, date, date, date, date, date, date);
+-- The views lose the column first (a view cannot drop one in CREATE OR REPLACE); master's definitions.
+DROP VIEW public.stat_definition_enabled;
+DROP VIEW public.stat_definition_ordered;
+CREATE VIEW public.stat_definition_ordered WITH (security_invoker = on) AS
+ SELECT id, code, type, frequency, name, description, priority, enabled
+   FROM public.stat_definition
+  ORDER BY priority, code;
+CREATE VIEW public.stat_definition_enabled WITH (security_invoker = on) AS
+ SELECT id, code, type, frequency, name, description, priority, enabled
+   FROM public.stat_definition_ordered
+  WHERE enabled;
+-- A recreated view starts without grants; these are the ones the views had (pg_class.relacl).
+GRANT SELECT, INSERT ON public.stat_definition_ordered, public.stat_definition_enabled
+   TO authenticated, regular_user, admin_user;
 ALTER TABLE public.stat_definition DROP COLUMN lu_es_rollup;
 DROP TYPE public.lu_es_rollup;
 

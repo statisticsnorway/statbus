@@ -26,6 +26,18 @@ ALTER TABLE public.stat_definition ADD COLUMN lu_es_rollup public.lu_es_rollup N
 COMMENT ON COLUMN public.stat_definition.lu_es_rollup IS
   'How a legal unit''s total of this variable combines its own value with its establishments'' (public.lu_es_rollup); sum by default, the rule of every released version. Read by public.jsonb_stats_lu_es_rollup; changing it recalculates the totals (trigger stat_definition_lu_es_rollup_recalculate). The quality checks comparing the two levels apply only under max.';
 
+-- The enabled variables carry their rule too, so the Links tree's ⓘ after each Σ says how that
+-- total is made (app: total-rule-info.tsx). Appended last, so the views' other columns keep their
+-- places; the definitions are master's with lu_es_rollup added.
+CREATE OR REPLACE VIEW public.stat_definition_ordered WITH (security_invoker = on) AS
+ SELECT id, code, type, frequency, name, description, priority, enabled, lu_es_rollup
+   FROM public.stat_definition
+  ORDER BY priority, code;
+CREATE OR REPLACE VIEW public.stat_definition_enabled WITH (security_invoker = on) AS
+ SELECT id, code, type, frequency, name, description, priority, enabled, lu_es_rollup
+   FROM public.stat_definition_ordered
+  WHERE enabled;
+
 CREATE FUNCTION public.jsonb_stats_lu_es_rollup(own jsonb, parts jsonb)
 RETURNS jsonb
 LANGUAGE sql
