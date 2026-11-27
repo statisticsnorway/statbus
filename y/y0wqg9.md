@@ -50,5 +50,6 @@ Checked 2026-11-27: link_establishment_to_legal_unit is holistic (is_holistic = 
 check 3: test 421.1 (3ec476fb4): red on master, June and April chosen (tmp/y0wqg9-421-RED.out); green after, March and no-birth-date chosen. Fast suite 147/147 passed.
 check 4: test 421.2: a second job brings ES born January 2023-01-15; stored primary ES born March stays.
 check 5: test 421.3 (d587a8757): each new legal unit is primary of its own new enterprise; the import never ranks legal units within one enterprise (process_enterprise_link_for_legal_unit), and an existing LU keeps its stored primary_for_enterprise, so file order plays no part.
+No recalculation scheduled: the change only affects new choices, stored data stays (option a, 2gpcs7 settles it). A definition without birth_date_raw ranks by valid_from. Pushed 3ec476fb4, d587a8757; CI pending.
 ## History
 - 2026-11-27T21:43 todo -> doing/active (take)
