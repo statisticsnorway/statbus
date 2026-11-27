@@ -32,3 +32,5 @@ stat_definition has only lifecycle callback triggers; no derive is enqueued. Tes
 ## Notes
 
 Closed by the design in h9mhxe (acceptance check 6).
+
+Design in h9mhxe (acceptance check 6) applies; this task stays todo until it lands.
