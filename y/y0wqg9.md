@@ -27,7 +27,7 @@ Checked 2026-11-27: link_establishment_to_legal_unit is holistic (is_holistic = 
 ## Depends on
 
 ## Acceptance
-- [ ] On a copy of jo's data at Frame 2023, Drill Down Norway AS's page says which establishment is primary and that it does not exist in 2023
+- [ ] ~~On a copy of jo's data at Frame 2023, Drill Down Norway AS's page says which establishment is primary and that it does not exist in 2023~~ (not relevant: superseded: owner 20:33, the import ranks by existence; no page notice, rabbit, 2026-11-27)
 - [ ] [Owner] chooses how the inconsistency is surfaced (quality check, page notice, or both); answer recorded here
 - [ ] A SQL test imports one legal unit with two establishments valid from the same day, the later-born one first in the file: the earlier-born one is primary, red on master 78c95b358 and green after
 - [ ] A SQL test: an import does not change a legal unit's stored primary when it brings an earlier-born establishment
