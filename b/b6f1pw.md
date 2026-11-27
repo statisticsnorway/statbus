@@ -35,11 +35,12 @@ Rule to field: missing_region and missing_physical_location to Contact/location;
 - h9mhxe
 ## Acceptance
 - [ ] ~~Legal unit 146 on the Norway copy shows the secondary-equals-primary mark on its Classifications page, and the mark goes when the secondary activity changes~~ (not relevant: split into two checks (mark appears, mark goes), rabbit, 2026-11-27)
-- [ ] Legal unit 146 on the Norway copy shows a mark on its Secondary activity field on the Classifications page, worded by QUALITY_RULE_WORDING as the dashboard card
+- [x] Legal unit 146 on the Norway copy shows a mark on its Secondary activity field on the Classifications page, worded by QUALITY_RULE_WORDING as the dashboard card
 - [ ] After the secondary activity is changed to another code, the mark is gone at the next page load
 
 ## Notes
 
 
+check 2: Norway copy, a9d45e1a2 (local, on quality 91ce3e04e): secondary set to 56.101 (= primary) through the page's edit; 14 s later the Secondary Activity field shows an amber mark whose popover reads the card's name and explanation 'Secondary activity equals primary' (tmp/b6f1pw-mark-appears.log, tmp/b6f1pw-mark.png); quality_check_count gives check 7 = 1. Also seen: LU 295204 marks Primary activity with 'Establishment has another activity'.
 ## History
 - 2026-11-27T01:12 todo -> doing/active (take with 0pn35h)
