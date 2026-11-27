@@ -4,3 +4,4 @@
 \i samples/norway/sector/sector_norway.sql
 \i samples/norway/legal_form/legal_form_norway.sql
 \i samples/norway/data_source/data_source_norway.sql
+\i samples/norway/stat_definition/stat_definition_norway.sql

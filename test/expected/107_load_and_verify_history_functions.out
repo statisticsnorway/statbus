@@ -14508,7 +14508,7 @@ statistical_unit_hierarchy
                                     "priority": 10,
                                     "frequency": "yearly",
                                     "description": "The number of people receiving an official salary with government reporting.",
-                                    "lu_es_rollup": "sum"
+                                    "lu_es_rollup": "max"
                                 }
                             },
                             {
@@ -14834,7 +14834,7 @@ statistical_unit_hierarchy
                                     "priority": 10,
                                     "frequency": "yearly",
                                     "description": "The number of people receiving an official salary with government reporting.",
-                                    "lu_es_rollup": "sum"
+                                    "lu_es_rollup": "max"
                                 }
                             },
                             {
@@ -15159,7 +15159,7 @@ statistical_unit_hierarchy
                                     "priority": 10,
                                     "frequency": "yearly",
                                     "description": "The number of people receiving an official salary with government reporting.",
-                                    "lu_es_rollup": "sum"
+                                    "lu_es_rollup": "max"
                                 }
                             },
                             {
