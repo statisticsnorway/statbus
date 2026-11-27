@@ -57,3 +57,4 @@ landed c9647bd on master 2026-11-27: app: the footer shows the installation's co
 - 2026-11-27T15:37 answered asked, by jhf, for hibiscus (doing/asked -> doing/active):
   > The footer now starts with the country flag and the installation name, small and grey like the version text: screenshot at statbus_test tmp/p9xte6-footer-norway.png (🇳🇴 local, then GitHub, website, version). On master as c9647bde1. Approve the look, or what should change?
   There is no file attached to this image. I have to look at that in conjunction with you. Referencing temp file is not valid, so I'm gonna disregard that
+- 2026-11-27T15:37 answer 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
