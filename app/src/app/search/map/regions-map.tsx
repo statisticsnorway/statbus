@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAtomValue } from "jotai";
 import useSWR from "swr";
@@ -96,6 +96,8 @@ export interface RegionsMapControl {
    * check missing_region). The page writes it as the toolbar would, so List shows the same units.
    */
   onFilter?: (part: "abroad" | "no-location" | "without-region") => void;
+  /** The part the search is narrowed to now, if any: its row shows as on, and a click turns it off. */
+  activePart?: "abroad" | "no-location" | "without-region" | null;
 }
 
 export function RegionsMap({
@@ -373,9 +375,13 @@ export function RegionsMap({
     [countedRows, rowFilter]
   );
 
+  // The panel's summary counts (in the country, abroad, no location, without a region) come from the
+  // count before the place filters, so they stay as they are while one of them narrows the search
+  // and the active one reads as a choice among them (owner 2026-11-27: counts dropping to 0 when
+  // another was picked made it unclear what was in effect).
   const world = useMemo(
-    () => worldCounts(rows ?? [], homeId, unitTypes),
-    [rows, homeId, unitTypes]
+    () => worldCounts(countedRows ?? [], homeId, unitTypes),
+    [countedRows, homeId, unitTypes]
   );
   const perCountry = useMemo(() => countryCounts(rows ?? []), [rows]);
 
@@ -823,6 +829,7 @@ export function RegionsMap({
                   homeName={nameOf("")}
                   onHome={() => select("")}
                   onFilter={control?.onFilter}
+                  activePart={control?.activePart}
                 />
               )}
               {selection === null && (
@@ -875,6 +882,7 @@ export function RegionsMap({
                         control?.onFilter &&
                         (() => control.onFilter!("without-region"))
                       }
+                      active={control?.activePart === "without-region"}
                       title="Narrow the search to the units without a region (Quality: missing region)"
                       count="units-without-region"
                     />
@@ -960,24 +968,35 @@ function parseUnitTypes(types: string | null): MapUnitType[] {
 
 /**
  * A count that narrows the search when clicked (owner 2026-11-27): a full-width row, its count at the
- * right, with the hover of the list's rows. Without a handler it is a plain count.
+ * right. The one in effect is ticked and shaded, as a picked list row, and a click on it turns its
+ * filter off again; the same filter shows in the toolbar. Without a handler it is a plain count.
  */
 function CountRow({
   label,
   value,
   onClick,
+  active = false,
   title,
   count,
 }: {
   label: ReactNode;
   value: number;
   onClick?: () => void;
+  active?: boolean;
   title?: string;
   count: string;
 }) {
   const inner = (
     <>
-      <span className="flex-1">{label}</span>
+      <span className="flex flex-1 items-center gap-1.5">
+        {onClick && (
+          <Check
+            className={`h-3.5 w-3.5 shrink-0 ${active ? "text-gray-900" : "invisible"}`}
+            aria-hidden
+          />
+        )}
+        {label}
+      </span>
       <span className="tabular-nums text-gray-600">
         {value.toLocaleString()}
       </span>
@@ -986,9 +1005,10 @@ function CountRow({
   return onClick ? (
     <button
       type="button"
-      className="-mx-1.5 flex w-[calc(100%+0.75rem)] justify-between gap-2 rounded px-1.5 py-0.5 text-left hover:bg-gray-100"
+      className={`-mx-1.5 flex w-[calc(100%+0.75rem)] justify-between gap-2 rounded px-1.5 py-0.5 text-left ${active ? "bg-gray-200 font-medium" : "hover:bg-gray-100"}`}
       onClick={onClick}
-      title={title}
+      title={active ? "In effect: click to show all again" : title}
+      aria-pressed={active}
       data-count={count}
     >
       {inner}
@@ -1011,11 +1031,13 @@ function WorldSplit({
   homeName,
   onHome,
   onFilter,
+  activePart,
 }: {
   world: ReturnType<typeof worldCounts>;
   homeName: string;
   onHome: () => void;
   onFilter?: RegionsMapControl["onFilter"];
+  activePart?: RegionsMapControl["activePart"];
 }) {
   const abroadTotal = world.abroad.reduce((s, a) => s + a.count, 0);
   return (
@@ -1031,6 +1053,7 @@ function WorldSplit({
         label={`Abroad, in ${world.abroad.length.toLocaleString()} countries`}
         value={abroadTotal}
         onClick={onFilter && (() => onFilter("abroad"))}
+        active={activePart === "abroad"}
         title="Narrow the search to the units abroad (Domestic: No)"
         count="abroad"
       />
@@ -1038,6 +1061,7 @@ function WorldSplit({
         label="No location"
         value={world.noLocation}
         onClick={onFilter && (() => onFilter("no-location"))}
+        active={activePart === "no-location"}
         title="Narrow the search to the units with no location (Physical Location: missing)"
         count="no-location"
       />

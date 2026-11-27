@@ -309,25 +309,46 @@ function SearchMap() {
     [filters, updateFilters]
   );
   // A count in the panel narrows the search to its part, with the filter the toolbar has for it, so
-  // it shows in the bar and List lists the same units; a step of its own, so Back undoes it.
+  // it shows in the bar and List lists the same units; a step of its own, so Back undoes it. The
+  // part in effect is read back from the filters, so the row and the toolbar always agree, and a
+  // click on it again turns its filter off.
+  const missingRegion = qualityCheckParam("missing_region", null);
+  const activePart: RegionsMapControl["activePart"] =
+    domestic === "false"
+      ? "abroad"
+      : location === "missing"
+        ? "no-location"
+        : domestic === "true" &&
+            asList(filters[QUALITY]).includes(missingRegion)
+          ? "without-region"
+          : null;
   const onFilter = useCallback(
     (part: "abroad" | "no-location" | "without-region") => {
       setPushNext(true);
-      const out: Record<string, unknown> = {
-        ...filters,
-        [REGION]: [],
-        [PHYSICAL_COUNTRY]: [],
-        [DOMESTIC]: [],
-      };
-      if (part === "abroad") out[DOMESTIC] = ["false"];
-      if (part === "no-location") out[PHYSICAL_LOCATION] = ["missing"];
-      if (part === "without-region") {
-        out[DOMESTIC] = ["true"];
-        out[QUALITY] = [qualityCheckParam("missing_region", null)];
+      const out: Record<string, unknown> = { ...filters };
+      if (part === activePart) {
+        // Off again: back to where the part was picked from.
+        if (part === "abroad") out[DOMESTIC] = [];
+        if (part === "no-location") out[PHYSICAL_LOCATION] = [];
+        if (part === "without-region") out[QUALITY] = [];
+      } else {
+        Object.assign(out, {
+          [REGION]: [],
+          [PHYSICAL_COUNTRY]: [],
+          [DOMESTIC]: [],
+          [PHYSICAL_LOCATION]: [],
+        });
+        if (activePart === "without-region") out[QUALITY] = [];
+        if (part === "abroad") out[DOMESTIC] = ["false"];
+        if (part === "no-location") out[PHYSICAL_LOCATION] = ["missing"];
+        if (part === "without-region") {
+          out[DOMESTIC] = ["true"];
+          out[QUALITY] = [missingRegion];
+        }
       }
       updateFilters(out);
     },
-    [filters, updateFilters, setPushNext]
+    [filters, updateFilters, setPushNext, activePart, missingRegion]
   );
   const control: RegionsMapControl = {
     selection,
@@ -335,6 +356,7 @@ function SearchMap() {
     onSelect,
     onUnitTypes,
     onFilter,
+    activePart,
     countryIds: selection === null && countryIds.length > 1 ? countryIds : null,
   };
 
