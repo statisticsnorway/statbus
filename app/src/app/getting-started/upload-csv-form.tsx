@@ -8,8 +8,15 @@ import Link from "next/link";
 import React, { useActionState, useRef, useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { ErrorBox } from "@/components/error-box";
-import { uploadFile } from "@/app/getting-started/getting-started-server-actions";
-import type { UploadView } from "@/app/getting-started/getting-started-server-actions";
+import {
+  uploadFile,
+  type UploadState,
+  type UploadView,
+} from "@/app/getting-started/upload-file";
+import {
+  fetchWithAuthRefresh,
+  getBrowserRestClient,
+} from "@/context/RestClientStore";
 import { useRouter } from "next/navigation";
 import { fileAsCsvText, isExcelFile } from "./upload-excel";
 import { Loader2 } from "lucide-react";
@@ -57,6 +64,37 @@ const UploadFormButtons = ({
   );
 };
 
+/** A failed upload in the server log, with the person's session (/api/logger). Never throws. */
+const reportUploadFailure = (
+  message: string,
+  context: Record<string, unknown>
+) => {
+  void fetch("/api/logger", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      level: "error",
+      event: { messages: [context, message] },
+      location: window.location,
+    }),
+  }).catch(() => {});
+};
+
+/** Stores the form's file through its upload view, from the browser (upload-file.ts). */
+const storeFile = async (
+  filename: string,
+  uploadView: UploadView,
+  _previous: UploadState,
+  formData: FormData
+): Promise<UploadState> => {
+  const client = await getBrowserRestClient();
+  return uploadFile(formData.get(filename), uploadView, {
+    restUrl: client.url,
+    fetch: fetchWithAuthRefresh,
+    report: reportUploadFailure,
+  });
+};
+
 /**
  * A check of a chosen file before it is stored: given the file as CSV text, it shows what the
  * upload would do and whether there is anything to store (5yxn4w, the Regions upload). `canStore`
@@ -89,8 +127,8 @@ export const UploadCSVForm = ({
 }) => {
   const filename = "upload-file";
   const [state, formAction] = useActionState(
-    uploadFile.bind(null, filename, uploadView),
-    { error: null }
+    storeFile.bind(null, filename, uploadView),
+    { error: null } as UploadState
   );
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
