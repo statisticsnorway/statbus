@@ -66,6 +66,8 @@ BEGIN
             public.unit_notes,
             public.legal_relationship,
             public.power_root,
+            public.quality_establishment_activity_differs,
+            public.quality_legal_unit_establishment_stat,
             public.establishment,
             public.legal_unit,
             public.enterprise,

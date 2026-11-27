@@ -69,6 +69,7 @@ Referenced by:
     TABLE "contact" CONSTRAINT "contact_establishment_id_valid" FOREIGN KEY (establishment_id, PERIOD valid_range) REFERENCES establishment(id, PERIOD valid_range) DEFERRABLE
     TABLE "location" CONSTRAINT "location_establishment_id_valid" FOREIGN KEY (establishment_id, PERIOD valid_range) REFERENCES establishment(id, PERIOD valid_range) DEFERRABLE
     TABLE "person_for_unit" CONSTRAINT "person_for_unit_establishment_id_valid" FOREIGN KEY (establishment_id, PERIOD valid_range) REFERENCES establishment(id, PERIOD valid_range) DEFERRABLE
+    TABLE "quality_establishment_activity_differs" CONSTRAINT "quality_activity_differs_primary_establishment_fkey" FOREIGN KEY (primary_establishment_id, PERIOD valid_range) REFERENCES establishment(id, PERIOD valid_range) NOT ENFORCED
     TABLE "stat_for_unit" CONSTRAINT "stat_for_unit_establishment_id_valid" FOREIGN KEY (establishment_id, PERIOD valid_range) REFERENCES establishment(id, PERIOD valid_range) DEFERRABLE
 Policies:
     POLICY "establishment_admin_user_manage"

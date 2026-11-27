@@ -48,13 +48,17 @@ type trackedExtension struct {
 // order. sql_saga first: later migrations build on its API. jsonb_stats next
 // (the derive pipeline's aggregates), then the contrib extensions the early
 // migrations historically CREATEd inline (ltree for category paths, citext
-// for auth emails, btree_gist for multirange GiST indexes).
+// for auth emails, btree_gist for multirange GiST indexes), and intarray for
+// int[] GIN indexes with gin__int_ops (statistical_unit.data_source_ids and
+// the other int[] filters: once intarray is installed, int[] && resolves to
+// its operator, which only a gin__int_ops index serves).
 var trackedExtensions = []trackedExtension{
 	{name: "sql_saga", integrityCheck: "SELECT sql_saga.check_integrity()"},
 	{name: "jsonb_stats"},
 	{name: "ltree"},
 	{name: "citext"},
 	{name: "btree_gist"},
+	{name: "intarray"},
 }
 
 // ensureExtensionUpgradeTableSQL creates the audit receipt table. It lives in
