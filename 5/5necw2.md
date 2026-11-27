@@ -10,6 +10,11 @@ group: ""
 rank: "00000000000n"
 created: 2026-11-23
 updated: 2026-11-23
+design_question: "The United Nations country (UN, a demo installation's country) has its centre at 0,0 in dbseed/country/country_centres.csv, which puts it in the Gulf of Guinea on the world map. Should it have no centre, so it is listed as not on the map, as a region that is no place would be?"
+design_for: "jhf"
+design_since: "2026-11-27T14:47"
+design_asked_by: "hibiscus"
+stage: "design"
 ---
 
 ## Goal
@@ -32,4 +37,12 @@ Owner 2026-11-23 (review of z2qt08/5yxn4w): keep the official file; not in this 
 - [ ] /regions shows 'No place' for a no_place region and offers Place on map only for a place without a centre; a Playwright test asserts both
 - [ ] A unit on an unknown region counts in Units Missing Region and in the Regions map's units without a region; a test asserts the count
 
+## Questions
+- 2026-11-27T14:47 question 1 by hibiscus to jhf:
+  The United Nations country (UN, a demo installation's country) has its centre at 0,0 in dbseed/country/country_centres.csv, which puts it in the Gulf of Guinea on the world map. Should it have no centre, so it is listed as not on the map, as a region that is no place would be?
+
 ## Notes
+
+
+## History
+- 2026-11-27T14:47 todo -> todo/design (ask)
