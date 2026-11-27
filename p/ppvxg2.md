@@ -45,5 +45,6 @@ Owner 2026-11-27 15:08-16:00: not on the search map (it has enough interaction);
 2026-11-27 16:03 (hibiscus, from rabbit) Facet stats_summary per unit type follows lu_es_rollup after counting lands (jsonb_stats_merge_agg of statistical_unit.stats_summary, legal unit by jsonb_stats_lu_es_rollup): the map reads it and never recomputes. One unit type at a time is right (no total across types; enterprise is the top-level total). Build now; do not merge before counting is on master (rabbit DMs the SHA). On-screen words sum and max, never euphemisms.
 
 
+Erik's PR #325 variable features (circle by variable, popup values, legend sums) land here; keep PR #325 open until then. Later, separate from this task: icons so the unit map and this map jump to each other; Drilldown to the unit map; Variables Over Time to this map.
 ## History
 - 2026-11-27T17:05 todo -> doing/active (take)
