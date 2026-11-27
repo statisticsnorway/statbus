@@ -16,18 +16,20 @@ updated: 2026-11-24
 A fast-tests run started by hand on a branch finishes within its job time limit with room to spare.
 
 ## Purpose
-A dispatched branch run builds every image itself (docker compose up -d --build, 10-12 min) where master's runs pull prebuilt images (30 s); with timeout-minutes: 30 the job had no margin left. Run 45426056166 on feat/units-on-map (z2qt08) passed the SQL suite and live-database tests, then hit the limit 11 s into its last step and showed as cancelled.
+A fast-tests run started by hand on a branch builds every image inside its timed job, so it runs out of time before the tests finish and shows as cancelled although nothing failed.
 
 ## Principle
 The branch run tests the same images it would ship; the limit stays a guard against hangs, not a race against image building.
 
 ## Details
-Filed by Hibiscus (map agent, z2qt08) on 2026-11-24 17:11, after its branch feat/units-on-map needed a CI run before merging. How CI runs today: on master, a push starts Images (builds commit-tagged images), and fast-tests starts when Images finishes and pulls those images (Start services ~30 s). A branch push starts nothing, because Images and fast-tests only trigger on master; to test a branch before merging, an agent dispatches fast-tests by hand (workflow_dispatch), which builds every image itself (docker compose up -d --build, 10-12 min) inside the job's 30-minute limit. Run 45426056166 on c403f37a1: attempt 1 was cancelled 11 s into its last step at the limit, attempt 2 passed. With the one-directory-per-agent workflow (2026-11-26) branches are rebased and merged to master by fast-forward, and master's push runs the full CI with prebuilt images; a branch CI run is only needed when an agent wants evidence before merging. Options if it is needed: dispatch Images for the branch first and let fast-tests use those images, cache docker build layers, or keep the build outside the timed step. .github/workflows/fast-tests.yaml lines 146-151 (timeout-minutes: 30), 239-252 (Start services).
+Filed by Hibiscus (map agent, z2qt08) on 2026-11-24 17:11, after its branch feat/units-on-map needed a CI run before merging. How CI runs today: on master, a push starts Images (builds commit-tagged images), and fast-tests starts when Images finishes and pulls those images (Start services ~30 s). A branch push starts nothing, because Images and fast-tests only trigger on master; to test a branch before merging, an agent dispatches fast-tests by hand (workflow_dispatch), which builds every image itself (docker compose up -d --build) inside the job's 30-minute limit (.github/workflows/fast-tests.yaml lines 146-151 timeout-minutes: 30, 239-252 Start services). Runs: 45426056166 on c403f37a1 (2026-11-24): build 10-12 min, attempt 1 cancelled 11 s into its last step at the limit, attempt 2 passed. 45922674956 on 9552ec592 (2026-11-27): image build ~22 min, SQL fast suite all 146 + 3 isolated passed, then cancelled at the limit in the Go live-database tests. With the one-directory-per-agent workflow (2026-11-26) branches are rebased and merged to master by fast-forward, and master's push runs the full CI with prebuilt images; a branch run is only needed for evidence before merging. Options: dispatch Images for the branch first and let fast-tests pull those images; cache docker build layers; keep the build outside the timed step.
 
 ## Depends on
 
 ## Acceptance
 - [ ] A dispatched fast-tests run on a branch with migrations finishes with conclusion success, its Start services step under 3 minutes or its build step outside the test time limit
+- [ ] [Owner] Decides whether branch runs should fit their time limit (build it) or branch evidence relies on master's CI after the fast-forward (drop this task); the answer is recorded in this task's notes
+- [ ] If built: a dispatched fast-tests run on a branch with migrations ends with conclusion success, and the image build does not count against the test job's 30-minute limit
 
 ## Requests
 - 2026-11-26T21:16 request 1 by jhf:
