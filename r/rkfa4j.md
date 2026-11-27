@@ -50,6 +50,8 @@ Pieces it would touch: (1) cli/src/worker.cr: the shutdown wait (5 s) becomes th
   I find this ticket is lacking clarity in what do we have today? It is referencing something else. Interruption is now safe by construction, but I would like to can you organize this so it is clearer to understand what we have, what this will solve, what it brings to the table, what complexity it adds, and what pieces or machinery it modifies
   resolved 2026-11-26T21:40 by rabbit:
     Rewritten around what we have today, checked in code: the upgrade stops the worker with Docker's 10 s timeout; the worker waits 5 s for running fibers, so a longer task is cut off, rolled back by PostgreSQL and reset to pending on restart (STATBUS-264/265), which is why interruption is safe. Purpose now says what draining would add (no redone work, a quiet box, a clear 'Finishing current work' message); Principle: finish never refuse, bounded, try a timeout first; Details: the four pieces it touches (worker.cr shutdown wait, worker stop_grace_period, upgrade step 3 order and message, a SIGTERM test), the complexity (two timeouts and an order, no new state) and its cost (up to the bound longer). Title and goal shortened; three checks, the first your build-or-drop decision.
+- 2026-11-27T11:04 request 2 by jhf:
+  Thinking about this ticket, I'm tempted to reject it. Why? Because then our current upgrade actually tests what we're doing. So I think that we either have to wait until the work finishes completely before we upgrade, meaning you have no in-progress things. But what if the upgrade fixes something that hangs? Or this behavior we have today is safe and exercises precisely rescuing something that will stall forever and making and it relies on and tests or semantics that are crash safe
 
 ## History
 - 2026-11-22T23:31 todo -> todo/design (ask)
@@ -58,3 +60,4 @@ Pieces it would touch: (1) cli/src/worker.cr: the shutdown wait (5 s) becomes th
 - 2026-11-26T21:39 request 1 acknowledged by rabbit
 - 2026-11-26T21:40 request 1 in progress by rabbit: hug task set rkfa4j
 - 2026-11-26T21:40 resolved request 1 by rabbit
+- 2026-11-27T11:04 request 2 by jhf
