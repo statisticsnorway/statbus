@@ -41,3 +41,5 @@ Catalogue: public.quality_check becomes a table (id int stable never reused, rul
 ## Notes
 
 file:0pn35h-architecture.md (18977 bytes, sha256:dba4c962) The measured comparison and the decided design
+
+Split: part 1 (intarray, catalogue table, empty relation tables) is me96tn and can start now; this task is part 2 (array on statistical_unit, fill relation tables, drop quality_finding, app) and waits for the counting branch (f2gx3m, s465ff) and me96tn.
