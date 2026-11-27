@@ -4,7 +4,7 @@ title: "Quality part 1: intarray, check catalogue table, empty relation tables"
 state: "doing"
 type: feature
 priority: ""
-assignee: ["shrimp"]
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzy"
@@ -43,3 +43,4 @@ file:0pn35h-architecture.md (18977 bytes, sha256:dba4c962) Measured design repor
 
 ## History
 - 2026-11-27T10:12 todo -> doing/active (take)
+- 2026-11-27T10:33 handed to rabbit: shrimp's session went silent (last seen 2026-11-18 15:18)
