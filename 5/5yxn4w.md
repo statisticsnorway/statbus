@@ -1,7 +1,7 @@
 ---
 id: 5yxn4w
 title: "Regions show and upload their centre coordinates under Advanced"
-state: "doing"
+state: "done"
 type: feature
 priority: "medium"
 assignee: ["hibiscus"]
@@ -10,12 +10,10 @@ group: ""
 rank: "zzzzzzzq"
 created: 2026-11-23
 updated: 2026-11-23
-stage: "active"
-doing_since: "2026-11-27T13:21"
-doing_with: "z2qt08"
 model: "claude-opus-5-5"
 branch: "feat/units-on-map"
 worktree: "/Users/jhf/ssb/statbus_test"
+done_at: "2026-11-27T13:21"
 ---
 
 ## Goal
@@ -93,6 +91,7 @@ landed 98d6626 on master 2026-11-27: upload regions: '1 row in the file', not '1
 landed 19bbb0f on master 2026-11-27: upload form: a picked file offers Store or Cancel, Skip only before a pick…
 landed 6190dbc on master 2026-11-27: upload regions: Skip only once regions exist (5yxn4w)
 landed 847de8c on master 2026-11-27: db: a region change re-derives only what it changes (5yxn4w)
+Reflection (open, 2026-11-27, hibiscus): "Released migrations are immutable" covered migrations but nothing covers two branches adding a test with the same number (master's 414 and mine); I renumbered mine to the next number free on master and the unmerged rename branch.
 ## History
 - 2026-11-23T13:58 todo -> todo/depends (ask)
 - 2026-11-23T16:12 answered design, by jhf, for hibiscus (todo/depends -> todo/depends):
@@ -101,3 +100,4 @@ landed 847de8c on master 2026-11-27: db: a region change re-derives only what it
 - 2026-11-23T16:12 answer 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
 - 2026-11-23T16:21 hibiscus read the answer: hug task note 5yxn4w "2026-11-23 (hibiscus) Owner's answer on Playwright: browser tests only as a systematic suite for most of the app, in it…"
 - 2026-11-27T13:21 todo/ready -> doing/active (take with z2qt08)
+- 2026-11-27T13:21 doing/active -> done (done); was doing_since: 2026-11-27T13:21; doing_with: z2qt08
