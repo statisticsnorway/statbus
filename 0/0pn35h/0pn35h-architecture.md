@@ -154,3 +154,81 @@ because there they cost nothing: they are computed while the row is written anyw
 - The dashboard counts the array (43-64 ms) plus the small tables. The search filter uses `@>` or
   `&&` on the array, or a join to the small table. The unit page reads the array from the row it
   already has, plus one lookup per small table.
+
+## Final design to decide (2026-11-27 morning): what goes where, how each page reads it, measured
+
+### Two kinds of check, two places
+
+| Kind | Checks today | Findings on Norway | Where | Why |
+|---|---|---|---|---|
+| **Row check**: the unit's own row decides it | missing region, missing activity category, missing physical location, secondary equals primary | 2.3 M | `statistical_unit.quality_check_ids int[]`, generated from the row's own columns | It is computed while the row is written: no extra write (measured within noise) and always current in the same transaction as the edit |
+| **Relation check**: the unit and other units decide it (a legal unit and its establishments) | establishment has another activity; per summed variable: establishments above legal unit, legal unit above establishments | 11 038 unit rows | **one small table** `quality_relation_finding (unit_type, unit_id, valid_range, existence_from, existence_until, hash_slot, check_ids int[], detail jsonb)`, rederived per hash partition by the existing step | Writing them into `statistical_unit` costs 16 s (each UPDATE rewrites the wide row and its 45 indexes); a small table costs 9 ms |
+
+**One small table, not one per check.** Measured (`tmp/0pn35h-relation-shapes.log`): with 11 038 rows,
+the dashboard count over a shared table with `check_ids int[]` takes 7 ms, against 3 ms with one row
+per check. A search takes 3 ms against 2 ms. Every shape is fast enough here. One table with the same
+`int[]` as `statistical_unit` gives both kinds the same form, so the readers handle row and relation
+checks alike. `detail` is keyed by check id (`{"101": {"legal_unit": 5, "establishments_sum": 9}}`).
+The data: 11 008 rows carry only check 4, 23 only 101, 5 only 201, and 2 carry {4,101}.
+
+### The catalogue gives every check an integer
+
+`quality_check` becomes a table (today it is a view):
+
+| column | |
+|---|---|
+| `id int` | the number in the arrays; stable, never reused |
+| `rule quality_rule` | the slug (enum), which keys the app's wording |
+| `stat_definition_id int` | the variable of a per-variable check, NULL otherwise |
+| `kind` | `row` or `relation`: which store holds its findings |
+| `switched_on boolean` | replaces `quality_check_switched_on` |
+| `priority` | the dashboard order |
+
+A per-variable check gets its own id when its variable is created (the lifecycle callback that
+already follows `stat_definition`), so "employees: establishments above legal unit" is one integer.
+Row checks have fixed ids (1 missing region, 2 missing activity category, 3 missing physical
+location, 7 secondary equals primary), because the generated column names them.
+
+### How each page reads it
+
+| Page | Query | Measured on Norway |
+|---|---|---|
+| **Dashboard cards** | One grouped count over the array (a partial covering index on rows with a check), plus one over the relation table | 43-64 ms + 7 ms (today 79 ms) |
+| **Search, Quality filter, many units** (≥ 1000 at the date) | `statistical_unit?quality_check_ids=cs.{2}` with the search's order and paging. The planner walks the name index and stops at the page | 1.5-4.5 ms (check 3, 2: today 10 ms) |
+| **Search, Quality filter, few units** (< 1000) | The same filter, sent as an RPC that filters first and then sorts (as `statistical_unit_quality` does today); the switch at 1000 stays as it is today | 0.07 ms (check 1, 2 units) |
+| **Search, relation check** | `statistical_unit` with `quality_relation_finding!inner(check_ids=cs.{4})`, as today's inner embed | as today |
+| **Unit page** (b6f1pw) | Row checks: `quality_check_ids` is on the row the page already reads. Relation checks: one lookup by the unit's key in the small table | 0.3 ms; under 1 ms |
+| **Admin > Data quality checks** | `quality_check` table: switch per id | |
+
+**Why the search still needs two paths for rare checks.** The planner estimates an array element's
+frequency from `most_common_elems`. A check with 2 units falls below that list, so the planner
+guesses about 15 000 rows and walks the whole name index: 28 s on the real table, 2.3 s on a slim
+copy. A higher statistics target (10 000) fixed it in one run and not in the next. Starting from the
+few rows a GIN lookup finds is reliable (0.07 ms). The app already chooses by the card's count (the
+1000 cutoff, owner's decision 2026-11-26), so the rule stays and only the source changes.
+
+### Writes and refresh
+
+- **Row checks:** none of their own. The generated column follows every `statistical_unit` write:
+  full refresh, partial batch, flush. Adding the column to the existing 3.0 M rows rewrites the
+  table once: **11 min on the Norway copy** (migration time, measured), and the GIN index takes 1.1 s.
+- **Relation checks:** the existing `derive_quality` step with its partitions, now only for the
+  relation checks. Full run: about 15.6 s to compute (measured), the write 9 ms. A partial run: the
+  changed partitions, as today.
+- **bxt67q** (a variable switched off): only relation checks depend on variables. An `int[]`
+  cannot carry a foreign key, so the findings of a disabled variable's checks do not disappear by
+  themselves. The readers count and list only ids whose catalogue row is enabled, and switching a
+  variable enqueues the relation step, which rewrites the arrays without that id (11 038 rows, ms).
+
+### What goes away
+
+`quality_finding` (2.3 M rows, 517 MB + 429 MB indexes), the four row rules in
+`quality_finding_def`, and their share of the derive (about 40 s of the 47-68 s full run).
+
+### What I need from you
+
+1. The two places (array on `statistical_unit` for row checks, one small table for relation checks).
+2. Integer ids from a `quality_check` table, with the enum kept as the slug.
+3. The 11 min table rewrite at migration on Norway-sized installations.
+4. Order: after lobster's counting branch lands, because both change `statistical_unit_def` and the
+   comparison view.
