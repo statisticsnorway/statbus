@@ -424,14 +424,15 @@ export function RegionsMap() {
                 </Link>
               </p>
             )}
-            {children.length > 0 && (
+            {/* Each region once: those on the map here, those without a centre under Not on the map. */}
+            {children.length > 0 && placed.length > 0 && (
               <section data-regions-map-children="">
                 <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {children.length.toLocaleString()}{" "}
-                  {at ? "subregions" : "regions"}
+                  {placed.length.toLocaleString()}{" "}
+                  {at ? "subregions" : "regions"} on the map
                 </h2>
                 <ul className="mt-1 space-y-0.5">
-                  {children.map((r) => (
+                  {placed.map((r) => (
                     <li
                       key={r.path}
                       className={`flex items-center gap-1 rounded ${r.path === picked ? "bg-gray-100" : "hover:bg-gray-100"}`}
@@ -482,7 +483,21 @@ export function RegionsMap() {
                           {r.code ?? r.path}
                         </span>
                       </span>
-                      {editButton(r, "Place on the map")}
+                      <span className="flex shrink-0 items-center">
+                        {editButton(r, "Place on the map")}
+                        {hasChildren.has(r.path) && (
+                          <button
+                            type="button"
+                            className="rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
+                            title={`Go into ${r.name}`}
+                            aria-label={`Go into ${r.name}`}
+                            onClick={() => go(r.path)}
+                            data-child-enter={r.path}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ul>
