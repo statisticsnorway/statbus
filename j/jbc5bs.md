@@ -85,6 +85,7 @@ check 10: b534af8e5 test/sql/419: center_* region file refused (column does not 
 2026-11-27 12:42 (hibiscus) Headless on the test slot after the rename (tmp/rename-pages-headless.log): Regions list shows a region's coordinates (59.91333, 10.73897, ·), Regions map lists 17 regions on the map, search map draws, upload page names latitude, longitude, altitude; no /rest errors.
 2026-11-27 13:44 (hibiscus) On master: b534af8e5 (fast-forward). CI Fast Tests 46000665092 attempt 2: success (all 147 + 3 SQL, daemon floor, live-database tests); app build & lint success.
 Reflection (open, 2026-11-27, hibiscus): The handover worked; the gap was "Released migrations are immutable" without a rule for an unreleased migration on a branch rebased behind newer master migrations: I renamed its timestamp to come after master's newest and re-based the functions both branches changed on their current \sf.
+landed b534af8 on master 2026-11-27: db, app, test: coordinates are latitude, longitude, altitude; postal coordinates…
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
