@@ -153,4 +153,65 @@ ORDER BY t.id DESC LIMIT 1;
  1                        | 1
 (1 row)
 
+-- A rule about a legal unit can turn on an edit of its establishment only: establishment activity
+-- differs compares the legal unit with its primary establishment.
+SELECT id AS activity_b_id FROM public.activity_category WHERE enabled ORDER BY path OFFSET 1 LIMIT 1 \gset
+UPDATE public.activity__for_portion_of_valid SET category_id = :activity_b_id, edit_comment = '0pn35h establishment edit'
+WHERE establishment_id = (SELECT id FROM public.establishment WHERE name = 'LU-3-es') AND type = 'primary';
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo
+
+\echo "144.6 an edit of LU-3's establishment alone lists LU-3: its primary establishment has another activity"
+"144.6 an edit of LU-3's establishment alone lists LU-3: its primary establishment has another activity"
+SELECT f.rule, u.unit_type, u.name
+FROM public.quality_finding AS f JOIN fixture_unit AS u USING (unit_type, unit_id)
+WHERE u.name LIKE 'LU-3%'
+ORDER BY f.rule, u.unit_type, u.name;
+              rule              | unit_type  | name 
+--------------------------------+------------+------
+ establishment_activity_differs | legal_unit | LU-3
+(1 row)
+
+-- A per-variable rule follows its variable without any unit edit: LU-4 has employees 5 and its
+-- establishment 9 (establishments above the legal unit).
+SELECT id AS employees_id FROM public.stat_definition WHERE code = 'employees' \gset
+INSERT INTO public.stat_for_unit (stat_definition_id, valid_from, legal_unit_id, value_int, edit_by_user_id, edit_comment)
+SELECT :employees_id, '2020-01-01'::date, lu.id, 5, :user_id, '0pn35h own value'
+FROM public.legal_unit AS lu WHERE lu.name = 'LU-4';
+INSERT INTO public.stat_for_unit (stat_definition_id, valid_from, establishment_id, value_int, edit_by_user_id, edit_comment)
+SELECT :employees_id, '2020-01-01'::date, es.id, 9, :user_id, '0pn35h establishment value'
+FROM public.establishment AS es WHERE es.name = 'LU-4-es';
+CALL worker.process_tasks(p_queue => 'analytics');
+SET client_min_messages TO WARNING;
+UPDATE public.stat_definition SET enabled = false WHERE code = 'employees';
+RESET client_min_messages;
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo
+
+\echo "144.7 disabling employees, with no unit edited, rederives nothing: LU-4's employees finding stays until bxt67q schedules it"
+"144.7 disabling employees, with no unit edited, rederives nothing: LU-4's employees finding stays until bxt67q schedules it"
+SELECT count(*) AS employees_findings FROM public.quality_finding WHERE stat_definition_id = :employees_id;
+ employees_findings 
+--------------------
+                  1
+(1 row)
+
+SET client_min_messages TO WARNING;
+UPDATE public.stat_definition SET enabled = true WHERE code = 'employees';
+RESET client_min_messages;
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo
+
+\echo "144.8 enabling it again lists LU-4 for employees: establishments above the legal unit"
+"144.8 enabling it again lists LU-4 for employees: establishments above the legal unit"
+SELECT f.rule, sd.code AS stat_code, u.name
+FROM public.quality_finding AS f
+JOIN fixture_unit AS u USING (unit_type, unit_id)
+JOIN public.stat_definition AS sd ON sd.id = f.stat_definition_id
+ORDER BY f.rule, u.name;
+              rule               | stat_code | name 
+---------------------------------+-----------+------
+ establishments_above_legal_unit | employees | LU-4
+(1 row)
+
 ROLLBACK;
