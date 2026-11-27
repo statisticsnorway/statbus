@@ -58,3 +58,4 @@ statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_ri
 - 2026-11-27T15:47 hibiscus read the answer: hug task note sz7rvn "2026-11-27 14:47 Owner (in chat, after the measured comparison): LEAKPROOF on the ltree comparison operators; keep RLS,…"
 - 2026-11-27T15:47 outcome 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
 - 2026-11-27T15:47 todo/ready -> doing/active (take with j2g6wd)
+- 2026-11-27T15:47 outcome 1 acknowledged by rabbit
