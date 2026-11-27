@@ -86,7 +86,7 @@ function TotalRuleText({
   if (unitType === "enterprise") {
     return (
       <>
-        <p className="font-medium text-gray-900">{variableName}: Σ = sum of its legal units</p>
+        <p className="font-medium text-gray-900">{variableName}: Σ = Σ legal units</p>
         <p>An enterprise&apos;s total is the sum of its legal units&apos; totals. Legal units do not overlap, so nothing is counted twice.</p>
       </>
     );
@@ -94,7 +94,7 @@ function TotalRuleText({
   if (unitType === "power_group") {
     return (
       <>
-        <p className="font-medium text-gray-900">{variableName}: Σ = sum of its enterprises</p>
+        <p className="font-medium text-gray-900">{variableName}: Σ = Σ enterprises</p>
         <p>A power group&apos;s total is the sum of its enterprises&apos; totals.</p>
       </>
     );
@@ -102,7 +102,7 @@ function TotalRuleText({
   if (rule === "max") {
     return (
       <>
-        <p className="font-medium text-gray-900">{variableName}: Σ = max(legal unit, establishments)</p>
+        <p className="font-medium text-gray-900">{variableName}: Σ = max(legal unit, Σ establishments)</p>
         <p>
           max: the larger of the legal unit&apos;s own value and its establishments&apos; sum. The legal unit
           and its establishments report the same people, so they are counted once.
@@ -112,7 +112,7 @@ function TotalRuleText({
   }
   return (
     <>
-      <p className="font-medium text-gray-900">{variableName}: Σ = legal unit + establishments</p>
+      <p className="font-medium text-gray-900">{variableName}: Σ = legal unit + Σ establishments</p>
       <p>
         sum: the legal unit&apos;s own value plus its establishments&apos; sum. Each value is reported on one
         level only.
