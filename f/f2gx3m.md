@@ -4,7 +4,7 @@ title: "Totals that do not add up on jo: a unit counted before its birth date"
 state: "doing"
 type: feature
 priority: ""
-assignee: ["lobster"]
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "00000000000f"
@@ -69,3 +69,4 @@ Norway copy on slot a: 0 establishments and 0 legal units have a birth or death 
 - 2026-11-26T22:22 todo -> doing/active (take)
 - 2026-11-26T22:24 handed to rabbit: lobster's session went silent (last seen 2026-11-19 16:38)
 - 2026-11-27T00:00 doing/active -> doing/waiting (wait)
+- 2026-11-27T01:10 handed to rabbit: lobster's session went silent (last seen 2026-11-19 16:38)
