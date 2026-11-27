@@ -2,6 +2,7 @@
 
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import SortableTableHead from "@/app/search/components/sortable-table-head";
+import { ColumnSelectorButton } from "@/app/search/components/column-selector-button";
 import { statDefinitionsAtom, externalIdentTypesAtom } from "@/atoms/base-data";
 import { useAtomValue } from "jotai";
 import { Button } from "@/components/ui/button";
@@ -243,9 +244,11 @@ export function StatisticalUnitTableHeader({
           }
         })}
         <TableHead
-          className="sticky right-0 bg-gray-50"
+          className="sticky right-0 bg-gray-50 px-1 text-right"
           data-pinned-edge="right"
-        />
+        >
+          <ColumnSelectorButton />
+        </TableHead>
       </TableRow>
     </TableHeader>
   );

@@ -11,7 +11,6 @@ import StatisticalVariablesFilter from "@/app/search/filters/statistical-variabl
 import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
 import { FilterWrapper } from "./filter-wrapper";
 import DataSourceFilter from "../filters/data-source/data-source-filter";
-import { ColumnSelectorButton } from "./column-selector-button";
 import StatusFilter from "../filters/status/status-filter";
 import UnitSizeFilter from "../filters/unit-size/unit-size-filter";
 import LastEditByUserFilter from "../filters/last-edit-by-user/last-edit-by-user-filter";
@@ -105,7 +104,6 @@ export default function TableToolbar() {
       </FilterWrapper>
       <StatisticalVariablesFilter />
       <ResetFilterButton />
-      <ColumnSelectorButton />
     </div>
   );
 }
