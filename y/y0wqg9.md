@@ -1,6 +1,6 @@
 ---
 id: y0wqg9
-title: "Timeline splits at birth and death recalculate the primary establishment"
+title: "The import picks the earliest-born establishment as primary, not the first row"
 state: todo
 type: feature
 priority: ""
@@ -13,16 +13,16 @@ updated: 2026-11-27
 ---
 
 ## Goal
-An establishment born inside a frame is its legal unit's primary from its birth date, and none before it.
+Within one import job, a legal unit's primary is its earliest-existing establishment, whatever the row order.
 
 ## Purpose
-jo.statbus.org Frame 2023: legal unit Statistics Norway o's primary establishment, Statbus Norway O (86), is primary from 2023-01-01 but born 2024-11-01, so in 2023 the tree shows no primary. Owner 2026-11-27 19:40: a consistency error, not a quality check or a page notice. The wrong case (born in a later year than valid_from) is refused at import (test 418); the right case, born inside the frame, must give the primary from the birth date.
+jo.statbus.org Frame 2023: legal unit 89's primary is establishment 86 (born 2024-11-01) while establishment 89 (born 2023-11-01) exists from November 2023, so 2023 shows no primary. The import's holistic step analyse_link_establishment_to_legal_unit ranks candidates by row order in the file (original_data_table_row_id), not by when they exist.
 
 ## Principle
-Counting and the primary follow the same existence: a unit that does not exist in a stretch counts nothing and is primary for nothing there. Test first: a SQL test shows the primary from the birth date and none before it.
+Owner 2026-11-27 20:33: a primary, once stored, is settled. The import picks one only where none exists, and then by existence: the earliest birth (or valid_from) wins. Changing a stored primary is a separate step, by hand (Set as primary, 2f4c0z) or in bulk by the workflow 2gpcs7 (xhxnsy), never by a later import. No per-stretch recalculation and no row splits: the earliest-born establishment is primary from its rows' start, and before its birth nothing exists to show.
 
 ## Details
-f2gx3m (master 866d8e3fc) splits timelines at birth_date and death_date (unit_counts_in, timepoints). primary_for_legal_unit is stored on establishment rows by their validity. Assert per stretch, for a legal unit valid 2023-01-01..inf with an establishment primary_for_legal_unit valid 2023-01-01..inf but born 2023-11-01: before 2023-11-01 the legal unit has no existing primary establishment (statistical_unit_hierarchy and the legal unit's timeline), from 2023-11-01 that establishment is primary. Same for a death date: primary until death, none after.
+Checked 2026-11-27: link_establishment_to_legal_unit is holistic (is_holistic = true), so it sees every row of the job at once and batch boundaries do not matter. Its candidates exclude rows whose validity overlaps an already-stored primary (steps 8-11), which is the settled-primary rule the owner wants. Only the rank inside a time island is wrong: ROW_NUMBER() OVER (PARTITION BY resolved_lu_id, island_id ORDER BY original_data_table_row_id). Rank by unit_existence_from(valid_from, birth_date), then establishment id. analyse_establishment (batched, priority 20) only tidies duplicates the holistic step left; check it keeps the holistic pick. The same rule applies to a legal unit as its enterprise's primary (analyse_legal_unit / enterprise link steps): check whether they rank by row order too. The wrong case (birth in a later year than valid_from) is refused at import (test 418).
 
 ## Depends on
 
