@@ -1,4 +1,4 @@
--- Migration 20261127135129: legal unit totals: rollup per variable and counting where a unit exists
+-- Migration 20261127161312: legal unit totals: rollup per variable and counting where a unit exists
 --
 -- s465ff: each summed variable chooses how a legal unit's total combines its own value with its
 -- establishments' (stat_definition.lu_es_rollup): 'sum' adds them, as every released version did;

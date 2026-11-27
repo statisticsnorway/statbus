@@ -1,4 +1,4 @@
--- Down Migration 20261127135129: every legal unit total takes the larger level again
+-- Down Migration 20261127161312: every legal unit total takes the larger level again
 -- (public.jsonb_stats_covers), units count by validity alone, and the import accepts a birth in a
 -- later year. Totals recalculate once.
 BEGIN;
