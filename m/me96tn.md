@@ -46,6 +46,10 @@ check 3: migrate-and-test fast: 143/147 then the 4 generated tests (002/008/015/
 Branch quality/part-1-catalogue-intarray @3ac36cfc9 pushed, not merged. Proposed final table name: quality_check (replacing the view in part 2); staging name quality_check_catalogue. Relation tables have no FK to statistical_unit (TRUNCATE CASCADE in statistical_unit_refresh would cascade); part 2 must add them to that refresh truncate.
 
 
+landed e15dec6 on master 2026-11-27: quality: check catalogue with integer ids, relation tables, intarray gin indexes…
+landed 9549e19 on master 2026-11-27: quality: renumber test 415 to 417, clear of the counting branch (me96tn)
+landed a4c679b on master 2026-11-27: quality: rebase onto the coordinate rename; migrations renamed 20261127135220…
+landed 0f9a807 on master 2026-11-27: quality: migrations renamed 20261127161320 and 20261127161330, after counting's…
 ## History
 - 2026-11-27T10:12 todo -> doing/active (take)
 - 2026-11-27T10:33 handed to rabbit: shrimp's session went silent (last seen 2026-11-18 15:18)
