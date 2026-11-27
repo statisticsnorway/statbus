@@ -66,3 +66,4 @@ landed 9942b85 on master 2026-11-27: db: ltree comparisons are LEAKPROOF, so a s
 - 2026-11-27T15:47 outcome 1 acknowledged by rabbit
 - 2026-11-27T15:51 doing/active -> doing/review (review: hibiscus ticked the last own check)
 - 2026-11-27T15:51 review 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-27T15:51 review 1 acknowledged by rabbit
