@@ -4,7 +4,7 @@ title: "Quality part 1: intarray, check catalogue table, empty relation tables"
 state: "doing"
 type: feature
 priority: ""
-assignee: ["jcode-b"]
+assignee: ["shrimp"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzy"
