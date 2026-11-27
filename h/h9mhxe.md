@@ -49,3 +49,5 @@ check 4: test 417: EXPLAIN data_source_ids && '{1}' is a Bitmap Index Scan on id
 check 5: 144.3b: after a one-unit edit's partial flush, LU-EDIT quality_check_ids {}->{7}, LU-FIX {}->{1}; 144.6: an establishment-only edit lists LU-3 for establishment_activity_differs. Branch 0a3b77d49
 
 check 6: 144.7/411.8: disabling a variable with no unit edited -> quality_check_count and statistical_unit_quality give 0 for its checks (in_use false); re-enable restores (144.8)
+
+Part 2 on quality/part-2-array-and-relation-tables @0a3b77d49 (on counting de9f86fcd + part 1). Fast 147/147, jest 567/567, tsc/build pass. Checks 2,3 (Norway timings) for rabbit; 7 needs a full derive on Norway.
