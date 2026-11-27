@@ -53,3 +53,11 @@ BEGIN
     ALTER FUNCTION graphql.increment_schema_version() SET search_path = public, graphql, pg_temp;
   END IF;
 END $$;
+
+-- ltree comparisons are LEAKPROOF (migration 20261127144756, sz7rvn): so a signed-in user's
+-- search on a region, sector or activity path uses the path's index under statistical_unit's
+-- row-level security. The mark is on extension member functions, which pg_restore --clean
+-- recreates without it; set it again.
+ALTER FUNCTION public.ltree_risparent(public.ltree, public.ltree) LEAKPROOF;
+ALTER FUNCTION public.ltree_isparent(public.ltree, public.ltree) LEAKPROOF;
+ALTER FUNCTION public.ltree_eq(public.ltree, public.ltree) LEAKPROOF;

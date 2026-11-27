@@ -1,0 +1,31 @@
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+-- sz7rvn: a search on a region, sector or activity path is planned from the path's own index for
+-- a signed-in user, however few units match. statistical_unit has row-level security, and the
+-- planner lets a non-superuser's condition use its column statistics and index ahead of the
+-- policy only when the condition's operator function is LEAKPROOF. Without the mark a path with
+-- fewer than ten units read the whole register in name order: on the Norway register a 5-unit
+-- region took over 20 s, with the mark 0.2 ms (owner chose the mark 2026-11-27 and kept the
+-- row-level security). The mark is the cause, so the test asserts it on every ltree comparison
+-- operator a search or the app uses.
+\echo "The ltree comparison operators a search uses are LEAKPROOF"
+"The ltree comparison operators a search uses are LEAKPROOF"
+SELECT o.oprname, p.proname, p.proleakproof
+  FROM pg_operator AS o
+  JOIN pg_proc AS p ON p.oid = o.oprcode
+ WHERE o.oprleft = 'public.ltree'::regtype AND o.oprright = 'public.ltree'::regtype
+   AND o.oprname IN ('<@', '@>', '=')
+ ORDER BY o.oprname;
+ oprname |     proname     | proleakproof 
+---------+-----------------+--------------
+ <@      | ltree_risparent | t
+ =       | ltree_eq        | t
+ @>      | ltree_isparent  | t
+(3 rows)
+
+ROLLBACK;
