@@ -61,3 +61,4 @@ Pieces it would touch: (1) cli/src/worker.cr: the shutdown wait (5 s) becomes th
 - 2026-11-26T21:40 request 1 in progress by rabbit: hug task set rkfa4j
 - 2026-11-26T21:40 resolved request 1 by rabbit
 - 2026-11-27T11:04 request 2 by jhf
+- 2026-11-27T11:04 request 2 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
