@@ -240,6 +240,16 @@ export function RegionsMap({
       Math.sqrt(top),
       (28 + 4) / 13,
     ]);
+    // A label is left out where it would stand on a larger place's circle (owner 2026-11-27:
+    // Sweden's label stood on Norway's circle and read as the big one). The place keeps its
+    // circle, its row in the list, and its label once zoomed in so the two stand apart.
+    const crowded = crowdedLabels(map, featuresRef.current, Math.sqrt(top));
+    map.setFilter(
+      "region-labels",
+      crowded.length > 0
+        ? ["!", ["in", ["get", "path"], ["literal", crowded]]]
+        : null
+    );
   }, []);
 
   // Picks one child of the selection, from a click on its circle, one of its type legs or its row
@@ -949,6 +959,37 @@ export function RegionsMap({
  * with (history-reports.tsx; owner 2026-11-23).
  */
 const DEFAULT_UNIT_TYPE: MapUnitType = "enterprise";
+
+/**
+ * The places whose label would stand on a larger place's circle at the current zoom: a label is
+ * about 13 px high and the circles are sized as scaleToView sizes them (28 px for the largest in
+ * view), so a smaller place whose centre lies within the larger circle's radius plus a label's
+ * height is too close to name without covering it.
+ */
+function crowdedLabels(
+  map: MapLibreMap,
+  features: GeoJSON.Feature<GeoJSON.Point, { total: number }>[],
+  sqrtTop: number
+): string[] {
+  const radius = (total: number) =>
+    4 + (24 * Math.sqrt(total)) / Math.max(sqrtTop, 1);
+  const placed = features.map((f) => ({
+    path: (f.properties as unknown as RegionFeatureProperties).path,
+    total: f.properties.total,
+    at: map.project(f.geometry.coordinates as [number, number]),
+  }));
+  const crowded: string[] = [];
+  for (const small of placed) {
+    const covered = placed.some(
+      (big) =>
+        big.total > small.total &&
+        Math.hypot(big.at.x - small.at.x, big.at.y - small.at.y) <
+          radius(big.total) + 13
+    );
+    if (covered) crowded.push(small.path);
+  }
+  return crowded;
+}
 
 /** ?at= in the map's URL: absent is the country, "world" the world, "country:SE" a foreign country, else a region path. */
 function parseSelection(at: string | null): MapSelection {
