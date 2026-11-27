@@ -18,6 +18,7 @@ import {
 import { Badge } from "../ui/badge";
 import { usePermission } from "@/atoms/auth";
 import { SetPrimaryUnit } from "./set-primary-unit";
+import { establishmentValues, legalUnitTotalFormula } from "./total-formula";
 
 interface TopologyItemProps {
   readonly active?: boolean;
@@ -151,6 +152,10 @@ export function TopologyItem({
                     typeof value === "number"
                       ? thousandSeparator(value)
                       : value;
+                  const formula =
+                    type === "legal_unit" && typeof value === "number" && typeof statsSum === "number" && statDefinition.id !== null
+                      ? legalUnitTotalFormula(value, statsSum, establishmentValues(unit as LegalUnit, statDefinition.id))
+                      : undefined;
                   return (
                     <TopologyItemInfo
                       key={statDefinition.id}
@@ -158,6 +163,7 @@ export function TopologyItem({
                       title={statDefinition.name!}
                       value={type !== "enterprise" && formattedValue}
                       sum={thousandSeparator(statsSum)}
+                      formula={formula}
                       status={unit.status}
                     />
                   );
@@ -186,6 +192,12 @@ interface TopologyItemInfoProps {
   fallbackValue?: string;
   className?: string;
   sum?: string | number | boolean | null;
+  /**
+   * How the total after Σ was made, written after "=": "364 + 5" for a variable that adds the
+   * legal unit's own value to its establishments' sum, "max(364, 5)" for one that takes the larger
+   * (stat_definition.lu_es_rollup, s465ff). Absent when the total is a single level's value.
+   */
+  formula?: string;
   status?: Status;
 }
 
@@ -195,6 +207,7 @@ const TopologyItemInfo = ({
   fallbackValue = "-",
   className,
   sum,
+  formula,
   status,
 }: TopologyItemInfoProps) => (
   <div className={cn("flex flex-col space-y-0 text-left", className)}>
@@ -206,9 +219,10 @@ const TopologyItemInfo = ({
       {value ?? fallbackValue}
     </span>
     {sum && (
-      <div className="inline-flex items-center font-semibold">
-        <span className="text-xs mr-1">&#8721;</span>
-        <span className="text-sm">{sum}</span>
+      <div className="inline-flex items-baseline gap-1 whitespace-nowrap" data-total-formula={formula ?? ""}>
+        <span className="text-xs font-semibold">&#8721;</span>
+        <span className="text-sm font-semibold">{sum}</span>
+        {formula && <span className="text-xs text-gray-500">= {formula}</span>}
       </div>
     )}
   </div>

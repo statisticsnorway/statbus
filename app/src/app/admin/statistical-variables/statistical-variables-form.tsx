@@ -21,6 +21,12 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
    { value: "int", label: "Integer" },
    { value: "float", label: "Float" },
  ];
+// How a legal unit's total of this variable combines its own value with its establishments'
+// (stat_definition.lu_es_rollup, s465ff). Shown as the formula after Σ in the Links tree.
+const luEsRollupOptions = [
+  { value: "sum", label: "Add: legal unit + establishments" },
+  { value: "max", label: "Larger of: legal unit or establishments" },
+];
 export function StatDefinitionForm({
   statDefinition,
   isOpen,
@@ -112,6 +118,20 @@ export function StatDefinitionForm({
                 value={isEdit ? (statDefinition.priority ?? "") : ""}
                 placeholder="Display order"
               />
+            </div>
+            <div className="grid gap-1">
+              <SelectField
+                label="Legal unit total"
+                name="lu_es_rollup"
+                options={luEsRollupOptions}
+                response={state}
+                value={isEdit ? (statDefinition.lu_es_rollup ?? "sum") : "sum"}
+                placeholder="How a legal unit's total is made"
+              />
+              <span className="text-xs text-gray-400 pl-1">
+                Add when each value is reported on one level only. Larger of when the legal unit and
+                its establishments both report the same people. Changing it recalculates the totals.
+              </span>
             </div>
             <div className="mb-1 bg-gray-50 border-1 rounded-md p-2">
               <SwitchField

@@ -14,6 +14,8 @@ const schema = zfd.formData({
   priority: z.coerce.number().int().min(1, "Priority is required"),
   enabled: zfd.checkbox(),
   type: z.enum(["int", "float", "string", "bool"], { message: "Type is required" }),
+  // How a legal unit's total combines its own value with its establishments' (public.lu_es_rollup).
+  lu_es_rollup: z.enum(["sum", "max"]).default("sum"),
 });
 
 
