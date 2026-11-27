@@ -9,6 +9,9 @@ DECLARE
     v_valid_until date := (payload->>'valid_until')::date;
     v_task_id bigint;
     v_hash_partition_size integer := GREATEST(1, 16384 / public.get_partition_count_target());
+    -- A full run: one range per analytics worker, so each does one large pass (fewer tasks than the
+    -- small partitions, which cost a task's start and commit each).
+    v_full_partition_size integer := 16384 / GREATEST(1, (SELECT q.default_concurrency FROM worker.queue_registry AS q WHERE q.queue = 'analytics'));
     v_full boolean;
     v_hash_partition int4range;
     v_child_count integer := 0;
@@ -26,8 +29,8 @@ BEGIN
     v_full := v_valid_from = '-infinity'::date AND v_valid_until = 'infinity'::date;
 
     FOR v_hash_partition IN
-        SELECT int4range(p.start, LEAST(p.start + v_hash_partition_size, 16384))
-        FROM generate_series(0, 16383, v_hash_partition_size) AS p(start)
+        SELECT int4range(p.start, LEAST(p.start + v_full_partition_size, 16384))
+        FROM generate_series(0, 16383, v_full_partition_size) AS p(start)
         WHERE v_full
         UNION
         SELECT int4range((d.dirty_hash_slot / v_hash_partition_size) * v_hash_partition_size,
