@@ -35,6 +35,8 @@ Rule to field: missing_region and missing_physical_location to Contact/location;
 - h9mhxe
 ## Acceptance
 - [ ] Legal unit 146 on the Norway copy shows the secondary-equals-primary mark on its Classifications page, and the mark goes when the secondary activity changes
+- [ ] Legal unit 146 on the Norway copy shows a mark on its Secondary activity field on the Classifications page, worded by QUALITY_RULE_WORDING as the dashboard card
+- [ ] After the secondary activity is changed to another code, the mark is gone at the next page load
 
 ## Notes
 
