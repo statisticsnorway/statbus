@@ -38,7 +38,7 @@ Plan: (1) Branch prototype/import-as-user-role. (2) In the worker's import task,
 - [x] A psql script on the branch shows SET LOCAL ROLE and RESET ROLE inside one transaction: rows written under the role carry the job user, statements after RESET ROLE run as postgres, and COMMIT keeps both
 - [x] A full Norway sample import runs as rabbit-review@statbus.org with every written unit row stamped with that user, or the task lists each step that is refused and why
 - [x] Import time on the branch compared with master on the same sample, recorded here
-- [ ] [Owner] Reads the result (works, works with listed definer steps, or does not work) and decides whether to build it; the decision is recorded in this task's notes
+- [x] [Owner] Reads the result (works, works with listed definer steps, or does not work) and decides whether to build it; the decision is recorded in this task's notes
 
 ## Requests
 - 2026-11-27T11:06 request 1 by jhf:
@@ -53,6 +53,7 @@ check 2: BRREG selection import as rabbit-review, 0 refusals, all unit rows stam
 check 3: branch 81.4s/72.9s vs master 72.4s/74.2s
 2026-11-21 19:24 (Rabbit, coordinator) reviewed buffalo's result: branch prototype/import-as-user-role f4aedb8cf pushed, not merged; artifacts tmp/5vxfjm/ (role-probe.sql, patch.sql, branch-run*/master-run* logs, check-stamps.sql). Owner informed; the sql_saga agent (f86twg) is starting the provenance work on that basis. Open for the owner: build or not; admin-user comparison run not done.
 2026-11-22 22:23 still with hibiscus, parked: units on a map (z2qt08) came first by the owner's order; this prototype resumes after z2qt08's phases land.
+check 4: Owner 2026-11-27 11:06 (request 1): build it. 'When either Statbus A or Statbus B is available, maybe this one could be scheduled independently in the master branch there. And if it works out, we can commit and push. If not, we will know what the problem is all recorded in this ticket.'
 ## History
 - 2026-11-21T09:49 todo -> doing/active (take)
 - 2026-11-21T20:10 handed to hibiscus: buffalo's session ended (closed 2026-11-21 10:29)
@@ -60,3 +61,4 @@ check 3: branch 81.4s/72.9s vs master 72.4s/74.2s
 - 2026-11-27T11:06 request 1 by jhf
 - 2026-11-27T11:06 request 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
 - 2026-11-27T11:07 request 1 acknowledged by hibiscus
+- 2026-11-27T11:07 request 1 in progress by hibiscus: hug task check 5vxfjm 4 "Owner 2026-11-27 11:06 (request 1): build it. 'When either Statbus A or Statbus B is available, maybe this one could be…"
