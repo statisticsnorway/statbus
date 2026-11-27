@@ -36,7 +36,7 @@ Catalogue: public.quality_check becomes a table (id int stable never reused, rul
 - [x] A test asserts that the Data source filter's plan uses idx_statistical_unit_data_source_ids after intarray is installed
 - [x] A unit edit changes its quality_check_ids in the same transaction; test 144 covers a relation check following an establishment-only edit
 - [x] Disabling a summed variable removes its relation checks from dashboard and search with no unit edited (closes bxt67q)
-- [ ] Full derive and fast suite green; doc/db and types regenerated
+- [x] Full derive and fast suite green; doc/db and types regenerated
 
 ## Notes
 
@@ -61,3 +61,5 @@ check 2: Norway copy 2026-11-27 after parts 1+2 (91ce3e04e): quality_check_count
 check 3: First page by name as jorgen@veridit.no: 2 units (RPC) 16 ms, 21 368-class row check 3 (22 446, cs.{3}) 9 ms, 161 571 (cs.{2}) 6-30 ms; app in tab 65 lists missing_region's 2 units and establishment_activity_differs 1-10 of 11 010 (tmp/h9mhxe-norway-search-role.txt)
 
 Full derive on Norway not yet run with part 2 (check 7): the migration now queues one; fast suite 150/150 on 91ce3e04e (counting 2c8065ac1 + part 1 + part 2 on master c3726cdc2). Pushed origin/quality/part-2-array-and-relation-tables 91ce3e04e. Waiting for owner's merge approval of counting first.
+
+check 7: Norway full derive on 91ce3e04e (queued 13:20, done 13:43, 23 min, tmp/h9mhxe-full-derive.log): derive_quality 4 partitions, 14.8 s wall (was 47-68 s with quality_finding), counts unchanged 1:2 2:161571 3:22446 4:11010 7:0 101:18 103:5. Fast suite 150/150 (tmp/test-fast-quality-rebased.log); doc/db regenerated in 91ce3e04e; types in part 2 commits
