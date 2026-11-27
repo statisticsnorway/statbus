@@ -54,5 +54,6 @@ No recalculation scheduled: the change only affects new choices, stored data sta
 landed 3ec476f on master 2026-11-27: import: primary establishment is the one that exists first, not the first file…
 landed d587a87 on master 2026-11-27: test 421: an imported legal unit is primary of its own new enterprise (y0wqg9…
 CI Fast Tests 46068218975 on d587a8757 cancelled at the 30-min job timeout: test 356_statbus_614_full_refresh_batch_size took 1002 s (locally 6.6 s, CI on 866d8e3fc 7.6 s); every test before it passed. Rerun started; diagnose 356 if it repeats. Close after a green run.
+CI Fast Tests 46068218975 attempt 2 on d587a8757: success (attempt 1 cancelled at the 30-min limit with 356 taking 1002 s; every test passed on rerun).
 ## History
 - 2026-11-27T21:43 todo -> doing/active (take)
