@@ -12,10 +12,13 @@ created: 2026-11-23
 updated: 2026-11-23
 doing_since: "2026-11-27T15:05"
 doing_with: "j2g6wd"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
+waiting_asked_by: "hibiscus"
+waiting_on: "owner's placement feedback (flag and name below the version line) is next after the Reports Map in today's walkthrough"
+waiting_since: "2026-11-27T17:04"
 ---
 
 ## Goal
@@ -60,3 +63,5 @@ landed c9647bd on master 2026-11-27: app: the footer shows the installation's co
   There is no file attached to this image. I have to look at that in conjunction with you. Referencing temp file is not valid, so I'm gonna disregard that
 - 2026-11-27T15:37 answer 1 delivered to hibiscus (session_hibiscus_1793348926173_ffff8733f4ad20e1)
 - 2026-11-27T15:38 answer 1 acknowledged by hibiscus
+- 2026-11-27T17:04 doing/active -> doing/waiting (wait)
+- 2026-11-27T17:04 hibiscus read the answer: hug task wait p9xte6 "owner's placement feedback (flag and name below the version line) is next after the Reports Map in today's walkthrough"
