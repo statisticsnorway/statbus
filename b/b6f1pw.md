@@ -1,15 +1,21 @@
 ---
 id: b6f1pw
 title: "Unit edit page marks the field a quality check flags"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzx"
 created: 2026-11-27
 updated: 2026-11-27
+doing_since: "2026-11-27T01:12"
+doing_with: "0pn35h"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -30,3 +36,7 @@ Rule to field: missing_region and missing_physical_location to Contact/location;
 - [ ] Legal unit 146 on the Norway copy shows the secondary-equals-primary mark on its Classifications page, and the mark goes when the secondary activity changes
 
 ## Notes
+
+
+## History
+- 2026-11-27T01:12 todo -> doing/active (take with 0pn35h)
