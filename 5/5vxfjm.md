@@ -1,6 +1,6 @@
 ---
 id: 5vxfjm
-title: "Prototype: an import job writes as its user's role"
+title: "An import job writes as its user's role"
 state: "doing"
 type: spike
 priority: ""
@@ -21,13 +21,13 @@ waiting_asked_by: "hibiscus"
 ---
 
 ## Goal
-Show on a branch whether the worker can run an import job's writes as the job user's role, so DEFAULT auth.uid() stamps the real writer.
+Import jobs write their unit rows as the job user's role, so auth.uid() stamps the real writer, on master.
 
 ## Purpose
 sql_saga's provenance proposal (k5q120 notes, 2026-11-20) fills edit_by_user_id from the column DEFAULT on every changed piece. The worker runs imports as postgres, where auth.uid() is NULL and edit_by_user_id is NOT NULL, so every import would fail. If this cannot work, the sql_saga work needs another StatBus answer before it is worth finishing.
 
 ## Principle
-Prototype before building: a branch, real imports, observed results; no merge to master from this task.
+Built on master in a slot of its own (statbus_a or statbus_b, whichever is free), independent of the map work; the prototype branch f4aedb8cf is the base. If it works it is committed and pushed; if not, the problem is recorded here. SET LOCAL ROLE gives correct stamping and RLS, not containment (session_user stays postgres); that is stated in the code where the role is set.
 
 ## Relevant details
 Plan: (1) Branch prototype/import-as-user-role. (2) In the worker's import task, SET LOCAL ROLE "<job user email>" before each analyse/process batch and RESET ROLE before the worker's own bookkeeping (worker.tasks, import_job state, base_change_log), all in one transaction. Prove first in a psql script: BEGIN; SET LOCAL ROLE user; INSERT ...; RESET ROLE; UPDATE worker.tasks ...; SET LOCAL ROLE user; ...; COMMIT works, and a later statement after RESET ROLE runs as postgres again. (3) Run a full Norway sample import (samples/norway, the getting-started set and a legal unit + establishment file) as rabbit-review@statbus.org (regular user) and as an admin user. (4) Record every refusal: steps needing rights a regular user lacks (DDL on the job data table, writes to statistical_unit, worker.*, import.* temp tables). For each, decide: SECURITY DEFINER for that step, or run it with the role reset. (5) Check edit_by_user_id on every written row equals the job user, with set_import_job_user_context and the explicit edit_by_user_id in import.analyse_edit_info removed. (6) Measure the import time against master on the same sample. (7) Write the result in this task: works / works with N definer steps / does not work, and why. Fallback if not: auth.uid() falls back to a protected session context for the acting user.
@@ -39,6 +39,9 @@ Plan: (1) Branch prototype/import-as-user-role. (2) In the worker's import task,
 - [x] A full Norway sample import runs as rabbit-review@statbus.org with every written unit row stamped with that user, or the task lists each step that is refused and why
 - [x] Import time on the branch compared with master on the same sample, recorded here
 - [x] [Owner] Reads the result (works, works with listed definer steps, or does not work) and decides whether to build it; the decision is recorded in this task's notes
+- [ ] A migration on master makes admin.import_job_process run the analysis and processing phases as the job user's role (as prototype f4aedb8cf), removes set_import_job_user_context, and analyse_edit_info stamps auth.uid(); a SQL test fails on master before it and passes after: rows an import writes carry the job user's id
+- [ ] A full Norway sample import as a regular user and as an admin user stamps every written unit row with that user, with no refusals; import time compared with master on the same sample and recorded here
+- [ ] Committed and pushed to master with CI green on its commit, or the failure that stopped it recorded in this task's notes
 
 ## Requests
 - 2026-11-27T11:06 request 1 by jhf:
