@@ -82,3 +82,33 @@ export function groupTimeFrames(
     frames: shown.filter((f) => f.kind === kind),
   })).filter((group) => group.frames.length > 0);
 }
+
+/**
+ * What keeping the selected time frame valid asks for (timeFrameAutoSelectEffectAtom): a frame to
+ * select, fresh frames from the database, or nothing when the selection already is this tab's
+ * current frame. The selection is remembered by ident, and live and prev keep their ident while
+ * their period and valid_on move with the calendar.
+ *
+ * The selection is shared by every tab (atomWithStorage). Across midnight a tab loaded yesterday
+ * holds yesterday's live frame while another holds today's; if each wrote its own, they would
+ * overwrite each other without end and every search would fetch again each time (2026-11-27,
+ * about 20 fetches a second). So a tab never writes an older day of the frame stored: it keeps
+ * the stored frame and asks for its frames again, after which it agrees.
+ */
+export type TimeFrameReconcile = { select: TimeFrame } | { refresh: true } | null;
+
+export function reconcileSelectedTimeFrame(
+  selected: TimeFrame | null,
+  timeFrames: readonly TimeFrame[],
+  defaultFrame: TimeFrame | null
+): TimeFrameReconcile {
+  if (!selected) return defaultFrame ? { select: defaultFrame } : null;
+  if (timeFrames.length === 0) return null;
+  const current = timeFrames.find((tf) => tf.ident === selected.ident);
+  if (!current) return defaultFrame ? { select: defaultFrame } : null;
+  const same = (Object.keys(current) as (keyof TimeFrame)[]).every((k) => current[k] === selected[k]);
+  if (same) return null;
+  // ISO dates compare as text: this tab's copy is behind the stored selection.
+  if ((current.valid_on ?? "") < (selected.valid_on ?? "")) return { refresh: true };
+  return { select: current };
+}

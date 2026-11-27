@@ -23,9 +23,11 @@ import {
 } from './auth';
 import {
   baseDataAtom,
+  refreshBaseDataAtom,
   timeFramesAtom,
   useBaseData,
 } from './base-data';
+import { reconcileSelectedTimeFrame } from '@/lib/time-frame';
 import { numberOfRegionsAtomAsync, settingsAtomAsync } from "./getting-started";
 import { restClientAtom } from './rest-client';
 import { useWorkerStatus } from './worker_status';
@@ -53,23 +55,16 @@ export const defaultTimeFrameAtom = selectAtom(baseDataAtom, (data) => data.defa
  * older version) falls back to the default frame, the live frame.
  */
 export const timeFrameAutoSelectEffectAtom = atomEffect((get, set) => {
-  const selected = get(selectedTimeFrameAtom);
-  const timeFrames = get(timeFramesAtom);
-  const defaultFrame = get(defaultTimeFrameAtom);
-
-  if (!selected) {
-    if (defaultFrame) set(selectedTimeFrameAtom, defaultFrame);
-    return;
-  }
-
-  if (timeFrames.length > 0) {
-    const current = timeFrames.find((tf) => tf.ident === selected.ident);
-    if (!current) {
-      if (defaultFrame) set(selectedTimeFrameAtom, defaultFrame);
-    } else if (!isEqual(current, selected)) {
-      set(selectedTimeFrameAtom, current);
-    }
-  }
+  const answer = reconcileSelectedTimeFrame(
+    get(selectedTimeFrameAtom),
+    get(timeFramesAtom),
+    get(defaultTimeFrameAtom)
+  );
+  if (!answer) return;
+  if ("select" in answer) set(selectedTimeFrameAtom, answer.select);
+  // This tab's frames are behind the stored selection (another tab moved past midnight): fetch
+  // them again rather than write an older day back (reconcileSelectedTimeFrame).
+  else set(refreshBaseDataAtom);
 });
 
 export const useTimeFrame = () => {

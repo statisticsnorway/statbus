@@ -1,4 +1,4 @@
-import { framesNeedingConfirmation, groupTimeFrames, TIME_FRAME_GROUPS, type TimeFrame } from "./time-frame";
+import { framesNeedingConfirmation, groupTimeFrames, reconcileSelectedTimeFrame, TIME_FRAME_GROUPS, type TimeFrame } from "./time-frame";
 
 const frame = (overrides: Partial<TimeFrame>): TimeFrame => ({
   ident: null,
@@ -73,5 +73,52 @@ describe("framesNeedingConfirmation", () => {
 
   it("asks nothing when the change has no start yet", () => {
     expect(framesNeedingConfirmation(dated, null, null)).toEqual([]);
+  });
+});
+
+describe("reconcileSelectedTimeFrame", () => {
+  const live = (day: string) => frame({ ident: "live", kind: "live" as TimeFrame["kind"], name: "Live frame", valid_on: day });
+  const prev = frame({ ident: "prev", name: "Previous frame" });
+
+  // Two tabs share one stored selection (atomWithStorage). Across midnight one tab's frames say the
+  // live frame is valid on yesterday, the other's on today. Each tab applies the rule to what the
+  // other just stored, in turn, until the selection settles.
+  const settle = (start: TimeFrame, tabs: TimeFrame[][]) => {
+    let selected = start;
+    const stored: (string | null)[] = [];
+    for (let step = 0; step < 6; step++) {
+      const frames = tabs[step % tabs.length];
+      const answer = reconcileSelectedTimeFrame(selected, frames, frames[0]);
+      if (answer && "select" in answer) selected = answer.select;
+      stored.push(selected.valid_on);
+    }
+    return stored;
+  };
+
+  it("settles on the later day when two tabs hold different days of the same frame", () => {
+    const stored = settle(live("2026-11-26"), [[live("2026-11-26"), prev], [live("2026-11-27"), prev]]);
+    expect(stored.slice(-3)).toEqual(["2026-11-27", "2026-11-27", "2026-11-27"]);
+  });
+
+  it("takes the tab's current frame when the stored one is older", () => {
+    expect(reconcileSelectedTimeFrame(live("2026-11-26"), [live("2026-11-27"), prev], null)).toEqual({ select: live("2026-11-27") });
+  });
+
+  it("keeps a newer stored day and asks for fresh frames when the tab's copy is behind", () => {
+    expect(reconcileSelectedTimeFrame(live("2026-11-27"), [live("2026-11-26"), prev], null)).toEqual({ refresh: true });
+  });
+
+  it("asks nothing when the selection is the tab's current frame", () => {
+    expect(reconcileSelectedTimeFrame(live("2026-11-27"), [live("2026-11-27"), prev], null)).toBeNull();
+  });
+
+  it("falls back to the default frame for a selection that no longer exists", () => {
+    expect(reconcileSelectedTimeFrame(frame({ ident: "gone" }), [live("2026-11-27"), prev], live("2026-11-27"))).toEqual({
+      select: live("2026-11-27"),
+    });
+  });
+
+  it("selects the default frame when nothing is selected", () => {
+    expect(reconcileSelectedTimeFrame(null, [live("2026-11-27")], live("2026-11-27"))).toEqual({ select: live("2026-11-27") });
   });
 });
