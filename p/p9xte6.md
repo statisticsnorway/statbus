@@ -12,14 +12,10 @@ created: 2026-11-23
 updated: 2026-11-23
 doing_since: "2026-11-27T15:05"
 doing_with: "j2g6wd"
-stage: "asked"
+stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
-asked_for: "jhf"
-asked_since: "2026-11-27T15:09"
-asked_by: "hibiscus"
-asked_what: "The footer now starts with the country flag and the installation name, small and grey like the version text: screenshot at statbus_test tmp/p9xte6-footer-norway.png (🇳🇴 local, then GitHub, website, version). On master as c9647bde1. Approve the look, or what should change?"
 ---
 
 ## Goal
@@ -44,6 +40,8 @@ Owner 2026-11-23: in the footer, more subtle than the navbar. Footer: app/src/co
 ## Questions
 - 2026-11-27T15:09 question 1 by hibiscus to jhf:
   The footer now starts with the country flag and the installation name, small and grey like the version text: screenshot at statbus_test tmp/p9xte6-footer-norway.png (🇳🇴 local, then GitHub, website, version). On master as c9647bde1. Approve the look, or what should change?
+  answered 2026-11-27T15:37 by jhf:
+    There is no file attached to this image. I have to look at that in conjunction with you. Referencing temp file is not valid, so I'm gonna disregard that
 
 ## Notes
 
@@ -56,3 +54,6 @@ landed c9647bd on master 2026-11-27: app: the footer shows the installation's co
 ## History
 - 2026-11-27T15:05 todo -> doing/active (take with j2g6wd)
 - 2026-11-27T15:09 doing/active -> doing/asked (ask)
+- 2026-11-27T15:37 answered asked, by jhf, for hibiscus (doing/asked -> doing/active):
+  > The footer now starts with the country flag and the installation name, small and grey like the version text: screenshot at statbus_test tmp/p9xte6-footer-norway.png (🇳🇴 local, then GitHub, website, version). On master as c9647bde1. Approve the look, or what should change?
+  There is no file attached to this image. I have to look at that in conjunction with you. Referencing temp file is not valid, so I'm gonna disregard that
