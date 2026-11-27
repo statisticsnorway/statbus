@@ -12,8 +12,10 @@
  existence_from     | date                  |           | not null |                                                                 | plain    |             |              | public.existence_from of the statistical_unit row, copied so that a check is counted at an instant from this table alone (lib/unit-existence.ts: existence_from <= d < existence_until).
  existence_until    | date                  |           | not null |                                                                 | plain    |             |              | public.existence_until of the statistical_unit row; see existence_from.
  detail             | jsonb                 |           |          |                                                                 | extended |             |              | What the rule compared, for a reader of the finding. establishments_above_legal_unit and legal_unit_above_establishments: {"legal_unit": own value, "establishments_sum": sum, "establishments": count}. establishment_activity_differs: {"legal_unit_activity_category_id", "primary_establishment_id", "primary_establishment_activity_category_id"}. NULL for the rules that say all in their name.
+ hash_slot          | integer               |           |          | generated always as (hash_slot(unit_type, unit_id)) stored      | plain    |             |              | The unit's public.hash_slot, the partition public.quality_finding_derive() rederives the finding in (0pn35h).
 Indexes:
     "quality_finding_count_idx" btree (rule, COALESCE(stat_definition_id, 0), existence_from, existence_until)
+    "quality_finding_hash_slot_idx" btree (hash_slot)
     "quality_finding_key" UNIQUE CONSTRAINT, btree (rule, stat_definition_id, unit_type, unit_id, valid_range) NULLS NOT DISTINCT
 Check constraints:
     "quality_finding_variable_matches_rule" CHECK (quality_rule_per_stat(rule) = (stat_definition_id IS NOT NULL))

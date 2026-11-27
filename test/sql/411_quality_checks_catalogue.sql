@@ -171,7 +171,11 @@ ORDER BY qc.rule, sd.priority;
 \echo
 \echo "411.3 each check's findings on the fixture, with the numbers the per-variable rules compare"
 SELECT f.rule, sd.code AS stat_code, u.unit_type, u.name,
-       CASE WHEN f.rule = 'establishment_activity_differs' THEN NULL ELSE f.detail END AS compared
+       CASE WHEN f.rule = 'establishment_activity_differs' THEN NULL
+            -- The category is the fixture's A; its id depends on how the seed was built.
+            WHEN f.rule = 'secondary_activity_equals_primary'
+              THEN jsonb_build_object('activity_category_is_a', (f.detail->>'activity_category_id')::int = :activity_a_id)
+            ELSE f.detail END AS compared
 FROM public.quality_finding AS f
 JOIN fixture_unit AS u USING (unit_type, unit_id)
 LEFT JOIN public.stat_definition AS sd ON sd.id = f.stat_definition_id

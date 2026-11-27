@@ -3116,6 +3116,7 @@ export type Database = {
           detail: Json | null
           existence_from: string
           existence_until: string
+          hash_slot: number | null
           rule: Database["public"]["Enums"]["quality_rule"]
           stat_definition_id: number | null
           unit_id: number
@@ -3128,6 +3129,7 @@ export type Database = {
           detail?: Json | null
           existence_from: string
           existence_until: string
+          hash_slot?: number | null
           rule: Database["public"]["Enums"]["quality_rule"]
           stat_definition_id?: number | null
           unit_id: number
@@ -3140,6 +3142,7 @@ export type Database = {
           detail?: Json | null
           existence_from?: string
           existence_until?: string
+          hash_slot?: number | null
           rule?: Database["public"]["Enums"]["quality_rule"]
           stat_definition_id?: number | null
           unit_id?: number
@@ -8486,6 +8489,7 @@ export type Database = {
           establishment_count: number | null
           establishments_sum: number | null
           establishments_with_value: number | null
+          hash_slot: number | null
           legal_unit_value: number | null
           stat_code: string | null
           unit_id: number | null
@@ -8497,6 +8501,7 @@ export type Database = {
           establishment_count?: number | null
           establishments_sum?: number | null
           establishments_with_value?: number | null
+          hash_slot?: number | null
           legal_unit_value?: number | null
           stat_code?: string | null
           unit_id?: number | null
@@ -8508,6 +8513,7 @@ export type Database = {
           establishment_count?: number | null
           establishments_sum?: number | null
           establishments_with_value?: number | null
+          hash_slot?: number | null
           legal_unit_value?: number | null
           stat_code?: string | null
           unit_id?: number | null
@@ -9375,6 +9381,7 @@ export type Database = {
       quality_finding_def: {
         Row: {
           detail: Json | null
+          hash_slot: number | null
           rule: Database["public"]["Enums"]["quality_rule"] | null
           stat_definition_id: number | null
           unit_id: number | null
@@ -9384,6 +9391,7 @@ export type Database = {
         },
         Insert: {
           detail?: Json | null
+          hash_slot?: number | null
           rule?: Database["public"]["Enums"]["quality_rule"] | null
           stat_definition_id?: number | null
           unit_id?: number | null
@@ -9393,6 +9401,7 @@ export type Database = {
         },
         Update: {
           detail?: Json | null
+          hash_slot?: number | null
           rule?: Database["public"]["Enums"]["quality_rule"] | null
           stat_definition_id?: number | null
           unit_id?: number | null
@@ -15341,7 +15350,13 @@ export type Database = {
       },
       quality_finding_derive: {
         Args: Record<string, never>
-        Returns: unknown
+        Returns: Json
+      }
+        | {
+        Args: {
+          p_hash_slots?: string
+        }
+        Returns: Json
       },
       quality_rule_per_stat: {
         Args: {

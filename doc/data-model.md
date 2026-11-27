@@ -210,7 +210,7 @@ A sparse delta table holds only changes: `statistical_history_facet_delta` per c
 ### Quality: checks that list units to look at (xz3jej, 05pe0x)
 Quality is the area of checks that list units to look at, as reports count them. A check is a rule of the enum `quality_rule` and, for a rule per summed variable, that variable; `quality_check` lists the checks of the installation and `quality_check_switched_on` the ones switched on (a check starts off; a new installation holds the starting set of `quality_check_starting_set()`, 1tx1ed). The units each check lists are rows of `quality_finding`, filled by the reports phase's step `worker.derive_quality` after statistical_unit is published, with each row's existence dates, so the dashboard counts every check in one query and the search lists a check through `statistical_unit_quality()`.
 
-- `quality_finding(unit_type, stat_definition_id, unit_id, valid_from, valid_until, valid_range, rule, existence_from, existence_until, detail)` (temporal) — **derived**
+- `quality_finding(unit_type, stat_definition_id, unit_id, valid_from, valid_until, valid_range, rule, existence_from, existence_until, detail, hash_slot)` (temporal) — **derived**
   - Key FKs: stat_definition_id, unit_id, unit_type, valid_range.
   - Enums: `rule` (`public.quality_rule`), `unit_type` (`public.statistical_unit_type`).
 - `quality_check_switched_on(stat_definition_id, rule)` — **configuration**
@@ -218,9 +218,9 @@ Quality is the area of checks that list units to look at, as reports count them.
   - Enums: `rule` (`public.quality_rule`).
 - `quality_check(stat_definition_id, rule, on_dashboard, priority)`
   - Enums: `rule` (`public.quality_rule`).
-- `quality_finding_def(unit_type, stat_definition_id, unit_id, valid_from, valid_until, rule, detail)` (temporal)
+- `quality_finding_def(unit_type, stat_definition_id, unit_id, valid_from, valid_until, rule, detail, hash_slot)` (temporal)
   - Enums: `rule` (`public.quality_rule`), `unit_type` (`public.statistical_unit_type`).
-- `legal_unit_establishment_stat_comparison(unit_type, stat_code, legal_unit_value, establishments_with_value, unit_id, valid_from, valid_until, establishment_count, establishments_sum)` (temporal)
+- `legal_unit_establishment_stat_comparison(unit_type, stat_code, legal_unit_value, establishments_with_value, unit_id, valid_from, valid_until, establishment_count, establishments_sum, hash_slot)` (temporal)
   - Enums: `unit_type` (`public.statistical_unit_type`).
 
 ### Pipeline Weights
