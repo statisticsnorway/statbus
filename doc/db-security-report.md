@@ -111,10 +111,16 @@ each role can see and modify.
   - Policies: `power_group_type_factory_default_admin_user_read` (SELECT → admin_user), `power_group_type_factory_default_authenticated_read` (SELECT → authenticated), `power_group_type_factory_default_regular_user_read` (SELECT → regular_user)
 - **`power_root`** — RLS ON
   - Policies: `power_root_admin_user_manage` (ALL → admin_user), `power_root_authenticated_read` (SELECT → authenticated), `power_root_regular_user_manage` (ALL → regular_user)
+- **`quality_check_catalogue`** — RLS ON
+  - Policies: `quality_check_catalogue_admin_user_manage` (ALL → admin_user), `quality_check_catalogue_authenticated_read` (SELECT → authenticated), `quality_check_catalogue_regular_user_read` (SELECT → regular_user)
 - **`quality_check_switched_on`** — RLS ON
   - Policies: `quality_check_switched_on_admin_user_manage` (ALL → admin_user), `quality_check_switched_on_authenticated_read` (SELECT → authenticated), `quality_check_switched_on_regular_user_read` (SELECT → regular_user)
+- **`quality_establishment_activity_differs`** — RLS ON
+  - Policies: `quality_establishment_activity_differs_admin_user_manage` (ALL → admin_user), `quality_establishment_activity_differs_authenticated_read` (SELECT → authenticated), `quality_establishment_activity_differs_regular_user_read` (SELECT → regular_user)
 - **`quality_finding`** — RLS ON
   - Policies: `quality_finding_admin_user_manage` (ALL → admin_user), `quality_finding_authenticated_read` (SELECT → authenticated), `quality_finding_regular_user_read` (SELECT → regular_user)
+- **`quality_legal_unit_establishment_stat`** — RLS ON
+  - Policies: `quality_legal_unit_establishment_stat_admin_user_manage` (ALL → admin_user), `quality_legal_unit_establishment_stat_authenticated_read` (SELECT → authenticated), `quality_legal_unit_establishment_stat_regular_user_read` (SELECT → regular_user)
 - **`region`** — RLS ON
   - Policies: `region_admin_user_manage` (ALL → admin_user), `region_authenticated_read` (SELECT → authenticated), `region_regular_user_read` (SELECT → regular_user)
 - **`region_access`** — RLS ON
