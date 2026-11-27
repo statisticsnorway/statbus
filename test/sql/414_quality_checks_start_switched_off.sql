@@ -21,7 +21,7 @@ SELECT id AS members_id FROM public.stat_definition WHERE code = 'members' \gset
 \echo -- Return to the schema before the migration: switched-on checks are rows of quality_check_switched_on.
 \o /dev/null
 \set ECHO none
-\i migrations/20261127135230_quality_row_checks_on_statistical_unit_and_relation_checks_in_their_own_tables.down.sql
+\i migrations/20261127161330_quality_row_checks_on_statistical_unit_and_relation_checks_in_their_own_tables.down.sql
 \set ECHO all
 \o
 
@@ -44,7 +44,7 @@ ORDER BY qc.priority;
 
 \o /dev/null
 \set ECHO none
-\i migrations/20261127135230_quality_row_checks_on_statistical_unit_and_relation_checks_in_their_own_tables.up.sql
+\i migrations/20261127161330_quality_row_checks_on_statistical_unit_and_relation_checks_in_their_own_tables.up.sql
 \set ECHO all
 \o
 

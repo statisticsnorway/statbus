@@ -1,4 +1,4 @@
--- Migration 20261127135230: quality row checks on statistical_unit and relation checks in their own tables
+-- Migration 20261127161330: quality row checks on statistical_unit and relation checks in their own tables
 -- h9mhxe part 2 (design report 0pn35h, owner decision 2026-11-27). A row check is decided by one
 -- statistical_unit row and is a generated element of that row's quality_check_ids. A relation check
 -- compares a legal unit with its establishments and has its own table, filled per hash partition by
@@ -1582,7 +1582,7 @@ $function$;
 
 -- The relation tables start empty: a full derive fills them after the upgrade (its quality step
 -- runs every partition). One pending full derive is kept (worker.enqueue_derive_statistical_unit_all),
--- so this shares the one the counting migration (20261127135129) asks for; a database without
+-- so this shares the one the counting migration (20261127161312) asks for; a database without
 -- units schedules nothing.
 SELECT worker.enqueue_derive_statistical_unit_all();
 

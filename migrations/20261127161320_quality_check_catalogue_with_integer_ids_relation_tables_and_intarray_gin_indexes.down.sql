@@ -1,4 +1,4 @@
--- Down Migration 20261127135220: quality check catalogue with integer ids, relation tables and intarray gin indexes
+-- Down Migration 20261127161320: quality check catalogue with integer ids, relation tables and intarray gin indexes
 BEGIN;
 
 CREATE OR REPLACE FUNCTION public.reset(confirmed boolean, scope reset_scope)
