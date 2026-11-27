@@ -19,6 +19,7 @@ import { UnitMap, cssColour } from "@/components/map/unit-map";
 import { UnitTypeLegend } from "@/components/map/unit-type-legend";
 import { BASEMAP_FONT, BASEMAP_FONT_BOLD } from "@/components/map/basemap";
 import { ViewControl } from "@/components/map/view-control";
+import { MapEmptyNote, MapPanelSkeleton, MapRecalculatingNote } from "@/components/map/map-panel-states";
 import { RegionSpiders } from "./region-spiders";
 import { ChildList, type ChildRow } from "./child-list";
 import {
@@ -379,7 +380,6 @@ export function RegionsMap({
   const {
     data: countedRows,
     error: countError,
-    isLoading: counting,
   } = useSWR(
     client && validOn && source.ready !== false
       ? ["regions-map:counts", source.key, validOn]
@@ -793,14 +793,12 @@ export function RegionsMap({
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
             {summary}
             {control && trailNav}
-            {counting && (
-              <p
-                className="text-xs text-gray-500"
-                role="status"
-                data-regions-map-counting=""
-              >
-                Counting the units by region…
-              </p>
+            <MapRecalculatingNote />
+            {/* While the counts are read the panel pulses, as the list does; when the frame has no
+                units at all it says so, rather than showing a column of zeros that could be either
+                (owner 2026-11-27 22:25). */}
+            {rows && rows.length === 0 && !countError && (
+              <MapEmptyNote frameName={selectedTimeFrame?.name ?? null} />
             )}
             {/* The selection stays put at the top while the list below it scrolls (owner 2026-11-24). */}
             <section
@@ -842,12 +840,15 @@ export function RegionsMap({
               {!rows ? (
                 // No counts yet, or counting failed (its message stands over the map): no numbers, rather
                 // than zeros that read as an answer.
-                <p
-                  className="mt-2 text-xs text-gray-500"
-                  data-regions-map-no-counts=""
-                >
-                  {countError ? "The counts could not be read." : "Counting…"}
-                </p>
+                countError ? (
+                  <p className="mt-2 text-xs text-gray-500" data-regions-map-no-counts="">
+                    The counts could not be read.
+                  </p>
+                ) : (
+                  <div className="mt-3" data-regions-map-no-counts="" data-regions-map-counting="">
+                    <MapPanelSkeleton rows={4} />
+                  </div>
+                )
               ) : selectedCounts ? (
                 // One list of unit types: tick to show a type on the map and in the list the button
                 // opens; the count is the selection's (owner 2026-11-23: the types were listed twice,
