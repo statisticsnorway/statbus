@@ -19,6 +19,9 @@ WHERE iso_2 IN ('NO', 'SE', 'FJ', 'SS', 'MA', 'UG', 'UN', 'UM')
 ORDER BY iso_2;
 
 \echo "A centre is a latitude and a longitude together"
+-- Terse errors name the constraint that refuses the row; the row itself carries timestamps of
+-- when the seed was built.
+\set VERBOSITY terse
 SAVEPOINT half;
 UPDATE public.country SET longitude = NULL WHERE iso_2 = 'NO';
 ROLLBACK TO SAVEPOINT half;

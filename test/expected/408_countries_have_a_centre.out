@@ -40,16 +40,17 @@ ORDER BY iso_2;
 
 \echo "A centre is a latitude and a longitude together"
 "A centre is a latitude and a longitude together"
+-- Terse errors name the constraint that refuses the row; the row itself carries timestamps of
+-- when the seed was built.
+\set VERBOSITY terse
 SAVEPOINT half;
 UPDATE public.country SET longitude = NULL WHERE iso_2 = 'NO';
 ERROR:  new row for relation "country" violates check constraint "country_latitude_and_longitude_together"
-DETAIL:  Failing row contains (167, NO, NOR, 578, Norway, t, f, 2026-11-23 11:48:15.340081+00, 2026-11-23 11:48:15.340081+00, 60.472024, null).
 ROLLBACK TO SAVEPOINT half;
 \echo "A latitude is within -90 to 90 degrees"
 "A latitude is within -90 to 90 degrees"
 SAVEPOINT range;
 UPDATE public.country SET latitude = 91 WHERE iso_2 = 'NO';
 ERROR:  new row for relation "country" violates check constraint "country_latitude_from_minus_90_to_90_degrees"
-DETAIL:  Failing row contains (167, NO, NOR, 578, Norway, t, f, 2026-11-23 11:48:15.340081+00, 2026-11-23 11:48:15.340081+00, 91.000000, 8.468946).
 ROLLBACK TO SAVEPOINT range;
 ROLLBACK;
