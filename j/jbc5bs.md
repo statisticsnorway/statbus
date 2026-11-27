@@ -87,6 +87,7 @@ check 7: Independent read-only reviewer rat (neither ox nor hibiscus), 2026-11-2
 check 10: b534af8e5 test/sql/419: center_* region file refused (column does not exist), 0 regions stored; physical_* unit headers kept as ignored columns (physical_*_raw purpose ignored) while latitude/longitude/altitude are the step's inputs; no code names the old headers (rg outside migrations/tests finds none)
 2026-11-27 12:41 (hibiscus) Rebased and finished in statbus_test as b534af8e5 on feat/coordinates-named-latitude (details in the commit). Local: jest 612/612, tsc, eslint, migrate down+up with \sf identical, fast suite all pass but 002/008 (local sql_saga 1.6 vs master's 1.15). CI Fast Tests 46000665092 running; merge to master by fast-forward when green.
 2026-11-27 12:42 (hibiscus) Headless on the test slot after the rename (tmp/rename-pages-headless.log): Regions list shows a region's coordinates (59.91333, 10.73897, ·), Regions map lists 17 regions on the map, search map draws, upload page names latitude, longitude, altitude; no /rest errors.
+2026-11-27 13:44 (hibiscus) On master: b534af8e5 (fast-forward). CI Fast Tests 46000665092 attempt 2: success (all 147 + 3 SQL, daemon floor, live-database tests); app build & lint success.
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):
