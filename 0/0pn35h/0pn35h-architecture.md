@@ -85,3 +85,48 @@ the same checks beside it costs 37.6 s (A) or 23 s (B).
 
 Nothing in this report is on master. All prototypes ran in temporary tables, which were dropped.
 The logs are in `tmp/0pn35h-arch-*.log`.
+
+## Addendum 2026-11-27 morning: integer ids instead of the enum (owner's request)
+
+The prototype gives each check an integer id from a catalogue table, where the slug (the enum
+value) stays as a column of the catalogue. `statistical_unit` stores `quality_check_ids int[]`
+(generated), and its GIN index uses intarray's `gin__int_ops`. Measured against `quality_rule[]`
+on the Norway copy (`tmp/0pn35h-int-*.log`):
+
+| | enum[] | int[] |
+|---|---|---|
+| Write 100 000 `statistical_unit` rows, all 45 indexes plus array plus GIN, 3 alternating rounds (plain table: 20.1 / 18.1 / 22.5 s) | 19.2 / 18.4 / 20.6 s | 18.9 / 18.5 / 18.0 s |
+| Column size over 3.0 M rows | 83 MB | 83 MB |
+| GIN index | 6.8 MB | 6.8 MB |
+| Count of the large check (1.2 M units) | 198 ms | 198 ms |
+| Small check, first page by name | 0.96 ms | 0.86 ms |
+| Any of several checks (`&&`) | (not available for enum with intarray) | 190 ms |
+| Dashboard, unnest and group, plain | 231 ms | 241 ms |
+| **Dashboard with a partial covering index** (`(existence_from, existence_until) INCLUDE (quality_check_ids) WHERE quality_check_ids <> '{}'`) | | **64 ms** unnest, **43-47 ms** grouped by the whole array |
+
+What this shows:
+- **Writes:** neither array costs anything measurable. The run-to-run noise (18-22.5 s for the
+  same plain insert) is larger than any difference.
+- **Size:** the same. A small array's 24-byte header dominates; 4-byte ints and 4-byte enum OIDs
+  are equal.
+- **Reads:** the same speed for the same operations. The int array's gain is in the operations
+  intarray adds: `&&` (any of), `-` and `|` set arithmetic, `icount`, `sort`/`uniq` are fast and
+  simple on int[]. For an enum array they need casts or unnest.
+- **The real speed-up for the dashboard is the partial covering index,** not the element type.
+  Grouped by the whole array, the dashboard reads only the rows that have a check: 43 ms against
+  79 ms today. There are only a handful of distinct combinations ({2}, {3}, {2,3}, {1}), so the
+  per-check split happens in the app or in a tiny outer query.
+- **What the integer id makes possible:** an id per check that the catalogue table owns, so a
+  per-variable check (rule + variable) gets its own integer. An enum value cannot name a variable.
+  With ids, the relation checks per variable (employees above legal unit, ...) could go in the
+  same array, and the catalogue keeps the slug, name and switch for each id.
+- **The cost:** the `intarray` extension, which is shipped with PostgreSQL contrib and available in
+  our image (1.5). The migrate runner installs extensions, so its tracked list needs it.
+
+Updated recommendation: `quality_check_ids int[]` on `statistical_unit`, ids from a check
+catalogue table (`quality_check`: id, rule slug, stat_definition_id, name, switched on), a GIN
+index with `gin__int_ops` for the search, and a partial covering index for the dashboard. The
+relation checks can have their ids in the same array, written by the step that compares a legal
+unit with its establishments. That is worth one more prototype: whether writing a relation
+check into `statistical_unit` (an UPDATE of about 11 000 rows) is cheap enough, or whether those
+stay in small per-check tables.
