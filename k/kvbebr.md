@@ -12,10 +12,13 @@ created: 2026-11-18
 updated: 2026-11-18
 doing_since: "2026-11-26T21:50"
 doing_with: "jbc5bs"
-stage: "active"
+stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_b"
+waiting_on: "Hibiscus implements the rename with jbc5bs"
+waiting_since: "2026-11-27T01:12"
+waiting_asked_by: "rabbit"
 ---
 
 ## Goal
@@ -60,3 +63,4 @@ check 3: Same commit: import definitions (source/data columns), samples/demo scr
 ## History
 - 2026-11-26T21:50 todo -> doing/active (take with jbc5bs)
 - 2026-11-27T00:18 handed to rabbit: ox's session ended (closed 2026-11-26 23:16)
+- 2026-11-27T01:12 doing/active -> doing/waiting (wait)
