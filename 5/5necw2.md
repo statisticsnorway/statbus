@@ -48,3 +48,4 @@ Owner 2026-11-23 (review of z2qt08/5yxn4w): keep the official file; not in this 
   > The United Nations country (UN, a demo installation's country) has its centre at 0,0 in dbseed/country/country_centres.csv, which puts it in the Gulf of Guinea on the world map. Should it have no centre, so it is listed as not on the map, as a region that is no place would be?
   Why don't we put it at the UN headquarters?
 - 2026-11-27T15:37 answer 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-27T15:37 answer 1 acknowledged by rabbit
