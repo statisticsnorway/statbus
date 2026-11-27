@@ -47,3 +47,4 @@ statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_ri
   > Fix by dropping row-level security on statistical_unit (its three policies all allow everything, so it only costs speed; my recommendation), or by marking the ltree comparison operators LEAKPROOF in a migration?
   Okay, if marking the operations operator's leak proof in migration fixes it, I think it could, but I also do see the point. Why have role-level security if all the policies are the same? Does it help us with speed? Pros and cons in measurements
 - 2026-11-27T15:38 answer 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)
+- 2026-11-27T15:38 answer 1 acknowledged by rabbit
