@@ -1,15 +1,20 @@
 ---
 id: bxt67q
 title: "Disabling a summed variable leaves its quality findings until a recalculation"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzs"
 created: 2026-11-27
 updated: 2026-11-27
+doing_since: "2026-11-27T18:14"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -36,3 +41,7 @@ Closed by the design in h9mhxe (acceptance check 6).
 Design in h9mhxe (acceptance check 6) applies; this task stays todo until it lands.
 
 check 1: Test 144.7 on master 866d8e3fc (CI Fast Tests 46036172173 green): after disabling employees with no unit edited, quality_check_count counts 0 employees checks and statistical_unit_quality lists 0 units for them (public.in_use, h9mhxe); re-enabling restores them (144.8).
+
+
+## History
+- 2026-11-27T18:14 todo -> doing/active (take)
