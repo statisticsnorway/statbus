@@ -34,7 +34,7 @@ Catalogue: public.quality_check becomes a table (id int stable never reused, rul
 - [ ] On the Norway copy: dashboard counts equal today's quality_finding counts per check at a date, and take under 100 ms
 - [ ] Search for each check returns the same units as today's statistical_unit_quality, first page under 50 ms for checks of 2, 21 368 and 161 571 units
 - [x] A test asserts that the Data source filter's plan uses idx_statistical_unit_data_source_ids after intarray is installed
-- [ ] A unit edit changes its quality_check_ids in the same transaction; test 144 covers a relation check following an establishment-only edit
+- [x] A unit edit changes its quality_check_ids in the same transaction; test 144 covers a relation check following an establishment-only edit
 - [ ] Disabling a summed variable removes its relation checks from dashboard and search with no unit edited (closes bxt67q)
 - [ ] Full derive and fast suite green; doc/db and types regenerated
 
@@ -45,3 +45,5 @@ file:0pn35h-architecture.md (18977 bytes, sha256:dba4c962) The measured comparis
 Split: part 1 (intarray, catalogue table, empty relation tables) is me96tn and can start now; this task is part 2 (array on statistical_unit, fill relation tables, drop quality_finding, app) and waits for the counting branch (f2gx3m, s465ff) and me96tn.
 
 check 4: test 417: EXPLAIN data_source_ids && '{1}' is a Bitmap Index Scan on idx_statistical_unit_data_source_ids, Seq Scan on parent (me96tn)
+
+check 5: 144.3b: after a one-unit edit's partial flush, LU-EDIT quality_check_ids {}->{7}, LU-FIX {}->{1}; 144.6: an establishment-only edit lists LU-3 for establishment_activity_differs. Branch 0a3b77d49
