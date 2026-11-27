@@ -35,7 +35,7 @@ Catalogue: public.quality_check becomes a table (id int stable never reused, rul
 - [ ] Search for each check returns the same units as today's statistical_unit_quality, first page under 50 ms for checks of 2, 21 368 and 161 571 units
 - [x] A test asserts that the Data source filter's plan uses idx_statistical_unit_data_source_ids after intarray is installed
 - [x] A unit edit changes its quality_check_ids in the same transaction; test 144 covers a relation check following an establishment-only edit
-- [ ] Disabling a summed variable removes its relation checks from dashboard and search with no unit edited (closes bxt67q)
+- [x] Disabling a summed variable removes its relation checks from dashboard and search with no unit edited (closes bxt67q)
 - [ ] Full derive and fast suite green; doc/db and types regenerated
 
 ## Notes
@@ -47,3 +47,5 @@ Split: part 1 (intarray, catalogue table, empty relation tables) is me96tn and c
 check 4: test 417: EXPLAIN data_source_ids && '{1}' is a Bitmap Index Scan on idx_statistical_unit_data_source_ids, Seq Scan on parent (me96tn)
 
 check 5: 144.3b: after a one-unit edit's partial flush, LU-EDIT quality_check_ids {}->{7}, LU-FIX {}->{1}; 144.6: an establishment-only edit lists LU-3 for establishment_activity_differs. Branch 0a3b77d49
+
+check 6: 144.7/411.8: disabling a variable with no unit edited -> quality_check_count and statistical_unit_quality give 0 for its checks (in_use false); re-enable restores (144.8)
