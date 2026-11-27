@@ -1757,6 +1757,10 @@ NOTICE:  Created indices for stat_definition turnover
      "establishment": {             +
          "deleted_count": 0         +
      },                             +
+     "quality_check": {             +
+         "switched_on_count": 0,    +
+         "switched_off_count": 0    +
+     },                             +
      "stat_for_unit": {             +
          "deleted_count": 0         +
      },                             +
@@ -1810,10 +1814,6 @@ NOTICE:  Created indices for stat_definition turnover
          "added_count": 0,          +
          "changed_count": 0,        +
          "deleted_count": 0         +
-     },                             +
-     "quality_check_switched_on": { +
-         "deleted_count": 3,        +
-         "inserted_count": 3        +
      },                             +
      "activity_category_standard": {+
          "changed_count": 0         +

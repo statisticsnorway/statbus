@@ -602,16 +602,13 @@ erDiagram
 		integer edit_by_user_id
 		timestamp_with_time_zone edit_at
 	}
-	quality_check_catalogue["quality_check_catalogue"] {
+	quality_check["quality_check"] {
 		integer id
 		quality_rule rule
 		integer stat_definition_id
 		quality_check_kind kind
 		integer priority
-	}
-	quality_check_switched_on["quality_check_switched_on"] {
-		quality_rule rule
-		integer stat_definition_id
+		boolean switched_on
 	}
 	quality_establishment_activity_differs["quality_establishment_activity_differs"] {
 		integer check_id
@@ -624,19 +621,6 @@ erDiagram
 		integer primary_establishment_id
 		integer legal_unit_activity_category_id
 		integer establishment_activity_category_id
-	}
-	quality_finding["quality_finding"] {
-		quality_rule rule
-		integer stat_definition_id
-		statistical_unit_type unit_type
-		integer unit_id
-		date valid_from
-		date valid_until
-		daterange valid_range
-		date existence_from
-		date existence_until
-		jsonb detail
-		integer hash_slot
 	}
 	quality_legal_unit_establishment_stat["quality_legal_unit_establishment_stat"] {
 		integer check_id
@@ -925,6 +909,7 @@ erDiagram
 		ltree[] tag_paths
 		daterange valid_range
 		integer hash_slot
+		integer[] quality_check_ids
 	}
 	statistical_unit_facet["statistical_unit_facet"] {
 		date valid_from
@@ -1813,20 +1798,21 @@ erDiagram
 	power_root }o--|| legal_unit : power_root_derived_root_legal_unit_id_valid
 	power_root }o--o| legal_unit : power_root_custom_root_legal_unit_id_valid
 	power_root }|--|| power_group : power_root_power_group_id_fkey
-	quality_check_catalogue }o--o| stat_definition : quality_check_catalogue_stat_definition_id_fkey
-	quality_check_switched_on }|--o| stat_definition : quality_check_switched_on_stat_definition_id_fkey
-	quality_establishment_activity_differs }o--|| activity_category : quality_establishment_activit_establishment_activity_categ_fkey
-	quality_establishment_activity_differs }o--|| activity_category : quality_establishment_activit_legal_unit_activity_category_fkey
+	quality_check }o--o| stat_definition : quality_check_stat_definition_id_fkey
+	quality_establishment_activity_differs }o--o| activity_category : quality_establishment_activit_establishment_activity_categ_fkey
+	quality_establishment_activity_differs }o--o| activity_category : quality_establishment_activit_legal_unit_activity_category_fkey
 	quality_establishment_activity_differs }o--|| establishment : quality_activity_differs_primary_establishment_fkey
 	quality_establishment_activity_differs }o--|| establishment : quality_activity_differs_primary_establishment_fkey
-	quality_establishment_activity_differs }|--|| quality_check_catalogue : quality_establishment_activity_differs_check_id_fkey
-	quality_finding }|--o| stat_definition : quality_finding_stat_definition_id_fkey
-	quality_finding }o--|| statistical_unit : quality_finding_statistical_unit_fkey
-	quality_finding }o--|| statistical_unit : quality_finding_statistical_unit_fkey
-	quality_finding }o--|| statistical_unit : quality_finding_statistical_unit_fkey
-	quality_legal_unit_establishment_stat }o--|| quality_check_catalogue : quality_legal_unit_establishment_stat_check_fkey
-	quality_legal_unit_establishment_stat }o--|| quality_check_catalogue : quality_legal_unit_establishment_stat_check_fkey
+	quality_establishment_activity_differs }|--|| quality_check : quality_establishment_activity_differs_check_id_fkey
+	quality_establishment_activity_differs }o--|| statistical_unit : quality_establishment_activity_differs_statistical_unit_fkey
+	quality_establishment_activity_differs }o--|| statistical_unit : quality_establishment_activity_differs_statistical_unit_fkey
+	quality_establishment_activity_differs }o--|| statistical_unit : quality_establishment_activity_differs_statistical_unit_fkey
+	quality_legal_unit_establishment_stat }o--|| quality_check : quality_legal_unit_establishment_stat_check_fkey
+	quality_legal_unit_establishment_stat }o--|| quality_check : quality_legal_unit_establishment_stat_check_fkey
 	quality_legal_unit_establishment_stat }o--|| stat_definition : quality_legal_unit_establishment_stat_stat_definition_id_fkey
+	quality_legal_unit_establishment_stat }o--|| statistical_unit : quality_legal_unit_establishment_stat_statistical_unit_fkey
+	quality_legal_unit_establishment_stat }o--|| statistical_unit : quality_legal_unit_establishment_stat_statistical_unit_fkey
+	quality_legal_unit_establishment_stat }o--|| statistical_unit : quality_legal_unit_establishment_stat_statistical_unit_fkey
 	region }o--o| region : region_parent_id_fkey
 	region }o--|| region_version : region_version_id_fkey
 	region_access }|--|| auth_user : region_access_user_id_fkey
