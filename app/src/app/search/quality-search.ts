@@ -1,5 +1,5 @@
 import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
-import type { QualityCheckRef } from "@/lib/quality-checks";
+import type { QualityCheckRef, QualityRule } from "@/lib/quality-checks";
 
 /**
  * The API parameter a quality search carries until it is resolved: the check as written in the URL
@@ -9,12 +9,12 @@ import type { QualityCheckRef } from "@/lib/quality-checks";
 export const QUALITY_CHECK_PARAM = "quality_check";
 
 /**
- * Below this many units at the time frame a check's list is read from the findings first; from it
- * on, statistical_unit is walked in the page's order. Owner decision 2026-11-26 (05pe0x), measured
- * on the Norway copy for a first page sorted by name: from the findings about 0.16 ms per listed
- * unit (2 units 9 ms, 17 units 36 ms, 11,009 units 1.75 s); walking the units 117 s for 2 units but
- * 0.08 s for 11,009 and 0.1 s for 161,571. Both paths use indexes that exist already
- * (quality_finding_count_idx, quality_finding_key, statistical_unit's sort indexes).
+ * Below this many units at the time frame a check's list is read from its store first; from it on,
+ * statistical_unit is walked in the page's order. Owner decision 2026-11-26 (05pe0x), kept by h9mhxe.
+ * Measured on the Norway copy for a first page sorted by name: filtering first is reliable for a rare
+ * check (0.07 ms for 2 units), while the planner cannot see a rare element of quality_check_ids and
+ * walks the name index (28 s for a 2-unit check); walking the units is 1.5-19 ms for checks of 21 368
+ * and 161 571 units.
  */
 export const QUALITY_FINDINGS_FIRST_BELOW = 1000;
 
@@ -24,16 +24,23 @@ export interface QualitySearchResource {
   readonly params: URLSearchParams;
 }
 
+/** The table holding a relation check's findings (public.quality_check kind relation). */
+const RELATION_TABLE: Partial<Record<QualityRule, string>> = {
+  establishment_activity_differs: "quality_establishment_activity_differs",
+  establishments_above_legal_unit: "quality_legal_unit_establishment_stat",
+  legal_unit_above_establishments: "quality_legal_unit_establishment_stat",
+};
+
 /**
  * The resource for a search that lists the units of one check. `params` are the search's own
  * parameters for statistical_unit (filters, existence at the time frame, order, paging); `units` is
- * the check's count at the time frame (the dashboard's count of quality_finding).
+ * the check's count at the time frame (public.quality_check_count, the dashboard's count).
  *
- * Few units: rpc/statistical_unit_quality(quality_rule, valid_on, quality_stat_definition_id), which
- * starts from the check's findings at the instant; the instant replaces the existence filter, as
- * PostgREST applies computed-field filters only to a table. Many units: statistical_unit with the
- * check's findings as an inner embed, which walks the units in the page's order and stops at the
- * page. Both return the same rows (test/sql/411).
+ * Few units: rpc/statistical_unit_quality(quality_check_id, valid_on), which starts from the check's
+ * store at the instant; the instant replaces the existence filter, as PostgREST applies
+ * computed-field filters only to a table. Many units: statistical_unit in the page's order, a row
+ * check filtered by quality_check_ids=cs.{id} (GIN, gin__int_ops), a relation check with its table as
+ * an inner embed; it stops at the page. Every path returns the same rows (test/sql/411).
  */
 export function qualitySearchResource(
   params: URLSearchParams,
@@ -46,18 +53,17 @@ export function qualitySearchResource(
     if (!validOn) throw new Error("A quality search needs the time frame's existence filter");
     next.delete(EXISTENCE_FROM);
     next.delete(EXISTENCE_UNTIL);
-    next.set("quality_rule", check.rule);
+    next.set("quality_check_id", String(check.id));
     next.set("valid_on", validOn);
-    if (check.statDefinitionId !== null) {
-      next.set("quality_stat_definition_id", String(check.statDefinitionId));
-    }
     return { path: "rpc/statistical_unit_quality", params: next };
   }
-  next.set("select", "*,quality_finding!inner()");
-  next.set("quality_finding.rule", `eq.${check.rule}`);
-  next.set(
-    "quality_finding.stat_definition_id",
-    check.statDefinitionId === null ? "is.null" : `eq.${check.statDefinitionId}`
-  );
+  if (check.kind === "row") {
+    next.set("quality_check_ids", `cs.{${check.id}}`);
+    return { path: "statistical_unit", params: next };
+  }
+  const table = RELATION_TABLE[check.rule];
+  if (!table) throw new Error(`No relation table for the check ${check.rule}`);
+  next.set("select", `*,${table}!inner()`);
+  next.set(`${table}.check_id`, `eq.${check.id}`);
   return { path: "statistical_unit", params: next };
 }

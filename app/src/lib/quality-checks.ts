@@ -6,11 +6,15 @@ import type { Enums } from "@/lib/database.types";
  */
 export type QualityRule = Enums<"quality_rule">;
 
-/** One check of public.quality_check: a rule, and the variable of a per-variable rule. */
+/** Where a check's findings are stored (public.quality_check_kind). */
+export type QualityCheckKind = Enums<"quality_check_kind">;
+
+/** One check of public.quality_check, as a search reads it: its id, rule and kind of store. */
 export interface QualityCheckRef {
+  /** public.quality_check.id: the number in statistical_unit.quality_check_ids or a relation table. */
+  readonly id: number;
   readonly rule: QualityRule;
-  /** stat_definition.id of a per-variable rule's variable; null for every other rule. */
-  readonly statDefinitionId: number | null;
+  readonly kind: QualityCheckKind;
 }
 
 interface QualityRuleWording {

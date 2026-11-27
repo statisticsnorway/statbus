@@ -250,9 +250,9 @@ describe("composeExportSql", () => {
       existence_until: "gt.2026-11-24",
     });
     const { selectSql, countSql } = composeExportSql(params, config);
-    const condition = `EXISTS (SELECT 1 FROM public.quality_finding AS f
-    WHERE f.rule = 'establishments_above_legal_unit' AND f.stat_definition_id = (SELECT sd.id FROM public.stat_definition AS sd WHERE sd.code = 'employees')
-      AND f.existence_from <= '2026-11-24' AND '2026-11-24' < f.existence_until
+    const condition = `EXISTS (SELECT 1 FROM public.quality_check AS qc
+    CROSS JOIN LATERAL public.statistical_unit_quality(quality_check_id => qc.id, valid_on => '2026-11-24') AS f
+    WHERE qc.rule = 'establishments_above_legal_unit' AND qc.stat_definition_id = (SELECT sd.id FROM public.stat_definition AS sd WHERE sd.code = 'employees')
       AND f.unit_type = su.unit_type AND f.unit_id = su.unit_id AND f.valid_range = su.valid_range)`;
     expect(whereConditions(params)).toContain(condition);
     expect(selectSql).toContain(condition);
@@ -263,7 +263,7 @@ describe("composeExportSql", () => {
     const conditions = whereConditions(
       new URLSearchParams({ quality_check: "missing_region", existence_from: "lte.2026-11-24", existence_until: "gt.2026-11-24" })
     );
-    expect(conditions[0]).toContain("f.rule = 'missing_region' AND f.stat_definition_id IS NULL");
+    expect(conditions[0]).toContain("qc.rule = 'missing_region' AND qc.stat_definition_id IS NULL");
   });
 
   it("reads select=* as every row and refuses any other select, and an unknown quality check", () => {

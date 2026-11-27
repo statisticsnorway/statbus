@@ -4,40 +4,25 @@ import { useState } from "react";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Switch } from "@/components/ui/switch";
 import { qualityCheckExplanation, qualityCheckName } from "@/lib/quality-checks";
-import {
-  qualityCheckKey,
-  useQualityChecks,
-  type QualityCheckRow,
-} from "@/app/dashboard/quality-checks-data";
+import { useQualityChecks, type QualityCheckRow } from "@/app/dashboard/quality-checks-data";
 import AdminPageLayout from "../page-layout";
 
 /**
- * Admin > Data quality checks: every check of public.quality_check with a switch. Switching a check
- * on writes its row in public.quality_check_switched_on, switching it off deletes it; the dashboard
- * and the search's Quality filter read the same view, so they follow at their next read.
+ * Admin > Data quality checks: every check in use of public.quality_check with a switch, which
+ * writes the check's switched_on; the dashboard and the search's Quality filter read the same
+ * table, so they follow at their next read.
  */
 export default function QualityChecksPage() {
   const [version, setVersion] = useState(0);
   const { checks, error } = useQualityChecks(version);
-  const [saving, setSaving] = useState<string | null>(null);
+  const [saving, setSaving] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const setOnDashboard = async (check: QualityCheckRow, on: boolean) => {
-    const key = qualityCheckKey(check.rule, check.statDefinitionId);
-    setSaving(key);
+    setSaving(check.id);
     setSaveError(null);
     const client = await getBrowserRestClient();
-    const result = on
-      ? await client
-          .from("quality_check_switched_on")
-          .insert({ rule: check.rule, stat_definition_id: check.statDefinitionId })
-      : await (check.statDefinitionId === null
-          ? client.from("quality_check_switched_on").delete().eq("rule", check.rule).is("stat_definition_id", null)
-          : client
-              .from("quality_check_switched_on")
-              .delete()
-              .eq("rule", check.rule)
-              .eq("stat_definition_id", check.statDefinitionId));
+    const result = await client.from("quality_check").update({ switched_on: on }).eq("id", check.id);
     setSaving(null);
     if (result.error) {
       setSaveError(`${qualityCheckName(check.rule, check.statName)}: ${result.error.message}`);
@@ -56,7 +41,7 @@ export default function QualityChecksPage() {
       {checks && (
         <ul className="divide-y rounded border">
           {checks.map((check) => {
-            const key = qualityCheckKey(check.rule, check.statDefinitionId);
+            const key = check.id;
             const name = qualityCheckName(check.rule, check.statName);
             return (
               <li key={key} className="flex items-start justify-between gap-4 p-3">
