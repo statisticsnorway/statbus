@@ -1,0 +1,222 @@
+### 2026-11-27T22:05:44Z hostname; whoami; cd ~/statbus && ./sb ps 2>&1 | head -12; git describe --tags 2>/dev/null; date -u
+statbus
+statbus
+NAME                IMAGE                                              COMMAND                  SERVICE   CREATED        STATUS                  PORTS
+statbus-ug-app      ghcr.io/statisticsnorway/statbus-app:fc8a1d77      "docker-entrypoint.s…"   app       11 hours ago   Up 11 hours             127.0.0.1:3012->3000/tcp
+statbus-ug-db       ghcr.io/statisticsnorway/statbus-db:fc8a1d77       "/usr/local/bin/star…"   db        11 hours ago   Up 11 hours (healthy)   5432/tcp
+statbus-ug-proxy    ghcr.io/statisticsnorway/statbus-proxy:fc8a1d77    "caddy run --config …"   proxy     11 hours ago   Up 11 hours             0.0.0.0:80->80/tcp, 0.0.0.0:443->443/tcp, 0.0.0.0:5432->5432/tcp, 0.0.0.0:443->443/udp, 2019/tcp, 127.0.0.1:5431->5431/tcp
+statbus-ug-rest     postgrest/postgrest:v14.14                         "postgrest"              rest      4 weeks ago    Up 11 hours             127.0.0.1:3013->3000/tcp, 127.0.0.1:3016->3001/tcp
+statbus-ug-worker   ghcr.io/statisticsnorway/statbus-worker:fc8a1d77   "/usr/bin/dumb-init …"   worker    11 hours ago   Up 11 hours             
+v2026.11.6
+Fri Nov 27 22:05:47 UTC 2026
+### 2026-11-27T22:05:56Z cd ~/statbus; for s in db app proxy; do echo "== $s: $(docker compose logs --no-color $s 2>/dev/null | wc -l) lines, first: $(docker compose logs --no-color --timestamps $s 2>/dev/null | head -1 | cut -c1-60)"; done; echo "== db region-related errors"; docker compose logs --no-color --timestamps db 2>/dev/null | grep -i -E "region" | grep -i -E "error|detail|statement|hint" | tail -40 | cut -c1-400; echo "== app upload lines"; docker compose logs --no-color --timestamps app 2>/dev/null | grep -i -E "region_upload|upload|Body exceeded|bodySize" | tail -30 | cut -c1-600; echo "== proxy upload-regions POSTs"; docker compose logs --no-color proxy 2>/dev/null | grep "upload-regions" | grep -i "POST" | tail -20 | cut -c1-500
+== db: 77 lines, first: statbus-ug-db  | 2026-11-27T10:39:43.620942030Z Handing off 
+== app: 253 lines, first: statbus-ug-app  | 2026-11-27T10:40:29.286741762Z ▲ Next.js 1
+== proxy: 4732 lines, first: statbus-ug-proxy  | 2026-11-27T10:40:29.511387111Z {"level":
+== db region-related errors
+== app upload lines
+statbus-ug-app  | 2026-11-27T10:43:11.945253497Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T10:43:11.945290319Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T11:03:13.736190361Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T11:03:13.736232329Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T11:14:25.526877288Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T11:14:25.526914263Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T11:18:29.101424360Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T11:18:29.101459007Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T11:19:38.177097897Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T11:19:38.177127565Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T11:20:56.669607119Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T11:20:56.669653227Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T11:21:13.494905959Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T11:21:13.494938433Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T11:29:53.781822237Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T11:29:53.781855501Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T12:18:09.647368014Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T12:18:09.647404633Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T12:18:51.967573082Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T12:18:51.967602561Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T13:41:30.904686130Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T13:41:30.904721402Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T13:41:58.537455869Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T13:41:58.537496130Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T13:43:36.700780028Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T13:43:36.700829123Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+statbus-ug-app  | 2026-11-27T13:48:06.451278800Z ⨯ Error: Body exceeded 1 MB limit.
+statbus-ug-app  | 2026-11-27T13:48:06.451332460Z To configure the body size limit for Server Actions, see: https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#bodysizelimit
+== proxy upload-regions POSTs
+statbus-ug-proxy  | {"level":"info","ts":1795787050.3166878,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"HEAD","host":"statbus.ubos.org","uri":"/rest/sector_custom?select=*","headers":{"Cookie":["REDACTED"],"Sec-Fetch-Dest":["empty"],"Alt-Used":["statbus.ubos.org"],"Accept":["*/*"],"Accept-Language":["en-US,en;q=0.9"],"Content-Type":["application/json"],"Sec-Fetch-Site":
+statbus-ug-proxy  | {"level":"info","ts":1795787050.316848,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"HEAD","host":"statbus.ubos.org","uri":"/rest/establishment?select=*&legal_unit_id=is.null","headers":{"Prefer":["count=exact"],"Accept-Language":["en-US,en;q=0.9"],"Referer":["https://statbus.ubos.org/getting-started/upload-regions"],"Cookie":["REDACTED"],"Sec-Fetch-De
+statbus-ug-proxy  | {"level":"info","ts":1795787050.3247063,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"HEAD","host":"statbus.ubos.org","uri":"/rest/legal_form_custom?select=*","headers":{"User-Agent":["Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0"],"Accept":["*/*"],"Accept-Language":["en-US,en;q=0.9"],"Cookie":["REDACTED"],"Sec-Fetch
+statbus-ug-proxy  | {"level":"info","ts":1795787064.4360912,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"POST","host":"statbus.ubos.org","uri":"/rest/rpc/auth_status","headers":{"Alt-Used":["statbus.ubos.org"],"Sec-Fetch-Mode":["cors"],"Sec-Fetch-Site":["same-origin"],"Accept":["*/*"],"Accept-Encoding":["gzip, deflate, br, zstd"],"Content-Type":["application/json"],"Orig
+statbus-ug-proxy  | {"level":"info","ts":1795787064.4365864,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"User-Agent":["Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0"],"Sec-Fetch-Mode":["cors"],"Priority":["
+statbus-ug-proxy  | {"level":"info","ts":1795787069.191352,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"User-Agent":["Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0"],"Accept":["*/*"],"Cookie":["REDACTED"],"
+statbus-ug-proxy  | {"level":"info","ts":1795787069.1969645,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"POST","host":"statbus.ubos.org","uri":"/rest/rpc/auth_status","headers":{"Content-Length":["2"],"Accept-Language":["en-US,en;q=0.9"],"Sec-Fetch-Mode":["cors"],"Accept":["*/*"],"Accept-Encoding":["gzip, deflate, br, zstd"],"Referer":["https://statbus.ubos.org/getting-s
+statbus-ug-proxy  | {"level":"info","ts":1795787080.3274262,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"Accept-Language":["en-US,en;q=0.9"],"Priority":["u=4"],"Accept":["*/*"],"Alt-Used":["statbus.ubos.org"],"Sec-Fetch-Dest":["empty"],"User
+statbus-ug-proxy  | {"level":"info","ts":1795787085.8754926,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"POST","host":"statbus.ubos.org","uri":"/rest/rpc/auth_status","headers":{"Accept-Language":["en-US,en;q=0.9"],"Priority":["u=4"],"Content-Length":["2"],"Accept-Encoding":["gzip, deflate, br, zstd"],"Origin":["https://statbus.ubos.org"],"Content-Type":["application/jso
+statbus-ug-proxy  | {"level":"info","ts":1795787085.8764606,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"Sec-Fetch-Dest":["empty"],"Referer":["https://statbus.ubos.org/getting-started/upload-regions"],"Sec-Fetch-Site":["same-origin"],"User-A
+statbus-ug-proxy  | {"level":"info","ts":1795787112.4391143,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"Sec-Fetch-Dest":["empty"],"Cache-Control":["no-cache"],"User-Agent":["Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101
+statbus-ug-proxy  | {"level":"info","ts":1795787142.4496543,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"Alt-Used":["statbus.ubos.org"],"Cookie":["REDACTED"],"Cache-Control":["no-cache"],"Accept-Encoding":["gzip, deflate, br, zstd"],"Sec-Fet
+statbus-ug-proxy  | {"level":"info","ts":1795787175.9197714,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"User-Agent":["Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0"],"Cookie":["REDACTED"],"Referer":["https
+statbus-ug-proxy  | {"level":"info","ts":1795787209.03998,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"Sec-Fetch-Site":["same-origin"],"Accept-Encoding":["gzip, deflate, br, zstd"],"Accept-Language":["en-US,en;q=0.9"],"Cookie":["REDACTED"],"
+statbus-ug-proxy  | {"level":"info","ts":1795787240.246687,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"Sec-Fetch-Site":["same-origin"],"Accept-Encoding":["gzip, deflate, br, zstd"],"Referer":["https://statbus.ubos.org/getting-started/upload
+statbus-ug-proxy  | {"level":"info","ts":1795787273.3518257,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"Sec-Fetch-Site":["same-origin"],"Alt-Used":["statbus.ubos.org"],"Accept-Language":["en-US,en;q=0.9"],"Referer":["https://statbus.ubos.or
+statbus-ug-proxy  | {"level":"info","ts":1795787279.3813787,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"POST","host":"statbus.ubos.org","uri":"/rest/rpc/auth_status","headers":{"Referer":["https://statbus.ubos.org/getting-started/upload-regions"],"Accept-Language":["en-US,en;q=0.9"],"Origin":["https://statbus.ubos.org"],"Alt-Used":["statbus.ubos.org"],"User-Agent":["Moz
+statbus-ug-proxy  | {"level":"info","ts":1795787279.388464,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"Pragma":["no-cache"],"Sec-Fetch-Site":["same-origin"],"Referer":["https://statbus.ubos.org/getting-started/upload-regions"],"Alt-Used":["
+statbus-ug-proxy  | {"level":"info","ts":1795787284.6546905,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"GET","host":"statbus.ubos.org","uri":"/rest/rpc/release_identity?p_commit_sha=fc8a1d77f3b8cc44a91d81323d618f74b1b07625","headers":{"Accept-Language":["en-US,en;q=0.9"],"Sec-Fetch-Site":["same-origin"],"Accept-Encoding":["gzip, deflate, br, zstd"],"Sec-Fetch-Mode":["co
+statbus-ug-proxy  | {"level":"error","ts":1795787286.4519804,"logger":"http.log.access.log0","msg":"handled request","request":{"remote_ip":"10.10.77.240","remote_port":"57756","client_ip":"10.10.77.240","proto":"HTTP/3.0","method":"POST","host":"statbus.ubos.org","uri":"/getting-started/upload-regions","headers":{"User-Agent":["Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0"],"Sec-Fetch-Site":["same-origin"],"Referer":["https://statbus.ubos.org/getting-started/
+### 2026-11-27T22:06:06Z cd ~/statbus; docker compose logs --no-color --no-log-prefix proxy 2>/dev/null | grep "\"method\":\"POST\"" | grep "\"uri\":\"/getting-started/upload (local jq)
+### 2026-11-27T22:06:18Z proxy POST /getting-started/upload* lines (read-only logs | grep)
+2026-11-27T10:43:11Z	/getting-started/upload-regions	500	1809666	112	176ms
+2026-11-27T11:03:13Z	/getting-started/upload-regions	500	1809666	112	81ms
+2026-11-27T11:14:25Z	/getting-started/upload-regions	500	1742214	112	128ms
+2026-11-27T11:15:54Z	/getting-started/upload-regions	200	1284	117	131ms
+2026-11-27T11:16:07Z	/getting-started/upload-custom-sectors	200	1289	117	23ms
+2026-11-27T11:18:20Z	/getting-started/upload-custom-activity-standard-codes	200	41304	117	145ms
+2026-11-27T11:18:29Z	/getting-started/upload-regions	500	1742217	112	79ms
+2026-11-27T11:19:38Z	/getting-started/upload-regions	500	1742216	112	83ms
+2026-11-27T11:20:56Z	/getting-started/upload-regions	500	1742220	112	95ms
+2026-11-27T11:21:13Z	/getting-started/upload-regions	500	1742220	112	77ms
+2026-11-27T11:23:05Z	/getting-started/upload-regions	200	19530	117	590ms
+2026-11-27T11:27:34Z	/getting-started/upload-custom-activity-standard-codes	200	41304	117	164ms
+2026-11-27T11:27:43Z	/getting-started/upload-regions	200	1281	117	40ms
+2026-11-27T11:29:46Z	/getting-started/upload-custom-activity-standard-codes	200	41304	117	144ms
+2026-11-27T11:29:53Z	/getting-started/upload-regions	500	1742219	112	68ms
+2026-11-27T12:18:09Z	/getting-started/upload-regions	500	1742242	112	103ms
+2026-11-27T12:18:51Z	/getting-started/upload-regions	500	1742241	112	106ms
+2026-11-27T13:41:30Z	/getting-started/upload-regions	500	1740059	112	130ms
+2026-11-27T13:41:58Z	/getting-started/upload-regions	500	1740056	112	102ms
+2026-11-27T13:43:36Z	/getting-started/upload-regions	500	1874926	112	83ms
+2026-11-27T13:48:06Z	/getting-started/upload-regions	500	1874920	112	93ms
+### 2026-11-27T22:06:28Z read-only psql: region state
+ default_transaction_read_only 
+-------------------------------
+ off
+(1 row)
+
+ id |  code   |      name       
+----+---------+-----------------
+  1 | initial | Initial regions
+(1 row)
+
+ERROR:  column "latitude" does not exist
+LINE 1: ...count(*) AS regions, max(level) AS deepest, count(latitude) ...
+                                                             ^
+ level | count 
+-------+-------
+(0 rows)
+
+ units_with_region 
+-------------------
+                 0
+(1 row)
+
+### 2026-11-27T22:06:38Z psql inside BEGIN READ ONLY: region state
+BEGIN
+ transaction_read_only 
+-----------------------
+ on
+(1 row)
+
+ regions 
+---------
+       0
+(1 row)
+
+   column_name    
+------------------
+ id
+ path
+ parent_id
+ level
+ label
+ code
+ name
+ center_latitude
+ center_longitude
+ center_altitude
+ version_id
+(11 rows)
+
+ legal_units 
+-------------
+           0
+(1 row)
+
+ establishments 
+----------------
+              0
+(1 row)
+
+ slug | state | created_at 
+------+-------+------------
+(0 rows)
+
+ROLLBACK
+### 2026-11-27T22:06:51Z app log 11:10-11:35 and all error/warn lines (read-only)
+2026-11-27T12:07:38.597628557Z AuthStore.fetchAuthStatus: Exception during auth status check (outer catch): SyntaxError: Unexpected end of JSON input
+2026-11-27T12:07:38.598061489Z AuthStore.fetchAuthStatus: Error details: {
+2026-11-27T12:07:38.598065339Z   name: 'SyntaxError',
+2026-11-27T12:07:38.598070280Z   stack: 'SyntaxError: Unexpected end of JSON input\n' +
+2026-11-27T16:46:38.594217668Z AuthStore.fetchAuthStatus: Exception during auth status check (outer catch): SyntaxError: Unexpected end of JSON input
+2026-11-27T16:46:38.594795546Z AuthStore.fetchAuthStatus: Error details: {
+2026-11-27T16:46:38.594807231Z   name: 'SyntaxError',
+2026-11-27T16:46:38.594810230Z   stack: 'SyntaxError: Unexpected end of JSON input\n' +
+2026-11-27T18:20:38.580543499Z AuthStore.fetchAuthStatus: Exception during auth status check (outer catch): SyntaxError: Unexpected end of JSON input
+2026-11-27T18:20:38.580656441Z AuthStore.fetchAuthStatus: Error details: {
+2026-11-27T18:20:38.580674352Z   name: 'SyntaxError',
+2026-11-27T18:20:38.580677769Z   stack: 'SyntaxError: Unexpected end of JSON input\n' +
+2026-11-27T18:25:38.595375366Z AuthStore.fetchAuthStatus: Exception during auth status check (outer catch): SyntaxError: Unexpected end of JSON input
+2026-11-27T18:25:38.595493391Z AuthStore.fetchAuthStatus: Error details: {
+2026-11-27T18:25:38.595496303Z   name: 'SyntaxError',
+2026-11-27T18:25:38.595499401Z   stack: 'SyntaxError: Unexpected end of JSON input\n' +
+2026-11-27T18:32:38.601799306Z AuthStore.fetchAuthStatus: Exception during auth status check (outer catch): SyntaxError: Unexpected end of JSON input
+2026-11-27T18:32:38.601872524Z AuthStore.fetchAuthStatus: Error details: {
+2026-11-27T18:32:38.601879126Z   name: 'SyntaxError',
+2026-11-27T18:32:38.601884293Z   stack: 'SyntaxError: Unexpected end of JSON input\n' +
+2026-11-27T20:02:38.590966520Z AuthStore.fetchAuthStatus: Exception during auth status check (outer catch): SyntaxError: Unexpected end of JSON input
+2026-11-27T20:02:38.591163622Z AuthStore.fetchAuthStatus: Error details: {
+2026-11-27T20:02:38.591166581Z   name: 'SyntaxError',
+2026-11-27T20:02:38.591169471Z   stack: 'SyntaxError: Unexpected end of JSON input\n' +
+== rest errors
+2026-11-16T08:16:30.206695188Z 16/Nov/2026:08:16:30 +0000: Failed to query the PostgreSQL version. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.5), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-16T08:16:30.206981755Z 16/Nov/2026:08:16:30 +0000: Failed to query database settings for the config parameters.{"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.5), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-16T08:16:30.207235472Z 16/Nov/2026:08:16:30 +0000: Failed to query the role settings. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.5), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-16T08:16:30.207863476Z 16/Nov/2026:08:16:30 +0000: Failed to load the schema cache using db-schemas=public and db-extra-search-path=public. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.5), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-16T05:16:33.771105374Z 16/Nov/2026:05:16:33 +0000: Failed to query the PostgreSQL version. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.5), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-16T05:16:33.771454234Z 16/Nov/2026:05:16:33 +0000: Failed to query database settings for the config parameters.{"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.5), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-16T05:16:33.771709528Z 16/Nov/2026:05:16:33 +0000: Failed to query the role settings. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.5), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-16T05:16:33.772255877Z 16/Nov/2026:05:16:33 +0000: Failed to load the schema cache using db-schemas=public and db-extra-search-path=public. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.5), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-17T00:34:36.877773893Z 17/Nov/2026:00:34:36 +0000: Failed to query the PostgreSQL version. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.2), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-17T00:34:36.878723684Z 17/Nov/2026:00:34:36 +0000: Failed to query database settings for the config parameters.{"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.2), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-17T00:34:36.879470828Z 17/Nov/2026:00:34:36 +0000: Failed to query the role settings. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.2), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-17T00:34:36.879824288Z 17/Nov/2026:00:34:36 +0000: Failed to load the schema cache using db-schemas=public and db-extra-search-path=public. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.2), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-21T00:15:14.380591068Z 21/Nov/2026:00:15:14 +0000: Failed to query the PostgreSQL version. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.6), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-21T00:15:14.386698166Z 21/Nov/2026:00:15:14 +0000: Admin server listening on 0.0.0.0:300121/Nov/2026:00:15:14 +0000: Failed listening for database notifications on the "pgrst" channel. connection to server at "db" (172.18.0.6), port 5432 failed: Connection refused Is the server running on that host and accepting TCP/IP connections?21/Nov/2026:00:15:14 +0000: Failed to query database settings for the config parameters.{"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.6), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-21T00:15:14.390725481Z 21/Nov/2026:00:15:14 +0000: Failed to query the role settings. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.6), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-21T00:15:14.391536039Z 21/Nov/2026:00:15:14 +0000: Failed to load the schema cache using db-schemas=public and db-extra-search-path=public. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.6), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-25T00:05:22.303251521Z 25/Nov/2026:00:05:22 +0000: Failed to query the PostgreSQL version. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.3), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-25T00:05:22.303546638Z 25/Nov/2026:00:05:22 +0000: Failed to query database settings for the config parameters.{"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.3), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-25T00:05:22.304538547Z 25/Nov/2026:00:05:22 +0000: Failed to query the role settings. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.3), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+2026-11-25T00:05:22.306516969Z 25/Nov/2026:00:05:22 +0000: Failed to load the schema cache using db-schemas=public and db-extra-search-path=public. {"code":"PGRST000","details":"connection to server at \"db\" (172.18.0.3), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n","hint":null,"message":"Database connection error."}
+== db errors
+== proxy /rest POSTs to region_upload
+{"level":"info","ts":1795778154.1541772,"logger":"http.log.access.log1","msg":"handled request","request":{"remote_ip":"172.18.0.4","remote_port":"45432","client_ip":"172.18.0.4","proto":"HTTP/1.1","method":"POST","host":"proxy","uri":"/rest/region_upload","headers":{"Accept-Encoding":["gzip, deflate"],"Connection":["keep-alive"],"Content-Type":["text/csv"],"Authorization":["REDACTED"],"Content-Length":["892"],"Cookie":["REDACTED"],"X-Forwarded-Host":["statbus.ubos.org"],"X-Forwarded-Proto":["https"],"Accept-Language":["*"],"Sec-Fetch-Mode":["cors"],"X-Forwarded-For":["10.10.77.240"],"Accept":["*/*"],"User-Agent":["node"]}},"bytes_read":892,"user_id":"","duration":0.045872279,"size":0,"status":201,"resp_headers":{"Via":["1.1 Caddy"],"Content-Length":["0"],"Content-Range":["*/*"],"Date":["Fri, 27 Nov 2026 11:15:53 GMT"],"Server":["postgrest/14.14"]}}
+{"level":"info","ts":1795778584.9987373,"logger":"http.log.access.log1","msg":"handled request","request":{"remote_ip":"172.18.0.4","remote_port":"37610","client_ip":"172.18.0.4","proto":"HTTP/1.1","method":"POST","host":"proxy","uri":"/rest/region_upload","headers":{"Cookie":["REDACTED"],"X-Forwarded-Host":["statbus.ubos.org"],"Content-Length":["19131"],"Content-Type":["text/csv"],"Accept-Language":["*"],"Accept":["*/*"],"Sec-Fetch-Mode":["cors"],"User-Agent":["node"],"Accept-Encoding":["gzip, deflate"],"Connection":["keep-alive"],"Authorization":["REDACTED"],"X-Forwarded-Proto":["https"],"X-Forwarded-For":["10.10.77.240"]}},"bytes_read":19131,"user_id":"","duration":0.570072906,"size":0,"status":201,"resp_headers":{"Via":["1.1 Caddy"],"Date":["Fri, 27 Nov 2026 11:23:04 GMT"],"Server":["postgrest/14.14"],"Content-Length":["0"],"Content-Range":["*/*"]}}
+{"level":"info","ts":1795778863.5258458,"logger":"http.log.access.log1","msg":"handled request","request":{"remote_ip":"172.18.0.4","remote_port":"38410","client_ip":"172.18.0.4","proto":"HTTP/1.1","method":"POST","host":"proxy","uri":"/rest/region_upload","headers":{"Accept-Encoding":["gzip, deflate"],"Content-Length":["892"],"Content-Type":["text/csv"],"Cookie":["REDACTED"],"Authorization":["REDACTED"],"X-Forwarded-Proto":["https"],"Accept":["*/*"],"Accept-Language":["*"],"User-Agent":["node"],"Connection":["keep-alive"],"X-Forwarded-For":["10.10.77.240"],"X-Forwarded-Host":["statbus.ubos.org"],"Sec-Fetch-Mode":["cors"]}},"bytes_read":892,"user_id":"","duration":0.027654958,"size":0,"status":201,"resp_headers":{"Content-Length":["0"],"Content-Range":["*/*"],"Via":["1.1 Caddy"],"Date":["Fri, 27 Nov 2026 11:27:43 GMT"],"Server":["postgrest/14.14"]}}
+### 2026-11-27T22:07:00Z proxy: rest region_upload POSTs and reset/rpc writes (read-only)
+2026-11-27T11:15:54Z	POST	/rest/region_upload	201	892
+2026-11-27T11:16:07Z	POST	/rest/sector_custom_only	201	892
+2026-11-27T11:16:35Z	POST	/rest/rpc/reset	200	44
+2026-11-27T11:18:11Z	POST	/rest/settings?on_conflict=only_one_setting	201	74
+2026-11-27T11:18:20Z	POST	/rest/activity_category_enabled_custom	201	40873
+2026-11-27T11:22:41Z	POST	/rest/rpc/auth_test	200	2
+2026-11-27T11:23:04Z	POST	/rest/region_upload	201	19131
+2026-11-27T11:23:29Z	POST	/rest/rpc/reset	200	44
+2026-11-27T11:27:22Z	POST	/rest/settings?on_conflict=only_one_setting	201	74
+2026-11-27T11:27:34Z	POST	/rest/activity_category_enabled_custom	201	40873
+2026-11-27T11:27:43Z	POST	/rest/region_upload	201	892
+2026-11-27T11:28:12Z	POST	/rest/rpc/reset	200	44
+2026-11-27T11:29:39Z	POST	/rest/settings?on_conflict=only_one_setting	201	74
+2026-11-27T11:29:46Z	POST	/rest/activity_category_enabled_custom	201	40873
+2026-11-27T12:12:16Z	POST	/rest/rpc/auth_test	200	2
+2026-11-27T13:01:40Z	POST	/rest/rpc/auth_test	200	2
