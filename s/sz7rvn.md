@@ -10,11 +10,7 @@ group: ""
 rank: "zzzzzzzzzzzx"
 created: 2026-11-27
 updated: 2026-11-27
-design_question: "Fix by dropping row-level security on statistical_unit (its three policies all allow everything, so it only costs speed; my recommendation), or by marking the ltree comparison operators LEAKPROOF in a migration?"
-design_for: "jhf"
-design_since: "2026-11-27T12:05"
-design_asked_by: "hibiscus"
-stage: "design"
+stage: "ready"
 ---
 
 ## Goal
@@ -38,6 +34,8 @@ statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_ri
 ## Questions
 - 2026-11-27T12:05 question 1 by hibiscus to jhf:
   Fix by dropping row-level security on statistical_unit (its three policies all allow everything, so it only costs speed; my recommendation), or by marking the ltree comparison operators LEAKPROOF in a migration?
+  answered 2026-11-27T15:38 by jhf:
+    Okay, if marking the operations operator's leak proof in migration fixes it, I think it could, but I also do see the point. Why have role-level security if all the policies are the same? Does it help us with speed? Pros and cons in measurements
 
 ## Notes
 
@@ -45,3 +43,6 @@ statistical_unit has RLS with three policies, all USING true. ltree <@ (ltree_ri
 2026-11-27 11:10 (hibiscus) Test design: a timing test cannot go red on a small test database (the planner prefers the name index only with ~millions of rows), so the SQL test asserts the cause directly as a signed-in role: the path filter on statistical_unit is planned with the region's own estimate (EXPLAIN shows the gist index or a row estimate of the matching rows for an empty path), red today, green after the fix. Alternatively assert the property the fix sets: either relrowsecurity false on statistical_unit, or proleakproof true for ltree_risparent/ltree_isparent/ltree_eq.
 ## History
 - 2026-11-27T12:05 todo -> todo/design (ask)
+- 2026-11-27T15:38 answered design, by jhf, for hibiscus (todo/design -> todo/ready):
+  > Fix by dropping row-level security on statistical_unit (its three policies all allow everything, so it only costs speed; my recommendation), or by marking the ltree comparison operators LEAKPROOF in a migration?
+  Okay, if marking the operations operator's leak proof in migration fixes it, I think it could, but I also do see the point. Why have role-level security if all the policies are the same? Does it help us with speed? Pros and cons in measurements
