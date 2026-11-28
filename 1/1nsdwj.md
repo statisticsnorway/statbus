@@ -1,7 +1,7 @@
 ---
 id: 1nsdwj
 title: "StatBus runs sql_saga 1.15, with writer and time stamped per changed piece"
-state: "doing"
+state: "done"
 type: chore
 priority: "high"
 assignee: ["rabbit"]
@@ -10,15 +10,10 @@ group: ""
 rank: "00000000000o"
 created: 2026-11-22
 updated: 2026-11-22
-doing_since: "2026-11-26T21:28"
-doing_with: "ca6dk5"
-stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
-waiting_asked_by: "rabbit"
-waiting_on: "rc.02 reaching Norway (owner: the Norway gate is the real-guest check)"
-waiting_since: "2026-11-27T00:00"
+done_at: "2026-11-28T15:39"
 ---
 
 ## Goal
@@ -62,3 +57,4 @@ check 8: Norway (rune) upgrade v2026.11.7-rc.02, 2026-11-28 10:21-10:36: sql_sag
 ## History
 - 2026-11-26T21:28 todo -> doing/active (take with ca6dk5)
 - 2026-11-27T00:00 doing/active -> doing/waiting (wait)
+- 2026-11-28T15:39 doing/waiting -> done (done); was doing_since: 2026-11-26T21:28; doing_with: ca6dk5; waiting_asked_by: rabbit; waiting_on: rc.02 reaching Norway (owner: the Norway gate is the real-guest check); waiting_since: 2026-11-27T00:00
