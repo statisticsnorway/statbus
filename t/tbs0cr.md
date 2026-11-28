@@ -1,15 +1,21 @@
 ---
 id: tbs0cr
 title: "Upgrade Now says what the worker is doing and asks to interrupt it"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzy"
 created: 2026-11-28
 updated: 2026-11-28
+doing_with: "7dw69p"
+doing_since: "2026-11-28T15:41"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -33,3 +39,7 @@ Dialog: app/src/app/admin/upgrades/page.tsx, the AlertDialog 'Confirm Upgrade' (
 - [ ] Observed on a slot: start a recalculation, Upgrade Now shows the notice, ticking and proceeding upgrades, and the recalculation reruns and completes after
 
 ## Notes
+
+
+## History
+- 2026-11-28T15:41 todo -> doing/active (take with 7dw69p)
