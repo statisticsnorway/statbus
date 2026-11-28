@@ -38,6 +38,8 @@ Shape D in tmp/ppvxg2-read-study.md and tmp/ppvxg2-read-drill-direct-def.sql: gr
 
 ## Notes
 
+2026-11-28 14:37 owner: this rewrite first (same signature, same output), merged quickly; buffalo builds it and stops at master + green CI. hibiscus installs it on the test slot with the owner at a moment he picks. A second step, a facets argument (which drilldown branches to compute, NULL = all as today), is to be shown to the owner as a sketch (buffalo, in tmp/ppvxg2-read-study.md) before it is built, with its own tests.
+
 
 ## History
 - 2026-11-28T15:33 todo -> doing/active (take)
