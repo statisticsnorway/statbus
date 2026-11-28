@@ -41,6 +41,8 @@ export function RegionMap({
   trail,
   region,
   onSelect,
+  ringed,
+  onRing: setRinged,
   measures,
   unitType,
   unitsLabel,
@@ -57,6 +59,10 @@ export function RegionMap({
   readonly trail: DrillDownPoint[] | null | undefined;
   readonly region: DrillDownPoint | null;
   readonly onSelect: (p: DrillDownPoint | null) => void;
+  /** The region the eye marks: ringed on the map, its bar picked out in the bars (owner
+   * 2026-11-28 14:46), so the mark survives a flip between the views. */
+  readonly ringed: string | null;
+  readonly onRing: (path: string | null) => void;
   /** The measures shown as columns, the primary first: it sizes the circles and orders the rows. */
   readonly measures: readonly Measure[];
   readonly unitType: UnitType;
@@ -69,10 +75,6 @@ export function RegionMap({
   const client = useAtomValue(restClientAtom);
   const at = region?.path ?? "";
   const primary = measures[0];
-  // The selection's parts as a part, largest first by the primary.
-  const [ringed, setRinged] = useState<string | null>(null);
-  // Each figure also as a share of the selection's own.
-  const [showShare, setShowShare] = useState(false);
   const mapRef = useRef<MapLibreMap | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
@@ -109,7 +111,7 @@ export function RegionMap({
       setRinged(null);
       onSelect(p);
     },
-    [onSelect]
+    [onSelect, setRinged]
   );
   const goPath = useCallback(
     (path: string) => {
@@ -236,7 +238,7 @@ export function RegionMap({
     () => {
       handlers.current = { ring: setRinged, goPath };
     },
-    [goPath],
+    [goPath, setRinged],
     "RegionMap:handlers"
   );
   useGuardedEffect(
@@ -309,12 +311,11 @@ export function RegionMap({
       <SquareArrowOutUpRight className="h-4 w-4" />
     </Link>
   );
-  // A figure, with its share of the selection's own when asked; a variable's tooltip gives its
-  // mean over the units that report it.
-  const cell = (m: Measure, f: Figures, isSelection = false) => {
+  // A figure; a variable's tooltip gives its mean over the units that report it. Shares are read
+  // from the bars, whose lengths show them better than a percentage (owner 2026-11-28 14:46).
+  const cell = (m: Measure, f: Figures) => {
     const value = valueOf(f, m.key);
     const n = reportingOf(f, m.key);
-    const total = selection ? valueOf(selection, m.key) : 0;
     return (
       <td
         key={m.key}
@@ -322,23 +323,23 @@ export function RegionMap({
         title={n !== undefined ? (n > 0 ? `mean ${oneDecimal(value / n)} over the ${whole(n)} of ${whole(f.count)} that report it` : "no unit reports it") : undefined}
       >
         {whole(value)}
-        {showShare && !isSelection && total > 0 && (
-          <span className="block text-xs font-normal text-gray-500">{oneDecimal((100 * value) / total)}%</span>
-        )}
       </td>
     );
   };
   const parentPath = parentOf(at);
 
   return (
-    // Side by side from md up: the table takes the width its columns need (up to half) and its
-    // full height, so the page scrolls rather than a box inside it; the map stays in view beside
-    // it. On a narrow screen the map sits above the table.
+    // Side by side from md up: a square map, as tall as the window allows, and the table beside
+    // it in the rest, at its full height, so the page scrolls rather than a box inside it; the
+    // map stays in view. On a narrow screen the map sits above the table.
     <div className="flex flex-col rounded border bg-white md:flex-row md:items-start" data-drilldown-region-map="">
-      <div ref={boxRef} className="relative h-[50vh] min-w-0 md:sticky md:top-0 md:h-[75vh] md:flex-1">
+      <div
+        ref={boxRef}
+        className="relative h-[50vh] min-w-0 md:sticky md:top-0 md:aspect-square md:h-auto md:w-[min(75vh,60%)] md:shrink-0"
+      >
         <UnitMap onReady={onReady} className="absolute inset-0" />
       </div>
-      <div className="space-y-3 self-stretch overflow-x-auto border-t p-3 text-sm md:w-auto md:min-w-[24rem] md:max-w-[50%] md:shrink-0 md:border-l md:border-t-0">
+      <div className="min-w-0 flex-1 space-y-3 self-stretch overflow-x-auto border-t p-3 text-sm md:min-w-[24rem] md:border-l md:border-t-0">
         {selection && selection.count === 0 && !isLeaf && <MapEmptyNote frameName={frameName} />}
         {/* One table: the selection's own row on top, framed, then its parts, largest first by
             the primary. Comparing regions is reading down a column. */}
@@ -359,29 +360,11 @@ export function RegionMap({
           <tbody>
             <tr className="border-2 border-gray-900 bg-gray-50" data-drilldown-map-selection="">
               <td className="py-1.5 pl-2 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <span>
-                    {nameOf(at)}
-                    {at && <span className="ml-1.5 text-xs font-normal text-gray-500">{byPath.get(at)?.code ?? at}</span>}
-                  </span>
-                  {/* A quiet % beside the selection (owner 2026-11-28 13:50): pressed, every
-                      figure inside it also shows its share of the selection's own. */}
-                  <button
-                    type="button"
-                    className={`rounded px-1 text-xs font-semibold leading-5 ${
-                      showShare ? "bg-gray-900 text-white" : "text-gray-400 hover:bg-gray-200 hover:text-gray-900"
-                    }`}
-                    aria-pressed={showShare}
-                    title={showShare ? `Hide the shares of ${nameOf(at)}` : `Show each figure as a share of ${nameOf(at)}`}
-                    onClick={() => setShowShare((s) => !s)}
-                    data-drilldown-map-share=""
-                  >
-                    %
-                  </button>
-                </span>
+                {nameOf(at)}
+                {at && <span className="ml-1.5 text-xs font-normal text-gray-500">{byPath.get(at)?.code ?? at}</span>}
               </td>
               {selection
-                ? measures.map((m) => cell(m, selection, true))
+                ? measures.map((m) => cell(m, selection))
                 : measures.map((m) => (
                     <td key={m.key} className="py-1.5 pl-3 text-right text-xs text-gray-500">
                       {isLoading ? "…" : ""}

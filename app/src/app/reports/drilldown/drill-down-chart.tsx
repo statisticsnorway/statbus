@@ -15,6 +15,9 @@ interface DrillDownChartProps {
   readonly maxTopLevelValue: number | undefined;
   readonly categoryHeader: string;
   readonly onChartReady?: (chart: Chart | null) => void;
+  /** The path of the point the eye marked in the map view: its bar is drawn darker, so the same
+   * region stays picked out when the view flips (owner 2026-11-28 14:46). */
+  readonly marked?: string | null;
 }
 
 export const DrillDownChart = ({
@@ -25,6 +28,7 @@ export const DrillDownChart = ({
   maxTopLevelValue,
   categoryHeader,
   onChartReady,
+  marked = null,
 }: DrillDownChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
@@ -129,7 +133,7 @@ export const DrillDownChart = ({
             showInLegend: false,
             data: points
               ?.filter((point) => getStatValue(point, variable) !== 0)
-              .map((point) => toPointOptionObject(point, variable)),
+              .map((point) => toPointOptionObject(point, variable, point.path === marked)),
             groupPadding: 0.05,
             minPointLength: 3,
           },
@@ -155,6 +159,7 @@ export const DrillDownChart = ({
       maxTopLevelValue,
       categoryHeader,
       onChartReady,
+      marked,
     ],
     "DrillDownChart:createChart"
   );
@@ -168,10 +173,10 @@ const getStatValue = (point: DrillDownPoint, variable: string): number => {
   return metric && "sum" in metric ? (metric.sum as number) : 0;
 };
 
-const toPointOptionObject = (point: DrillDownPoint, variable: string) => ({
+const toPointOptionObject = (point: DrillDownPoint, variable: string, isMarked: boolean) => ({
   name: `${point.path} - ${point.name}`,
   y: getStatValue(point, variable),
   drilldown: point.has_children ? "1" : "",
   custom: point,
-  color: "#86ABD4",
+  color: isMarked ? "#1F4E8C" : "#86ABD4",
 });

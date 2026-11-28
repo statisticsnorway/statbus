@@ -41,6 +41,9 @@ export default function ReportsPageClient({}) {
   // The region panel's view (ppvxg2, owner 2026-11-28 14:02): the map is the flip side of the
   // region bars, as the search map is of the search list and the Regions map of the regions list.
   const [regionView, setRegionView] = useState<RegionView>("bars");
+  // The region the eye marks in the map view; the bars pick out the same one. Going into another
+  // region clears it.
+  const [markedRegion, setMarkedRegion] = useState<string | null>(null);
   // The measures shown, "count" and variable codes, and the primary one the bars and circles show
   // (ppvxg2, owner 2026-11-28 14:06: several measures, as the map prototype had).
   const [primaryKey, setPrimaryKey] = useState("count");
@@ -58,6 +61,15 @@ export default function ReportsPageClient({}) {
 
   const { statDefinitions } = useBaseData();
   const { selectedTimeFrame } = useTimeFrame();
+
+  // A mark belongs to one level's regions: a new selection, by bar, row, circle or trail, clears it.
+  useGuardedEffect(
+    () => {
+      setMarkedRegion(null);
+    },
+    [region?.path],
+    "ReportsPageClient:clearMarkOnRegion"
+  );
 
   useGuardedEffect(
     () => {
@@ -266,6 +278,8 @@ export default function ReportsPageClient({}) {
                     trail={drillDown.breadcrumb.region}
                     region={region}
                     onSelect={setRegion}
+                    ringed={markedRegion}
+                    onRing={setMarkedRegion}
                     measures={measures}
                     unitType={selectedUnitType}
                     unitsLabel={unitTypeLabel}
@@ -290,6 +304,7 @@ export default function ReportsPageClient({}) {
                       }
                       categoryHeader="Region"
                       onChartReady={setRegionChart}
+                      marked={markedRegion}
                     />
                     {/* Below the chart, at the left: apart from the view switch and the scale
                         switch above (owner 2026-11-28 14:24). */}
