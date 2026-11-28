@@ -1,6 +1,8 @@
 import { StatsSummary } from "@/app/types";
 
 export type DrillDown = {
+  /** The selection's own figures: every unit within the chosen region and activity. */
+  stats: Pick<DrillDownPoint, "count" | "stats_summary">;
   available: {
     region: DrillDownPoint[];
     activity_category: DrillDownPoint[];

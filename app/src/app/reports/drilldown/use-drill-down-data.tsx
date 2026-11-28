@@ -41,8 +41,9 @@ export const useDrillDownData = () => {
 
   // Don't fetch until time frame is ready — avoids a wasted ~5s request
   // with no valid_on that gets thrown away when selectedTimeFrame arrives.
+  // Read straight from /rest: the function needs no server-side work.
   const swrKey = selectedTimeFrame?.valid_on
-    ? `/api/reports?${urlSearchParams.toString()}`
+    ? `/rest/rpc/statistical_unit_facet_drilldown?${urlSearchParams.toString()}`
     : null;
 
   const fetcher = async (url: string) => {
