@@ -3,7 +3,7 @@ id: hra49v
 title: "Spike: Excel files beyond one sheet's row limit, streamed both ways"
 state: todo
 type: feature
-priority: ""
+priority: "low"
 assignee: []
 labels: []
 group: ""
