@@ -1,7 +1,7 @@
 ---
 id: pkne34
 title: "Missing Region counts domestic units that have a location but no region"
-state: "doing"
+state: "done"
 type: bug
 priority: "high"
 assignee: ["rabbit"]
@@ -10,14 +10,10 @@ group: ""
 rank: "zzzzzzx"
 created: 2026-11-22
 updated: 2026-11-22
-doing_since: "2026-11-23T16:23"
-stage: "waiting"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
-waiting_on: "check 2: rc.02 reaching no.statbus.org"
-waiting_since: "2026-11-24T20:14"
-waiting_asked_by: "rabbit"
+done_at: "2026-11-28T15:41"
 ---
 
 ## Goal
@@ -53,3 +49,4 @@ check 2: no.statbus.org (v2026.11.7, after the employees recalculation finished 
 ## History
 - 2026-11-23T16:23 todo -> doing/active (take)
 - 2026-11-24T20:14 doing/active -> doing/waiting (wait)
+- 2026-11-28T15:41 doing/waiting -> done (done); was doing_since: 2026-11-23T16:23; waiting_asked_by: rabbit; waiting_on: check 2: rc.02 reaching no.statbus.org; waiting_since: 2026-11-24T20:14
