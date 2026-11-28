@@ -1,0 +1,196 @@
+== file: tmp/upgrade-progress.log
+-rw-r--r-- 1 statbus statbus 14982 Nov 28 10:36 46-v2026.11.7-rc.02-20261128T092132Z.log
+-rw-r--r-- 1 statbus statbus  8813 Nov 12 10:39 6-v2026.11.4-rc.02-20261112T092952Z.log
+-rw-r--r-- 1 statbus statbus  8104 Nov  8 22:49 8-v2026.11.3-rc.03-20261108T214456Z.log
+# Statbus upgrade log v1
+# M <time> content               main service narration
+# O <name> <time> content        child stdout  (name: migrate, docker-compose, git, rsync)
+# E <name> <time> content        child stderr
+# ---
+M 10:21:32 Upgrading to v2026.11.7-rc.02 (from v2026.11.7-rc.01)
+M 10:21:32   Target commit: 97d83aa94
+M 10:21:33 Verifying release assets ... ok
+M 10:21:33 Disk space: 252 GB free on /var/lib/docker; the 40 GB recommendation is met.
+M 10:21:33 Disk space: 252 GB free on /home/statbus/statbus-upgrade-snapshots; the 40 GB recommendation is met.
+M 10:21:33 Verifying commit signature ... ok
+M 10:21:33 Disk space verified for Docker storage and backups
+M 10:21:33 Writing lock file for exclusive upgrade (~/statbus/tmp/upgrade-in-progress.json) ... ok
+M 10:21:33 Recording immutable source image identities ... ok
+M 10:21:35 Downloading images ... ok (1.8s)
+M 10:21:35 Blocking SQL writes while upgrading ... ok
+M 10:21:35   ran: ALTER DATABASE "statbus_no" SET default_transaction_read_only = on
+M 10:21:35 Entering maintenance mode (browsers redirect to the progress page, APIs get HTTP 503 Service Unavailable) ... ok
+M 10:21:35   wrote: ~/statbus-maintenance/active ("upgrade 46 to v2026.11.7-rc.02"; file contains the psql command for the live row)
+M 10:21:35 Stopping services:
+M 10:21:35   Disconnecting the upgrader from the database ... ok
+M 10:21:36   Stopping app, worker, rest ... ok
+M 10:21:38   Stopping database ... ok
+E rsync 10:21:39 
+E rsync 10:21:39 Number of files: 3,634 (reg: 3,604, dir: 30)
+E rsync 10:21:39 Number of created files: 2 (reg: 2)
+E rsync 10:21:39 Number of deleted files: 4 (reg: 3, dir: 1)
+E rsync 10:21:39 Number of regular files transferred: 123
+E rsync 10:21:39 Total file size: 64,454,004,196 bytes
+E rsync 10:21:39 Total transferred file size: 184,426,617 bytes
+E rsync 10:21:39 Literal data: 184,426,617 bytes
+E rsync 10:21:39 Number of 4 KiB logical blocks touched: 45,032
+E rsync 10:21:39 Matched data: 0 bytes
+E rsync 10:21:39 File list size: 0
+E rsync 10:21:39 File list generation time: 0.001 seconds
+E rsync 10:21:39 File list transfer time: 0.000 seconds
+E rsync 10:21:39 Total bytes sent: 184,547,677
+E rsync 10:21:39 Total bytes received: 12,970
+E rsync 10:21:39 
+E rsync 10:21:39 sent 184,547,677 bytes  received 12,970 bytes  369,121,294.00 bytes/sec
+E rsync 10:21:39 total size is 64,454,004,196  speedup is 349.23
+M 10:21:46 Backing up database ... ok (60.0 GB snapshot, 175.9 MB copied, 8.3s)
+M 10:21:46   at ~/statbus-upgrade-snapshots/pre-upgrade-active
+M 10:21:46 Installing v2026.11.7-rc.02:
+M 10:21:47   Replacing ./sb with the v2026.11.7-rc.02 binary (./sb.old kept for rollback) ... ok
+M 10:21:47   Old binary exiting so the new binary can take over ...
+M 10:24:34 New binary continuing upgrade 46 to v2026.11.7-rc.02 (pid 115196)
+M 10:24:34 Checking service state before proceeding:
+M 10:24:34   app: old version not running, new version not started yet
+M 10:24:34   worker: old version not running, new version not started yet
+M 10:24:34   proxy: old version running, new version not started yet
+M 10:24:34   rest: old version not running, new version not started yet
+O config-generate 10:24:34 DB memory: mode standalone, operator override 32G
+M 10:24:34 Regenerating configuration (.env, Caddyfile) ... ok
+E docker-compose 10:24:35  Image ghcr.io/statisticsnorway/statbus-app:97d83aa9 Pulling 
+E docker-compose 10:24:35  Image ghcr.io/statisticsnorway/statbus-db:97d83aa9 Pulling 
+E docker-compose 10:24:35  Image ghcr.io/statisticsnorway/statbus-worker:97d83aa9 Pulling 
+E docker-compose 10:24:35  Image ghcr.io/statisticsnorway/statbus-proxy:97d83aa9 Pulling 
+E docker-compose 10:24:35  Image postgrest/postgrest:v14.14 Pulling 
+E docker-compose 10:24:36  Image postgrest/postgrest:v14.14 Pulled 
+E docker-compose 10:24:36  Image ghcr.io/statisticsnorway/statbus-proxy:97d83aa9 Pulled 
+E docker-compose 10:24:36  Image ghcr.io/statisticsnorway/statbus-worker:97d83aa9 Pulled 
+E docker-compose 10:24:36  Image ghcr.io/statisticsnorway/statbus-app:97d83aa9 Pulled 
+E docker-compose 10:24:36  Image ghcr.io/statisticsnorway/statbus-db:97d83aa9 Pulled 
+M 10:24:36 Pulling updated images ... ok (1.8s)
+E docker-compose 10:24:37  Container statbus-no-db Running 
+M 10:24:37 Starting database ... healthy (0.4s)
+M 10:24:37 Reconnecting to database ... ok
+O migrate 10:24:39 [migrate] Applying 20261123114610_countries_have_a_centre_latitude_and_longitude.up.psql ...
+O migrate 10:24:39 Migration 20261123114610 (countries_have_a_centre_latitude_and_longitude)
+O migrate 10:24:40 [migrate] Applying 20261123114610_countries_have_a_centre_latitude_and_longitude.up.psql ... ok (238ms)
+O migrate 10:24:40 [applied] (238ms)
+O migrate 10:24:40 [migrate] Applying 20261124114235_legal_unit_stats_cover_its_establishments.up.sql ...
+O migrate 10:24:40 Migration 20261124114235 (legal_unit_stats_cover_its_establishments)
+O migrate 10:24:40 [migrate] Applying 20261124114235_legal_unit_stats_cover_its_establishments.up.sql ... ok (210ms)
+O migrate 10:24:40 [applied] (210ms)
+O migrate 10:24:40 [migrate] Applying 20261124115435_quality_checks_compare_a_legal_unit_with_its_establishments.up.sql ...
+O migrate 10:24:40 Migration 20261124115435 (quality_checks_compare_a_legal_unit_with_its_establishments)
+O migrate 10:24:44 [migrate] Applying 20261124115435_quality_checks_compare_a_legal_unit_with_its_establishments.up.sql ... ok (3.297s)
+O migrate 10:24:44 [applied] (3297ms)
+O migrate 10:24:44 [migrate] Applying 20261124212002_quality_checks_are_one_catalogue_with_a_switch_per_check.up.sql ...
+O migrate 10:24:44 Migration 20261124212002 (quality_checks_are_one_catalogue_with_a_switch_per_check)
+O migrate 10:24:44 [migrate] Applying 20261124212002_quality_checks_are_one_catalogue_with_a_switch_per_check.up.sql ... ok (312ms)
+O migrate 10:24:44 [applied] (312ms)
+O migrate 10:24:44 [migrate] Applying 20261126094102_codes_are_csv_column_names.up.sql ...
+O migrate 10:24:44 Migration 20261126094102 (codes_are_csv_column_names)
+O migrate 10:24:44 [migrate] Applying 20261126094102_codes_are_csv_column_names.up.sql ... ok (214ms)
+O migrate 10:24:44 [applied] (213ms)
+O migrate 10:24:44 [migrate] Applying 20261126104113_set_primary_edits_a_stretch_of_time.up.sql ...
+O migrate 10:24:44 Migration 20261126104113 (set_primary_edits_a_stretch_of_time)
+O migrate 10:24:45 [migrate] Applying 20261126104113_set_primary_edits_a_stretch_of_time.up.sql ... ok (207ms)
+O migrate 10:24:45 [applied] (206ms)
+O migrate 10:24:45 [migrate] Applying 20261126201306_region_upload_keeps_what_a_file_leaves_out.up.sql ...
+O migrate 10:24:45 Migration 20261126201306 (region_upload_keeps_what_a_file_leaves_out)
+O migrate 10:24:45 [migrate] Applying 20261126201306_region_upload_keeps_what_a_file_leaves_out.up.sql ... ok (196ms)
+O migrate 10:24:45 [applied] (196ms)
+O migrate 10:24:45 [migrate] Applying 20261126202815_quality_rule_secondary_activity_equals_primary.up.sql ...
+O migrate 10:24:45 Migration 20261126202815 (quality_rule_secondary_activity_equals_primary)
+O migrate 10:24:46 [migrate] Applying 20261126202815_quality_rule_secondary_activity_equals_primary.up.sql ... ok (188ms)
+O migrate 10:24:46 [applied] (188ms)
+O migrate 10:24:46 [migrate] Applying 20261126202816_quality_rule_secondary_activity_equals_primary_is_a_check.up.sql ...
+O migrate 10:24:46 Migration 20261126202816 (quality_rule_secondary_activity_equals_primary_is_a_check)
+O migrate 10:24:46 [migrate] Applying 20261126202816_quality_rule_secondary_activity_equals_primary_is_a_check.up.sql ... ok (232ms)
+O migrate 10:24:46 [applied] (231ms)
+O migrate 10:24:46 [migrate] Applying 20261126202817_quality_checks_start_switched_off_except_a_starting_set.up.sql ...
+O migrate 10:24:46 Migration 20261126202817 (quality_checks_start_switched_off_except_a_starting_set)
+O migrate 10:24:47 [migrate] Applying 20261126202817_quality_checks_start_switched_off_except_a_starting_set.up.sql ... ok (277ms)
+O migrate 10:24:47 [applied] (277ms)
+O migrate 10:24:47 [migrate] Applying 20261126215254_region_change_rederives_only_what_it_changes.up.sql ...
+O migrate 10:24:47 Migration 20261126215254 (region_change_rederives_only_what_it_changes)
+O migrate 10:24:47 [migrate] Applying 20261126215254_region_change_rederives_only_what_it_changes.up.sql ... ok (223ms)
+O migrate 10:24:47 [applied] (222ms)
+O migrate 10:24:47 [migrate] Applying 20261126234314_quality_checks_derive_only_the_changed_units_in_concurrent_partitions.up.sql ...
+O migrate 10:24:47 Migration 20261126234314 (quality_checks_derive_only_the_changed_units_in_concurrent_partitions)
+O migrate 10:24:47 [migrate] Applying 20261126234314_quality_checks_derive_only_the_changed_units_in_concurrent_partitions.up.sql ... ok (232ms)
+O migrate 10:24:47 [applied] (231ms)
+O migrate 10:24:47 [migrate] Applying 20261127011934_quality_row_checks_read_statistical_unit_once_and_full_runs_split_by_worker_count.up.sql ...
+O migrate 10:24:47 Migration 20261127011934 (quality_row_checks_read_statistical_unit_once_and_full_runs_split_by_worker_count)
+O migrate 10:24:48 [migrate] Applying 20261127011934_quality_row_checks_read_statistical_unit_once_and_full_runs_split_by_worker_count.up.sql ... ok (216ms)
+O migrate 10:24:48 [applied] (216ms)
+O migrate 10:24:48 [migrate] Applying 20261127122226_coordinates_named_latitude_longitude_altitude.up.sql ...
+O migrate 10:24:48 Migration 20261127122226 (coordinates_named_latitude_longitude_altitude)
+O migrate 10:24:49 [migrate] Applying 20261127122226_coordinates_named_latitude_longitude_altitude.up.sql ... ok (596ms)
+O migrate 10:24:49 [applied] (596ms)
+O migrate 10:24:49 [migrate] Applying 20261127144756_ltree_comparisons_are_leakproof_so_path_searches_use_their_index.up.sql ...
+O migrate 10:24:49 Migration 20261127144756 (ltree_comparisons_are_leakproof_so_path_searches_use_their_index)
+O migrate 10:24:49 [migrate] Applying 20261127144756_ltree_comparisons_are_leakproof_so_path_searches_use_their_index.up.sql ... ok (215ms)
+O migrate 10:24:49 [applied] (215ms)
+O migrate 10:24:49 [migrate] Applying 20261127161436_the_united_nations_country_sits_at_un_headquarters.up.sql ...
+O migrate 10:24:49 Migration 20261127161436 (the_united_nations_country_sits_at_un_headquarters)
+O migrate 10:24:49 [migrate] Applying 20261127161436_the_united_nations_country_sits_at_un_headquarters.up.sql ... ok (183ms)
+O migrate 10:24:49 [applied] (182ms)
+O migrate 10:24:49 [migrate] Applying 20261127162600_legal_unit_totals_rollup_per_variable_and_counting_where_a_unit_exists.up.sql ...
+O migrate 10:24:49 Migration 20261127162600 (legal_unit_totals_rollup_per_variable_and_counting_where_a_unit_exists)
+O migrate 10:24:50 [migrate] Applying 20261127162600_legal_unit_totals_rollup_per_variable_and_counting_where_a_unit_exists.up.sql ... ok (233ms)
+O migrate 10:24:50 [applied] (233ms)
+O migrate 10:24:50 [migrate] Applying 20261127162610_quality_check_catalogue_with_integer_ids_relation_tables_and_intarray_gin_indexes.up.sql ...
+O migrate 10:24:50 Migration 20261127162610 (quality_check_catalogue_with_integer_ids_relation_tables_and_intarray_gin_indexes)
+O migrate 10:24:58 [migrate] Applying 20261127162610_quality_check_catalogue_with_integer_ids_relation_tables_and_intarray_gin_indexes.up.sql ... ok (7.776s)
+O migrate 10:24:58 [applied] (7775ms)
+O migrate 10:24:58 [migrate] Applying 20261127162620_quality_row_checks_on_statistical_unit_and_relation_checks_in_their_own_tables.up.sql ...
+O migrate 10:24:58 Migration 20261127162620 (quality_row_checks_on_statistical_unit_and_relation_checks_in_their_own_tables)
+O migrate 10:36:10 [migrate] Applying 20261127162620_quality_row_checks_on_statistical_unit_and_relation_checks_in_their_own_tables.up.sql ... ok (11m12.04s)
+O migrate 10:36:10 [applied] (672040ms)
+O migrate 10:36:10 [migrate] Applying 20261127204438_import_primary_is_the_establishment_that_exists_first.up.sql ...
+O migrate 10:36:10 Migration 20261127204438 (import_primary_is_the_establishment_that_exists_first)
+O migrate 10:36:11 [migrate] Applying 20261127204438_import_primary_is_the_establishment_that_exists_first.up.sql ... ok (223ms)
+O migrate 10:36:11 [applied] (222ms)
+O migrate 10:36:11 [migrate] Applying 20261127225018_region_upload_looks_regions_up_by_index.up.sql ...
+O migrate 10:36:11 Migration 20261127225018 (region_upload_looks_regions_up_by_index)
+O migrate 10:36:11 [migrate] Applying 20261127225018_region_upload_looks_regions_up_by_index.up.sql ... ok (217ms)
+O migrate 10:36:11 [applied] (216ms)
+O migrate 10:36:11 Applying database migrations ... ok (21 applied)
+O migrate 10:36:11 Applying post-restore database fixes ...
+O migrate 10:36:11 Applying post-restore database fixes ... ok
+M 10:36:11 Applying database migrations: 21 pending ... ok
+E docker-compose 10:36:12  Container statbus-no-db Running 
+E docker-compose 10:36:12  Container statbus-no-app Recreate 
+E docker-compose 10:36:12  Container statbus-no-worker Recreate 
+E docker-compose 10:36:12  Container statbus-no-rest Recreate 
+E docker-compose 10:36:13  Container statbus-no-rest Recreated 
+E docker-compose 10:36:13  Container statbus-no-proxy Recreate 
+E docker-compose 10:36:13  Container statbus-no-app Recreated 
+E docker-compose 10:36:13  Container statbus-no-worker Recreated 
+E docker-compose 10:36:24  Container statbus-no-proxy Recreated 
+E docker-compose 10:36:24  Container statbus-no-db Waiting 
+E docker-compose 10:36:24  Container statbus-no-db Waiting 
+E docker-compose 10:36:24  Container statbus-no-db Waiting 
+E docker-compose 10:36:24  Container statbus-no-db Healthy 
+E docker-compose 10:36:24  Container statbus-no-worker Starting 
+E docker-compose 10:36:24  Container statbus-no-db Healthy 
+E docker-compose 10:36:24  Container statbus-no-rest Starting 
+E docker-compose 10:36:24  Container statbus-no-db Healthy 
+E docker-compose 10:36:24  Container statbus-no-app Starting 
+E docker-compose 10:36:25  Container statbus-no-worker Started 
+E docker-compose 10:36:25  Container statbus-no-rest Started 
+E docker-compose 10:36:25  Container statbus-no-proxy Starting 
+E docker-compose 10:36:25  Container statbus-no-app Started 
+E docker-compose 10:36:25  Container statbus-no-proxy Started 
+M 10:36:25 Starting services (app, worker, proxy, rest) ... ok (13.6s)
+M 10:36:27 Verifying health end to end (request through proxy and API to the database) ... ok (0.0s)
+M 10:36:27 Waiting for PostgREST schema cache (admin /ready, up to 5m) ... ready (2.0s)
+M 10:36:27 Finishing:
+M 10:36:27   Lifting maintenance mode ... ok
+M 10:36:27     removed: ~/statbus-maintenance/active
+M 10:36:27   Recording the successful upgrade in the database ... ok
+M 10:36:27   Unblocking SQL writes ... ok
+M 10:36:27     ran: ALTER DATABASE "statbus_no" SET default_transaction_read_only = off
+M 10:36:27   Releasing upgrade lock ... ok
+M 10:36:27     removed: ~/statbus/tmp/upgrade-in-progress.json
+M 10:36:35   Applying configuration and service updates ... ok (7.9s)
+M 10:36:35 Upgrade to v2026.11.7-rc.02 complete.

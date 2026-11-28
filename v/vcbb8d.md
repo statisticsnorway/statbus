@@ -32,3 +32,5 @@ rune 2026-11-28 (tmp/norway-rc02-progress.log, tmp/norway-rc02-handover-journal.
 - [ ] Observed on a real upgrade (dev canary or Norway): the progress page shows the running migration's name during its run
 
 ## Notes
+
+file:norway-rc02-progress.log (15281 bytes, sha256:c5c36195)
