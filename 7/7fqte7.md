@@ -3,7 +3,7 @@ id: 7fqte7
 title: "An Excel upload picks the sheet with the expected columns and says which"
 state: todo
 type: feature
-priority: ""
+priority: "low"
 assignee: []
 labels: []
 group: ""
