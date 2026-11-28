@@ -1,15 +1,20 @@
 ---
 id: vcbb8d
 title: "The upgrade progress page names each migration and long step as it runs"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["worker-vcbb8d"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzs"
 created: 2026-11-28
 updated: 2026-11-28
+doing_since: "2026-11-28T15:39"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus_b"
 ---
 
 ## Goal
@@ -36,3 +41,7 @@ rune 2026-11-28 (tmp/norway-rc02-progress.log, tmp/norway-rc02-handover-journal.
 file:norway-rc02-progress.log (15281 bytes, sha256:c5c36195)
 
 file:norway-rc02-handover-journal.log (6075 bytes, sha256:fe72e133)
+
+
+## History
+- 2026-11-28T15:39 todo -> doing/active (take)
