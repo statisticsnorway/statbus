@@ -32,7 +32,7 @@ rune 2026-11-28 (tmp/norway-rc02-progress.log, tmp/norway-rc02-handover-journal.
 ## Depends on
 
 ## Acceptance
-- [ ] A test upgrade's progress log has, in order: an M line 'Applying database migrations: N pending ...' before the first migration, an M line per migration with its name and then its time, and an M still-running line at least every 30 s during a migration that runs longer
+- [x] A test upgrade's progress log has, in order: an M line 'Applying database migrations: N pending ...' before the first migration, an M line per migration with its name and then its time, and an M still-running line at least every 30 s during a migration that runs longer
 - [ ] The boot extension update writes M lines (extension, versions, start and time) to the progress log
 - [ ] Observed on a real upgrade (dev canary or Norway): the progress page shows the running migration's name during its run
 
@@ -43,5 +43,6 @@ file:norway-rc02-progress.log (15281 bytes, sha256:c5c36195)
 file:norway-rc02-handover-journal.log (6075 bytes, sha256:fe72e133)
 
 
+check 1: 4781ae30c: migrateNarrator turns migrate stdout into M lines (pending count start, per-migration start/result, Still applying every 30s); TestMigrateNarrator_RealisticSequence red tmp/vcbb8d-red.log, green tmp/vcbb8d-green.log; suite tmp/vcbb8d-suite.log
 ## History
 - 2026-11-28T15:39 todo -> doing/active (take)
