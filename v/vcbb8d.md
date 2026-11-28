@@ -46,5 +46,6 @@ file:norway-rc02-handover-journal.log (6075 bytes, sha256:fe72e133)
 check 1: 4781ae30c: migrateNarrator turns migrate stdout into M lines (pending count start, per-migration start/result, Still applying every 30s); TestMigrateNarrator_RealisticSequence red tmp/vcbb8d-red.log, green tmp/vcbb8d-green.log; suite tmp/vcbb8d-suite.log
 check 2: 4781ae30c: extensions.go prints start + ok/failed with time; boot floor migrate (runMigrateFloorNarrated) narrates on the flagged upgrade's progress log; covered by the same narrator test
 check 1: TestMigrateNarrator_RealisticSequence (03f0767e6): M lines in order: 'Applying database migrations: 2 pending ...' before the first migration, per migration its name then 'ok (time)', and 'Still applying <name> (30s) ...' every 30 s during a long one; red before (build fails: undefined newMigrateNarrator, statbus_b tmp/vcbb8d-red.log), green after; upgrade + migrate packages pass.
+check 2: extensions.go writes '[migrate] Extension X: a -> b ... ' and '... ok (time)'/'failed after'; the narrator turns them into M lines with still-running lines (test case sql_saga 1.14 -> 1.15 over 70 s); the recovery boot's floor migrate writes them to the flagged upgrade's progress log (service.go runMigrateFloorNarrated).
 ## History
 - 2026-11-28T15:39 todo -> doing/active (take)
