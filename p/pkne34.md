@@ -36,7 +36,7 @@ Before 7636c75cb (app/src/app/dashboard/missing-region-card.tsx and the link in 
 
 ## Acceptance
 - [x] On a test database with one domestic unit that has a physical location but no region, one foreign unit, and one unit without a physical location, the card's exact count is 1 and its list has one row, that domestic unit; a Playwright test asserts both numbers
-- [ ] On no.statbus.org after the release, the card's exact count equals the list total, and the list contains no foreign units and no units without a physical location; the numbers are recorded here
+- [x] On no.statbus.org after the release, the card's exact count equals the list total, and the list contains no foreign units and no units without a physical location; the numbers are recorded here
 
 ## Notes
 
@@ -49,6 +49,7 @@ landed 7636c75 on master 2026-11-23: app: Missing Region card counts what its li
 62e05147c: the Establishment Activity Differs card lost quality= on a client-side visit (useSearchUrlSync had a second URL->state initializer without quality, which won the race when lookup data was cached). RED tmp/quality-click/repro.log (logo click and Back lose it), GREEN green.log. Physical Location Missing and Quality chips orange: tmp/quality-click/chip-colours.log.
 Owner checked in Firefox on the test slot (62e05147c): the Establishment Activity Differs card opens the list with the Quality: Activity differs chip after a client-side return to the dashboard, and Physical Location: Missing and Quality chips show orange.
 shipped in v2026.11.7 (7636c75)
+check 2: no.statbus.org (v2026.11.7, after the employees recalculation finished 14:19), live frame 2026-11-28, read-only (tmp/norway-pkne34-2026-11-28.log): card quality_check_count check 1 = 2; list (statistical_unit quality_check_ids @> {1}, existing today) = 2, of which 0 not domestic and 0 without a physical location: legal_unit 202361 and establishment 126240. Before the fix the card counted about 77,000 (54,541 foreign + 22,445 without a location + 2).
 ## History
 - 2026-11-23T16:23 todo -> doing/active (take)
 - 2026-11-24T20:14 doing/active -> doing/waiting (wait)
