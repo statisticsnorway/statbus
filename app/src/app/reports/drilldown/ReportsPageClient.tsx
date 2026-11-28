@@ -23,6 +23,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import type { DrillDownPoint } from "@/app/reports/types/drill-down";
+import { WithinNote } from "@/app/reports/drilldown/within-note";
 
 /** How the region panel draws its regions: as bars, or as circles on a map beside their table. */
 type RegionView = "bars" | "map";
@@ -177,9 +178,9 @@ export default function ReportsPageClient({}) {
   );
 
   return (
-    <div
-      className={`mx-auto flex w-full flex-col px-2 ${regionView === "map" ? "max-w-screen-2xl" : "max-w-5xl"}`}
-    >
+    // One width for bars and map, so switching views keeps every control in its place (owner
+    // 2026-11-28 14:24: the page resized and the switch moved).
+    <div className="mx-auto flex w-full max-w-screen-2xl flex-col px-2">
       <h1 className="mb-3 text-center text-2xl">Statbus Data Drilldown</h1>
       <p className="mb-4 text-center text-gray-600">
         Gain data insights by drilling through the bar charts below
@@ -210,6 +211,7 @@ export default function ReportsPageClient({}) {
                       selected={region}
                       onSelect={setRegion}
                     />
+                    <WithinNote kind="activity" point={activityCategory} onClear={() => setActivityCategory(null)} />
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     {regionView === "bars" && hasActiveDrilldownFilter && (
@@ -255,19 +257,6 @@ export default function ReportsPageClient({}) {
                         </button>
                       ))}
                     </div>
-                    {regionView === "bars" && (
-                      <ChartExportButton
-                        chart={regionChart}
-                        title={primaryTitle}
-                        subtitle={filterSubtitle}
-                        hasActiveFilter={hasActiveDrilldownFilter}
-                        filenameBase={buildChartExportFilenameBase(
-                          "drilldown_by_region",
-                          selectedUnitType,
-                          selectedYear
-                        )}
-                      />
-                    )}
                   </div>
                 </div>
                 {regionView === "map" ? (
@@ -286,21 +275,36 @@ export default function ReportsPageClient({}) {
                     isLoading={isLoading}
                   />
                 ) : highchartsModulesLoaded ? (
-                  <DrillDownChart
-                    points={drillDown.available.region}
-                    onSelect={setRegion}
-                    variable={primary.key}
-                    title={primaryTitle}
-                    maxTopLevelValue={
-                      scaleRegionToSelection
-                        ? undefined
-                        : maxStatValuesNoFiltering[
-                            `${selectedUnitType}::${primary.key}`
-                          ]?.region
-                    }
-                    categoryHeader="Region"
-                    onChartReady={setRegionChart}
-                  />
+                  <>
+                    <DrillDownChart
+                      points={drillDown.available.region}
+                      onSelect={setRegion}
+                      variable={primary.key}
+                      title={primaryTitle}
+                      maxTopLevelValue={
+                        scaleRegionToSelection
+                          ? undefined
+                          : maxStatValuesNoFiltering[
+                              `${selectedUnitType}::${primary.key}`
+                            ]?.region
+                      }
+                      categoryHeader="Region"
+                      onChartReady={setRegionChart}
+                    />
+                    {/* Below the chart, at the left: apart from the view switch and the scale
+                        switch above (owner 2026-11-28 14:24). */}
+                    <ChartExportButton
+                      chart={regionChart}
+                      title={primaryTitle}
+                      subtitle={filterSubtitle}
+                      hasActiveFilter={hasActiveDrilldownFilter}
+                      filenameBase={buildChartExportFilenameBase(
+                        "drilldown_by_region",
+                        selectedUnitType,
+                        selectedYear
+                      )}
+                    />
+                  </>
                 ) : (
                   <Skeleton className="w-full h-[200px]" />
                 )}
@@ -323,6 +327,7 @@ export default function ReportsPageClient({}) {
                       selected={activityCategory}
                       onSelect={setActivityCategory}
                     />
+                    <WithinNote kind="region" point={region} onClear={() => setRegion(null)} />
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     {hasActiveDrilldownFilter && (
@@ -340,6 +345,25 @@ export default function ReportsPageClient({}) {
                         />
                       </div>
                     )}
+                  </div>
+                </div>
+                {highchartsModulesLoaded ? (
+                  <>
+                    <DrillDownChart
+                      points={drillDown.available.activity_category}
+                      onSelect={setActivityCategory}
+                      variable={primary.key}
+                      title={primaryTitle}
+                      maxTopLevelValue={
+                        scaleActivityToSelection
+                          ? undefined
+                          : maxStatValuesNoFiltering[
+                              `${selectedUnitType}::${primary.key}`
+                            ]?.activity
+                      }
+                      categoryHeader="Activity Category"
+                      onChartReady={setActivityChart}
+                    />
                     <ChartExportButton
                       chart={activityChart}
                       title={primaryTitle}
@@ -351,24 +375,7 @@ export default function ReportsPageClient({}) {
                         selectedYear
                       )}
                     />
-                  </div>
-                </div>
-                {highchartsModulesLoaded ? (
-                  <DrillDownChart
-                    points={drillDown.available.activity_category}
-                    onSelect={setActivityCategory}
-                    variable={primary.key}
-                    title={primaryTitle}
-                    maxTopLevelValue={
-                      scaleActivityToSelection
-                        ? undefined
-                        : maxStatValuesNoFiltering[
-                            `${selectedUnitType}::${primary.key}`
-                          ]?.activity
-                    }
-                    categoryHeader="Activity Category"
-                    onChartReady={setActivityChart}
-                  />
+                  </>
                 ) : (
                   <Skeleton className="w-full h-[200px]" />
                 )}

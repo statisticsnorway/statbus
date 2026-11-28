@@ -3,7 +3,7 @@
 import type { Chart } from "highcharts";
 import type {} from "highcharts/modules/export-data";
 import type {} from "highcharts/modules/exporting";
-import { Menu } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -87,14 +87,17 @@ export const ChartExportButton = ({
     );
   };
 
+  // The app's download button, as on Regions and Search: the down-arrow and the word, outlined
+  // (owner 2026-11-28 14:41: a hamburger did not say download).
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" title="Export chart">
-          <Menu className="h-4 w-4" />
+        <Button variant="outline" size="sm" className="flex items-center gap-1.5" data-chart-download="">
+          <Download className="h-4 w-4" />
+          Download
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="start">
         <DropdownMenuItem onClick={exportPng}>Download PNG</DropdownMenuItem>
         <DropdownMenuItem onClick={exportCsv}>Download CSV</DropdownMenuItem>
         <DropdownMenuItem onClick={exportXlsx}>Download XLSX</DropdownMenuItem>
