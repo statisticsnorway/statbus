@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
 done_at: "2026-11-20T09:13"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -48,6 +49,7 @@ check 1: 203628fe0: FormSaveButton/FormCancelButton (app/src/components/form/for
 landed 203628f on master 2026-11-19: app: a unit edit form shows Saving… while its save runs (m6mnnw)
 2026-11-19 CI for 203628fe0 all green: Fast Tests, Go Test, app build & lint, Images, Harness Selftest.
 Reflection (open, 2026-11-20, hibiscus): The owner's yes reached me through hug's answer hand-off, but it looked unhandled to him: an answer stays shown to the asker until the asker next writes on the task, and he could not tell whether I had picked it up. Writing on the task (or closing it) as soon as an answer arrives is what tells the person it was received.
+shipped in v2026.11.7 (203628f)
 ## History
 - 2026-11-19T16:26 todo -> doing/active (take)
 - 2026-11-19T16:38 doing/active -> doing/asked (ask)

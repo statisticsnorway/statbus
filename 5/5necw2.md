@@ -47,6 +47,7 @@ Owner 2026-11-23 (review of z2qt08/5yxn4w): keep the official file; not in this 
 2026-11-27 16:18 (hibiscus) UN centre done as the owner answered: e52d18107 puts UN at 40.7489, -73.9680 (seed file + forward migration 20261127161436, data only). Test 408 red (0,0, tmp/5necw2-408-red.log) then green (tmp/5necw2-408-green.log); migrate down gives 0,0, up gives HQ. The task's region-kind work (checks 1-3) is unchanged and still open.
 landed e52d181 on master 2026-11-27: db: the United Nations country sits at UN Headquarters (5necw2)
 landed 866d8e3 on master 2026-11-27: test 109, 111: the UN country's centre is UN Headquarters in these outputs too…
+shipped in v2026.11.7 (e52d181)
 ## History
 - 2026-11-27T14:47 todo -> todo/design (ask)
 - 2026-11-27T15:37 answered design, by jhf, for hibiscus (todo/design -> todo/ready):

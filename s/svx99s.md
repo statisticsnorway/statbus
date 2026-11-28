@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
 done_at: "2026-11-19T19:29"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -41,6 +42,7 @@ app/src/lib/unit-photo.ts: fitWithin(width,height,800) replaces centreSquareCrop
 landed 98dc51f on master 2026-11-19: photos: a unit's photo keeps the whole picture, scaled to at most 800 px…
 2026-11-19 18:29 (Rabbit) CI all green on 98dc51f6c: Fast Tests, Go Test, app build & lint, Harness Selftest, Images, Push on master.
 Reflection (open, 2026-11-19, rabbit): Owner noticed the square crop could lose part of the picture; agreed on no cropper, whole photo scaled to 800 px. Testing with random noise (JPEG's worst case) showed the quality step-down is needed: it landed at 247 KB, just under the limit.
+shipped in v2026.11.7 (98dc51f)
 ## History
 - 2026-11-19T19:06 todo -> doing/active (take)
 - 2026-11-19T19:29 doing/active -> done (done); was doing_since: 2026-11-19T19:06

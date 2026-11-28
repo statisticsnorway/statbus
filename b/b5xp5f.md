@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
 done_at: "2026-11-23T16:20"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -48,6 +49,7 @@ landed eba013d on master 2026-11-23: doc: test/data README records that the Alba
 check 5: Owner 2026-11-23: the Moroccan names were meant to be anonymised; replaced in 542a15b95 with generated values, README updated, test 341 same result
 check 1: Owner 2026-11-23: test data received for testing, already partially anonymised when received, the anonymisation undocumented; recorded in test/data/README.md
 landed 542a15b on master 2026-11-23: test: test 341's Moroccan names and identifiers replaced with generated ones…
+shipped in v2026.11.7 (3d30130)
 ## History
 - 2026-11-23T14:39 todo -> doing/active (take)
 - 2026-11-23T16:20 doing/active -> done (done); was doing_since: 2026-11-23T14:39

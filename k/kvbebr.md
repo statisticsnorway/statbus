@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_b"
 done_at: "2026-11-27T14:44"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -62,6 +63,7 @@ check 3: Same commit: import definitions (source/data columns), samples/demo scr
 check 2: Shipped with jbc5bs on master b534af8e5; CI 46000665092 attempt 2 success
 landed b534af8 on master 2026-11-27: db, app, test: coordinates are latitude, longitude, altitude; postal coordinates…
 2026-11-27 13:45 (hibiscus) Closed with jbc5bs on master b534af8e5. Outcomes for the open-worded checks: check 1 = rename applied (plain names, not #327's direction); check 3 = rg finds old names only in migrations and in test 419 / the preview test, which show an old header meeting ordinary unknown-column handling (the refusal code was removed by the hard cut); check 4 = PR #327 closed 2026-11-26 with the owner-approved reply linking this task.
+shipped in v2026.11.7 (b534af8)
 ## History
 - 2026-11-26T21:50 todo -> doing/active (take with jbc5bs)
 - 2026-11-27T00:18 handed to rabbit: ox's session ended (closed 2026-11-26 23:16)

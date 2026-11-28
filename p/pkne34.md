@@ -48,6 +48,7 @@ Search toolbar: a filter whose column is hidden still shows while it narrows the
 landed 7636c75 on master 2026-11-23: app: Missing Region card counts what its list shows, and search names every…
 62e05147c: the Establishment Activity Differs card lost quality= on a client-side visit (useSearchUrlSync had a second URL->state initializer without quality, which won the race when lookup data was cached). RED tmp/quality-click/repro.log (logo click and Back lose it), GREEN green.log. Physical Location Missing and Quality chips orange: tmp/quality-click/chip-colours.log.
 Owner checked in Firefox on the test slot (62e05147c): the Establishment Activity Differs card opens the list with the Quality: Activity differs chip after a client-side return to the dashboard, and Physical Location: Missing and Quality chips show orange.
+shipped in v2026.11.7 (7636c75)
 ## History
 - 2026-11-23T16:23 todo -> doing/active (take)
 - 2026-11-24T20:14 doing/active -> doing/waiting (wait)

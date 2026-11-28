@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
 done_at: "2026-11-26T21:52"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -43,6 +44,7 @@ check 2: Owner approved 12:25: CSV download ends with a toast 'Downloaded N rows
 check 3: UnitHistoryExportButton and ProgressDownloadButton use the same DownloadMenuContent and toast (both hooks call downloadedMessage); tsc, lint, Jest 560/560.
 Pushed to master 2026-11-26 18:25 (1c49640e0 / 37a8812b4).
 landed 1c49640 on master 2026-11-26: app: every Download menu states its rows once above CSV and Excel, and a…
+shipped in v2026.11.7 (1c49640)
 ## History
 - 2026-11-26T11:50 todo -> doing/active (take with ca6dk5)
 - 2026-11-26T21:52 doing/active -> done (done); was doing_since: 2026-11-26T11:50; doing_with: ca6dk5

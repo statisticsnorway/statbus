@@ -46,5 +46,6 @@ check 2: Norway copy, a9d45e1a2 (local, on quality 91ce3e04e): secondary set to 
 2026-11-27 16:28 owner approved in tab 65 (LU 146): after the fixed icons (ⓘ, timeline) the amber triangle, then the check's name in the search Quality filter's orange chip, 13 px medium weight, no outline (an outline was tried and rejected); click opens the explanation.
 check 3: Norway copy at master 8725ab27b: secondary activity of LU 146 set back to 56.102 through the page's edit (Playwright, one click); 14 s after Save the page shows no mark (tmp/b6f1pw-mark-goes.log). Merged as 78c95b358.
 landed 78c95b3 on master 2026-11-27: app: a unit's pages mark the field a quality check flags (b6f1pw)
+shipped in v2026.11.7 (78c95b3)
 ## History
 - 2026-11-27T01:12 todo -> doing/active (take with 0pn35h)

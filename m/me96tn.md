@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_b"
 done_at: "2026-11-27T11:15"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -50,6 +51,7 @@ landed e15dec6 on master 2026-11-27: quality: check catalogue with integer ids, 
 landed 9549e19 on master 2026-11-27: quality: renumber test 415 to 417, clear of the counting branch (me96tn)
 landed a4c679b on master 2026-11-27: quality: rebase onto the coordinate rename; migrations renamed 20261127135220…
 landed 0f9a807 on master 2026-11-27: quality: migrations renamed 20261127161320 and 20261127161330, after counting's…
+shipped in v2026.11.7 (e15dec6)
 ## History
 - 2026-11-27T10:12 todo -> doing/active (take)
 - 2026-11-27T10:33 handed to rabbit: shrimp's session went silent (last seen 2026-11-18 15:18)

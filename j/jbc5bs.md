@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_b"
 done_at: "2026-11-27T14:44"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -90,6 +91,7 @@ landed b534af8 on master 2026-11-27: db, app, test: coordinates are latitude, lo
 2026-11-27 14:34 (hibiscus) Whole-result check on master c9647bde1 (test slot, after restarting its dead dev server; journal): GET /rest/region_upload returns path, latitude, longitude, altitude (200); selecting center_latitude 400; POST a CSV with latitude,longitude under Prefer: tx=rollback 201, with center_latitude 400 PGRST204; region 03 unchanged after both. Upload page lists path,name,latitude,longitude,altitude; Regions list shows coordinates; Regions map 17 regions; unit map legend 1 legal unit + 2 establishments. tmp/whole-result-headless.log.
 2026-11-27 21:57 (hibiscus) owner uploaded his old regions.xlsx (center_* headers) on the test slot: refused as the hard cut intends, nothing stored. Two misleading bits fixed (uncommitted): the preview counted '417 unchanged' beside the error though the coordinates were never read (now an unknown column stops the preview at the header, jest red tmp/region-header-red.log -> green tmp/region-header-green.log); the heading said '1 row needs fixing' for a header problem (now 'The file's columns need fixing before it can be stored:' without 'Line 1:').
 landed 1b34cc2 on master 2026-11-27: app: a region file with an unknown column is refused at its header, with no…
+shipped in v2026.11.7 (b534af8)
 ## History
 - 2026-11-23T11:47 todo -> todo/depends (ask)
 - 2026-11-26T21:42 answered design, by hibiscus, for hibiscus (todo/depends -> todo/depends):

@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
 done_at: "2026-11-23T13:38"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -55,6 +56,7 @@ landed 49962bf on master 2026-11-23: ops: slot creation's settings step runs on 
 landed f739ecc on master 2026-11-23: ops: slot creation sets the fleet's Seq and Slack keys after install, through sb…
 2026-11-23 (Rabbit) CI on master 0e7de4599 (contains a1ace09b5, ee80f851b, 49962bf99, f739ecc87): Go Test, Harness Selftest (includes the new create-installation-heredoc-test), app build & lint, Images and Fast Tests all succeeded. f739ecc87 alone had failed Go Test because TestInstallationProvisionerWritesSecretsToCredentials_STATBUS361 still looked for the removed set_credential helper; 0e7de4599 updates that test.
 landed 0e7de45 on master 2026-11-23: test: the provisioner check follows the fleet keys' after-install step (d1xtta)
+shipped in v2026.11.7 (a1ace09)
 ## History
 - 2026-11-23T12:52 todo -> doing/active (take)
 - 2026-11-23T13:38 doing/active -> done (done); was doing_since: 2026-11-23T12:52

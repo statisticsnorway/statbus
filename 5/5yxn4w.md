@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "feat/units-on-map"
 worktree: "/Users/jhf/ssb/statbus_test"
 done_at: "2026-11-27T13:21"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -92,6 +93,7 @@ landed 19bbb0f on master 2026-11-27: upload form: a picked file offers Store or 
 landed 6190dbc on master 2026-11-27: upload regions: Skip only once regions exist (5yxn4w)
 landed 847de8c on master 2026-11-27: db: a region change re-derives only what it changes (5yxn4w)
 Reflection (open, 2026-11-27, hibiscus): "Released migrations are immutable" covered migrations but nothing covers two branches adding a test with the same number (master's 414 and mine); I renumbered mine to the next number free on master and the unmerged rename branch.
+shipped in v2026.11.7 (667e912)
 ## History
 - 2026-11-23T13:58 todo -> todo/depends (ask)
 - 2026-11-23T16:12 answered design, by jhf, for hibiscus (todo/depends -> todo/depends):

@@ -42,5 +42,7 @@ check 1: test/sql/411 §411.3c on branch quality/default-off-secondary-equals-pr
 Norway copy (slot a, 5.23M statistical_unit rows) after migrating and a full worker run: secondary_activity_equals_primary finds 0 units. Confirmed at source: 32,642 LU/ES rows have a secondary activity, none equals the primary; public.activity has no overlapping primary/secondary pair with the same category. Card = search list (statistical_unit_quality) at current_date for every check: 2/2, 161571/161571, 22446/22446, 11010/11010, 17/17, 5/5, 0/0 (tmp/norway-quality-counts.txt). Browser check (check 2) not done.
 landed 9383f1f on master 2026-11-26: quality: secondary activity equals primary is a check (qjy2eg)
 landed dff701f on master 2026-11-26: quality: checks start switched off except a starting set (1tx1ed, qjy2eg)
+shipped in v2026.11.7 (9383f1f)
+handed on after v2026.11.7: check 2 open, opus-a's active work
 ## History
 - 2026-11-26T21:22 todo -> doing/active (take)

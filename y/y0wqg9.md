@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
 done_at: "2026-11-27T23:22"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -55,6 +56,7 @@ landed d587a87 on master 2026-11-27: test 421: an imported legal unit is primary
 CI Fast Tests 46068218975 on d587a8757 cancelled at the 30-min job timeout: test 356_statbus_614_full_refresh_batch_size took 1002 s (locally 6.6 s, CI on 866d8e3fc 7.6 s); every test before it passed. Rerun started; diagnose 356 if it repeats. Close after a green run.
 CI Fast Tests 46068218975 attempt 2 on d587a8757: success (attempt 1 cancelled at the 30-min limit with 356 taking 1002 s; every test passed on rerun).
 Reflection (open, 2026-11-27, rabbit): The instruction 'Demonstrate that regression tests detect the defect: record failure before the fix and success after it' guided well. Gap: ./dev.sh test refuses on a WIP migration whose content hash changed, but my grep for ok/not ok hid the refusal, so I briefly read a stale results file as a fresh run. A refused run should not leave a results file that looks current.
+shipped in v2026.11.7 (3ec476f)
 ## History
 - 2026-11-27T21:43 todo -> doing/active (take)
 - 2026-11-27T23:22 doing/active -> done (done); was doing_since: 2026-11-27T21:43

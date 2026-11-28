@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
 done_at: "2026-11-23T21:54"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -42,6 +43,7 @@ check 2: Same test: with no saved count and the exact request unanswered, the ca
 landed adb5b7d on master 2026-11-23: app: quality card colour follows the number it shows (rwavxg)
 Pending marker as built: a card shows its estimate as ~N (e.g. ~3) until the exact count arrives, then N. Related dashboard count ticket: dwt9kd.
 Owner 2026-11-22: quality card colours lag behind their numbers, which appear early. Check 1 as built: a saved 0 shows grey, a saved 5 shows orange.
+shipped in v2026.11.7 (adb5b7d)
 ## History
 - 2026-11-23T21:41 todo -> doing/active (take with pkne34)
 - 2026-11-23T21:54 doing/active -> done (done); was doing_since: 2026-11-23T21:41; doing_with: pkne34

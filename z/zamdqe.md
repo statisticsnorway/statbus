@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
 done_at: "2026-11-26T21:52"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -40,6 +41,7 @@ Hedda's change: details-page-layout.tsx max-w removed, address parts in one row 
 check 1: Owner approved in Firefox 2026-11-26 13:13 on the local slot (Norway copy): forms and Links at max-w-6xl with address parts in one row; History wide for its table; chart width by observations (1 obs 360 px, 8 obs ~544 px). Committed 37a8812b4 (local).
 Pushed to master 2026-11-26 18:25 (1c49640e0 / 37a8812b4).
 landed 37a8812 on master 2026-11-26: app: unit pages take the width their content needs; the history chart grows with…
+shipped in v2026.11.7 (37a8812)
 ## History
 - 2026-11-26T11:05 todo -> doing/active (take)
 - 2026-11-26T11:38 doing/active -> todo/ready (give back; was assignee: ladybug); was doing_since: 2026-11-26T11:05

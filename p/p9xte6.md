@@ -55,6 +55,7 @@ landed c9647bd on master 2026-11-27: app: the footer shows the installation's co
 2026-11-27 14:29 (hibiscus) CI on c9647bde1 (master) all success: Images, app build & lint, Go Test, Harness Selftest, Fast Tests. Waiting on check 1, the owner's verdict on the look (question asked).
 2026-11-27 14:38 (hibiscus) Owner: a tmp file is not a valid way to show the look; we look at it together in Firefox. Done at item 3 of today's walkthrough, in tab 145 (the footer is at the bottom of every page).
 2026-11-27 14:43 (owner, in Firefox) Placement: flag and name should sit below the 'Statbus version' line, both adjusted to match. Alternatives he named: left of the header logo (but that reads as a language selector, which it is not), or the flag as a small subscript on the logo rather than beside it. Next: show the below-version and logo-subscript variants in Firefox.
+shipped in v2026.11.7 (c9647bd)
 ## History
 - 2026-11-27T15:05 todo -> doing/active (take with j2g6wd)
 - 2026-11-27T15:09 doing/active -> doing/asked (ask)

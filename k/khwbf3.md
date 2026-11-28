@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
 done_at: "2026-11-18T22:08"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -75,6 +76,7 @@ check 2: Cause named from the about:logging capture (tmp/stall/fxlog/ws-main-200
 landed 4a5b15b on master 2026-11-18: proxy: WebSockets over HTTP/2, and dev live reload only to the dev server…
 check 3: Owner's decision 2026-11-18 20:54: keep the reload paths as they are and close this task; if a stall happens again he opens a new task that references khwbf3. The reload paths do not fire on a normal load: the Refresh Page button shows only after an uncaught error (JotaiAppProvider.tsx ErrorBoundary), and the navigation machine hard-navigates only when router.push has not finished after 3 s (navigation-machine.ts handleSideEffectTimeout, NavigationManager.tsx hardNavigate). CI for the fix 4a5b15b6f all green (Fast Tests, Go Test, app build & lint, Images, Harness Selftest).
 Reflection (open, 2026-11-18, hibiscus): The task review hook gave contradictory edits in successive rounds (merge acceptance checks 2 and 3, then split them again), so I stopped following it after the second round. AGENTS.md's 'Diagnose every failure rather than dismissing it' and 'no hunches' guided the work well: the first fix (reactDebugChannel off) was based on a profile, but I committed it while watching CI rather than the owner's tab, and it caused a reload loop; observing the owner's tab after a change would have caught it sooner. about:logging (nsWebSocket:5, nsHttp:5) named the cause in one capture; it belongs in the stall toolset from the start.
+shipped in v2026.11.7 (e421c0c)
 ## History
 - 2026-11-18T16:33 todo -> doing/active (take)
 - 2026-11-18T16:33 doing/active -> doing/waiting (wait)

@@ -72,6 +72,7 @@ landed b4071d6 on master 2026-11-27: counting: rebase onto c3726cdc2; the birth-
 landed 45ab804 on master 2026-11-27: test 418: expected output carries the renumbered labels (f2gx3m)
 landed 7b993fe on master 2026-11-27: counting: rebase onto the coordinate rename; migration renamed 20261127135129…
 landed c82033c on master 2026-11-27: counting: migration renamed 20261127161312, after master's 20261127144756…
+shipped in v2026.11.7 (a72a43b)
 ## History
 - 2026-11-26T21:15 request 1 by jhf
 - 2026-11-26T21:15 request 1 delivered to rabbit (session_rabbit_1788255452439_e2c96135756f0328)

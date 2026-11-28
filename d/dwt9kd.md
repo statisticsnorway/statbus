@@ -14,6 +14,7 @@ model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus_test"
 done_at: "2026-11-24T01:52"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -55,6 +56,7 @@ check 4: Dev (read-only, deployed 016928a38): dev's data now starts in 2025 (no 
 Norway (BRREG data, hibiscus's local slot, feat/units-on-map 9ffdca9d0 with dc8dd7b4c merged), Live frame (2026): all 7 cards equal their lists (statbus/tmp/z2qt08/cards-vs-lists-after-dc8dd7b4c.log): Enterprises 1,134,475; Legal Units 1,134,475; Establishments 823,767; Missing Region 2; Missing Activity Category 161,571; Missing Physical Location 22,446; Establishment Activity Differs 11,010. Before dc8dd7b4c on the same slot: 186,347 vs 161,571 and 22,502 vs 22,446 (tmp/z2qt08/cards-vs-lists.log).
 CI green for dc8dd7b4c (Fast Tests, Go Test, app build & lint, Images, Harness Selftest, Push on master).
 Reflection (open, 2026-11-24, rabbit): The ticket's 2024-on-dev check named an environment whose data was later reloaded without a 2024 frame; a check tied to a specific data state needs the data captured (a dump) when the problem is reported. Also hug task set --accept appends rather than replaces, so sharpening a check wording created duplicates I had to remove via hug task edit.
+shipped in v2026.11.7 (2dd8393)
 ## History
 - 2026-11-23T22:27 todo -> doing/active (take with pkne34)
 - 2026-11-24T01:52 doing/active -> done (done); was doing_since: 2026-11-23T22:27; doing_with: pkne34

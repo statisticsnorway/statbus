@@ -57,6 +57,7 @@ check 5: Image builds with sql_saga v1.15 (docker compose build db, 9 min). Loca
 landed 7e99979 on master 2026-11-26: postgres: pin sql_saga v1.15 (1nsdwj)
 landed 182a7bf on master 2026-11-26: test: 002 and the security report list sql_saga 1.15's catalog (1nsdwj)
 check 7: Fast SQL suite passes on 1.15: CI run on 182a7bfb7, Fast Tests success (the first run on 7e99979ed failed only on 002 and the security report, which list sql_saga's catalog; regenerated in 182a7bfb7). All other workflows green.
+shipped in v2026.11.7 (7e99979)
 ## History
 - 2026-11-26T21:28 todo -> doing/active (take with ca6dk5)
 - 2026-11-27T00:00 doing/active -> doing/waiting (wait)
