@@ -7,7 +7,7 @@ priority: ""
 assignee: ["hibiscus"]
 labels: []
 group: ""
-rank: "zzzzzzzzzzzo"
+rank: "zzzzzzzzzzzl"
 created: 2026-11-27
 updated: 2026-11-27
 model: "claude-opus-5-5"
