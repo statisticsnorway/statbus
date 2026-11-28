@@ -1,15 +1,20 @@
 ---
 id: wxf4zm
 title: "Drilldown read 2× faster: same answer, branches grouped by key"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["buffalo"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzy"
 created: 2026-11-28
 updated: 2026-11-28
+doing_since: "2026-11-28T15:33"
+stage: "active"
+model: "claude-opus-4-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -32,3 +37,7 @@ Shape D in tmp/ppvxg2-read-study.md and tmp/ppvxg2-read-drill-direct-def.sql: gr
 - [ ] The Drilldown in Firefox shows the same figures before and after
 
 ## Notes
+
+
+## History
+- 2026-11-28T15:33 todo -> doing/active (take)
