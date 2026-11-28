@@ -47,5 +47,6 @@ check 1: 4781ae30c: migrateNarrator turns migrate stdout into M lines (pending c
 check 2: 4781ae30c: extensions.go prints start + ok/failed with time; boot floor migrate (runMigrateFloorNarrated) narrates on the flagged upgrade's progress log; covered by the same narrator test
 check 1: TestMigrateNarrator_RealisticSequence (03f0767e6): M lines in order: 'Applying database migrations: 2 pending ...' before the first migration, per migration its name then 'ok (time)', and 'Still applying <name> (30s) ...' every 30 s during a long one; red before (build fails: undefined newMigrateNarrator, statbus_b tmp/vcbb8d-red.log), green after; upgrade + migrate packages pass.
 check 2: extensions.go writes '[migrate] Extension X: a -> b ... ' and '... ok (time)'/'failed after'; the narrator turns them into M lines with still-running lines (test case sql_saga 1.14 -> 1.15 over 70 s); the recovery boot's floor migrate writes them to the flagged upgrade's progress log (service.go runMigrateFloorNarrated).
+Pushed 03f0767e6 (worker butterfly's 4781ae30c, reviewed by rabbit). Check 3 waits for the next real upgrade (dev canary takes master's next RC).
 ## History
 - 2026-11-28T15:39 todo -> doing/active (take)
