@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // STATBUS-533 (owner-approved design): extension upgrades are their own
@@ -171,11 +172,18 @@ func updateExtensionDirect(projDir string, ext trackedExtension, fromVersion, to
 	fmt.Fprintf(&b, "INSERT INTO db.extension_upgrade (extension, from_version, to_version) VALUES (%s, %s, %s);\n",
 		sqlLiteralStr(ext.name), sqlLiteralStr(fromVersion), sqlLiteralStr(toVersion))
 	b.WriteString("COMMIT;")
+	// Start and result lines in the shape the upgrade's migrate narrator turns
+	// into progress-page M lines (upgrade/migrate_narrator.go): an update can
+	// run for minutes (sql_saga 1.15 on Norway: 130 s).
+	step := fmt.Sprintf("[migrate] Extension %s: %s -> %s (direct update to image default)", ext.name, fromVersion, toVersion)
+	fmt.Printf("%s ...\n", step)
+	start := time.Now()
 	if _, err := runPsql(projDir, b.String()); err != nil {
+		fmt.Printf("%s ... failed after %s\n", step, time.Since(start).Round(time.Millisecond))
 		return fmt.Errorf("update extension %s directly from %s to image default %s: %w",
 			ext.name, fromVersion, toVersion, err)
 	}
-	fmt.Printf("[migrate] Extension %s: %s -> %s (direct update to image default)\n", ext.name, fromVersion, toVersion)
+	fmt.Printf("%s ... ok (%s)\n", step, time.Since(start).Round(time.Millisecond))
 	return nil
 }
 

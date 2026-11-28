@@ -171,7 +171,7 @@ func TestInlineScheduledClaimPre382UndefinedColumnClosedByDaemonFloor(t *testing
 			wantRemaining++
 		}
 	}
-	pendingMigrations, err := runMigrateUpToLog(fixtureProjDir, MigrateUpTimeout, io.Discard, nil, "migrate", "up", "--verbose")
+	pendingMigrations, err := runMigrateUpToLog(fixtureProjDir, MigrateUpTimeout, io.Discard, nil, nil, "migrate", "up", "--verbose")
 	if err != nil {
 		t.Fatalf("production full-delta migration entry point: %v", err)
 	}

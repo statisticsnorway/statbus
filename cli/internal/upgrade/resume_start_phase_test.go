@@ -135,7 +135,7 @@ func TestBootMigrateWatchdogCover_SourceOrder(t *testing.T) {
 	readyIdx := strings.Index(run, `sdNotify("READY=1")`)
 	tickerArmIdx := strings.Index(run, "go runGatedWatchdogTicker(bootMigrateTickerCtx, nil,")
 	bootMigrateIdx := strings.Index(run, `"boot-migrate-up"`)
-	timeoutIdx := strings.Index(run, "MigrateUpTimeout, io.Discard")
+	timeoutIdx := strings.Index(run, "MigrateUpTimeout, bootMigrateLog")
 	joinIdx := strings.Index(run, "<-bootMigrateTickerDone")
 	recoverIdx := strings.Index(run, "d.recoverStartupFlag(ctx)")
 

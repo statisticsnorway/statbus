@@ -3694,8 +3694,19 @@ func (d *Service) Run(ctx context.Context) error {
 		// exit-20/22 classification, observed-state Behind → data-safe rollback), so
 		// no migration runs blindly at boot. On the normal single-release upgrade the
 		// floor migrations shipped earlier and are already applied → this is a no-op.
-		bootMigrateTail, bootMigrateErr := runCommandToLogCapture(d.projDir, MigrateUpTimeout, io.Discard, "boot-migrate-up", nil,
-			"./sb", "migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose")
+		//
+		// A recovery boot (an upgrade flag on disk) narrates the floor migrate on
+		// that upgrade's progress log, so a slow extension update or floor
+		// migration here shows on the maintenance page (Norway rc.02: 130 s of
+		// sql_saga UPDATE with a silent page). A fresh boot has no log: nil
+		// narrates to the journal only.
+		var bootMigrateLog *ProgressLog
+		if flag, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil {
+			bootMigrateLog = AppendProgressLog(d.projDir, d.loadLogRelPath(ctx, int64(flag.ID)))
+		}
+		bootMigrateTail, bootMigrateErr := runMigrateFloorNarrated(d.projDir, MigrateUpTimeout, bootMigrateLog, "boot-migrate-up",
+			"migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose")
+		bootMigrateLog.Close()
 		bootMigrateTickerCancel()
 		<-bootMigrateTickerDone
 		if err := bootMigrateErr; err != nil {
@@ -11292,7 +11303,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 			// delta-only by construction. No-op in production (env unset).
 			inject.StallHere("upgrade-delta-migration-slower-than-systemd-unit-timeout")
 			var runErr error
-			pendingMigrations, runErr = runMigrateUpToLog(projDir, MigrateUpTimeout, progress.File(), progress.bump, "migrate", "up", "--verbose")
+			pendingMigrations, runErr = runMigrateUpToLog(projDir, MigrateUpTimeout, progress.File(), progress.bump, progress.Write, "migrate", "up", "--verbose")
 			return runErr
 		}()
 
@@ -11341,7 +11352,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 			}
 			return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, ptrFailureCode(ErrMigrationFailed), fmt.Sprintf("./sb migrate up: %v", err)+oomEvidence, progress)
 		}
-		progress.Write("Applying database migrations: %d pending ... ok", pendingMigrations)
+		progress.Write("Applying database migrations: %d pending ... ok (%s)", pendingMigrations, time.Since(migrateStart).Round(time.Second))
 	}
 
 	// STATBUS-071 AT-TARGET resume-crash producer (KindKill). Fires HERE — the

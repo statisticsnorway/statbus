@@ -70,8 +70,11 @@ func envOverride(key, value string) []string {
 
 // runMigrateUpToLog is the ordinary streaming migrate subprocess plus one tiny
 // machine-readable datum. The marker is consumed before stdout reaches the O
-// stream, then returned to the parent for the single M-line summary.
-func runMigrateUpToLog(dir string, timeout time.Duration, logWriter io.Writer, onAdvance func(), args ...string) (int, error) {
+// stream and returned to the parent. narrate (nil-able, ProgressLog.Write)
+// receives the M lines the migrate narrator derives from the child's stdout:
+// the pending count before the first migration, each migration's start and
+// result, and a still-running line every 30 s.
+func runMigrateUpToLog(dir string, timeout time.Duration, logWriter io.Writer, onAdvance func(), narrate func(string, ...interface{}), args ...string) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -85,23 +88,27 @@ func runMigrateUpToLog(dir string, timeout time.Duration, logWriter io.Writer, o
 	errW := NewPrefixWriter("E", "migrate", logWriter, onAdvance)
 	pendingCount := 0
 	countSeen := false
-	stdout := newFilteredLineWriter(io.MultiWriter(os.Stdout, outW), func(line string) bool {
-		count, ok := migrate.ParsePendingCountReport(line)
-		if !ok {
-			return false
-		}
+	var narrator *migrateNarrator
+	if narrate != nil {
+		narrator = newMigrateNarrator(narrate, time.Now)
+	}
+	stdout := narratingStdout(outW, narrator, func(count int) {
 		pendingCount = count
 		countSeen = true
 		if onAdvance != nil {
 			onAdvance()
 		}
-		return true
 	})
 	cmd.Stdout = stdout
 	cmd.Stderr = io.MultiWriter(os.Stderr, errW)
 	prepareCmd(cmd)
 
+	tickDone := make(chan struct{})
+	if narrator != nil {
+		go runNarratorTicker(narrator, tickDone)
+	}
 	err := cmd.Run()
+	close(tickDone)
 	flushErr := stdout.Flush()
 	outW.Flush()
 	errW.Flush()
@@ -118,4 +125,59 @@ func runMigrateUpToLog(dir string, timeout time.Duration, logWriter io.Writer, o
 		return 0, fmt.Errorf("migrate subprocess did not report its pending count")
 	}
 	return pendingCount, nil
+}
+
+// narratingStdout returns the migrate child's stdout writer for the upgrade's
+// progress log: every line reaches the journal (os.Stdout) and the O stream
+// (outW) unchanged, except the pending-count datum, and the narrator turns the
+// step lines into M lines (migrate_narrator.go). A nil narrator only filters.
+func narratingStdout(outW io.Writer, narrator *migrateNarrator, onCount func(int)) *filteredLineWriter {
+	return newFilteredLineWriter(io.MultiWriter(os.Stdout, outW), func(line string) bool {
+		if narrator != nil {
+			narrator.Line(line)
+		}
+		count, ok := migrate.ParsePendingCountReport(line)
+		if ok && onCount != nil {
+			onCount(count)
+		}
+		return ok
+	})
+}
+
+// runMigrateFloorNarrated is the boot/claim floor migrate (`./sb migrate up
+// --to <floor>`) with its step lines narrated as M lines on progress, so a slow
+// extension update or floor migration during a recovery boot shows on the
+// maintenance page. Returns the stderr tail like runCommandToLogCapture. A nil
+// progress narrates to the journal only (ProgressLog.Write is nil-safe).
+func runMigrateFloorNarrated(dir string, timeout time.Duration, progress *ProgressLog, source string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd, buildErr := commandContext(ctx, dir, "./sb", args...)
+	if buildErr != nil {
+		return "", buildErr
+	}
+	tail := &tailBuffer{max: 4096}
+	outW := NewPrefixWriter("O", source, progress.File(), progress.bump)
+	errW := NewPrefixWriter("E", source, progress.File(), progress.bump)
+	var narrator *migrateNarrator
+	if progress != nil {
+		narrator = newMigrateNarrator(progress.Write, time.Now)
+	}
+	stdout := narratingStdout(outW, narrator, nil)
+	cmd.Stdout = stdout
+	cmd.Stderr = io.MultiWriter(os.Stderr, errW, tail)
+	prepareCmd(cmd)
+	tickDone := make(chan struct{})
+	if narrator != nil {
+		go runNarratorTicker(narrator, tickDone)
+	}
+	err := cmd.Run()
+	close(tickDone)
+	_ = stdout.Flush()
+	outW.Flush()
+	errW.Flush()
+	if ctx.Err() == context.DeadlineExceeded {
+		return tail.String(), fmt.Errorf("./sb %v after %s: %w", args, timeout, ErrCommandTimeout)
+	}
+	return tail.String(), err
 }
