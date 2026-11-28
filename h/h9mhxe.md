@@ -26,7 +26,6 @@ Catalogue: public.quality_check becomes a table (id int stable never reused, rul
 
 ## Depends on
 
-- f2gx3m
 - s465ff
 - me96tn
 ## Acceptance
