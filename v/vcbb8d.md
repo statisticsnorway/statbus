@@ -34,3 +34,5 @@ rune 2026-11-28 (tmp/norway-rc02-progress.log, tmp/norway-rc02-handover-journal.
 ## Notes
 
 file:norway-rc02-progress.log (15281 bytes, sha256:c5c36195)
+
+file:norway-rc02-handover-journal.log (6075 bytes, sha256:fe72e133)

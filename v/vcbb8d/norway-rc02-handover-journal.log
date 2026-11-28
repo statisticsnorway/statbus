@@ -1,0 +1,48 @@
+Nov 28 10:21:46.434613 rune statbus-upgrader-statbus[2817144]: M 10:21:46 Backing up database ... ok (60.0 GB snapshot, 175.9 MB copied, 8.3s)
+Nov 28 10:21:46.443935 rune statbus-upgrader-statbus[2817144]: M 10:21:46   at ~/statbus-upgrade-snapshots/pre-upgrade-active
+Nov 28 10:21:46.454345 rune statbus-upgrader-statbus[2817144]: M 10:21:46 Installing v2026.11.7-rc.02:
+Nov 28 10:21:47.124197 rune statbus-upgrader-statbus[2817144]: M 10:21:47   Replacing ./sb with the v2026.11.7-rc.02 binary (./sb.old kept for rollback) ... ok
+Nov 28 10:21:47.190379 rune statbus-upgrader-statbus[2817144]: M 10:21:47   Old binary exiting so the new binary can take over ...
+Nov 28 10:21:47.222495 rune systemd[90026]: statbus-upgrader@statbus.service: Consumed 24min 38.620s CPU time.
+Nov 28 10:22:17.431070 rune systemd[90026]: statbus-upgrader@statbus.service: Scheduled restart job, restart counter is at 1.
+Nov 28 10:22:17.446388 rune systemd[90026]: Starting statbus-upgrader@statbus.service - StatBus Upgrader...
+Nov 28 10:22:17.467903 rune statbus-upgrader-statbus[115196]: WARN: ./sb is stale: built from 97d83aa9, HEAD is now 016928a3 with cli/ changes.
+Nov 28 10:22:17.467903 rune statbus-upgrader-statbus[115196]:   Refresh ./sb:
+Nov 28 10:22:17.467903 rune statbus-upgrader-statbus[115196]:     ./dev.sh build-sb
+Nov 28 10:22:17.467903 rune statbus-upgrader-statbus[115196]:   (dev box: ./dev.sh cross-build-sb builds all platforms; cd /home/statbus/statbus && ./sb install also works — no
+Nov 28 10:22:17.467903 rune statbus-upgrader-statbus[115196]:   toolchain needed, procures the HEAD-matching binary from the commit-tagged image)
+Nov 28 10:22:17.467903 rune statbus-upgrader-statbus[115196]: In-flight upgrade recovery (service-held flag, already booted the new binary) — deferring to the recovery boot; not self-healing.
+Nov 28 10:22:17.490777 rune statbus-upgrader-statbus[115196]: Trusted signer: jhf (256 SHA256:MU8OCWwTrZ6zkh0nZp/jmZpdgxe6rgBRDdlV87TqMIE no comment (ED25519))
+Nov 28 10:22:17.492435 rune statbus-upgrader-statbus[115196]: Commit signature verification enabled (1 trusted signer(s))
+Nov 28 10:22:17.492573 rune statbus-upgrader-statbus[115196]: Recovery boot (service-held flag phase="new-sb-swapped", upgrade id=46, target=v2026.11.7-rc.02) — restoring target tree + regenerating config before db up
+Nov 28 10:22:21.399718 rune statbus-upgrader-statbus[115196]: Upgrader started (channel=prerelease, interval=6h0m0s)
+Nov 28 10:22:21.399823 rune systemd[90026]: Started statbus-upgrader@statbus.service - StatBus Upgrader.
+Nov 28 10:24:32.894603 rune statbus-upgrader-statbus[115196]: [migrate] Extension sql_saga: 1.6 -> 1.15 (direct update to image default)
+Nov 28 10:24:33.163518 rune statbus-upgrader-statbus[115196]: [migrate] Extension intarray: absent -> created at image default 1.5
+Nov 28 10:24:34.283271 rune statbus-upgrader-statbus[115196]: Checking database migrations ... ok (0 pending)
+Nov 28 10:24:34.501600 rune statbus-upgrader-statbus[115196]: Applying post-restore database fixes ...
+Nov 28 10:24:34.702979 rune statbus-upgrader-statbus[115196]: Applying post-restore database fixes ... ok
+Nov 28 10:24:34.707120 rune statbus-upgrader-statbus[115196]: M 10:24:34 New binary continuing upgrade 46 to v2026.11.7-rc.02 (pid 115196)
+Nov 28 10:24:34.862110 rune statbus-upgrader-statbus[115196]: M 10:24:34 Checking service state before proceeding:
+Nov 28 10:24:34.866999 rune statbus-upgrader-statbus[115196]: M 10:24:34   app: old version not running, new version not started yet
+Nov 28 10:24:34.871756 rune statbus-upgrader-statbus[115196]: M 10:24:34   worker: old version not running, new version not started yet
+Nov 28 10:24:34.876942 rune statbus-upgrader-statbus[115196]: M 10:24:34   proxy: old version running, new version not started yet
+Nov 28 10:24:34.881737 rune statbus-upgrader-statbus[115196]: M 10:24:34   rest: old version not running, new version not started yet
+Nov 28 10:24:34.962002 rune statbus-upgrader-statbus[115196]: DB memory: mode standalone, operator override 32G
+Nov 28 10:24:34.979781 rune statbus-upgrader-statbus[115196]: M 10:24:34 Regenerating configuration (.env, Caddyfile) ... ok
+Nov 28 10:24:35.230041 rune statbus-upgrader-statbus[115196]:  Image ghcr.io/statisticsnorway/statbus-app:97d83aa9 Pulling
+Nov 28 10:24:35.230041 rune statbus-upgrader-statbus[115196]:  Image ghcr.io/statisticsnorway/statbus-db:97d83aa9 Pulling
+Nov 28 10:24:35.230186 rune statbus-upgrader-statbus[115196]:  Image ghcr.io/statisticsnorway/statbus-worker:97d83aa9 Pulling
+Nov 28 10:24:35.230186 rune statbus-upgrader-statbus[115196]:  Image ghcr.io/statisticsnorway/statbus-proxy:97d83aa9 Pulling
+Nov 28 10:24:35.230186 rune statbus-upgrader-statbus[115196]:  Image postgrest/postgrest:v14.14 Pulling
+Nov 28 10:24:36.141589 rune statbus-upgrader-statbus[115196]:  Image postgrest/postgrest:v14.14 Pulled
+Nov 28 10:24:36.383304 rune statbus-upgrader-statbus[115196]:  Image ghcr.io/statisticsnorway/statbus-proxy:97d83aa9 Pulled
+Nov 28 10:24:36.450596 rune statbus-upgrader-statbus[115196]:  Image ghcr.io/statisticsnorway/statbus-worker:97d83aa9 Pulled
+Nov 28 10:24:36.611997 rune statbus-upgrader-statbus[115196]:  Image ghcr.io/statisticsnorway/statbus-app:97d83aa9 Pulled
+Nov 28 10:24:36.715490 rune statbus-upgrader-statbus[115196]:  Image ghcr.io/statisticsnorway/statbus-db:97d83aa9 Pulled
+Nov 28 10:24:36.811090 rune statbus-upgrader-statbus[115196]: M 10:24:36 Pulling updated images ... ok (1.8s)
+Nov 28 10:24:37.018191 rune statbus-upgrader-statbus[115196]:  Container statbus-no-db Running
+Nov 28 10:24:37.243744 rune statbus-upgrader-statbus[115196]: M 10:24:37 Starting database ... healthy (0.4s)
+Nov 28 10:24:37.273135 rune statbus-upgrader-statbus[115196]: M 10:24:37 Reconnecting to database ... ok
+Nov 28 10:24:39.672980 rune statbus-upgrader-statbus[115196]: [migrate] Applying 20261123114610_countries_have_a_centre_latitude_and_longitude.up.psql ...
+Nov 28 10:24:39.673331 rune statbus-upgrader-statbus[115196]: Migration 20261123114610 (countries_have_a_centre_latitude_and_longitude)
