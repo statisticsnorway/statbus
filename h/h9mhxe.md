@@ -1,15 +1,21 @@
 ---
 id: h9mhxe
 title: "Quality checks: row checks on statistical_unit, a table per relation check"
-state: todo
+state: "doing"
 type: feature
 priority: ""
-assignee: []
+assignee: ["rabbit"]
 labels: []
 group: ""
 rank: "zzzzzzzzzzzh"
 created: 2026-11-27
 updated: 2026-11-27
+doing_since: "2026-11-28T15:40"
+doing_with: "7dw69p"
+stage: "active"
+model: "claude-opus-5-5"
+branch: "master"
+worktree: "/Users/jhf/ssb/statbus"
 ---
 
 ## Goal
@@ -84,3 +90,7 @@ landed 0f9a807 on master 2026-11-27: quality: migrations renamed 20261127161320 
 shipped in v2026.11.7 (d2e4a95)
 
 Dependency on f2gx3m removed 2026-11-28 by rabbit: it waited for the counting branch, which landed on master in 866d8e3fc and shipped in v2026.11.7. f2gx3m's open check 5 is a jo verification, not part of this task.
+
+
+## History
+- 2026-11-28T15:40 todo -> doing/active (take with 7dw69p)
