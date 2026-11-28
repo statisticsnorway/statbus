@@ -1,7 +1,7 @@
 ---
 id: b6f1pw
 title: "Unit edit page marks the field a quality check flags"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["rabbit"]
@@ -10,12 +10,11 @@ group: ""
 rank: "zzzzzzzzzzzf"
 created: 2026-11-27
 updated: 2026-11-27
-doing_since: "2026-11-27T01:12"
-doing_with: "0pn35h"
-stage: "depends"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+done_at: "2026-11-28T15:40"
+done_release: "v2026.11.7"
 ---
 
 ## Goal
@@ -49,3 +48,5 @@ landed 78c95b3 on master 2026-11-27: app: a unit's pages mark the field a qualit
 shipped in v2026.11.7 (78c95b3)
 ## History
 - 2026-11-27T01:12 todo -> doing/active (take with 0pn35h)
+- 2026-11-28T15:40 doing/depends -> doing/active (dependency h9mhxe)
+- 2026-11-28T15:40 doing/active -> done (done, by release v2026.11.7: every check holds); was doing_since: 2026-11-27T01:12; doing_with: 0pn35h

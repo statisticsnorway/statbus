@@ -1,7 +1,7 @@
 ---
 id: h9mhxe
 title: "Quality checks: row checks on statistical_unit, a table per relation check"
-state: "doing"
+state: "done"
 type: feature
 priority: ""
 assignee: ["rabbit"]
@@ -10,12 +10,10 @@ group: ""
 rank: "zzzzzzzzzzzh"
 created: 2026-11-27
 updated: 2026-11-27
-doing_since: "2026-11-28T15:40"
-doing_with: "7dw69p"
-stage: "active"
 model: "claude-opus-5-5"
 branch: "master"
 worktree: "/Users/jhf/ssb/statbus"
+done_at: "2026-11-28T15:40"
 ---
 
 ## Goal
@@ -94,3 +92,4 @@ Dependency on f2gx3m removed 2026-11-28 by rabbit: it waited for the counting br
 
 ## History
 - 2026-11-28T15:40 todo -> doing/active (take with 7dw69p)
+- 2026-11-28T15:40 doing/active -> done (done); was doing_since: 2026-11-28T15:40; doing_with: 7dw69p
