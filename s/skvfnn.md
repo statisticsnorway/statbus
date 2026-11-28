@@ -31,6 +31,9 @@ Worker: worker.process_tasks claims and runs one task at a time, each with its o
 - [ ] A test: two migrations that each request a full recalculation leave exactly one pending collect_changes, and the worker runs one full pass after migrate up ends
 - [ ] A migration's inline CALL worker.process_tasks() still processes its tasks
 - [ ] A paused worker resumes within a second of migrate up releasing its lock, and after migrate up is killed, with no timer
+- [ ] migrate up with no pending migrations takes no exclusive lock, so the upgrader's boot migrate on a running box does not wait for a task (test)
+- [ ] While it waits, migrate up prints every 30 s the running task and its elapsed time; Ctrl-C applies nothing and the worker continues
+- [ ] migrate up --now stops the worker, terminates its database sessions, migrates and starts it; the interrupted task reruns and completes (observed on a slot)
 - [ ] On a slot with the worker running, migrating across a migration that requests a recalculation runs one full pass, not two (observed)
 
 ## Notes
