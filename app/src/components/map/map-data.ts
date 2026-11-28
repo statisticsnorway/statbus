@@ -583,7 +583,8 @@ export function spiderNodes(units: UnitPointProperties[], { perUnitUpTo = 8, rad
   });
 }
 
-const UNIT_PATH: Record<MapUnitType, string> = {
+/** The app's page path of each unit type: a unit's pages are /{path}/{id}/... */
+export const UNIT_PATH: Record<MapUnitType, string> = {
   enterprise: "enterprises",
   legal_unit: "legal-units",
   establishment: "establishments",

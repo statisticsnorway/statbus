@@ -14,6 +14,7 @@ const reportLinks = [
   },
   { href: "/reports/drilldown", label: "Drilldown" },
   { href: "/reports/statistical-variables", label: "Variables Over Time" },
+  { href: "/reports/map", label: "Map" },
 ];
 
 export default function ReportsLayout({
@@ -24,7 +25,9 @@ export default function ReportsLayout({
   const pathname = usePathname();
 
   return (
-    <main className="flex w-full overflow-x-hidden">
+    // clip, not hidden: hidden makes main a scroll box of its own, so a sticky map inside a
+    // report would stick to main instead of staying in the window's view.
+    <main className="flex w-full overflow-x-clip">
       <aside className="bg-gray-50 border-r border-gray-200 flex flex-col min-w-56">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
@@ -52,7 +55,14 @@ export default function ReportsLayout({
         </nav>
       </aside>
 
-      <section className="mx-auto max-w-5xl p-8 md:py-12 flex-1 min-w-0">
+      {/* The map shows a map beside a table, so it takes the room the window has; the other
+          reports read best at a text column's width. */}
+      <section
+        className={cn(
+          "mx-auto p-8 md:py-12 flex-1 min-w-0",
+          pathname === "/reports/map" ? "max-w-screen-2xl" : "max-w-5xl"
+        )}
+      >
         {children}
       </section>
     </main>
